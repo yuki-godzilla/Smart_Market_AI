@@ -9911,6 +9911,37 @@ def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:
                 st.caption(f"{label}: {reason}")
 
 
+def _render_segmented_or_radio(
+    label: str,
+    options: list[str],
+    *,
+    key: str,
+    default: str | None = None,
+    horizontal: bool = True,
+) -> str:
+    if not options:
+        return ""
+
+    selected_default = default if default in options else options[0]
+    segmented_control = getattr(st, "segmented_control", None)
+    if callable(segmented_control):
+        selected = segmented_control(
+            label,
+            options,
+            default=selected_default,
+            key=key,
+        )
+    else:
+        selected = st.radio(
+            label,
+            options,
+            index=options.index(selected_default),
+            horizontal=horizontal,
+            key=key,
+        )
+    return selected if selected in options else selected_default
+
+
 def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     filter_options = [
         "すべて",
@@ -9935,7 +9966,7 @@ def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str,
     ]
     filter_col, sort_col = st.columns([1.2, 1])
     with filter_col:
-        selected_filter = st.segmented_control(
+        selected_filter = _render_segmented_or_radio(
             "表示フィルター",
             filter_options,
             default="すべて",

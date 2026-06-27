@@ -478,6 +478,92 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
     assert "未確認" in markup
 
 
+def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeypatch):
+    calls: list[tuple[str, list[str], str, str]] = []
+
+    def fake_segmented(label, options, *, default, key):
+        calls.append((label, options, default, key))
+        return "要確認"
+
+    monkeypatch.setattr(app_module.st, "segmented_control", fake_segmented, raising=False)
+    monkeypatch.setattr(
+        app_module.st,
+        "radio",
+        lambda *_, **__: (_ for _ in ()).throw(AssertionError("radio should not run")),
+    )
+
+    selected = app_module._render_segmented_or_radio(
+        "表示フィルター",
+        ["すべて", "要確認"],
+        default="すべて",
+        key="favorite_filter",
+    )
+
+    assert selected == "要確認"
+    assert calls == [
+        ("表示フィルター", ["すべて", "要確認"], "すべて", "favorite_filter")
+    ]
+
+
+def test_render_segmented_or_radio_falls_back_to_radio(monkeypatch):
+    calls: list[tuple[str, list[str], int, bool, str]] = []
+
+    def fake_radio(label, options, *, index, horizontal, key):
+        calls.append((label, options, index, horizontal, key))
+        return options[index]
+
+    monkeypatch.delattr(app_module.st, "segmented_control", raising=False)
+    monkeypatch.setattr(app_module.st, "radio", fake_radio)
+
+    selected = app_module._render_segmented_or_radio(
+        "表示フィルター",
+        ["すべて", "要確認"],
+        default="存在しない値",
+        horizontal=True,
+        key="favorite_filter",
+    )
+
+    assert selected == "すべて"
+    assert calls == [
+        ("表示フィルター", ["すべて", "要確認"], 0, True, "favorite_filter")
+    ]
+
+
+def test_favorite_filter_and_sort_rows_applies_selected_controls(monkeypatch):
+    captions: list[str] = []
+    rows = [
+        {"symbol": "ZZZ", "refresh_status": "fresh"},
+        {"symbol": "BBB", "refresh_status": "needs_attention"},
+        {"symbol": "AAA", "refresh_status": "needs_attention"},
+    ]
+
+    monkeypatch.setattr(
+        app_module.st,
+        "columns",
+        lambda _: [_FakeExpander(), _FakeExpander()],
+    )
+    monkeypatch.setattr(
+        app_module,
+        "_render_segmented_or_radio",
+        lambda *_, **__: "要確認",
+    )
+    monkeypatch.setattr(
+        app_module.st,
+        "selectbox",
+        lambda *_, **__: "銘柄コード順",
+    )
+    monkeypatch.setattr(
+        app_module.st,
+        "caption",
+        lambda text: captions.append(text),
+    )
+
+    selected = app_module._favorite_filter_and_sort_rows(rows)
+
+    assert [row["symbol"] for row in selected] == ["AAA", "BBB"]
+    assert captions == ["表示中: 2件 / 全体 3件"]
+
+
 def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3

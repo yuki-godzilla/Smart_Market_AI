@@ -3667,3 +3667,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Ranking/Cockpitの詳細条件を `業種・セクター` と `投資テーマ` の2 selectboxへ分割し、投資テーマから旧 `balanced` / `telecom` / sector-only項目のUI表示を外した。
 - Theme filterは `theme` / `smai_theme_tags`、official sector filterは `sector` / GICS / JPX fields を参照するよう変更。候補cache signatureにも official sector を追加。
 - Targeted regression: symbol universe import/backfill 26 passed、ranking filter targeted 5 passed、targeted Ruff passed。`symbol_universe_quality_report.json` は2026-06-22基準で更新。
+
+## 2026-06-27 Myウォッチリスト Streamlit互換 Hotfix
+
+- Myウォッチリストの表示フィルターを互換helper経由に変更し、`st.segmented_control` がないStreamlit 1.38.0では横並びの `st.radio` へfallbackするよう修正。
+- filter / sort、My Radar、Decision Trail、favorites storeの契約・保存形式は変更なし。
+- 新旧API経路とfilter / sort連携のdeterministic UIテストを追加。

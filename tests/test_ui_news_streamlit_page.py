@@ -272,20 +272,19 @@ def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monk
     app.run()
 
     assert not app.exception
-    assert {item.label for item in app.expander} >= {
-        "My Radarの判定理由を見る",
-        "更新オプション",
-        "判断メモを追加",
-    }
+    assert "My Radarの判定理由を見る" not in {item.label for item in app.expander}
+    assert "更新オプション" not in {item.label for item in app.expander}
+    assert "判断メモを追加" not in {item.label for item in app.expander}
     assert {item.label for item in app.radio} >= {"表示フィルター", "表示形式"}
     assert {item.label for item in app.selectbox} >= {"並び順"}
-    assert {item.label for item in app.number_input} >= {"最大更新件数"}
+    assert app.selectbox(key="market_data_watchlist_sort").value == "追加日が新しい順"
+    assert "最大更新件数" not in {item.label for item in app.number_input}
     assert {item.label for item in app.button} >= {
         "ウォッチリストを更新",
         "投資レーダーで関連ニュースを見る",
     }
 
-    app.radio(key="market_data_watchlist_filter").set_value("未確認").run()
+    app.radio(key="market_data_watchlist_filter").set_value("更新推奨").run()
     assert not app.exception
     assert any("表示中: 1件 / 全体 1件" in str(item.value) for item in app.caption)
 

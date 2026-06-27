@@ -5396,26 +5396,32 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-watchlist-card--upside {
     --watchlist-state-accent: #2DD4BF;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.16), rgba(7, 13, 25, 0.96));
 }
 
 .smai-watchlist-card--short-upside {
     --watchlist-state-accent: #38BDF8;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(7, 13, 25, 0.96));
 }
 
 .smai-watchlist-card--flat {
     --watchlist-state-accent: #7C8AA0;
+    background: linear-gradient(135deg, rgba(51, 65, 85, 0.2), rgba(7, 13, 25, 0.96));
 }
 
 .smai-watchlist-card--downside {
     --watchlist-state-accent: #F59E0B;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(7, 13, 25, 0.96));
 }
 
 .smai-watchlist-card--sharp-downside {
     --watchlist-state-accent: #F87171;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(7, 13, 25, 0.96));
 }
 
 .smai-watchlist-card--unknown {
     --watchlist-state-accent: #64748B;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.16), rgba(7, 13, 25, 0.97));
 }
 
 .smai-watchlist-card-header {
@@ -5615,9 +5621,26 @@ div[data-testid="stChatInput"] textarea:focus {
     padding: 0.28rem 0.52rem;
 }
 
+.smai-watchlist-remove-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-remove-anchor)
+    + div[data-testid="stButton"] button {
+    border-color: rgba(100, 116, 139, 0.34) !important;
+    background: rgba(15, 23, 42, 0.22) !important;
+    box-shadow: none !important;
+    opacity: 0.72;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-remove-anchor)
+    + div[data-testid="stButton"] button:hover {
+    opacity: 1;
+}
+
 .smai-watchlist-metric-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.48rem;
     margin-top: 0.82rem;
 }
@@ -5656,7 +5679,7 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-watchlist-info {
     border-top: 1px solid rgba(70, 91, 120, 0.44);
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.46rem 0.72rem;
     margin-top: 0.86rem;
     padding-top: 0.78rem;

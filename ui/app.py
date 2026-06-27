@@ -633,6 +633,9 @@ COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS = 30 * 60
 WATCHLIST_BACKGROUND_REFRESH_MAX_ITEMS = 3
 WATCHLIST_BACKGROUND_REFRESH_TTL_SECONDS = 6 * 60 * 60
 WATCHLIST_BACKGROUND_REFRESH_STATE_KEY = "watchlist_background_refresh"
+WATCHLIST_AUTO_SNAPSHOT_STATE_KEY = "watchlist_auto_snapshot_summary"
+WATCHLIST_AUTO_SNAPSHOT_MAX_ITEMS = 3
+WATCHLIST_MANUAL_REFRESH_MAX_ITEMS = 10
 RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
 RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
 RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
@@ -9799,6 +9802,13 @@ def _render_my_watchlist_page() -> None:
         )
         for favorite in favorites
     ]
+    if _run_watchlist_auto_snapshot_once(
+        enriched,
+        favorites=favorites,
+        computed_rows=universe_by_symbol,
+        snapshots=snapshots,
+    ):
+        st.rerun()
     enriched_by_symbol = {item["symbol"]: item for item in enriched}
     radar_items = build_favorite_radar_items(favorites, enriched_by_symbol)
     radar_by_symbol = {item.favorite.symbol: item for item in radar_items}
@@ -9813,19 +9823,9 @@ def _render_my_watchlist_page() -> None:
     _request_watchlist_background_refresh_once(enriched)
     refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
     _render_my_radar_summary(radar_items)
+    _render_watchlist_auto_snapshot_status()
     _render_watchlist_background_refresh_status()
     _render_watchlist_refresh_summary()
-
-    with st.expander("更新オプション"):
-        refresh_limit = st.number_input(
-            "最大更新件数",
-            min_value=1,
-            max_value=50,
-            value=min(10, max(1, len(enriched))),
-            step=1,
-            key="market_data_watchlist_refresh_limit",
-        )
-        st.caption("更新はボタンを押したときだけ実行され、最大件数までをローカルで確認します。")
 
     update_col, radar_col = st.columns(2)
     with update_col:
@@ -9834,7 +9834,7 @@ def _render_my_watchlist_page() -> None:
             targets = _watchlist_snapshot_refresh_targets(
                 enriched,
                 snapshots,
-                max_items=int(refresh_limit),
+                max_items=min(WATCHLIST_MANUAL_REFRESH_MAX_ITEMS, len(enriched)),
             )
             refresh_result = asyncio.run(
                 _refresh_watchlist_snapshots(
@@ -9899,9 +9899,9 @@ def _render_my_watchlist_page() -> None:
     if display_mode == "テーブル表示":
         _render_favorite_table(filtered_enriched)
     else:
-        for row_start in range(0, len(filtered_enriched), 2):
-            cols = st.columns(2)
-            for column, payload in zip(cols, filtered_enriched[row_start : row_start + 2]):
+        for row_start in range(0, len(filtered_enriched), 3):
+            cols = st.columns(3)
+            for column, payload in zip(cols, filtered_enriched[row_start : row_start + 3]):
                 with column:
                     _render_favorite_card(payload)
 
@@ -9922,21 +9922,6 @@ def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:
             count = sum(1 for item in radar_items if category in item.categories)
         counts.append((label, count))
     st.markdown(_favorite_radar_summary_html(counts), unsafe_allow_html=True)
-    with st.expander("My Radarの判定理由を見る"):
-        for label, category in summary_items:
-            if category == "下落注意":
-                candidates = [
-                    item for item in radar_items if "下振れ警戒が高め" in item.reasons
-                ][:3]
-            else:
-                candidates = [item for item in radar_items if category in item.categories][:3]
-            if not candidates:
-                continue
-            st.markdown(f"**{label}**")
-            for item in candidates:
-                reason = " / ".join(item.reasons[:2])
-                label = item.favorite.name or item.favorite.symbol
-                st.caption(f"{label}: {reason}")
 
 
 def _favorite_radar_summary_html(summary_items: Sequence[tuple[str, int]]) -> str:
@@ -9968,6 +9953,8 @@ def _render_segmented_or_radio(
         return ""
 
     selected_default = default if default in options else options[0]
+    if key in st.session_state and st.session_state.get(key) not in options:
+        st.session_state[key] = selected_default
     segmented_control = getattr(st, "segmented_control", None)
     display_kwargs = {"format_func": format_func} if format_func is not None else {}
     if callable(segmented_control):
@@ -9993,27 +9980,22 @@ def _render_segmented_or_radio(
 def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     filter_options = [
         "すべて",
-        "要確認",
+        "更新推奨",
         "上昇傾向",
         "下落注意",
-        "未確認",
-        "古い",
-        "前回失敗",
+        "未取得",
         "メモ未入力",
-        "AI調査候補",
-        "レポート候補",
     ]
     sort_options = [
-        "Radar優先度",
-        "更新が古い順",
         "追加日が新しい順",
         "AI総合が高い順",
         "上昇気配が高い順",
         "下振れ警戒が高い順",
+        "更新が古い順",
+        "確認優先度順",
         "銘柄コード順",
     ]
-    st.markdown("##### 表示を整理")
-    st.caption("基本: 更新状態　｜　値動き: 上昇・下落　｜　作業: メモ・調査・レポート")
+    st.markdown("##### ウォッチ銘柄を絞り込む")
     filter_col, sort_col = st.columns([2, 1])
     with filter_col:
         st.markdown(
@@ -10051,12 +10033,23 @@ def _favorite_row_matches_filter(row: Mapping[str, str], selected_filter: str | 
         return True
     if selected_filter == "要確認":
         return row.get("refresh_status") == "needs_attention"
+    if selected_filter == "更新推奨":
+        return row.get("snapshot_status") in {"missing", "failed"} or row.get(
+            "refresh_status"
+        ) in {
+            "needs_attention",
+            "never_checked",
+            "stale",
+            "failed",
+        } or _watchlist_snapshot_row_is_stale(row)
     if selected_filter == "上昇傾向":
         return row.get("status") in {"上昇候補", "上昇傾向", "短期上昇"}
     if selected_filter == "下落注意":
         return row.get("status") in {"下振れ注意", "下落注意", "急落警戒"}
     if selected_filter == "未確認":
         return row.get("refresh_status") == "never_checked"
+    if selected_filter == "未取得":
+        return _favorite_metrics_missing(row)
     if selected_filter == "古い":
         return row.get("refresh_status") == "stale"
     if selected_filter == "前回失敗":
@@ -10120,6 +10113,78 @@ def _render_watchlist_refresh_summary() -> None:
     previous_data_count = int(summary.get("previous_data_count", 0) or 0)
     if previous_data_count:
         st.caption(f"前回データを表示中: {previous_data_count}件")
+
+
+def _run_watchlist_auto_snapshot_once(
+    rows: Sequence[Mapping[str, str]],
+    *,
+    favorites: Sequence[FavoriteStock],
+    computed_rows: Mapping[str, Mapping[str, Any]],
+    snapshots: Mapping[str, WatchlistSnapshot],
+) -> bool:
+    if WATCHLIST_AUTO_SNAPSHOT_STATE_KEY in st.session_state:
+        return False
+    if _background_workers_disabled():
+        st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
+            "status": "disabled",
+            "requested": 0,
+            "success": 0,
+            "failed": 0,
+        }
+        return False
+    targets = _watchlist_background_refresh_candidates(
+        rows,
+        max_items=WATCHLIST_AUTO_SNAPSHOT_MAX_ITEMS,
+    )
+    if not targets:
+        st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
+            "status": "no_targets",
+            "requested": 0,
+            "success": 0,
+            "failed": 0,
+        }
+        return False
+    st.session_state["watchlist_auto_snapshot_started"] = True
+    loading_slot = st.empty()
+    with loading_slot.container():
+        render_mascot_loading(
+            "guide",
+            title="ウォッチ銘柄を確認中",
+            message="お気に入り銘柄の価格・値動きを軽量取得しています。",
+            tone="info",
+        )
+    result = asyncio.run(
+        _refresh_watchlist_snapshots(
+            targets,
+            favorites=favorites,
+            computed_rows=computed_rows,
+            previous_snapshots=snapshots,
+        )
+    )
+    if hasattr(loading_slot, "empty"):
+        loading_slot.empty()
+    completed_at = datetime.now().astimezone().isoformat(timespec="seconds")
+    st.session_state["watchlist_auto_snapshot_completed_at"] = completed_at
+    st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
+        "status": "completed",
+        "requested": len(targets),
+        "success": len(result["success_symbols"]),
+        "failed": len(result["failed_symbols"]),
+        "previous_data": len(result["previous_data_symbols"]),
+        "completed_at": completed_at,
+    }
+    return True
+
+
+def _render_watchlist_auto_snapshot_status() -> None:
+    summary = st.session_state.get(WATCHLIST_AUTO_SNAPSHOT_STATE_KEY)
+    if not isinstance(summary, Mapping) or summary.get("status") != "completed":
+        return
+    st.caption(
+        "ウォッチ銘柄の確認完了: "
+        f"{summary.get('success', 0)}件更新 / "
+        f"{summary.get('previous_data', 0)}件は前回データを表示中"
+    )
 
 
 def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
@@ -10352,6 +10417,11 @@ def _watchlist_background_refresh_candidates(
         if (
             not _favorite_metrics_missing(row)
             and row.get("snapshot_status") not in {"missing", "failed"}
+            and not _watchlist_snapshot_row_is_stale(
+                row,
+                now=current_time,
+                ttl_seconds=ttl_seconds,
+            )
             and row.get("refresh_status")
             not in {
                 "failed",
@@ -10365,6 +10435,21 @@ def _watchlist_background_refresh_candidates(
     return [str(row["symbol"]).strip().upper() for row in sorted(candidates, key=priority)][
         : max(0, max_items)
     ]
+
+
+def _watchlist_snapshot_row_is_stale(
+    row: Mapping[str, object],
+    *,
+    now: datetime | None = None,
+    ttl_seconds: int = WATCHLIST_BACKGROUND_REFRESH_TTL_SECONDS,
+) -> bool:
+    snapshot_at = _parse_watchlist_datetime(str(row.get("last_snapshot_at") or ""))
+    if snapshot_at is None:
+        return True
+    current_time = now or datetime.now(UTC)
+    return (
+        current_time.astimezone(UTC) - snapshot_at.astimezone(UTC)
+    ).total_seconds() >= ttl_seconds
 
 
 def _request_watchlist_background_refresh_once(rows: Sequence[Mapping[str, str]]) -> None:
@@ -10691,7 +10776,7 @@ def _favorite_movement_html(payload: Mapping[str, str]) -> str:
         ("1か月", payload.get("price_change_1m")),
     ]
     if not any(value for _, value in values):
-        detail = "値動き 未取得"
+        detail = "値動きデータなし"
     else:
         detail = " / ".join(
             f"{label} {_signed_percent_from_text(str(value or '')) or '未取得'}"
@@ -10801,10 +10886,10 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
     )
     metrics = "".join(
         [
-            _favorite_metric_html("価格", payload.get("price")),
-            _favorite_metric_html("AI総合", payload.get("ai_score")),
-            _favorite_metric_html("上昇気配", payload.get("upside")),
-            _favorite_metric_html("下振れ警戒", payload.get("downside")),
+            _favorite_metric_html("価格", payload.get("price"), fallback="価格データなし"),
+            _favorite_metric_html("AI総合", payload.get("ai_score"), fallback="AI評価なし"),
+            _favorite_metric_html("上昇気配", payload.get("upside"), fallback="AI評価なし"),
+            _favorite_metric_html("下振れ警戒", payload.get("downside"), fallback="AI評価なし"),
             _favorite_metric_html("最終確認", payload.get("last_checked_at"), fallback="未確認"),
         ]
     )
@@ -10968,15 +11053,17 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
             _select_favorite_symbol_for_cockpit(symbol, "report")
             st.rerun()
     with col_remove:
+        st.markdown(
+            '<div class="smai-watchlist-remove-anchor"></div>',
+            unsafe_allow_html=True,
+        )
         if st.button("解除", key=f"watchlist_remove_{symbol}", use_container_width=True):
             remove_favorite(symbol)
             st.toast("Myウォッチリストから解除しました。")
             st.rerun()
-    decision_expander_label = (
-        "判断メモを編集" if _favorite_has_decision_details(payload) else "判断メモを追加"
-    )
-    with st.expander(decision_expander_label):
-        _render_favorite_decision_form(payload)
+    if _favorite_has_decision_details(payload):
+        with st.expander("判断メモを編集"):
+            _render_favorite_decision_form(payload)
 
 
 def _render_favorite_decision_form(payload: Mapping[str, str]) -> None:

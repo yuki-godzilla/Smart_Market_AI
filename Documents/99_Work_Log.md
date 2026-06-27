@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-28 - Phase 32-H Myウォッチリスト Final UX
+
+### Summary
+
+- removed the normal-screen Radar reason, update option, and empty Decision Trail expanders while preserving their underlying data/contracts.
+- reduced filters to six count-aware chips, changed default sorting to newest-added, renamed Radar sorting to confirmation priority, and switched card layout to three desktop columns.
+- strengthened restrained whole-card trend colors, naturalized missing-data copy, and visually subdued the remove action.
+- added one-per-session auto snapshot loading for up to three TTL-eligible candidates using the existing loading mascot and Phase 32-G provider/failure safeguards.
+
+### Validation
+
+- Phase 32-H targeted watchlist/snapshot tests: 52 passed, including removed UI, newest-added default, compact filters, auto max-three/session-once behavior, TTL, and worker-disabled safety.
+- related UI regression: 384 passed / 1 xfailed; the same 3 pre-existing Ranking filter/signature failures remain unrelated.
+- Ruff passed. The broad Black helper still reports the existing 26-file formatting backlog.
+- Streamlit AppTest covered empty/favorite/filter/table states; local HTTP smoke returned 200.
+
 ## 2026-06-27 - Phase 32-G Watchlist Snapshot Cache
 
 ### Summary

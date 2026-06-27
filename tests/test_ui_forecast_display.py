@@ -474,7 +474,8 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
     assert "smai-watchlist-refresh--failed" in markup
     assert "価格" in markup
     assert "AI総合" in markup
-    assert "未取得" in markup
+    assert "価格データなし" in markup
+    assert "AI評価なし" in markup
     assert "未確認" in markup
 
 
@@ -574,7 +575,7 @@ def test_favorite_card_html_adds_movement_accent_and_missing_data_hint():
     )
 
     assert "smai-watchlist-card--unknown" in markup
-    assert "…</strong><span>値動き 未取得" in markup
+    assert "…</strong><span>値動きデータなし" in markup
     assert "データ更新が必要です" in markup
     assert "ウォッチリスト更新で価格・AI評価・ニュース状態を確認できます。" in markup
 
@@ -853,6 +854,50 @@ def test_refresh_watchlist_snapshots_fetches_ohlcv_when_live_provider_enabled(mo
     assert saved["7203.T"].price == 121.0
     assert saved["7203.T"].price_change_1m == pytest.approx(19.802, abs=0.0001)
     assert saved["7203.T"].source == "yahoo"
+
+
+def test_run_watchlist_auto_snapshot_once_limits_targets_and_runs_once(monkeypatch):
+    session_state = {}
+    refresh_calls: list[list[str]] = []
+    slot = SimpleNamespace(container=lambda: nullcontext(), empty=lambda: None)
+
+    async def fake_refresh(symbols, **_):
+        refresh_calls.append(list(symbols))
+        return {
+            "success_symbols": list(symbols[:2]),
+            "failed_symbols": list(symbols[2:]),
+            "previous_data_symbols": list(symbols[2:]),
+        }
+
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module.st, "empty", lambda: slot)
+    monkeypatch.setattr(app_module, "_background_workers_disabled", lambda: False)
+    monkeypatch.setattr(
+        app_module,
+        "_watchlist_background_refresh_candidates",
+        lambda *_, **__: ["AAA", "BBB", "CCC"],
+    )
+    monkeypatch.setattr(app_module, "_refresh_watchlist_snapshots", fake_refresh)
+    monkeypatch.setattr(app_module, "render_mascot_loading", lambda *_, **__: None)
+
+    first = app_module._run_watchlist_auto_snapshot_once(
+        [],
+        favorites=[],
+        computed_rows={},
+        snapshots={},
+    )
+    second = app_module._run_watchlist_auto_snapshot_once(
+        [],
+        favorites=[],
+        computed_rows={},
+        snapshots={},
+    )
+
+    assert first is True
+    assert second is False
+    assert refresh_calls == [["AAA", "BBB", "CCC"]]
+    assert session_state[app_module.WATCHLIST_AUTO_SNAPSHOT_STATE_KEY]["requested"] == 3
+    assert session_state[app_module.WATCHLIST_AUTO_SNAPSHOT_STATE_KEY]["success"] == 2
 
 
 def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeypatch):

@@ -622,6 +622,9 @@ SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY = "symbol_preflight_refresh_last_error_
 COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 1
 COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY = "cockpit_symbol_db_preflight_requests"
 COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS = 30 * 60
+WATCHLIST_BACKGROUND_REFRESH_MAX_ITEMS = 3
+WATCHLIST_BACKGROUND_REFRESH_TTL_SECONDS = 6 * 60 * 60
+WATCHLIST_BACKGROUND_REFRESH_STATE_KEY = "watchlist_background_refresh"
 RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
 RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
 RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
@@ -9777,7 +9780,7 @@ def _render_my_watchlist_page() -> None:
                 st.rerun()
         return
 
-    universe_by_symbol = _symbol_universe_rows_by_symbol()
+    universe_by_symbol = _symbol_universe_rows_by_symbol(include_runtime_cache=True)
     enriched = [_favorite_display_payload(favorite, universe_by_symbol) for favorite in favorites]
     enriched_by_symbol = {item["symbol"]: item for item in enriched}
     radar_items = build_favorite_radar_items(favorites, enriched_by_symbol)
@@ -9790,8 +9793,10 @@ def _render_my_watchlist_page() -> None:
         item["radar_categories"] = " / ".join(radar_item.categories)
         item["radar_reasons"] = " / ".join(radar_item.reasons)
         item["radar_next_action"] = radar_item.next_action
+    _request_watchlist_background_refresh_once(enriched)
     refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
     _render_my_radar_summary(radar_items)
+    _render_watchlist_background_refresh_status()
     _render_watchlist_refresh_summary()
 
     with st.expander("更新オプション"):
@@ -9924,18 +9929,21 @@ def _render_segmented_or_radio(
     key: str,
     default: str | None = None,
     horizontal: bool = True,
+    format_func: Callable[[str], str] | None = None,
 ) -> str:
     if not options:
         return ""
 
     selected_default = default if default in options else options[0]
     segmented_control = getattr(st, "segmented_control", None)
+    display_kwargs = {"format_func": format_func} if format_func is not None else {}
     if callable(segmented_control):
         selected = segmented_control(
             label,
             options,
             default=selected_default,
             key=key,
+            **display_kwargs,
         )
     else:
         selected = st.radio(
@@ -9944,6 +9952,7 @@ def _render_segmented_or_radio(
             index=options.index(selected_default),
             horizontal=horizontal,
             key=key,
+            **display_kwargs,
         )
     return selected if selected in options else selected_default
 
@@ -9971,13 +9980,22 @@ def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str,
         "銘柄コード順",
     ]
     st.markdown("##### 表示を整理")
+    st.caption("基本: 更新状態　｜　値動き: 上昇・下落　｜　作業: メモ・調査・レポート")
     filter_col, sort_col = st.columns([2, 1])
     with filter_col:
+        st.markdown(
+            '<div class="smai-watchlist-filter-chip-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        filter_counts = {
+            option: _favorite_filter_count(rows, option) for option in filter_options
+        }
         selected_filter = _render_segmented_or_radio(
             "表示フィルター",
             filter_options,
-            default="すべて",
+            default=filter_options[0],
             key="market_data_watchlist_filter",
+            format_func=lambda option: f"{option} {filter_counts[option]}",
         )
     with sort_col:
         selected_sort = st.selectbox(
@@ -9991,15 +10009,19 @@ def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str,
     return sorted_rows
 
 
+def _favorite_filter_count(rows: Sequence[Mapping[str, str]], filter_name: str) -> int:
+    return sum(1 for row in rows if _favorite_row_matches_filter(row, filter_name))
+
+
 def _favorite_row_matches_filter(row: Mapping[str, str], selected_filter: str | None) -> bool:
     if not selected_filter or selected_filter == "すべて":
         return True
     if selected_filter == "要確認":
         return row.get("refresh_status") == "needs_attention"
     if selected_filter == "上昇傾向":
-        return row.get("status") == "上昇候補"
+        return row.get("status") in {"上昇候補", "上昇傾向", "短期上昇"}
     if selected_filter == "下落注意":
-        return row.get("status") == "下振れ注意"
+        return row.get("status") in {"下振れ注意", "下落注意", "急落警戒"}
     if selected_filter == "未確認":
         return row.get("refresh_status") == "never_checked"
     if selected_filter == "古い":
@@ -10064,6 +10086,108 @@ def _render_watchlist_refresh_summary() -> None:
         st.caption(f"今回は見送り: {', '.join(str(symbol) for symbol in skipped_symbols[:10])}")
 
 
+def _watchlist_background_refresh_candidates(
+    rows: Sequence[Mapping[str, str]],
+    *,
+    now: datetime | None = None,
+    max_items: int = WATCHLIST_BACKGROUND_REFRESH_MAX_ITEMS,
+    ttl_seconds: int = WATCHLIST_BACKGROUND_REFRESH_TTL_SECONDS,
+) -> list[str]:
+    current_time = now or datetime.now(UTC)
+
+    def priority(row: Mapping[str, str]) -> tuple[int, str]:
+        if _favorite_metrics_missing(row):
+            rank = 0
+        else:
+            rank = {
+                "failed": 1,
+                "stale": 2,
+                "never_checked": 3,
+                "needs_attention": 4,
+            }.get(str(row.get("refresh_status") or ""), 9)
+        return rank, str(row.get("symbol") or "")
+
+    candidates: list[Mapping[str, str]] = []
+    for row in rows:
+        symbol = str(row.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        last_checked = _parse_watchlist_datetime(str(row.get("last_checked_at") or ""))
+        if (
+            last_checked is not None
+            and (current_time - last_checked.astimezone(UTC)).total_seconds() < ttl_seconds
+        ):
+            continue
+        if not _favorite_metrics_missing(row) and row.get("refresh_status") not in {
+            "failed",
+            "stale",
+            "never_checked",
+            "needs_attention",
+        }:
+            continue
+        candidates.append(row)
+    return [str(row["symbol"]).strip().upper() for row in sorted(candidates, key=priority)][
+        : max(0, max_items)
+    ]
+
+
+def _request_watchlist_background_refresh_once(rows: Sequence[Mapping[str, str]]) -> None:
+    if WATCHLIST_BACKGROUND_REFRESH_STATE_KEY in st.session_state:
+        return
+    if _background_workers_disabled():
+        st.session_state[WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] = {
+            "status": "disabled",
+            "symbols": [],
+        }
+        return
+    symbols = _watchlist_background_refresh_candidates(rows)
+    if not symbols:
+        st.session_state[WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] = {
+            "status": "up_to_date",
+            "symbols": [],
+        }
+        return
+    provider_config = get_settings().dataaccess
+    try:
+        requested = request_symbol_background_refresh(
+            symbols,
+            source="watchlist",
+            max_items=WATCHLIST_BACKGROUND_REFRESH_MAX_ITEMS,
+        )
+    except Exception as exc:  # noqa: BLE001
+        st.session_state[WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] = {
+            "status": "failed",
+            "symbols": symbols,
+            "error_type": type(exc).__name__,
+        }
+        return
+    st.session_state[WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] = {
+        "status": (
+            "queued"
+            if provider_config.allow_external_providers
+            else "local_only"
+        ),
+        "symbols": requested,
+    }
+
+
+def _render_watchlist_background_refresh_status() -> None:
+    state = st.session_state.get(WATCHLIST_BACKGROUND_REFRESH_STATE_KEY)
+    if not isinstance(state, Mapping):
+        return
+    status = str(state.get("status") or "")
+    count = len(state.get("symbols") or [])
+    message = {
+        "disabled": "バックグラウンド確認: 無効",
+        "up_to_date": "バックグラウンド確認: 対象なし",
+        "queued": f"バックグラウンド確認: 待機中（最大{count}件）",
+        "local_only": "バックグラウンド確認: provider無効のためローカル情報のみ確認",
+        "failed": "バックグラウンド確認: 前回データを表示中",
+    }.get(status)
+    if message:
+        st.caption(message)
+
+
 def _favorite_display_payload(
     favorite: FavoriteStock,
     universe_by_symbol: Mapping[str, Mapping[str, str]],
@@ -10078,11 +10202,25 @@ def _favorite_display_payload(
     ai_score = str(row.get("ai_score") or row.get("investment_score") or "")
     upside = str(row.get("upside_score") or row.get("forecast_agreement") or "")
     downside = str(row.get("downside_risk_score") or "")
+    price_change_1d = _favorite_change_value(row, "price_change_1d", "return_1d")
+    price_change_5d = _favorite_change_value(row, "price_change_5d", "return_5d")
+    price_change_1m = _favorite_change_value(
+        row,
+        "price_change_1m",
+        "return_1m",
+        "return_20d",
+    )
+    movement_status = _favorite_movement_status(
+        price_change_1d,
+        price_change_5d,
+        price_change_1m,
+    )
     status = _favorite_status_label(
         price=price,
         ai_score=ai_score,
         upside=upside,
         downside=downside,
+        movement_status=movement_status,
     )
     refresh_state = evaluate_favorite_refresh_status(favorite)
     return {
@@ -10104,6 +10242,10 @@ def _favorite_display_payload(
         "ai_score": ai_score or "未取得",
         "upside": upside or "未取得",
         "downside": downside or "未取得",
+        "price_change_1d": price_change_1d or "",
+        "price_change_5d": price_change_5d or "",
+        "price_change_1m": price_change_1m or "",
+        "movement_status": movement_status,
         "research_status": "未調査",
         "latest_news": "投資レーダーで確認" if favorite.last_news_checked_at else "未確認",
         "related_news": "あり" if favorite.last_news_checked_at else "未確認",
@@ -10131,7 +10273,10 @@ def _favorite_status_label(
     ai_score: str,
     upside: str,
     downside: str,
+    movement_status: str = "未取得",
 ) -> str:
+    if movement_status in {"上昇傾向", "短期上昇", "下落注意", "急落警戒", "横ばい"}:
+        return movement_status
     if not any([price, ai_score, upside, downside]):
         return "未取得"
     try:
@@ -10150,30 +10295,42 @@ def _favorite_status_label(
 
 
 def _favorite_checkpoint_label(status: str) -> str:
-    if status == "上昇候補":
+    if status in {"上昇候補", "上昇傾向"}:
         return "上昇気配は強めです。決算・ニュース変化を確認します。"
-    if status == "下振れ注意":
+    if status == "短期上昇":
+        return "短期の値動きは上向きです。継続性を確認します。"
+    if status in {"下振れ注意", "下落注意"}:
         return "下振れ警戒が高めです。価格下落や材料悪化を確認します。"
+    if status == "急落警戒":
+        return "直近の下落が大きいため、価格変化と材料を確認します。"
     if status == "未取得":
         return "データ更新が必要です。"
     return "横ばいです。次の材料や価格変化を確認します。"
 
 
 def _favorite_status_display_label(status: str) -> str:
-    if status == "上昇候補":
+    if status in {"上昇候補", "上昇傾向"}:
         return "上昇傾向"
+    if status == "短期上昇":
+        return "短期上昇"
     if status == "下振れ注意":
         return "下落注意"
+    if status in {"下落注意", "急落警戒"}:
+        return status
     if status == "未取得":
         return "判定保留"
     return "横ばい"
 
 
 def _favorite_status_tone(status: str) -> str:
-    if status == "上昇候補":
+    if status in {"上昇候補", "上昇傾向"}:
         return "upside"
-    if status == "下振れ注意":
+    if status == "短期上昇":
+        return "short-upside"
+    if status in {"下振れ注意", "下落注意"}:
         return "downside"
+    if status == "急落警戒":
+        return "sharp-downside"
     if status == "未取得":
         return "unknown"
     return "flat"
@@ -10195,6 +10352,101 @@ def _favorite_display_value(value: object, *, fallback: str = "未取得") -> st
     if not text or text in {"-", "None", "null"}:
         return fallback
     return text
+
+
+def _favorite_change_value(row: Mapping[str, object], *keys: str) -> str:
+    for key in keys:
+        value = row.get(key)
+        if value is None or str(value).strip() in {"", "-", "None", "null", "nan", "NaN"}:
+            continue
+        try:
+            number = Decimal(str(value).replace("%", "").strip())
+        except Exception:  # noqa: BLE001
+            continue
+        if key.startswith("return_") and "%" not in str(value):
+            number *= Decimal("100")
+        return f"{number:.2f}".rstrip("0").rstrip(".")
+    return ""
+
+
+def _favorite_movement_status(
+    price_change_1d: object,
+    price_change_5d: object,
+    price_change_1m: object,
+) -> str:
+    one_day = _favorite_optional_decimal(price_change_1d)
+    five_day = _favorite_optional_decimal(price_change_5d)
+    one_month = _favorite_optional_decimal(price_change_1m)
+    has_one_day = one_day is not None
+    has_five_day = five_day is not None
+    has_one_month = one_month is not None
+    if not any((has_one_day, has_five_day, has_one_month)):
+        return "未取得"
+    if one_day is not None and one_day <= Decimal("-5"):
+        return "急落警戒"
+    if (five_day is not None and five_day <= Decimal("-3")) or (
+        one_month is not None and one_month <= Decimal("-5")
+    ):
+        return "下落注意"
+    if (
+        five_day is not None
+        and one_month is not None
+        and five_day >= Decimal("3")
+        and one_month >= Decimal("5")
+    ):
+        return "上昇傾向"
+    if five_day is not None and five_day >= Decimal("0.5"):
+        return "短期上昇"
+    return "横ばい"
+
+
+def _favorite_optional_decimal(value: object) -> Decimal | None:
+    text = str(value or "").replace("%", "").strip()
+    if not text or text in {"-", "None", "null", "nan", "NaN"}:
+        return None
+    try:
+        number = Decimal(text)
+    except Exception:  # noqa: BLE001
+        return None
+    return number if number.is_finite() else None
+
+
+def _favorite_movement_html(payload: Mapping[str, str]) -> str:
+    status = str(payload.get("movement_status") or "未取得")
+    marker = {
+        "上昇傾向": "↗",
+        "短期上昇": "↑",
+        "横ばい": "→",
+        "下落注意": "↘",
+        "急落警戒": "↓",
+        "判定保留": "?",
+    }.get(status, "…")
+    values = [
+        ("1日", payload.get("price_change_1d")),
+        ("5日", payload.get("price_change_5d")),
+        ("1か月", payload.get("price_change_1m")),
+    ]
+    if not any(value for _, value in values):
+        detail = "値動き 未取得"
+    else:
+        detail = " / ".join(
+            f"{label} {_signed_percent_from_text(str(value or '')) or '未取得'}"
+            for label, value in values
+        )
+    return (
+        f'<div class="smai-watchlist-movement smai-watchlist-movement--{html.escape(_favorite_status_tone(status))}">'
+        f'<strong aria-hidden="true">{marker}</strong>'
+        f"<span>{html.escape(detail)}</span>"
+        "</div>"
+    )
+
+
+def _favorite_metrics_missing(payload: Mapping[str, object]) -> bool:
+    return all(
+        _favorite_display_value(payload.get(key), fallback="") == ""
+        or _favorite_display_value(payload.get(key)) == "未取得"
+        for key in ("price", "ai_score", "upside", "downside")
+    )
 
 
 def _format_watchlist_date_label(value: str | None, *, fallback: str = "未設定") -> str:
@@ -10277,6 +10529,7 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
     )
     added_at = html.escape(_favorite_display_value(payload.get("added_at"), fallback="未確認"))
     has_decision_details = _favorite_has_decision_details(payload)
+    metrics_missing = _favorite_metrics_missing(payload)
     decision_badge = (
         _favorite_display_value(payload.get("decision_status"), fallback="判断メモあり")
         if has_decision_details
@@ -10341,8 +10594,16 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             "<span>判断メモ</span><strong>未入力</strong>"
             "</div>"
         )
+    data_update_content = (
+        '<div class="smai-watchlist-data-needed">'
+        "<strong>データ更新が必要です</strong>"
+        "<span>ウォッチリスト更新で価格・AI評価・ニュース状態を確認できます。</span>"
+        "</div>"
+        if metrics_missing
+        else ""
+    )
     return (
-        '<section class="smai-watchlist-card">'
+        f'<section class="smai-watchlist-card smai-watchlist-card--{html.escape(_favorite_status_tone(status))}">'
         '<div class="smai-watchlist-card-header">'
         "<div>"
         f'<div class="smai-watchlist-card-symbol">{html.escape(name)}</div>'
@@ -10359,6 +10620,8 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         '<span class="smai-watchlist-badge smai-watchlist-decision-badge">'
         f"{html.escape(decision_badge)}</span>"
         "</div>"
+        f"{_favorite_movement_html(payload)}"
+        f"{data_update_content}"
         f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
         f'<div class="smai-watchlist-info">{confirmation_rows}</div>'
         f"{decision_content}"

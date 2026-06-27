@@ -5356,8 +5356,35 @@ div[data-testid="stChatInput"] textarea:focus {
     margin-top: 0.08rem;
 }
 
+.smai-watchlist-filter-chip-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
+    + div[data-testid="stRadio"] [role="radiogroup"] {
+    column-gap: 0.38rem;
+    row-gap: 0.38rem;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
+    + div[data-testid="stRadio"] label {
+    border: 1px solid rgba(100, 116, 139, 0.52);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.42);
+    min-height: 1.85rem;
+    padding: 0.28rem 0.58rem;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
+    + div[data-testid="stRadio"] label:has(input:checked) {
+    border-color: rgba(34, 211, 238, 0.72);
+    background: rgba(8, 145, 178, 0.25);
+}
+
 .smai-watchlist-card {
+    --watchlist-state-accent: #64748B;
     border: 1px solid rgba(70, 91, 120, 0.78);
+    border-left: 4px solid var(--watchlist-state-accent);
     border-radius: 8px;
     background: linear-gradient(180deg, rgba(17, 31, 53, 0.96), rgba(7, 13, 25, 0.94));
     box-shadow:
@@ -5365,6 +5392,30 @@ div[data-testid="stChatInput"] textarea:focus {
         0 18px 38px rgba(0, 0, 0, 0.18);
     margin: 0 0 0.86rem;
     padding: 0.9rem;
+}
+
+.smai-watchlist-card--upside {
+    --watchlist-state-accent: #2DD4BF;
+}
+
+.smai-watchlist-card--short-upside {
+    --watchlist-state-accent: #38BDF8;
+}
+
+.smai-watchlist-card--flat {
+    --watchlist-state-accent: #7C8AA0;
+}
+
+.smai-watchlist-card--downside {
+    --watchlist-state-accent: #F59E0B;
+}
+
+.smai-watchlist-card--sharp-downside {
+    --watchlist-state-accent: #F87171;
+}
+
+.smai-watchlist-card--unknown {
+    --watchlist-state-accent: #64748B;
 }
 
 .smai-watchlist-card-header {
@@ -5437,10 +5488,22 @@ div[data-testid="stChatInput"] textarea:focus {
     color: #BAF7DD;
 }
 
+.smai-watchlist-status--short-upside {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: rgba(3, 105, 161, 0.28);
+    color: #D8F2FE;
+}
+
 .smai-watchlist-status--downside {
     border-color: rgba(251, 113, 133, 0.5);
     background: rgba(127, 29, 29, 0.28);
     color: #FFD1D8;
+}
+
+.smai-watchlist-status--sharp-downside {
+    border-color: rgba(248, 113, 113, 0.58);
+    background: rgba(127, 29, 29, 0.28);
+    color: #FFD5D5;
 }
 
 .smai-watchlist-status--flat {
@@ -5496,6 +5559,51 @@ div[data-testid="stChatInput"] textarea:focus {
     border-color: rgba(148, 163, 184, 0.4);
     background: rgba(30, 41, 59, 0.38);
     color: #DCE6F2;
+}
+
+.smai-watchlist-movement {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-block: 1px solid rgba(70, 91, 120, 0.36);
+    color: var(--text-secondary);
+    margin-top: 0.72rem;
+    padding: 0.52rem 0;
+}
+
+.smai-watchlist-movement strong {
+    color: var(--watchlist-state-accent);
+    flex: 0 0 auto;
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.smai-watchlist-movement span {
+    font-size: 0.76rem;
+    font-weight: 680;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-data-needed {
+    border: 1px solid rgba(100, 116, 139, 0.38);
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.32);
+    display: grid;
+    gap: 0.16rem;
+    margin-top: 0.64rem;
+    padding: 0.52rem 0.62rem;
+}
+
+.smai-watchlist-data-needed strong {
+    color: var(--text-heading);
+    font-size: 0.78rem;
+}
+
+.smai-watchlist-data-needed span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
 }
 
 .smai-watchlist-metric-grid {

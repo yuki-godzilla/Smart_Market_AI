@@ -461,7 +461,7 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
         }
     )
 
-    assert 'class="smai-watchlist-card"' in markup
+    assert 'class="smai-watchlist-card ' in markup
     assert "NVDA" in markup
     assert markup.index("NVIDIA") < markup.index("NVDA")
     assert "上昇傾向" in markup
@@ -522,6 +522,204 @@ def test_favorite_radar_summary_html_renders_compact_counts():
     assert "今日見る" in markup
     assert "更新推奨" in markup
     assert "下落注意" in markup
+
+
+@pytest.mark.parametrize(
+    ("one_day", "five_day", "one_month", "expected"),
+    [
+        ("2.1", "4.8", "9.2", "上昇傾向"),
+        ("0.2", "1.2", "2.0", "短期上昇"),
+        ("0.1", "-0.3", "0.8", "横ばい"),
+        ("-1.4", "-3.2", "-5.6", "下落注意"),
+        ("-5.1", "-2.0", "-3.0", "急落警戒"),
+        ("", None, "NaN", "未取得"),
+    ],
+)
+def test_favorite_movement_status_handles_changes_and_missing_values(
+    one_day,
+    five_day,
+    one_month,
+    expected,
+):
+    assert app_module._favorite_movement_status(one_day, five_day, one_month) == expected
+
+
+def test_favorite_change_value_distinguishes_ratio_and_percent_fields():
+    assert app_module._favorite_change_value(
+        {"return_5d": "0.048"},
+        "price_change_5d",
+        "return_5d",
+    ) == "4.8"
+    assert app_module._favorite_change_value(
+        {"price_change_5d": "0.4"},
+        "price_change_5d",
+        "return_5d",
+    ) == "0.4"
+
+
+def test_favorite_card_html_adds_movement_accent_and_missing_data_hint():
+    markup = _favorite_card_html(
+        {
+            "symbol": "5932.T",
+            "name": "三協立山",
+            "status": "未取得",
+            "status_label": "判定保留",
+            "refresh_status": "never_checked",
+            "movement_status": "未取得",
+            "price": "未取得",
+            "ai_score": "未取得",
+            "upside": "未取得",
+            "downside": "未取得",
+        }
+    )
+
+    assert "smai-watchlist-card--unknown" in markup
+    assert "…</strong><span>値動き 未取得" in markup
+    assert "データ更新が必要です" in markup
+    assert "ウォッチリスト更新で価格・AI評価・ニュース状態を確認できます。" in markup
+
+
+def test_watchlist_background_refresh_candidates_prioritize_and_limit_with_ttl():
+    now = datetime(2026, 6, 27, 12, 0, tzinfo=UTC)
+    rows = [
+        {
+            "symbol": "FRESH",
+            "price": "100",
+            "ai_score": "50",
+            "upside": "50",
+            "downside": "20",
+            "refresh_status": "fresh",
+            "last_checked_at": "2026-06-27T10:00:00+00:00",
+        },
+        {
+            "symbol": "STALE",
+            "price": "100",
+            "ai_score": "50",
+            "upside": "50",
+            "downside": "20",
+            "refresh_status": "stale",
+            "last_checked_at": "2026-06-26T00:00:00+00:00",
+        },
+        {
+            "symbol": "FAILED",
+            "price": "100",
+            "ai_score": "50",
+            "upside": "50",
+            "downside": "20",
+            "refresh_status": "failed",
+            "last_checked_at": "",
+        },
+        {
+            "symbol": "MISSING",
+            "price": "未取得",
+            "ai_score": "未取得",
+            "upside": "未取得",
+            "downside": "未取得",
+            "refresh_status": "never_checked",
+            "last_checked_at": "",
+        },
+        {
+            "symbol": "ATTENTION",
+            "price": "100",
+            "ai_score": "50",
+            "upside": "50",
+            "downside": "20",
+            "refresh_status": "needs_attention",
+            "last_checked_at": "2026-06-26T00:00:00+00:00",
+        },
+    ]
+
+    assert app_module._watchlist_background_refresh_candidates(
+        rows,
+        now=now,
+        max_items=3,
+    ) == ["MISSING", "FAILED", "STALE"]
+
+
+def test_favorite_filter_counts_match_the_same_filter_predicates():
+    rows = [
+        {
+            "symbol": "UP",
+            "status": "短期上昇",
+            "refresh_status": "fresh",
+            "radar_categories": "",
+        },
+        {
+            "symbol": "DOWN",
+            "status": "急落警戒",
+            "refresh_status": "failed",
+            "radar_categories": "調査候補 / メモ未入力候補",
+        },
+    ]
+
+    assert app_module._favorite_filter_count(rows, "すべて") == 2
+    assert app_module._favorite_filter_count(rows, "上昇傾向") == 1
+    assert app_module._favorite_filter_count(rows, "下落注意") == 1
+    assert app_module._favorite_filter_count(rows, "前回失敗") == 1
+    assert app_module._favorite_filter_count(rows, "メモ未入力") == 1
+    assert app_module._favorite_filter_count(rows, "AI調査候補") == 1
+
+
+def test_request_watchlist_background_refresh_runs_once_and_respects_provider(monkeypatch):
+    session_state = {}
+    requests: list[tuple[list[str], str, int]] = []
+    rows = [
+        {
+            "symbol": "MISSING",
+            "price": "未取得",
+            "ai_score": "未取得",
+            "upside": "未取得",
+            "downside": "未取得",
+            "refresh_status": "never_checked",
+            "last_checked_at": "",
+        }
+    ]
+
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module, "_background_workers_disabled", lambda: False)
+    monkeypatch.setattr(
+        app_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            dataaccess=SimpleNamespace(allow_external_providers=False)
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "request_symbol_background_refresh",
+        lambda symbols, *, source, max_items: (
+            requests.append((list(symbols), source, max_items)) or list(symbols)
+        ),
+    )
+
+    app_module._request_watchlist_background_refresh_once(rows)
+    app_module._request_watchlist_background_refresh_once(rows)
+
+    assert requests == [(["MISSING"], "watchlist", 3)]
+    assert session_state[app_module.WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] == {
+        "status": "local_only",
+        "symbols": ["MISSING"],
+    }
+
+
+def test_request_watchlist_background_refresh_stays_off_when_workers_disabled(monkeypatch):
+    session_state = {}
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module, "_background_workers_disabled", lambda: True)
+    monkeypatch.setattr(
+        app_module,
+        "request_symbol_background_refresh",
+        lambda *_, **__: (_ for _ in ()).throw(AssertionError("queue should not run")),
+    )
+
+    app_module._request_watchlist_background_refresh_once(
+        [{"symbol": "NVDA", "refresh_status": "never_checked"}]
+    )
+
+    assert session_state[app_module.WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] == {
+        "status": "disabled",
+        "symbols": [],
+    }
 
 
 def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeypatch):
@@ -607,7 +805,7 @@ def test_favorite_filter_and_sort_rows_applies_selected_controls(monkeypatch):
     selected = app_module._favorite_filter_and_sort_rows(rows)
 
     assert [row["symbol"] for row in selected] == ["AAA", "BBB"]
-    assert captions == ["表示中: 2件 / 全体 3件"]
+    assert captions[-1] == "表示中: 2件 / 全体 3件"
 
 
 def test_default_forecast_horizon_days_uses_chart_period():

@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-F Myウォッチリスト実用UX
+
+### Summary
+
+- added stable-value, count-aware chip filters for basic state, movement, and follow-up work without changing favorites order.
+- added seven restrained card states, directional movement markers, optional 1-day / 5-day / 1-month changes, and a compact missing-data update prompt.
+- integrated at most three priority favorites with the existing symbol DB background target queue using a six-hour TTL and one request per session.
+- kept background work local-cache-first and non-blocking; automatic live-price fetch, AI調査, external news refresh, and Decision Report generation remain disabled.
+
+### Validation
+
+- watchlist/Radar/background targeted tests: 39 passed, including count labels, seven movement states, missing/NaN handling, max-three priority, TTL, provider-disabled behavior, and one request per session.
+- related UI regression: 369 passed / 1 xfailed; the same 3 pre-existing Ranking filter/signature failures remain unrelated to this phase.
+- Ruff passed. Black helper reported the same 26 pre-existing files as `would reformat`.
+- Streamlit AppTest covered empty/favorite states and card/table interaction; local server HTTP smoke returned 200.
+
 ## 2026-06-27 - Phase 32-E2 My Radar Compact Polish
 
 ### Summary

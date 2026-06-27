@@ -158,6 +158,11 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "rgba(251, 191, 36, 0.82)" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-card" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-radar-grid" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-filter-chip-anchor" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-card--upside" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-card--sharp-downside" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-movement" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-data-needed" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-metric-grid" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-decision-title" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-decision-empty" in SMAI_GLOBAL_CSS

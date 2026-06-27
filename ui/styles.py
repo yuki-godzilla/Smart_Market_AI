@@ -5360,14 +5360,14 @@ div[data-testid="stChatInput"] textarea:focus {
     height: 0;
 }
 
-[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
-    + div[data-testid="stRadio"] [role="radiogroup"] {
+div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
+    [role="radiogroup"] {
     column-gap: 0.38rem;
     row-gap: 0.38rem;
 }
 
-[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
-    + div[data-testid="stRadio"] label {
+div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
+    [role="radiogroup"] label {
     border: 1px solid rgba(100, 116, 139, 0.52);
     border-radius: 999px;
     background: rgba(15, 23, 42, 0.42);
@@ -5375,10 +5375,16 @@ div[data-testid="stChatInput"] textarea:focus {
     padding: 0.28rem 0.58rem;
 }
 
-[data-testid="stMarkdownContainer"]:has(.smai-watchlist-filter-chip-anchor)
-    + div[data-testid="stRadio"] label:has(input:checked) {
+div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
+    [role="radiogroup"] label > div:first-child {
+    display: none;
+}
+
+div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
+    [role="radiogroup"] label:has(input:checked) {
     border-color: rgba(34, 211, 238, 0.72);
     background: rgba(8, 145, 178, 0.25);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.14);
 }
 
 .smai-watchlist-card {

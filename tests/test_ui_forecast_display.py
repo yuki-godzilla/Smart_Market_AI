@@ -500,8 +500,8 @@ def test_favorite_card_html_compacts_empty_decision_trail():
         }
     )
 
-    assert "smai-watchlist-decision-empty" in markup
-    assert "メモ未入力" in markup
+    assert "smai-watchlist-decision-empty" not in markup
+    assert "判断メモ</span><strong>未入力" not in markup
     assert "Watch理由" not in markup
     assert "現在の見方" not in markup
     assert "最終更新" not in markup
@@ -854,6 +854,64 @@ def test_refresh_watchlist_snapshots_fetches_ohlcv_when_live_provider_enabled(mo
     assert saved["7203.T"].price == 121.0
     assert saved["7203.T"].price_change_1m == pytest.approx(19.802, abs=0.0001)
     assert saved["7203.T"].source == "yahoo"
+
+
+def test_refresh_watchlist_snapshots_reuses_cockpit_preview_for_scores(monkeypatch):
+    saved = {}
+
+    async def fake_preview(**_):
+        return SimpleNamespace(
+            bars=[
+                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="6367.T")
+                for day in range(1, 22)
+            ],
+            investment_score_rows=[
+                {
+                    "symbol": "6367.T",
+                    "total_score": "72.5",
+                    "upside_signal_score": "64",
+                    "downside_signal_score": "38",
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        app_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            dataaccess=SimpleNamespace(
+                provider="yahoo",
+                allow_external_providers=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "create_market_data_provider_adapter",
+        lambda *_: object(),
+    )
+    monkeypatch.setattr(app_module, "build_market_data_preview", fake_preview)
+    monkeypatch.setattr(
+        app_module,
+        "save_watchlist_snapshots",
+        lambda snapshots: saved.update(snapshots),
+    )
+
+    result = asyncio.run(
+        app_module._refresh_watchlist_snapshots(
+            ["6367.T"],
+            favorites=[app_module.FavoriteStock(symbol="6367.T", currency="JPY")],
+            computed_rows={"6367.T": {"symbol": "6367.T", "currency": "JPY"}},
+            previous_snapshots={},
+            include_scores=True,
+        )
+    )
+
+    assert result["success_symbols"] == ["6367.T"]
+    assert saved["6367.T"].price == 121.0
+    assert saved["6367.T"].ai_score == 72.5
+    assert saved["6367.T"].upside_score == 64.0
+    assert saved["6367.T"].downside_risk_score == 38.0
 
 
 def test_run_watchlist_auto_snapshot_once_limits_targets_and_runs_once(monkeypatch):

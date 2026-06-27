@@ -9842,6 +9842,7 @@ def _render_my_watchlist_page() -> None:
                     favorites=favorites,
                     computed_rows=universe_by_symbol,
                     previous_snapshots=snapshots,
+                    include_scores=True,
                 )
             )
             success_symbols = refresh_result["success_symbols"]
@@ -10159,6 +10160,7 @@ def _run_watchlist_auto_snapshot_once(
             favorites=favorites,
             computed_rows=computed_rows,
             previous_snapshots=snapshots,
+            include_scores=True,
         )
     )
     if hasattr(loading_slot, "empty"):
@@ -10311,6 +10313,7 @@ async def _refresh_watchlist_snapshots(
     favorites: Sequence[FavoriteStock],
     computed_rows: Mapping[str, Mapping[str, Any]],
     previous_snapshots: Mapping[str, WatchlistSnapshot],
+    include_scores: bool = False,
 ) -> dict[str, list[str]]:
     settings = get_settings()
     dataaccess = settings.dataaccess
@@ -10331,16 +10334,38 @@ async def _refresh_watchlist_snapshots(
         bars: list[Bar] = []
         try:
             if adapter is not None:
-                provider_symbol = symbol_provider_symbol(normalized, provider)
-                provider_bars = await adapter.fetch_ohlcv(
-                    [provider_symbol],
-                    start=start,
-                    end=end,
-                )
-                bars = [
-                    _bar_with_display_symbol(bar, display_symbol=normalized)
-                    for bar in provider_bars
-                ]
+                if include_scores:
+                    preview = await build_market_data_preview(
+                        symbol=normalized,
+                        start=start.date(),
+                        end=end.date(),
+                        provider_override=provider,
+                        forecast_horizon_days=default_forecast_horizon_days(
+                            start.date(),
+                            end.date(),
+                        ),
+                    )
+                    bars = preview.bars
+                    score_row = next(
+                        (
+                            item
+                            for item in preview.investment_score_rows
+                            if str(item.get("symbol") or "").upper() == normalized
+                        ),
+                        {},
+                    )
+                    row = {**row, **score_row}
+                else:
+                    provider_symbol = symbol_provider_symbol(normalized, provider)
+                    provider_bars = await adapter.fetch_ohlcv(
+                        [provider_symbol],
+                        start=start,
+                        end=end,
+                    )
+                    bars = [
+                        _bar_with_display_symbol(bar, display_symbol=normalized)
+                        for bar in provider_bars
+                    ]
             snapshot = build_watchlist_snapshot_for_symbol(
                 normalized,
                 favorite=favorite_by_symbol.get(normalized),
@@ -10536,7 +10561,7 @@ def _favorite_display_payload(
     market = str(row.get("market") or favorite.market or "未取得")
     asset_type = str(row.get("asset_type") or favorite.asset_type or "未取得")
     currency = str(row.get("currency") or favorite.currency or "未取得")
-    price = str(row.get("last_price") or row.get("close") or "")
+    price = str(row.get("price") or row.get("last_price") or row.get("close") or "")
     ai_score = str(row.get("ai_score") or row.get("investment_score") or "")
     upside = str(row.get("upside_score") or row.get("forecast_agreement") or "")
     downside = str(row.get("downside_risk_score") or "")
@@ -10938,11 +10963,7 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             + "</div>"
         )
     else:
-        decision_content = (
-            '<div class="smai-watchlist-decision-empty">'
-            "<span>判断メモ</span><strong>未入力</strong>"
-            "</div>"
-        )
+        decision_content = ""
     data_update_content = (
         '<div class="smai-watchlist-data-needed">'
         "<strong>データ更新が必要です</strong>"

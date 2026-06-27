@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-28 - Myウォッチリスト 3-pass runtime polish
+
+- Pass 1: inspected real `favorites.json` / `watchlist_snapshots.json`, fixed snapshot price precedence, and removed the remaining empty Decision Trail row from cards.
+- Pass 2: replaced the ineffective adjacent radio CSS with a six-option radio-group chip selector and tightened three-column card presentation.
+- Pass 3: reused bounded Cockpit preview calculation in auto/manual snapshot refresh, filling real price and score snapshots for the three current favorites while preserving provider gates and prior data.
+- generated and installed dedicated `ui/assets/mascot/smai-title-watchlist.webp`, showing the SMAI mascot playing with three favorite stars.
+- targeted watchlist/snapshot/mascot regression: 68 passed; Ruff passed. Browser-control tooling was unavailable, so runtime validation used the live snapshot files, Streamlit AppTest, image inspection, and local HTTP smoke.
+
 ## 2026-06-28 - Phase 32-H Myウォッチリスト Final UX
 
 ### Summary

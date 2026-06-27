@@ -5606,6 +5606,15 @@ div[data-testid="stChatInput"] textarea:focus {
     line-height: 1.35;
 }
 
+.smai-watchlist-snapshot-notice {
+    border-left: 2px solid rgba(245, 158, 11, 0.68);
+    color: #FDE7B0;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    margin-top: 0.58rem;
+    padding: 0.28rem 0.52rem;
+}
+
 .smai-watchlist-metric-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));

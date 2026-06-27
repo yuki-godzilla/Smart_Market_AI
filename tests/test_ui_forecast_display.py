@@ -722,6 +722,139 @@ def test_request_watchlist_background_refresh_stays_off_when_workers_disabled(mo
     }
 
 
+def test_watchlist_snapshot_refresh_targets_prioritize_missing_failed_and_stale():
+    now = datetime(2026, 6, 27, 12, 0, tzinfo=UTC)
+    rows = [
+        {"symbol": "FRESH", "refresh_status": "fresh"},
+        {"symbol": "STALE", "refresh_status": "fresh"},
+        {"symbol": "FAILED", "refresh_status": "fresh"},
+        {"symbol": "MISSING", "refresh_status": "fresh"},
+    ]
+    snapshots = {
+        "FRESH": app_module.WatchlistSnapshot(
+            symbol="FRESH",
+            status="ok",
+            last_snapshot_at="2026-06-27T10:00:00+00:00",
+        ),
+        "STALE": app_module.WatchlistSnapshot(
+            symbol="STALE",
+            status="ok",
+            last_snapshot_at="2026-06-26T10:00:00+00:00",
+        ),
+        "FAILED": app_module.WatchlistSnapshot(
+            symbol="FAILED",
+            status="failed",
+            last_snapshot_at="2026-06-27T10:00:00+00:00",
+        ),
+    }
+
+    assert app_module._watchlist_snapshot_refresh_targets(
+        rows,
+        snapshots,
+        max_items=3,
+        now=now,
+    ) == ["MISSING", "FAILED", "STALE"]
+
+
+def test_refresh_watchlist_snapshots_uses_local_rows_when_live_provider_disabled(monkeypatch):
+    saved = {}
+    monkeypatch.setattr(
+        app_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            dataaccess=SimpleNamespace(
+                provider="yahoo",
+                allow_external_providers=False,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "create_market_data_provider_adapter",
+        lambda *_: (_ for _ in ()).throw(AssertionError("live provider should not run")),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "save_watchlist_snapshots",
+        lambda snapshots: saved.update(snapshots),
+    )
+
+    result = asyncio.run(
+        app_module._refresh_watchlist_snapshots(
+            ["7203.T"],
+            favorites=[app_module.FavoriteStock(symbol="7203.T", name="トヨタ自動車")],
+            computed_rows={
+                "7203.T": {
+                    "symbol": "7203.T",
+                    "currency": "JPY",
+                    "price": "3120",
+                    "総合スコア": "74",
+                    "上昇気配": "61",
+                    "下降警戒": "45",
+                }
+            },
+            previous_snapshots={},
+        )
+    )
+
+    assert result == {
+        "success_symbols": ["7203.T"],
+        "failed_symbols": [],
+        "previous_data_symbols": [],
+    }
+    assert saved["7203.T"].price == 3120.0
+    assert saved["7203.T"].ai_score == 74.0
+
+
+def test_refresh_watchlist_snapshots_fetches_ohlcv_when_live_provider_enabled(monkeypatch):
+    saved = {}
+    fetched: list[tuple[list[str], datetime, datetime]] = []
+
+    class FakeAdapter:
+        async def fetch_ohlcv(self, symbols, *, start, end):
+            fetched.append((list(symbols), start, end))
+            return [
+                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="7203.T")
+                for day in range(1, 22)
+            ]
+
+    monkeypatch.setattr(
+        app_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            dataaccess=SimpleNamespace(
+                provider="yahoo",
+                allow_external_providers=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "create_market_data_provider_adapter",
+        lambda *_: FakeAdapter(),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "save_watchlist_snapshots",
+        lambda snapshots: saved.update(snapshots),
+    )
+
+    result = asyncio.run(
+        app_module._refresh_watchlist_snapshots(
+            ["7203.T"],
+            favorites=[app_module.FavoriteStock(symbol="7203.T", currency="JPY")],
+            computed_rows={"7203.T": {"symbol": "7203.T", "currency": "JPY"}},
+            previous_snapshots={},
+        )
+    )
+
+    assert result["success_symbols"] == ["7203.T"]
+    assert fetched and fetched[0][0] == ["7203.T"]
+    assert saved["7203.T"].price == 121.0
+    assert saved["7203.T"].price_change_1m == pytest.approx(19.802, abs=0.0001)
+    assert saved["7203.T"].source == "yahoo"
+
+
 def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeypatch):
     calls: list[tuple[str, list[str], str, str]] = []
 

@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-G Watchlist Snapshot Cache
+
+### Summary
+
+- added a separate versioned `data/user/watchlist_snapshots.json` store with normalized symbols, Japanese-safe JSON, partial merge, failure preservation, remove, and favorite-prune helpers.
+- added OHLCV-based price and 1/5/20-business-day change calculation, safe trend classification, and field-level reuse of Ranking/Cockpit/local computed score values.
+- changed explicit watchlist update to bounded snapshot refresh through the configured MarketData adapter; live providers require existing opt-in, while failures keep prior data and expose a short status.
+- integrated snapshots into card/table/Radar/filter/sort display and retained the existing max-three, six-hour, once-per-session background candidate queue.
+
+### Validation
+
+- Phase 32-G targeted snapshot/watchlist tests: 51 passed, including store corruption fallback, Japanese round-trip, partial merge, prune/remove, OHLCV returns, trend states, provider opt-in/off, prior-data preservation, and AppTest display interaction.
+- related UI regression: 382 passed / 1 xfailed; the same 3 pre-existing Ranking filter/signature failures remain unrelated.
+- Ruff passed. Black helper passed for the two new snapshot files; the broad helper still reports the existing project-wide formatting backlog.
+- Streamlit local HTTP smoke returned 200.
+
 ## 2026-06-27 - Phase 32-F Myウォッチリスト実用UX
 
 ### Summary

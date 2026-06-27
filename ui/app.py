@@ -413,6 +413,14 @@ from ui.views.rebalance import (
     risk_breach_message,
 )
 from ui.views.settings import render_settings_page
+from ui.watchlist_snapshots import (
+    WatchlistSnapshot,
+    build_watchlist_snapshot_for_symbol,
+    load_watchlist_snapshots,
+    mark_watchlist_snapshot_failed,
+    prune_snapshots_for_removed_favorites,
+    save_watchlist_snapshots,
+)
 
 __all__ = [
     "REBALANCE_REQUEST_STATE_KEY",
@@ -9765,6 +9773,7 @@ def _render_my_watchlist_page() -> None:
         "watchlist",
     )
     favorites = load_favorites()
+    prune_snapshots_for_removed_favorites({favorite.symbol for favorite in favorites})
     if not favorites:
         st.info(
             "まだお気に入り銘柄はありません。ランキング、銘柄コックピット、投資レーダーで「☆ お気に入り」を押すと、ここに表示されます。"
@@ -9780,8 +9789,16 @@ def _render_my_watchlist_page() -> None:
                 st.rerun()
         return
 
-    universe_by_symbol = _symbol_universe_rows_by_symbol(include_runtime_cache=True)
-    enriched = [_favorite_display_payload(favorite, universe_by_symbol) for favorite in favorites]
+    universe_by_symbol = _watchlist_computed_rows()
+    snapshots = load_watchlist_snapshots()
+    enriched = [
+        _favorite_display_payload(
+            favorite,
+            universe_by_symbol,
+            snapshot=snapshots.get(favorite.symbol),
+        )
+        for favorite in favorites
+    ]
     enriched_by_symbol = {item["symbol"]: item for item in enriched}
     radar_items = build_favorite_radar_items(favorites, enriched_by_symbol)
     radar_by_symbol = {item.favorite.symbol: item for item in radar_items}
@@ -9814,41 +9831,57 @@ def _render_my_watchlist_page() -> None:
     with update_col:
         if st.button("ウォッチリストを更新", use_container_width=True):
             checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
-            targets = sorted(
+            targets = _watchlist_snapshot_refresh_targets(
                 enriched,
-                key=lambda item: (-int(item["refresh_priority"]), item["symbol"]),
+                snapshots,
+                max_items=int(refresh_limit),
             )
-            selected_targets = [item for item in targets if item["refresh_status"] != "fresh"][
-                : int(refresh_limit)
-            ]
-            success_symbols: list[str] = []
-            skipped_symbols = [item["symbol"] for item in enriched if item not in selected_targets]
-            for item in selected_targets:
-                updated = update_favorite_refresh_metadata(
-                    item["symbol"],
+            refresh_result = asyncio.run(
+                _refresh_watchlist_snapshots(
+                    targets,
+                    favorites=favorites,
+                    computed_rows=universe_by_symbol,
+                    previous_snapshots=snapshots,
+                )
+            )
+            success_symbols = refresh_result["success_symbols"]
+            failed_symbols = refresh_result["failed_symbols"]
+            previous_data_symbols = refresh_result["previous_data_symbols"]
+            skipped_symbols = [item["symbol"] for item in enriched if item["symbol"] not in targets]
+            for symbol in success_symbols:
+                update_favorite_refresh_metadata(
+                    symbol,
                     refresh_status="fresh",
                     refresh_error="",
                     last_checked_at=checked_at,
                     last_price_checked_at=checked_at,
-                    last_news_checked_at=checked_at,
-                    last_research_hint_at=checked_at,
                 )
-                if updated is not None:
-                    success_symbols.append(item["symbol"])
+            for symbol in failed_symbols:
+                update_favorite_refresh_metadata(
+                    symbol,
+                    refresh_status="failed",
+                    refresh_error="snapshot update failed",
+                    last_checked_at=checked_at,
+                )
             st.session_state["watchlist_refresh_summary"] = {
                 "updated_at": checked_at,
                 "success_count": len(success_symbols),
-                "failed_count": 0,
+                "failed_count": len(failed_symbols),
                 "skipped_count": len(skipped_symbols),
                 "next_candidates_count": max(
                     0,
                     refresh_attention_count - len(success_symbols),
                 ),
                 "success_symbols": success_symbols,
-                "failed_symbols": [],
+                "failed_symbols": failed_symbols,
                 "skipped_symbols": skipped_symbols[:10],
+                "previous_data_count": len(previous_data_symbols),
+                "previous_data_symbols": previous_data_symbols,
             }
-            st.success(f"ウォッチリスト更新結果: 成功 {len(success_symbols)}件")
+            st.success(
+                "ウォッチリスト更新結果: "
+                f"成功 {len(success_symbols)}件 / 失敗 {len(failed_symbols)}件"
+            )
             st.rerun()
     with radar_col:
         if st.button("投資レーダーで関連ニュースを見る", use_container_width=True):
@@ -10084,6 +10117,202 @@ def _render_watchlist_refresh_summary() -> None:
         st.caption(f"更新済み: {', '.join(str(symbol) for symbol in success_symbols[:10])}")
     if skipped_symbols:
         st.caption(f"今回は見送り: {', '.join(str(symbol) for symbol in skipped_symbols[:10])}")
+    previous_data_count = int(summary.get("previous_data_count", 0) or 0)
+    if previous_data_count:
+        st.caption(f"前回データを表示中: {previous_data_count}件")
+
+
+def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
+    rows = _symbol_universe_rows_by_symbol(include_runtime_cache=True)
+    ranking_rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
+    if isinstance(ranking_rows, list):
+        for raw_row in ranking_rows:
+            if not isinstance(raw_row, Mapping):
+                continue
+            symbol = str(raw_row.get("symbol") or raw_row.get("銘柄") or "").strip().upper()
+            if not symbol:
+                continue
+            current = rows.setdefault(symbol, {"symbol": symbol})
+            current.update(
+                {
+                    "price": str(
+                        raw_row.get("price")
+                        or raw_row.get("last_price")
+                        or raw_row.get("現在株価")
+                        or ""
+                    ),
+                    "ai_score": str(
+                        raw_row.get("ai_score")
+                        or raw_row.get("investment_score")
+                        or raw_row.get("総合スコア")
+                        or ""
+                    ),
+                    "upside_score": str(
+                        raw_row.get("upside_score") or raw_row.get("上昇気配") or ""
+                    ),
+                    "downside_risk_score": str(
+                        raw_row.get("downside_risk_score")
+                        or raw_row.get("下降警戒")
+                        or ""
+                    ),
+                }
+            )
+    preview = st.session_state.get(MARKET_DATA_PREVIEW_STATE_KEY)
+    if isinstance(preview, MarketDataPreview):
+        for score_row in preview.investment_score_rows:
+            symbol = str(score_row.get("symbol") or "").strip().upper()
+            if symbol:
+                rows.setdefault(symbol, {"symbol": symbol}).update(score_row)
+        preview_bars_by_symbol = _ranking_bars_by_symbol(
+            sorted({bar.symbol.raw for bar in preview.bars}),
+            preview.bars,
+        )
+        for symbol, bars in preview_bars_by_symbol.items():
+            if not bars:
+                continue
+            local_snapshot = build_watchlist_snapshot_for_symbol(
+                symbol,
+                row=rows.get(symbol, {}),
+                bars=bars,
+                source="cockpit_session",
+            )
+            rows.setdefault(symbol, {"symbol": symbol}).update(
+                {
+                    "price": _watchlist_optional_number_text(local_snapshot.price),
+                    "price_change_1d": _watchlist_optional_number_text(
+                        local_snapshot.price_change_1d
+                    ),
+                    "price_change_5d": _watchlist_optional_number_text(
+                        local_snapshot.price_change_5d
+                    ),
+                    "price_change_1m": _watchlist_optional_number_text(
+                        local_snapshot.price_change_1m
+                    ),
+                }
+            )
+    return rows
+
+
+def _watchlist_optional_number_text(value: float | None) -> str:
+    return "" if value is None else str(value)
+
+
+def _watchlist_snapshot_refresh_targets(
+    rows: Sequence[Mapping[str, str]],
+    snapshots: Mapping[str, WatchlistSnapshot],
+    *,
+    max_items: int,
+    now: datetime | None = None,
+) -> list[str]:
+    current_time = now or datetime.now(UTC)
+
+    def priority(row: Mapping[str, str]) -> tuple[int, float, str]:
+        symbol = str(row.get("symbol") or "")
+        snapshot = snapshots.get(symbol)
+        if snapshot is None:
+            rank = 0
+        elif snapshot.status == "failed":
+            rank = 1
+        elif _watchlist_snapshot_is_stale(snapshot, now=current_time):
+            rank = 2
+        elif row.get("refresh_status") == "failed":
+            rank = 3
+        elif row.get("refresh_status") in {"stale", "never_checked"}:
+            rank = 4
+        else:
+            rank = 5
+        return rank, _date_sort_value(snapshot.last_snapshot_at if snapshot else None), symbol
+
+    ordered = sorted(rows, key=priority)
+    return [str(row.get("symbol") or "") for row in ordered[: max(0, max_items)]]
+
+
+def _watchlist_snapshot_is_stale(
+    snapshot: WatchlistSnapshot,
+    *,
+    now: datetime | None = None,
+    ttl_hours: int = 6,
+) -> bool:
+    snapshot_at = _parse_watchlist_datetime(snapshot.last_snapshot_at)
+    if snapshot_at is None:
+        return True
+    current_time = now or datetime.now(UTC)
+    return snapshot_at.astimezone(UTC) + timedelta(hours=ttl_hours) < current_time.astimezone(UTC)
+
+
+async def _refresh_watchlist_snapshots(
+    symbols: Sequence[str],
+    *,
+    favorites: Sequence[FavoriteStock],
+    computed_rows: Mapping[str, Mapping[str, Any]],
+    previous_snapshots: Mapping[str, WatchlistSnapshot],
+) -> dict[str, list[str]]:
+    settings = get_settings()
+    dataaccess = settings.dataaccess
+    provider = dataaccess.provider
+    allow_fetch = provider not in LIVE_MARKET_DATA_PROVIDERS or dataaccess.allow_external_providers
+    adapter = create_market_data_provider_adapter(dataaccess) if allow_fetch else None
+    favorite_by_symbol = {favorite.symbol: favorite for favorite in favorites}
+    updated = dict(previous_snapshots)
+    success_symbols: list[str] = []
+    failed_symbols: list[str] = []
+    previous_data_symbols: list[str] = []
+    end = datetime.now(UTC)
+    start = end - timedelta(days=45)
+    for symbol in symbols:
+        normalized = normalize_favorite_symbol(symbol)
+        previous = previous_snapshots.get(normalized)
+        row = computed_rows.get(normalized, {})
+        bars: list[Bar] = []
+        try:
+            if adapter is not None:
+                provider_symbol = symbol_provider_symbol(normalized, provider)
+                provider_bars = await adapter.fetch_ohlcv(
+                    [provider_symbol],
+                    start=start,
+                    end=end,
+                )
+                bars = [
+                    _bar_with_display_symbol(bar, display_symbol=normalized)
+                    for bar in provider_bars
+                ]
+            snapshot = build_watchlist_snapshot_for_symbol(
+                normalized,
+                favorite=favorite_by_symbol.get(normalized),
+                row=row,
+                bars=bars,
+                previous=previous,
+                source=provider if bars else "local_cache",
+            )
+            if snapshot.status == "missing" and previous is not None:
+                snapshot = mark_watchlist_snapshot_failed(
+                    normalized,
+                    previous=previous,
+                    error="更新データを取得できませんでした。",
+                )
+                failed_symbols.append(normalized)
+                previous_data_symbols.append(normalized)
+            elif snapshot.status == "missing":
+                failed_symbols.append(normalized)
+            else:
+                success_symbols.append(normalized)
+            updated[normalized] = snapshot
+        except Exception as exc:  # noqa: BLE001
+            snapshot = mark_watchlist_snapshot_failed(
+                normalized,
+                previous=previous,
+                error=type(exc).__name__,
+            )
+            updated[normalized] = snapshot
+            failed_symbols.append(normalized)
+            if previous is not None:
+                previous_data_symbols.append(normalized)
+    save_watchlist_snapshots(updated)
+    return {
+        "success_symbols": success_symbols,
+        "failed_symbols": failed_symbols,
+        "previous_data_symbols": previous_data_symbols,
+    }
 
 
 def _watchlist_background_refresh_candidates(
@@ -10098,12 +10327,14 @@ def _watchlist_background_refresh_candidates(
     def priority(row: Mapping[str, str]) -> tuple[int, str]:
         if _favorite_metrics_missing(row):
             rank = 0
+        elif row.get("snapshot_status") == "failed":
+            rank = 1
         else:
             rank = {
-                "failed": 1,
-                "stale": 2,
-                "never_checked": 3,
-                "needs_attention": 4,
+                "failed": 2,
+                "stale": 3,
+                "never_checked": 4,
+                "needs_attention": 5,
             }.get(str(row.get("refresh_status") or ""), 9)
         return rank, str(row.get("symbol") or "")
 
@@ -10118,12 +10349,17 @@ def _watchlist_background_refresh_candidates(
             and (current_time - last_checked.astimezone(UTC)).total_seconds() < ttl_seconds
         ):
             continue
-        if not _favorite_metrics_missing(row) and row.get("refresh_status") not in {
-            "failed",
-            "stale",
-            "never_checked",
-            "needs_attention",
-        }:
+        if (
+            not _favorite_metrics_missing(row)
+            and row.get("snapshot_status") not in {"missing", "failed"}
+            and row.get("refresh_status")
+            not in {
+                "failed",
+                "stale",
+                "never_checked",
+                "needs_attention",
+            }
+        ):
             continue
         candidates.append(row)
     return [str(row["symbol"]).strip().upper() for row in sorted(candidates, key=priority)][
@@ -10191,9 +10427,26 @@ def _render_watchlist_background_refresh_status() -> None:
 def _favorite_display_payload(
     favorite: FavoriteStock,
     universe_by_symbol: Mapping[str, Mapping[str, str]],
+    *,
+    snapshot: WatchlistSnapshot | None = None,
 ) -> dict[str, str]:
     symbol = favorite.symbol
-    row = universe_by_symbol.get(symbol, {})
+    row = dict(universe_by_symbol.get(symbol, {}))
+    if snapshot is not None:
+        snapshot_values = {
+            "name": snapshot.name,
+            "market": snapshot.market,
+            "asset_type": snapshot.asset_type,
+            "currency": snapshot.currency,
+            "price": snapshot.price_display or snapshot.price,
+            "ai_score": snapshot.ai_score,
+            "upside_score": snapshot.upside_score,
+            "downside_risk_score": snapshot.downside_risk_score,
+            "price_change_1d": snapshot.price_change_1d,
+            "price_change_5d": snapshot.price_change_5d,
+            "price_change_1m": snapshot.price_change_1m,
+        }
+        row.update({key: value for key, value in snapshot_values.items() if value is not None})
     name = str(row.get("name") or favorite.name or symbol)
     market = str(row.get("market") or favorite.market or "未取得")
     asset_type = str(row.get("asset_type") or favorite.asset_type or "未取得")
@@ -10210,10 +10463,14 @@ def _favorite_display_payload(
         "return_1m",
         "return_20d",
     )
-    movement_status = _favorite_movement_status(
-        price_change_1d,
-        price_change_5d,
-        price_change_1m,
+    movement_status = (
+        snapshot.trend_label
+        if snapshot is not None and snapshot.trend_label
+        else _favorite_movement_status(
+            price_change_1d,
+            price_change_5d,
+            price_change_1m,
+        )
     )
     status = _favorite_status_label(
         price=price,
@@ -10230,7 +10487,11 @@ def _favorite_display_payload(
         "asset_type": asset_type,
         "currency": currency,
         "added_at": favorite.added_at or "未取得",
-        "last_checked_at": favorite.last_checked_at or "未確認",
+        "last_checked_at": (
+            snapshot.last_snapshot_at
+            if snapshot is not None and snapshot.last_snapshot_at
+            else favorite.last_checked_at or "未確認"
+        ),
         "refresh_status": refresh_state.status,
         "refresh_label": refresh_state.label,
         "refresh_reason": refresh_state.reason,
@@ -10246,6 +10507,9 @@ def _favorite_display_payload(
         "price_change_5d": price_change_5d or "",
         "price_change_1m": price_change_1m or "",
         "movement_status": movement_status,
+        "snapshot_status": snapshot.status if snapshot is not None else "missing",
+        "snapshot_error": snapshot.error if snapshot is not None else "",
+        "last_snapshot_at": snapshot.last_snapshot_at if snapshot is not None else "",
         "research_status": "未調査",
         "latest_news": "投資レーダーで確認" if favorite.last_news_checked_at else "未確認",
         "related_news": "あり" if favorite.last_news_checked_at else "未確認",
@@ -10602,6 +10866,13 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         if metrics_missing
         else ""
     )
+    snapshot_notice = (
+        '<div class="smai-watchlist-snapshot-notice">'
+        "取得に失敗しました。前回データを表示しています。"
+        "</div>"
+        if payload.get("snapshot_status") == "failed" and not metrics_missing
+        else ""
+    )
     return (
         f'<section class="smai-watchlist-card smai-watchlist-card--{html.escape(_favorite_status_tone(status))}">'
         '<div class="smai-watchlist-card-header">'
@@ -10621,6 +10892,7 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         f"{html.escape(decision_badge)}</span>"
         "</div>"
         f"{_favorite_movement_html(payload)}"
+        f"{snapshot_notice}"
         f"{data_update_content}"
         f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
         f'<div class="smai-watchlist-info">{confirmation_rows}</div>'
@@ -10644,12 +10916,23 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
             "銘柄": row["symbol"],
             "銘柄名": row["name"],
             "市場": row["market"],
+            "価格": row["price"],
+            "1日": _signed_percent_from_text(row.get("price_change_1d", "")) or "未取得",
+            "5日": _signed_percent_from_text(row.get("price_change_5d", "")) or "未取得",
+            "1か月": _signed_percent_from_text(row.get("price_change_1m", "")) or "未取得",
             "AI総合": row["ai_score"],
             "上昇気配": row["upside"],
             "下振れ警戒": row["downside"],
             "Research": row["research_status"],
             "最新ニュース": row["latest_news"],
+            "状態": row["status_label"],
             "更新状態": row["refresh_label"],
+            "最終snapshot": row.get("last_snapshot_at") or "未取得",
+            "snapshot状態": (
+                "前回データ"
+                if row.get("snapshot_status") == "failed"
+                else row.get("snapshot_status")
+            ),
             "次の確認": row["refresh_next_action"],
             "判断状態": row["decision_status"],
             "判断メモ": row["decision_note"],

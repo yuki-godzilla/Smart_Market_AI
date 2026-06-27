@@ -8,7 +8,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
 )
-from ui import favorites
+from ui import favorites, watchlist_snapshots
 from ui.views.news import (
     _news_symbol_chip_preview_rows,
     combine_news_watchlist_symbols,
@@ -235,6 +235,11 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
 def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    monkeypatch.setattr(
+        watchlist_snapshots,
+        "WATCHLIST_SNAPSHOTS_FILE_PATH",
+        tmp_path / "watchlist_snapshots.json",
+    )
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "watchlist"
 
@@ -246,6 +251,11 @@ def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch
 def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    monkeypatch.setattr(
+        watchlist_snapshots,
+        "WATCHLIST_SNAPSHOTS_FILE_PATH",
+        tmp_path / "watchlist_snapshots.json",
+    )
     favorites.add_favorite(
         "5932.T",
         {

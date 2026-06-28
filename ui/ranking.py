@@ -1775,6 +1775,22 @@ def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
     return symbols
 
 
+def ranking_deep_dive_symbol_options(rows: list[dict[str, str]]) -> list[str]:
+    """Return deep-dive symbols in the displayed ranking order."""
+
+    indexed_rows = list(enumerate(rows))
+
+    def sort_key(item: tuple[int, dict[str, str]]) -> tuple[int, int]:
+        source_index, row = item
+        try:
+            rank = int(row.get("rank", ""))
+        except (TypeError, ValueError):
+            rank = len(rows) + source_index + 1
+        return rank, source_index
+
+    return ranking_symbol_options([row for _, row in sorted(indexed_rows, key=sort_key)])
+
+
 def ranking_deep_dive_default_symbol(
     rows: list[dict[str, str]],
     *,
@@ -1782,7 +1798,7 @@ def ranking_deep_dive_default_symbol(
     source_key: str,
     current_source_key: str | None,
 ) -> str | None:
-    options = ranking_symbol_options(rows)
+    options = ranking_deep_dive_symbol_options(rows)
     if not options:
         return None
     if current_source_key != source_key:

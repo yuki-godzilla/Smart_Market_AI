@@ -369,6 +369,7 @@ from ui.ranking import (
     ranking_build_cache_key,
     ranking_database_fit_score,
     ranking_deep_dive_default_symbol,
+    ranking_deep_dive_symbol_options,
     ranking_detail_filters_for_category,
     ranking_filter_signature,
     ranking_metadata_confidence_score,
@@ -6838,6 +6839,16 @@ def test_ranking_symbol_options_and_label_support_deep_dive():
     assert ranking_symbol_options(rows) == ["AAPL", "7203.T"]
     assert symbol_candidate_label("AAPL") == "AAPL - Apple Inc."
     assert symbol_candidate_label("UNKNOWN") == "UNKNOWN"
+
+
+def test_ranking_deep_dive_symbol_options_follow_displayed_rank():
+    rows = [
+        {"symbol": "THIRD", "rank": "3"},
+        {"symbol": "FIRST", "rank": "1"},
+        {"symbol": "SECOND", "rank": "2"},
+    ]
+
+    assert ranking_deep_dive_symbol_options(rows) == ["FIRST", "SECOND", "THIRD"]
 
 
 def test_ranking_deep_dive_default_symbol_resets_for_new_result_source():

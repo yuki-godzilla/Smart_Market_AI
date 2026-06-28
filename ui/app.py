@@ -254,6 +254,7 @@ from ui.ranking import (
     rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
+    ranking_deep_dive_symbol_options,
     ranking_detail_filters_for_category,
     ranking_dividend_yield_pct_is_abnormal,
     ranking_dividend_yield_pct_value,
@@ -278,7 +279,6 @@ from ui.ranking import (
     ranking_purpose_weight_summary,
     ranking_region_label,
     ranking_symbol_chunks,
-    ranking_symbol_options,
     ranking_symbols_state_key,
     ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
@@ -8658,7 +8658,10 @@ def _render_market_data_ranking() -> None:
             _render_ranking_score_bar_chart(display_rows, ranking_policy)
         with confidence_col:
             _render_ranking_profile_chart(display_rows, ranking_policy)
-        deep_dive_symbols = ranking_symbol_options(ranked_rows)
+        deep_dive_symbols = ranking_deep_dive_symbol_options(ranked_rows)
+        deep_dive_rank_by_symbol = {
+            symbol: index for index, symbol in enumerate(deep_dive_symbols, start=1)
+        }
         selected_symbol: str | None = None
         if deep_dive_symbols:
             deep_dive_source = f"{ranking_source}|{policy_preset}"
@@ -8692,7 +8695,9 @@ def _render_market_data_ranking() -> None:
                     st.selectbox(
                         "深掘りする銘柄",
                         deep_dive_symbols,
-                        format_func=symbol_candidate_label,
+                        format_func=lambda symbol: (
+                            f"{deep_dive_rank_by_symbol[symbol]}位｜{symbol_candidate_label(symbol)}"
+                        ),
                         key="market_data_ranking_deep_dive_symbol",
                     ),
                 )

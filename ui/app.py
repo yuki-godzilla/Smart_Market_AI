@@ -7901,6 +7901,34 @@ def merged_symbol_candidate_rows(
     return merged
 
 
+def favorite_prioritized_symbol_candidate_labels(
+    rows: list[dict[str, str]],
+    favorite_symbols: set[str],
+) -> list[str]:
+    labels = symbol_candidate_labels(rows)
+    normalized_favorites = {
+        normalize_favorite_symbol(symbol) for symbol in favorite_symbols if symbol.strip()
+    }
+    return sorted(
+        labels,
+        key=lambda label: (
+            normalize_favorite_symbol(_symbol_from_candidate(label) or "")
+            not in normalized_favorites,
+        ),
+    )
+
+
+def favorite_symbol_candidate_display_label(
+    label: str,
+    favorite_symbols: set[str],
+) -> str:
+    symbol = normalize_favorite_symbol(_symbol_from_candidate(label) or "")
+    normalized_favorites = {
+        normalize_favorite_symbol(favorite) for favorite in favorite_symbols
+    }
+    return f"★ {label}" if symbol and symbol in normalized_favorites else label
+
+
 def _render_market_data_preview() -> None:
     _render_market_data_cockpit()
 
@@ -7954,7 +7982,11 @@ def _render_market_data_cockpit() -> None:
             yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
         )
         candidate_rows = merged_symbol_candidate_rows(local_candidate_rows, live_symbol_options)
-        symbol_option_labels = symbol_candidate_labels(candidate_rows)
+        favorite_symbols = {favorite.symbol for favorite in load_favorites()}
+        symbol_option_labels = favorite_prioritized_symbol_candidate_labels(
+            candidate_rows,
+            favorite_symbols,
+        )
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
         _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
@@ -7973,6 +8005,10 @@ def _render_market_data_cockpit() -> None:
                 ),
                 key="market_data_symbol_candidate",
                 placeholder="銘柄コードまたは会社名",
+                format_func=lambda label: favorite_symbol_candidate_display_label(
+                    label,
+                    favorite_symbols,
+                ),
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or ""

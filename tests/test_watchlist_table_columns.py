@@ -3,6 +3,8 @@ import inspect
 from ui.app import (
     _favorite_table_rows,
     _render_my_watchlist_page,
+    favorite_prioritized_symbol_candidate_labels,
+    favorite_symbol_candidate_display_label,
     ranking_favorite_event_token_from_aggrid_response,
 )
 from ui.styles import SMAI_GLOBAL_CSS
@@ -96,3 +98,25 @@ def test_favorite_active_state_and_watchlist_refresh_have_emphasis_styles():
     assert "color: #FBBF24 !important;" in SMAI_GLOBAL_CSS
     assert "color: #FCD34D !important;" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-header-refresh-anchor" in SMAI_GLOBAL_CSS
+
+
+def test_cockpit_symbol_candidates_prioritize_and_mark_favorites():
+    rows = [
+        {"symbol": "7203.T", "name": "Toyota Motor"},
+        {"symbol": "9983.T", "name": "Fast Retailing"},
+        {"symbol": "6758.T", "name": "Sony Group"},
+    ]
+    favorites = {"6758.t", "9983.T"}
+
+    labels = favorite_prioritized_symbol_candidate_labels(rows, favorites)
+
+    assert labels == [
+        "9983.T - Fast Retailing",
+        "6758.T - Sony Group",
+        "7203.T - Toyota Motor",
+    ]
+    assert (
+        favorite_symbol_candidate_display_label(labels[0], favorites)
+        == "★ 9983.T - Fast Retailing"
+    )
+    assert favorite_symbol_candidate_display_label(labels[-1], favorites) == labels[-1]

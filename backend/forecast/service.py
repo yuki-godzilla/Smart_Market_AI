@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, DecimalException
+from decimal import Decimal, DecimalException, localcontext
 from math import sqrt, tanh
 from typing import Literal, Protocol, TypedDict
 
@@ -1321,12 +1321,26 @@ def clamp_score(value: Decimal) -> Decimal:
 
 
 def _round_price(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.0001"))
+    return _quantize_decimal(value, Decimal("0.0001"))
 
 
 def _round_metric(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.0001"))
+    return _quantize_decimal(value, Decimal("0.0001"))
 
 
 def _round_score(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.01"))
+    return _quantize_decimal(value, Decimal("0.01"))
+
+
+def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
+    """Quantize without failing when a valid value already uses the default precision."""
+
+    decimal_places = max(0, -int(quantum.as_tuple().exponent))
+    integer_digits = max(1, value.adjusted() + 1)
+    required_precision = max(
+        len(value.as_tuple().digits),
+        integer_digits + decimal_places,
+    )
+    with localcontext() as context:
+        context.prec = max(context.prec, required_precision)
+        return value.quantize(quantum)

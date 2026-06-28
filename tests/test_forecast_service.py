@@ -503,12 +503,20 @@ def test_momentum_predict_neutralizes_explosive_long_horizon_projection():
     assert forecast.forecast_close == Decimal("100.0000")
 
 
+def test_naive_predict_rounds_price_that_uses_more_than_default_decimal_precision():
+    forecast = NaiveForecastModel().predict(
+        _bars([Decimal("1234567890123456789012345.6")]),
+    )
+
+    assert forecast.forecast_close == Decimal("1234567890123456789012345.6000")
+
+
 def test_forecast_model_rejects_too_short_history():
     with pytest.raises(ValueError, match="moving_average_3 requires at least 3 bars"):
         MovingAverageForecastModel(window=3).predict(_bars([100, 101]))
 
 
-def _bars(closes: list[int]) -> list[Bar]:
+def _bars(closes: list[int | Decimal]) -> list[Bar]:
     symbol = Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD")
     start = datetime(2026, 5, 1, tzinfo=UTC)
     return [

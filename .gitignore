@@ -54,3 +54,8 @@ logs/*.log
 logs/*.log.*
 logs/server_ops/*.log
 logs/server_ops/*.log.*
+logs/maintenance/*.log
+logs/maintenance/*.log.*
+data/ops/symbol_maintenance_state.json
+data/ops/symbol_maintenance_state.json.tmp
+data/ops/symbol_maintenance.lock

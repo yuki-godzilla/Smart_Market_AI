@@ -3793,3 +3793,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ログオン60秒後、IgnoreNew、1分間隔3回再試行の `SmartMarketAI-LAN-Server` タスク登録/解除PowerShellを追加。
 - Desktop運用ガイドを新設し、LAN/PWAガイドと役割分離。銘柄DB一括更新はログオン時に実行せず、週次/手動メンテナンスとして分離。
 - PowerShell構文、状態確認、既存8501での二重起動防止とログ生成を確認。Ruff / Black pass、全pytest 1,872 passed / 2 skipped。
+
+## 2026-06-28 銘柄メンテナンス期限判定型自動実行
+
+- `symbol_maintenance_state.py` に最終成功基準の7日期限判定、失敗後24時間cooldown、壊れたJSONの安全側判定、atomic state保存、排他lock、24時間stale警告を追加。
+- if-due BATと確認付きmanual BATからのみ既存 `run_symbol_universe_import_all.bat` を呼び、状態・lock・wrapperログを共通化。LANサーバー起動とは分離。
+- ログオン10分後、IgnoreNew、失敗時30分後1回再試行の `SmartMarketAI-Symbol-Maintenance-IfDue` 登録/解除PowerShellを追加。一括更新BATはタスクへ直接登録しない。
+- サーバー運用ガイドへ状態/lock/log、環境変数、手動実行、登録/解除、失敗・stale lock対処を追記。
+- 実BATで期限内skipとログ保存、manual確認キャンセルを確認。Ruff / Black pass、全pytest 1,886 passed / 2 skipped。

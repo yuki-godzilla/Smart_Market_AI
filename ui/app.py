@@ -8518,16 +8518,12 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
-        progress_bar = st.progress(0.0)
-        progress_status = st.empty()
         loading_slot = st.empty()
         loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
             max_items=4
         )
 
         def update_progress(message: str, ratio: float) -> None:
-            progress_status.caption(message)
-            progress_bar.progress(max(0.0, min(1.0, ratio)))
             loading_slot.markdown(
                 workflow_loading_html(
                     title="ランキングを作成中",

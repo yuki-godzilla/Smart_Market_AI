@@ -5,7 +5,7 @@ cd /d "%~dp0\.."
 set "SMAI_ROOT=%CD%"
 set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"
 set "SMAI_LOG_DIR=%SMAI_ROOT%\logs\server_ops"
-set "SMAI_PERFORMANCE_PROFILE=workstation"
+if not defined SMAI_PERFORMANCE_PROFILE set "SMAI_PERFORMANCE_PROFILE=workstation"
 set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"
 
 if not exist "%SMAI_LOG_DIR%" mkdir "%SMAI_LOG_DIR%"
@@ -60,5 +60,5 @@ exit /b %SMAI_EXIT_CODE%
 
 :log
 echo %~1
-echo %~1>> "%SMAI_LOG_FILE%"
+>> "%SMAI_LOG_FILE%" echo(%~1
 exit /b 0

@@ -3801,3 +3801,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ログオン10分後、IgnoreNew、失敗時30分後1回再試行の `SmartMarketAI-Symbol-Maintenance-IfDue` 登録/解除PowerShellを追加。一括更新BATはタスクへ直接登録しない。
 - サーバー運用ガイドへ状態/lock/log、環境変数、手動実行、登録/解除、失敗・stale lock対処を追記。
 - 実BATで期限内skipとログ保存、manual確認キャンセルを確認。Ruff / Black pass、全pytest 1,886 passed / 2 skipped。
+
+## 2026-06-28 Server-Ops Windows実運用登録
+
+- ニュースキャッシュ3件は `wip: news cache changes before server ops validation` としてstashし、Server-Ops検証から分離。
+- `SmartMarketAI-LAN-Server`（ログオン+60秒）と `SmartMarketAI-Symbol-Maintenance-IfDue`（ログオン+10分）を実登録。Action、WorkingDirectory、Enabled、IgnoreNew、再試行設定、一括更新BAT非直結を確認。
+- LANタスクを実行し、既存8501の二重起動防止とログ生成を確認。停止BATでPID/command line照合後に停止し、タスクから再起動してlocalhost/LAN health 200とPWA icon配信を確認。
+- 実環境の `local_workstation.yaml` / `SMAI_PERFORMANCE_PROFILE=local_workstation` を固定workstationで上書きしないよう起動BATを修正。Gateway autostart数字ログ欠落も行頭redirectへ修正。
+- メンテタスクは一時atomic lockで実行し、重い一括更新なしでlock skip・結果0・if_dueログ生成を確認。lockは削除し、状態ファイルは未作成。解除→不存在→再登録も確認。
+- 物理ログアウト/ログオンとiPhone/iPad実機操作は未実施。Desktop PCから `192.168.68.50:8501` のhealth/PWA assetはHTTP 200。

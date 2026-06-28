@@ -8,6 +8,7 @@ def _read(path: str) -> str:
 def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None:
     script = _read("scripts/start_smai_server.bat")
 
+    assert "if not defined SMAI_PERFORMANCE_PROFILE" in script
     assert 'set "SMAI_PERFORMANCE_PROFILE=workstation"' in script
     assert 'set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"' in script
     assert "logs\\server_ops" in script
@@ -18,6 +19,7 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert "--browser.serverAddress %SMAI_LAN_IP%" in script
     assert "run_symbol_universe_import_all.bat" not in script
     assert "pause" not in script.lower()
+    assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script
 
 
 def test_status_script_checks_smai_gateway_and_ollama() -> None:

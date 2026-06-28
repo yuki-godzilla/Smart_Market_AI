@@ -94,7 +94,10 @@ from ui.rebalance_app import (
     target_allocations_json,
     yfinance_search_symbol_rows,
 )
-from ui.views.rebalance import _render_rebalance_decision_report
+from ui.views.rebalance import (
+    _render_rebalance_decision_report,
+    _render_table_csv_download_button,
+)
 
 FIXTURE_ROOT = Path("tests/fixtures")
 
@@ -1131,7 +1134,7 @@ def test_screening_score_downloads_export_ranked_rows():
     ]
 
     assert '"symbol": "AAPL"' in screening_score_json_download(rows)
-    assert screening_score_csv_download(rows) == (
+    assert screening_score_csv_download(rows).decode("utf-8-sig") == (
         "rank,symbol,total_score,momentum_score,liquidity_score,risk_score,"
         "data_quality_score,forecast_score,forecast_agreement,data_quality,summary,"
         "forecast_reason,reason_labels,reasons\n"
@@ -1162,7 +1165,7 @@ def test_investment_score_downloads_export_ranked_rows():
     ]
 
     assert '"symbol": "AAPL"' in investment_score_json_download(rows)
-    assert investment_score_csv_download(rows) == (
+    assert investment_score_csv_download(rows).decode("utf-8-sig") == (
         "rank,symbol,total_score,score_band,screening_score,forecast_agreement_score,"
         "upside_signal_score,downside_signal_score,direction_net_score,direction_signal_label,"
         "forecast_return_pct,advanced_forecast_horizon_days,advanced_forecast_predicted_return,"
@@ -1621,13 +1624,15 @@ def test_table_csv_download_writes_stable_header_and_rows():
         ]
     )
 
-    assert payload == "symbol,qty\n7203.T,10\nAAPL,1.5\n"
+    assert payload.startswith(b"\xef\xbb\xbf")
+    assert payload.decode("utf-8-sig") == "symbol,qty\n7203.T,10\nAAPL,1.5\n"
 
 
 def test_table_csv_download_can_write_header_for_empty_rows():
     payload = table_csv_download([], fieldnames=["symbol", "qty"])
 
-    assert payload == "symbol,qty\n"
+    assert payload.startswith(b"\xef\xbb\xbf")
+    assert payload.decode("utf-8-sig") == "symbol,qty\n"
 
 
 def test_table_csv_download_ignores_extra_fields_for_stable_header():
@@ -1643,7 +1648,55 @@ def test_table_csv_download_ignores_extra_fields_for_stable_header():
         fieldnames=["symbol", "qty"],
     )
 
-    assert payload == "symbol,qty\n9434.T,10\n"
+    assert payload.startswith(b"\xef\xbb\xbf")
+    assert payload.decode("utf-8-sig") == "symbol,qty\n9434.T,10\n"
+
+
+def test_table_csv_download_without_rows_or_fields_returns_empty_bytes():
+    assert table_csv_download([]) == b""
+
+
+def test_table_csv_download_button_uses_bytes_and_csv_name(monkeypatch):
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "ui.views.rebalance.render_csv_download_button",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    _render_table_csv_download_button(
+        label="テストCSV",
+        rows=[{"symbol": "7203.T"}],
+        file_name="test.csv",
+    )
+
+    assert len(calls) == 1
+    assert isinstance(calls[0]["data"], bytes)
+    assert calls[0]["data"].startswith(b"\xef\xbb\xbf")
+    assert calls[0]["file_name"] == "test.csv"
+
+
+def test_table_csv_download_button_hides_empty_download_and_warns(monkeypatch):
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "ui.views.rebalance.render_csv_download_button",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    _render_table_csv_download_button(
+        label="空CSV",
+        rows=[],
+        file_name="empty.csv",
+        fieldnames=["symbol"],
+    )
+
+    assert calls == [
+        {
+            "label": "空CSV",
+            "data": None,
+            "file_name": "empty.csv",
+            "empty_message": "空CSV: CSVに出力できるデータがありません。",
+        }
+    ]
 
 
 def test_result_report_zip_download_contains_json_and_csv_files():

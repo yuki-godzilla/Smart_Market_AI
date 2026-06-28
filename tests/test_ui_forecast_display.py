@@ -9813,7 +9813,7 @@ def test_per_and_pbr_sort_place_invalid_values_after_valid_values():
 
 
 def test_investment_score_csv_download_accepts_ranking_metadata_scores():
-    csv_text = investment_score_csv_download(
+    csv_bytes = investment_score_csv_download(
         [
             {
                 "rank": "1",
@@ -9834,6 +9834,8 @@ def test_investment_score_csv_download_accepts_ranking_metadata_scores():
         ]
     )
 
+    csv_text = csv_bytes.decode("utf-8-sig")
+    assert csv_bytes.startswith(b"\xef\xbb\xbf")
     assert "database_fit_score" in csv_text
     assert "metadata_confidence_score" in csv_text
     assert "research_score" in csv_text
@@ -11223,7 +11225,7 @@ def test_forecast_metric_downloads_are_stable_json_and_csv():
         "  }\n"
         "]\n"
     )
-    assert forecast_metric_csv_download(rows) == (
+    assert forecast_metric_csv_download(rows).decode("utf-8-sig") == (
         "model,symbol,horizon_days,forecast_close,mae,rmse,direction_accuracy,sample_count\n"
         "naive,AAPL,10,221.32,13.11,13.90,44.44%,55\n"
     )

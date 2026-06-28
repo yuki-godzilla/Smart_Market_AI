@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
+from ui.components.downloads import render_csv_download_button
 from ui.components.mascot import render_page_title
 from ui.content.common_texts import (
     DECISION_REPORT_DOWNLOAD_GUIDE,
@@ -265,54 +266,63 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             file_name="rebalance_report.zip",
             mime="application/zip",
         )
-        st.download_button(
-            "サマリーCSVをダウンロード",
-            data=table_csv_download([summary]),
+        _render_table_csv_download_button(
+            label="サマリーCSVをダウンロード",
+            rows=[summary],
             file_name="rebalance_summary.csv",
-            mime="text/csv",
         )
-        st.download_button(
-            "現在保有CSVをダウンロード",
-            data=table_csv_download(
-                current_rows,
-                fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
-            ),
+        _render_table_csv_download_button(
+            label="現在保有CSVをダウンロード",
+            rows=current_rows,
+            fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
             file_name="rebalance_current_positions.csv",
-            mime="text/csv",
         )
-        st.download_button(
-            "目標配分CSVをダウンロード",
-            data=table_csv_download(
-                target_rows,
-                fieldnames=["symbol", "currency", "target_weight"],
-            ),
+        _render_table_csv_download_button(
+            label="目標配分CSVをダウンロード",
+            rows=target_rows,
+            fieldnames=["symbol", "currency", "target_weight"],
             file_name="rebalance_target_allocations.csv",
-            mime="text/csv",
         )
-        st.download_button(
-            "配分比較CSVをダウンロード",
-            data=table_csv_download(
-                allocation_rows,
-                fieldnames=["symbol", "current_weight", "target_weight", "drift"],
-            ),
+        _render_table_csv_download_button(
+            label="配分比較CSVをダウンロード",
+            rows=allocation_rows,
+            fieldnames=["symbol", "current_weight", "target_weight", "drift"],
             file_name="rebalance_allocation_comparison.csv",
-            mime="text/csv",
         )
-        st.download_button(
-            "見直し候補CSVをダウンロード",
-            data=table_csv_download(
-                trade_rows,
-                fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
-            ),
+        _render_table_csv_download_button(
+            label="見直し候補CSVをダウンロード",
+            rows=trade_rows,
+            fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
             file_name="rebalance_proposed_trades.csv",
-            mime="text/csv",
         )
-        st.download_button(
-            "リスク確認事項CSVをダウンロード",
-            data=table_csv_download(breach_rows, fieldnames=["breach"]),
+        _render_table_csv_download_button(
+            label="リスク確認事項CSVをダウンロード",
+            rows=breach_rows,
+            fieldnames=["breach"],
             file_name="rebalance_risk_breaches.csv",
-            mime="text/csv",
         )
+
+
+def _render_table_csv_download_button(
+    *,
+    label: str,
+    rows: list[dict[str, str]],
+    file_name: str,
+    fieldnames: list[str] | None = None,
+) -> None:
+    if not rows:
+        render_csv_download_button(
+            label=label,
+            data=None,
+            file_name=file_name,
+            empty_message=f"{label}: CSVに出力できるデータがありません。",
+        )
+        return
+    render_csv_download_button(
+        label=label,
+        data=table_csv_download(rows, fieldnames=fieldnames),
+        file_name=file_name,
+    )
 
 
 def _render_rebalance_decision_report(

@@ -1552,8 +1552,8 @@ def forecast_metric_json_download(rows: list[dict[str, str]]) -> str:
     return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
 
 
-def forecast_metric_csv_download(rows: list[dict[str, str]]) -> str:
-    """Return forecast metric rows as CSV text."""
+def forecast_metric_csv_download(rows: list[dict[str, str]]) -> bytes:
+    """Return forecast metric rows as UTF-8 BOM CSV bytes."""
 
     return table_csv_download(
         rows,
@@ -1686,8 +1686,8 @@ def investment_score_json_download(rows: list[dict[str, str]]) -> str:
     return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
 
 
-def investment_score_csv_download(rows: list[dict[str, str]]) -> str:
-    """Return Investment Score rows as CSV text."""
+def investment_score_csv_download(rows: list[dict[str, str]]) -> bytes:
+    """Return Investment Score rows as UTF-8 BOM CSV bytes."""
 
     return table_csv_download(
         rows,
@@ -1732,8 +1732,8 @@ def screening_score_json_download(rows: list[dict[str, str]]) -> str:
     return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
 
 
-def screening_score_csv_download(rows: list[dict[str, str]]) -> str:
-    """Return screening score rows as CSV text."""
+def screening_score_csv_download(rows: list[dict[str, str]]) -> bytes:
+    """Return screening score rows as UTF-8 BOM CSV bytes."""
 
     return table_csv_download(
         rows,
@@ -2139,7 +2139,7 @@ def result_markdown_report_download(
     return "\n".join(lines) + "\n"
 
 
-def result_table_downloads(result: PortfolioRiskResult) -> dict[str, str]:
+def result_table_downloads(result: PortfolioRiskResult) -> dict[str, bytes]:
     """Return table-friendly CSV downloads for a rebalance result."""
 
     context = build_rebalance_report_context(result)
@@ -2175,7 +2175,7 @@ def result_report_zip_download(
 ) -> bytes:
     """Return a deterministic ZIP report containing JSON and CSV downloads."""
 
-    files = {
+    files: dict[str, str | bytes] = {
         "rebalance_report_manifest.json": result_report_manifest_download(
             result,
             includes_request=request is not None,
@@ -2255,12 +2255,12 @@ def table_csv_download(
     rows: list[dict[str, str]],
     *,
     fieldnames: list[str] | None = None,
-) -> str:
-    """Return stable CSV text for UI table downloads."""
+) -> bytes:
+    """Return stable UTF-8 BOM CSV bytes for UI table downloads."""
 
     resolved_fieldnames = fieldnames or (list(rows[0]) if rows else [])
     if not resolved_fieldnames:
-        return ""
+        return b""
     buffer = StringIO(newline="")
     writer = csv.DictWriter(buffer, fieldnames=resolved_fieldnames, lineterminator="\n")
     writer.writeheader()
@@ -2268,18 +2268,22 @@ def table_csv_download(
         {fieldname: row.get(fieldname, "") for fieldname in resolved_fieldnames} for row in rows
     )
     writer.writerows(filtered_rows)
-    return buffer.getvalue()
+    return buffer.getvalue().encode("utf-8-sig")
 
 
-def zip_text_downloads(files: dict[str, str]) -> bytes:
-    """Return a deterministic ZIP archive for text download payloads."""
+def zip_text_downloads(files: dict[str, str | bytes]) -> bytes:
+    """Return a deterministic ZIP archive for text or byte download payloads."""
 
     buffer = BytesIO()
     with ZipFile(buffer, mode="w") as archive:
         for filename in sorted(files):
             info = ZipInfo(filename, date_time=(2026, 1, 1, 0, 0, 0))
             info.compress_type = ZIP_DEFLATED
-            archive.writestr(info, files[filename].encode("utf-8"))
+            payload = files[filename]
+            archive.writestr(
+                info,
+                payload if isinstance(payload, bytes) else payload.encode("utf-8"),
+            )
     return buffer.getvalue()
 
 

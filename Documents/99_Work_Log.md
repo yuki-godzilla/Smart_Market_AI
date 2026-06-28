@@ -3810,3 +3810,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 実環境の `local_workstation.yaml` / `SMAI_PERFORMANCE_PROFILE=local_workstation` を固定workstationで上書きしないよう起動BATを修正。Gateway autostart数字ログ欠落も行頭redirectへ修正。
 - メンテタスクは一時atomic lockで実行し、重い一括更新なしでlock skip・結果0・if_dueログ生成を確認。lockは削除し、状態ファイルは未作成。解除→不存在→再登録も確認。
 - 物理ログアウト/ログオンとiPhone/iPad実機操作は未実施。Desktop PCから `192.168.68.50:8501` のhealth/PWA assetはHTTP 200。
+
+## 2026-06-28 CSVダウンロードmedia URL修正
+
+- 全CSV downloadを棚卸しし、拡張子/MIMEは既に正しい一方、payloadがstrでRebalance空データもheader-only buttonを出していることを確認。
+- 実サーバーログの `MediaFileHandler: Missing file ...csv` から、Streamlit in-memory media URLとdownload click時の全体rerun/LAN遅延競合を特定。
+- CSVをUTF-8 BOM付きbytesへ統一し、CSV buttonを`st.fragment`へ集約。空データはbuttonを隠して警告し、ZIP内CSVもbytesを保持。
+- Myウォッチリスト、ニュース、銘柄DBには現時点でCSV download buttonがなく、対象はRanking / Forecast / Screening / Investment Score / Rebalance。
+- Ruff / Black / mypy pass、全pytest 1,894 passed / 2 skipped。修正版をタスク運用SMAIへ反映し、localhost/LAN health 200、起動ログのCSV missingなしを確認。

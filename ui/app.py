@@ -124,6 +124,7 @@ from ui.components.assistant import (
     render_floating_assistant,
     reset_assistant_contexts,
 )
+from ui.components.downloads import render_csv_download_button
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -8830,12 +8831,12 @@ def _render_market_data_ranking() -> None:
             file_name="investment_score_ranking.json",
             mime="application/json",
         )
-        col_csv.download_button(
-            "ランキングCSVをダウンロード",
-            data=investment_score_csv_download(ranked_rows),
-            file_name="investment_score_ranking.csv",
-            mime="text/csv",
-        )
+        with col_csv:
+            render_csv_download_button(
+                label="ランキングCSVをダウンロード",
+                data=investment_score_csv_download(ranked_rows),
+                file_name="investment_score_ranking.csv",
+            )
     elif error_rows:
         _clear_ranking_deep_dive_state()
         st.warning("ランキング対象の価格データを取得できませんでした。")
@@ -11609,12 +11610,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 file_name="forecast_metrics.json",
                 mime="application/json",
             )
-            col_csv.download_button(
-                "予測CSVをダウンロード",
-                data=forecast_metric_csv_download(metric_rows),
-                file_name="forecast_metrics.csv",
-                mime="text/csv",
-            )
+            with col_csv:
+                render_csv_download_button(
+                    label="予測CSVをダウンロード",
+                    data=forecast_metric_csv_download(metric_rows),
+                    file_name="forecast_metrics.csv",
+                )
 
     with st.expander("スクリーニングの詳細データを表示", expanded=False):
         st.caption(
@@ -11630,12 +11631,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 file_name="screening_score.json",
                 mime="application/json",
             )
-            col_csv.download_button(
-                "スクリーニングCSVをダウンロード",
-                data=screening_score_csv_download(preview.screening_rows),
-                file_name="screening_score.csv",
-                mime="text/csv",
-            )
+            with col_csv:
+                render_csv_download_button(
+                    label="スクリーニングCSVをダウンロード",
+                    data=screening_score_csv_download(preview.screening_rows),
+                    file_name="screening_score.csv",
+                )
 
     with st.expander("取得元データを表示", expanded=False):
         st.caption(
@@ -17017,19 +17018,22 @@ def _render_score_breakdown_context(
         _render_score_confidence_hierarchy()
         _render_target_symbol_caption(symbol_label)
         _render_table(rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
-        col_json, col_csv = st.columns(2)
-        col_json.download_button(
-            "投資スコアJSONをダウンロード",
-            data=investment_score_json_download(preview.investment_score_rows),
-            file_name="investment_score.json",
-            mime="application/json",
-        )
-        col_csv.download_button(
-            "投資スコアCSVをダウンロード",
-            data=investment_score_csv_download(preview.investment_score_rows),
-            file_name="investment_score.csv",
-            mime="text/csv",
-        )
+        if preview.investment_score_rows:
+            col_json, col_csv = st.columns(2)
+            col_json.download_button(
+                "投資スコアJSONをダウンロード",
+                data=investment_score_json_download(preview.investment_score_rows),
+                file_name="investment_score.json",
+                mime="application/json",
+            )
+            with col_csv:
+                render_csv_download_button(
+                    label="投資スコアCSVをダウンロード",
+                    data=investment_score_csv_download(preview.investment_score_rows),
+                    file_name="investment_score.csv",
+                )
+        else:
+            st.warning("CSVに出力できる投資スコアデータがありません。")
 
 
 def _render_cockpit_check_summary(summary_rows: list[dict[str, str]]) -> None:

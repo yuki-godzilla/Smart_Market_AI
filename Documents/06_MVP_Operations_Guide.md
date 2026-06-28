@@ -349,6 +349,18 @@ CSV sample は `data/marketdata/` 配下にあります。
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+### CSVダウンロード
+
+Ranking、Forecast、Screening、Investment Score、RebalanceのCSVは、一時ファイルを
+使わず画面描画時にUTF-8 BOM付きbytesとして生成し、`text/csv` と `.csv` ファイル名で
+配信します。CSV download buttonはStreamlit fragment内に置き、クリック時の全画面
+rerunでin-memory media URLが先に無効化される競合を避けます。空データではbuttonを
+表示せず、出力対象がないことを表示します。
+
+Streamlitプロセスそのものを再起動すると、再起動前のブラウザータブが保持する
+in-memory download URLは無効になります。その場合は画面を再読み込みし、新しい
+download buttonから取得してください。
+
 ### 同一LANのiPad / iPhoneから使う
 
 信頼できる家庭内LANに限り、`scripts\run_lan_server.bat` から

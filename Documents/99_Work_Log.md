@@ -3780,3 +3780,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 正式SMAIアイコンを維持しつつ、iOSキャッシュ回避用の `apple-touch-icon-v2.png` を追加。
 - iOS向けlinkへ `180x180` / `image/png` と `apple-touch-icon-precomposed` を追加し、既存head linkも更新するようmetadata注入を調整。
 - Streamlitが `ui/app.py` 基準で探す `ui/static/pwa` へassetsを移し、標準の直接確認URL `/app/static/pwa/apple-touch-icon-v2.png` と旧ショートカット削除・再追加手順をLANガイドへ追記。
+
+## 2026-06-28 LAN起動URL表示改善
+
+- 自動検出した `SMAI_LAN_IP` をStreamlitの `browser.serverAddress` へ渡し、標準出力が待受用 `0.0.0.0` ではなく利用者向けIPv4 URLを示すよう変更。
+- IP取得失敗時は仮文字列を使わず `localhost` へfallbackし、モバイル向けには `ipconfig` での確認を案内。venv確認、待受address、案内、終了コード処理は維持。

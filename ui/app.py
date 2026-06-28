@@ -1718,7 +1718,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 def main() -> None:
     st.set_page_config(
         page_title="Smart Market AI",
-        page_icon="static/pwa/favicon.png",
+        page_icon="ui/static/pwa/favicon.png",
         layout="wide",
     )
     inject_pwa_head_metadata()

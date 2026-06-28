@@ -28,7 +28,16 @@ PWA_HEAD_ELEMENTS: tuple[dict[str, str], ...] = (
     {
         "tag": "link",
         "rel": "apple-touch-icon",
-        "href": "/app/static/pwa/apple-touch-icon.png",
+        "href": "/app/static/pwa/apple-touch-icon-v2.png",
+        "sizes": "180x180",
+        "type": "image/png",
+    },
+    {
+        "tag": "link",
+        "rel": "apple-touch-icon-precomposed",
+        "href": "/app/static/pwa/apple-touch-icon-v2.png",
+        "sizes": "180x180",
+        "type": "image/png",
     },
     {
         "tag": "link",
@@ -55,7 +64,7 @@ def pwa_head_injection_html() -> str:
   for (const spec of elements) {{
     const selector = spec.tag === "meta"
       ? `meta[name="${{spec.name}}"]`
-      : `link[rel="${{spec.rel}}"][data-smai-pwa="true"]`;
+      : `link[rel="${{spec.rel}}"]`;
     let element = head.querySelector(selector);
     if (!element) {{
       element = window.parent.document.createElement(spec.tag);

@@ -360,6 +360,10 @@ iPad / iPhoneは同じWi-Fiから `http://<Desktop PCのIPv4>:8501` をSafariで
 
 IP確認、Firewall、固定IP予約、ホーム画面追加、制約、トラブルシュートの詳細は
 `docs/LAN_PWA_ACCESS_GUIDE.md` を参照してください。
+ホーム画面アイコンは
+`http://<Desktop PCのIPv4>:8501/app/static/pwa/apple-touch-icon-v2.png`
+で直接確認できます。旧アイコンが残る場合は既存ショートカットを削除し、
+Safariで再読み込みしてから追加し直します。
 
 ### プレ配布EXE
 

@@ -29,7 +29,7 @@ Current focus is project maturity improvement rather than feature expansion. Fun
 LAN内PWA風アクセスの初期slice is implemented. `scripts/run_lan_server.bat` starts the
 existing full Streamlit app on `0.0.0.0:8501` only when explicitly selected; normal startup,
 EXE behavior, Assistant, Gateway, and Agent Workflow remain unchanged. Streamlit static serving
-provides the existing SMAI mark plus `SMAI` label as home-screen icons and a web manifest,
+serves the official SMAI home-screen icons and web manifest from `ui/static/pwa`,
 best-effort iOS metadata is injected without modifying Streamlit internals, and mobile-only CSS
 adds touch targets, horizontal table scrolling, narrow-screen stacking, and a bounded floating
 assistant. `docs/LAN_PWA_ACCESS_GUIDE.md` limits use to a trusted same-LAN network and documents

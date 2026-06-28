@@ -3774,3 +3774,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 900px以下のtable横スクロール・touch target・floating assistant制限と、640px以下のcolumn縦並びを追加。PC幅は変更なし。
 - `docs/LAN_PWA_ACCESS_GUIDE.md` と運用ガイドへ、IP確認、Private Firewall、ルーター側IP予約、ホーム画面追加、外部公開禁止、完全PWAではない制約を記載。
 - Targeted Ruff pass、PWA/style tests 9 passed。実Streamlit起動と物理iPad/iPhone LAN smokeは未実施。
+
+## 2026-06-28 iOSホーム画面アイコン配信修正
+
+- 正式SMAIアイコンを維持しつつ、iOSキャッシュ回避用の `apple-touch-icon-v2.png` を追加。
+- iOS向けlinkへ `180x180` / `image/png` と `apple-touch-icon-precomposed` を追加し、既存head linkも更新するようmetadata注入を調整。
+- Streamlitが `ui/app.py` 基準で探す `ui/static/pwa` へassetsを移し、標準の直接確認URL `/app/static/pwa/apple-touch-icon-v2.png` と旧ショートカット削除・再追加手順をLANガイドへ追記。

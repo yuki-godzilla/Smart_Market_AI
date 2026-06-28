@@ -52,3 +52,5 @@ data/cache/*.sqlite-*
 data/cache/*.tmp.json
 logs/*.log
 logs/*.log.*
+logs/server_ops/*.log
+logs/server_ops/*.log.*

@@ -3785,3 +3785,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - 自動検出した `SMAI_LAN_IP` をStreamlitの `browser.serverAddress` へ渡し、標準出力が待受用 `0.0.0.0` ではなく利用者向けIPv4 URLを示すよう変更。
 - IP取得失敗時は仮文字列を使わず `localhost` へfallbackし、モバイル向けには `ipconfig` での確認を案内。venv確認、待受address、案内、終了コード処理は維持。
+
+## 2026-06-28 Desktop PCサーバー運用MVP
+
+- ログ保存・8501二重起動防止・workstation profile・親SMAI Gateway autostartを持つタスク用 `start_smai_server.bat` を追加。
+- SMAI / Gateway / Ollamaの個別状態確認BATと、8501 LISTEN PID・command lineを検証してSMAIだけを停止する対話/quiet停止BATを追加。
+- ログオン60秒後、IgnoreNew、1分間隔3回再試行の `SmartMarketAI-LAN-Server` タスク登録/解除PowerShellを追加。
+- Desktop運用ガイドを新設し、LAN/PWAガイドと役割分離。銘柄DB一括更新はログオン時に実行せず、週次/手動メンテナンスとして分離。
+- PowerShell構文、状態確認、既存8501での二重起動防止とログ生成を確認。Ruff / Black pass、全pytest 1,872 passed / 2 skipped。

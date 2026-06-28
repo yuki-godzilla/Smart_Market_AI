@@ -4,6 +4,10 @@ Smart Market AI（SMAI）を Desktop PC で動かしたまま、同じ家庭内 
 iPad / iPhone から Safari で閲覧・操作する手順です。外出先アクセスや
 インターネット公開を行うための設定ではありません。
 
+この文書はiPhone / iPadから見る手順に絞っています。Windowsログオン時の自動起動、
+停止、状態確認、タスク登録、ログ確認は
+[Desktop PCサーバー運用ガイド](SERVER_OPERATIONS_GUIDE.md)を参照してください。
+
 ## 1. Desktop PC で LAN 公開起動する
 
 1. Desktop PC を信頼できるプライベートネットワークに接続します。
@@ -19,6 +23,10 @@ IPを自動検出できない場合は、開けない仮アドレスを表示せ
 その場合は `ipconfig` でIPv4アドレスを確認してください。
 通常の起動方法や配布 EXE の設定は変更しません。終了する場合は起動した
 コマンド画面で `Ctrl+C` を押します。
+
+日常的な自動起動では、対話用BATではなくタスクスケジューラ用の
+`scripts/start_smai_server.bat` を使います。登録方法はサーバー運用ガイドに
+まとめています。
 
 ## 2. Desktop PC のローカル IP を確認する
 

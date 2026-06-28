@@ -13,7 +13,7 @@ if not exist "%SMAI_PYTHON%" (
 
 set "SMAI_LAN_IP="
 set "SMAI_LAN_IP_FOUND=1"
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.IPv4Address -ne $null } | Select-Object -First 1 -ExpandProperty IPv4Address | Select-Object -ExpandProperty IPAddress"`) do set "SMAI_LAN_IP=%%I"
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.IPv4Address -ne $null } | Select-Object -First 1 -ExpandProperty IPv4Address | Select-Object -ExpandProperty IPAddress" 2^>nul`) do set "SMAI_LAN_IP=%%I"
 
 if "%SMAI_LAN_IP%"=="" (
     set "SMAI_LAN_IP=localhost"

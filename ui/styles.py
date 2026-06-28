@@ -672,6 +672,41 @@ body,
         0 12px 30px rgba(245, 158, 11, 0.34) !important;
 }
 
+/* Streamlit wraps consecutive elements, so target the keyed widget itself.
+   The on/off state is encoded into the prominent button key. */
+[class*="st-key-smai_prominent_favorite_"] button {
+    min-height: 3.15rem !important;
+    padding: 0.8rem 1.35rem !important;
+    border-width: 2px !important;
+    border-radius: 999px !important;
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+}
+
+[class*="st-key-smai_prominent_favorite_off_"] button {
+    border-color: #38BDF8 !important;
+    background: linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
+    color: #F0F9FF !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 10px 28px rgba(14, 165, 233, 0.34) !important;
+}
+
+[class*="st-key-smai_prominent_favorite_on_"] button {
+    border-color: #FDE047 !important;
+    background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
+    color: #422006 !important;
+    text-shadow: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        0 0 18px rgba(250, 204, 21, 0.42),
+        0 12px 30px rgba(245, 158, 11, 0.34) !important;
+}
+
+[class*="st-key-smai_prominent_favorite_"] button * {
+    color: inherit !important;
+}
+
 .investment-news-symbol-chip-open-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.investment-news-symbol-chip-open-anchor)
     + div[data-testid="stButton"] button {

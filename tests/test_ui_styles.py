@@ -129,6 +129,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "width: min(43rem, 72vw);" in SMAI_GLOBAL_CSS
     assert "object-position: center center;" in SMAI_GLOBAL_CSS
     assert "object-fit: contain;" in SMAI_GLOBAL_CSS
+    assert '[class*="st-key-smai_prominent_favorite_off_"] button' in SMAI_GLOBAL_CSS
+    assert '[class*="st-key-smai_prominent_favorite_on_"] button' in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
 
 

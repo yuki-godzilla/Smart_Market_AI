@@ -3503,7 +3503,7 @@ def ranking_result_aggrid_options(
     if "お気に入り" in frame.columns:
         builder.configure_column(
             "お気に入り",
-            width=108,
+            width=116,
             pinned="left",
             sortable=False,
             filter=False,
@@ -3513,19 +3513,17 @@ def ranking_result_aggrid_options(
                 function(params) {
                     const active = String(params.value || '').startsWith('★');
                     return {
-                        color: active ? '#facc15' : '#dbeafe',
+                        color: active ? '#fbbf24' : '#dbeafe',
                         backgroundColor: active
-                            ? 'rgba(245, 158, 11, 0.14)'
-                            : 'rgba(15, 23, 42, 0.72)',
-                        border: active
-                            ? '1px solid rgba(250, 204, 21, 0.34)'
-                            : '1px solid rgba(96, 165, 250, 0.24)',
-                        borderRadius: '999px',
+                            ? 'rgba(245, 158, 11, 0.16)'
+                            : 'rgba(15, 23, 42, 0.54)',
+                        borderLeft: active
+                            ? '3px solid rgba(250, 204, 21, 0.82)'
+                            : '3px solid rgba(96, 165, 250, 0.42)',
                         fontWeight: '800',
                         cursor: 'pointer',
                         textAlign: 'center',
-                        lineHeight: '26px',
-                        marginTop: '5px'
+                        whiteSpace: 'nowrap'
                     };
                 }
                 """
@@ -3758,6 +3756,22 @@ def ranking_favorite_symbol_from_aggrid_response(grid_response: object) -> str |
         if symbol:
             return normalize_favorite_symbol(symbol)
     return None
+
+
+def ranking_favorite_event_token_from_aggrid_response(
+    grid_response: object,
+    favorite_symbol: str | None,
+) -> str | None:
+    if not favorite_symbol:
+        return None
+    event_data = _aggrid_event_data(grid_response)
+    trigger_name = str(event_data.get("streamlitRerunEventTriggerName") or "cellClicked")
+    row_index = event_data.get("rowIndex")
+    mouse_event = event_data.get("event")
+    timestamp = event_data.get("timeStamp")
+    if timestamp is None and isinstance(mouse_event, dict):
+        timestamp = mouse_event.get("timeStamp")
+    return f"{trigger_name}|favorite|{favorite_symbol}|{row_index}|{timestamp}"
 
 
 def ranking_detail_event_token_from_aggrid_response(
@@ -5551,6 +5565,18 @@ def _render_ranking_result_table(
     )
     favorite_symbol = ranking_favorite_symbol_from_aggrid_response(grid_response)
     if favorite_symbol:
+        favorite_event_token = ranking_favorite_event_token_from_aggrid_response(
+            grid_response,
+            favorite_symbol,
+        )
+        favorite_event_state_key = f"{table_base_key}_last_favorite_event_token"
+        if (
+            favorite_event_token
+            and st.session_state.get(favorite_event_state_key) == favorite_event_token
+        ):
+            return
+        if favorite_event_token:
+            st.session_state[favorite_event_state_key] = favorite_event_token
         universe_row = _symbol_universe_rows_by_symbol().get(favorite_symbol, {})
         now_active = toggle_favorite(
             favorite_symbol,
@@ -9900,14 +9926,18 @@ def _render_my_watchlist_page() -> None:
         item["radar_next_action"] = radar_item.next_action
     _request_watchlist_background_refresh_once(enriched)
     refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
-    _render_my_radar_summary(radar_items)
-    _render_watchlist_auto_snapshot_status()
-    _render_watchlist_background_refresh_status()
-    _render_watchlist_refresh_summary()
 
-    update_col, radar_col = st.columns(2)
+    _header_spacer, update_col = st.columns([4.0, 1.35])
     with update_col:
-        if st.button("ウォッチリストを更新", use_container_width=True):
+        st.markdown(
+            '<div class="smai-watchlist-header-refresh-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "↻ ウォッチリストを更新",
+            key="watchlist_header_refresh",
+            use_container_width=True,
+        ):
             checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
             targets = _watchlist_snapshot_refresh_targets(
                 enriched,
@@ -9962,11 +9992,10 @@ def _render_my_watchlist_page() -> None:
                 f"成功 {len(success_symbols)}件 / 失敗 {len(failed_symbols)}件"
             )
             st.rerun()
-    with radar_col:
-        if st.button("投資レーダーで関連ニュースを見る", use_container_width=True):
-            st.session_state[SIDEMENU_STATE_KEY] = SIDEMENU_PAGE_NEWS
-            st.session_state["investment_news_watchlist_source"] = "favorites_watchlist"
-            st.rerun()
+
+    _render_watchlist_auto_snapshot_status()
+    _render_watchlist_background_refresh_status()
+    _render_watchlist_refresh_summary()
 
     filtered_enriched = _favorite_filter_and_sort_rows(enriched)
     display_mode = _render_segmented_or_radio(
@@ -11093,13 +11122,12 @@ def _favorite_has_decision_details(payload: Mapping[str, str]) -> bool:
     )
 
 
-def _render_favorite_table(rows: list[dict[str, str]]) -> None:
-    table_rows = [
+def _favorite_table_rows(rows: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
+    return [
         {
-            "☆": "★",
+            "ウォッチ": "★",
             "銘柄": row["symbol"],
             "銘柄名": row["name"],
-            "市場": row["market"],
             "価格": row["price"],
             "1日": _signed_percent_from_text(row.get("price_change_1d", "")) or "未取得",
             "5日": _signed_percent_from_text(row.get("price_change_5d", "")) or "未取得",
@@ -11107,32 +11135,29 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
             "AI総合": row["ai_score"],
             "上昇気配": row["upside"],
             "下振れ警戒": row["downside"],
-            "Research": row["research_status"],
-            "最新ニュース": row["latest_news"],
             "状態": row["status_label"],
-            "更新状態": row["refresh_label"],
-            "最終snapshot": row.get("last_snapshot_at") or "未取得",
-            "snapshot状態": (
-                "前回データ"
-                if row.get("snapshot_status") == "failed"
-                else row.get("snapshot_status")
-            ),
-            "次の確認": row["refresh_next_action"],
-            "判断状態": row["decision_status"],
-            "判断メモ": row["decision_note"],
-            "メモ更新日": row["decision_updated_label"],
-            "Radar優先度": row.get("radar_priority", "0"),
-            "Radar理由": row.get("radar_reasons", ""),
-            "前回エラー": row["refresh_error"],
+            "更新": row["refresh_label"],
+            "最終確認": row["last_checked_at"],
             "確認ポイント": row["checkpoint"],
-            "最終確認日": row["last_checked_at"],
-            "タグ": row["tags"],
-            "メモ": row["memo"],
         }
         for row in rows
     ]
-    st.dataframe(table_rows, hide_index=True, use_container_width=True)
-    st.caption("解除やAI調査・レポートへの移動はカード表示で行えます。")
+
+
+def _render_favorite_table(rows: list[dict[str, str]]) -> None:
+    st.dataframe(
+        _favorite_table_rows(rows),
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "ウォッチ": st.column_config.TextColumn("★", width="small"),
+            "銘柄": st.column_config.TextColumn("銘柄", width="small"),
+            "銘柄名": st.column_config.TextColumn("銘柄名", width="medium"),
+            "価格": st.column_config.TextColumn("価格", width="small"),
+            "確認ポイント": st.column_config.TextColumn("確認ポイント", width="large"),
+        },
+    )
+    st.caption("詳細確認・メモ編集・解除はカード表示から行えます。")
 
 
 def _render_favorite_card(payload: Mapping[str, str]) -> None:
@@ -11334,6 +11359,19 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
         )
     )
+    if symbol:
+        _favorite_spacer, favorite_col = st.columns([4.0, 1.0])
+        with favorite_col:
+            universe_row = _symbol_universe_rows_by_symbol().get(symbol.upper(), {})
+            render_favorite_button(
+                symbol,
+                name=str(universe_row.get("name") or symbol_label),
+                market=str(universe_row.get("market") or ""),
+                asset_type=str(universe_row.get("asset_type") or ""),
+                currency=str(universe_row.get("currency") or ""),
+                source_screen="cockpit",
+                key=f"market_data_cockpit_favorite_{symbol}",
+            )
     render_mascot_panel(
         "cockpit",
         message="KPIとチャートで全体感をつかみ、AI解釈メモ、スコア、根拠資料の順に確認します。",
@@ -15784,9 +15822,7 @@ def _render_market_data_cockpit_header(
     preview: MarketDataPreview,
     symbol_label: str,
 ) -> int:
-    metadata_col, horizon_col = st.columns([4.0, 1.0])
-    provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
-    as_of = _market_data_as_of(preview)
+    _spacer_col, horizon_col = st.columns([4.0, 1.0])
     with horizon_col:
         forecast_horizon_days = cast(
             int,
@@ -15799,34 +15835,6 @@ def _render_market_data_cockpit_header(
                 help="取得済みデータを使ってチャートと指標だけを再計算します。",
             ),
         )
-    reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
-    with metadata_col:
-        cockpit_symbol = _market_data_preview_symbol(preview)
-        with st.container(border=True):
-            title_col, favorite_col = st.columns([3.2, 1.35], vertical_alignment="top")
-            with title_col:
-                st.markdown(f"### {symbol_label}")
-                st.caption(
-                    "価格・予測・スコア・根拠資料を1画面で確認する分析ビューです。"
-                )
-                st.caption(
-                    f"データ取得元: {provider_name} / 基準日: {as_of or '未取得'} / "
-                    f"参照期間: {reference_period}日"
-                )
-            with favorite_col:
-                if cockpit_symbol:
-                    universe_row = _symbol_universe_rows_by_symbol().get(
-                        cockpit_symbol.upper(), {}
-                    )
-                    render_favorite_button(
-                        cockpit_symbol,
-                        name=str(universe_row.get("name") or symbol_label),
-                        market=str(universe_row.get("market") or ""),
-                        asset_type=str(universe_row.get("asset_type") or ""),
-                        currency=str(universe_row.get("currency") or ""),
-                        source_screen="cockpit",
-                        key=f"market_data_cockpit_favorite_{cockpit_symbol}",
-                    )
     return forecast_horizon_days
 
 

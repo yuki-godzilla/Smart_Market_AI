@@ -564,7 +564,7 @@ body,
     border-color: rgba(251, 191, 36, 0.82) !important;
     background:
         linear-gradient(180deg, rgba(146, 92, 14, 0.84), rgba(92, 55, 11, 0.86)) !important;
-    color: #FFF7CC !important;
+    color: #FBBF24 !important;
     text-shadow:
         0 1px 0 rgba(17, 24, 39, 0.34),
         0 0 12px rgba(250, 204, 21, 0.22);
@@ -578,6 +578,7 @@ body,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
     + div[data-testid="stButton"] button:hover {
     border-color: rgba(254, 240, 138, 0.92) !important;
+    color: #FCD34D !important;
     background:
         linear-gradient(180deg, rgba(180, 111, 18, 0.9), rgba(120, 72, 12, 0.92)) !important;
     box-shadow:
@@ -5565,6 +5566,32 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     border-color: rgba(167, 139, 250, 0.58);
     background: rgba(49, 46, 129, 0.32);
     color: #DDD6FE;
+}
+
+.smai-watchlist-header-refresh-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-header-refresh-anchor)
+    + div[data-testid="stButton"] button {
+    min-height: 2.75rem;
+    border: 1px solid rgba(34, 211, 238, 0.72) !important;
+    border-radius: 999px !important;
+    background:
+        linear-gradient(135deg, rgba(8, 145, 178, 0.96), rgba(29, 78, 216, 0.92)) !important;
+    color: #F0FDFF !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.01em;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 8px 24px rgba(8, 145, 178, 0.24) !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-header-refresh-anchor)
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(165, 243, 252, 0.92) !important;
+    filter: brightness(1.08);
+    transform: translateY(-1px);
 }
 
 .smai-watchlist-decision-badge {

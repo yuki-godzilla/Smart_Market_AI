@@ -2427,6 +2427,89 @@ div[data-testid="stElementContainer"]:has(
     margin: 0.22rem 0 0;
 }
 
+.smai-cockpit-controls-anchor,
+.smai-cockpit-favorites-toggle-anchor,
+.smai-cockpit-detail-action-anchor {
+    display: none;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-controls-anchor) {
+    display: none;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-controls-anchor)
+    + div[data-testid="stHorizontalBlock"]
+    div[data-baseweb="select"] > div,
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-controls-anchor)
+    + div[data-testid="stHorizontalBlock"]
+    [data-testid="stTextInput"] input,
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-controls-anchor)
+    + div[data-testid="stHorizontalBlock"]
+    [data-testid="stButton"] button {
+    min-height: 2.65rem;
+}
+
+.smai-cockpit-symbol-name-field {
+    display: grid;
+    grid-template-rows: 1.5rem 2.65rem;
+    min-width: 0;
+}
+
+.smai-cockpit-symbol-name-label {
+    display: flex;
+    align-items: center;
+    color: var(--text-label);
+    font-size: 0.875rem;
+    font-weight: 680;
+    line-height: 1.25;
+}
+
+.smai-cockpit-symbol-name-value {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(103, 232, 249, 0.34);
+    color: var(--text-value);
+    font-size: 0.93rem;
+    font-weight: 760;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-favorites-toggle-anchor) {
+    display: none;
+}
+
+div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor) {
+    min-height: 1.5rem;
+}
+
+div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor)
+    div[data-testid="stToggle"] {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 1.5rem;
+    margin: 0.2rem 0 0;
+}
+
+div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor)
+    div[data-testid="stToggle"] label {
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-detail-action-anchor) {
+    display: none;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-detail-action-anchor)
+    + div[data-testid="stButton"] {
+    margin-top: 1.5rem;
+}
+
 .smai-cockpit-filter-chip-row {
     display: flex;
     flex-wrap: wrap;

@@ -1443,6 +1443,24 @@ def test_cockpit_keyword_filtered_symbol_rows_matches_theme_and_alias():
     ]
 
 
+def test_favorite_prioritized_symbol_candidate_labels_can_show_only_favorites():
+    rows = [
+        {"symbol": "AAPL", "name": "Apple"},
+        {"symbol": "7203.T", "name": "Toyota"},
+        {"symbol": "MSFT", "name": "Microsoft"},
+    ]
+
+    assert app_module.favorite_prioritized_symbol_candidate_labels(
+        rows,
+        {"7203.t"},
+        favorites_only=True,
+    ) == ["7203.T - Toyota"]
+    assert app_module.favorite_prioritized_symbol_candidate_labels(
+        rows,
+        {"7203.t"},
+    ) == ["7203.T - Toyota", "AAPL - Apple", "MSFT - Microsoft"]
+
+
 def test_cockpit_filter_summary_chips_show_default_state():
     chips = cockpit_filter_summary_chips_from_values(
         dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS),
@@ -1510,10 +1528,6 @@ def test_cockpit_filter_panel_stays_closed_when_filter_active(monkeypatch):
     ]
 
 
-@pytest.mark.xfail(
-    reason="Legacy exact chip-label assertion is fragile after ranking-aligned wording updates.",
-    strict=False,
-)
 def test_cockpit_filter_summary_chips_show_active_conditions():
     values = {
         **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
@@ -1571,6 +1585,21 @@ def test_cockpit_filter_summary_chips_include_active_detail_and_metric_labels():
     assert "124" in labels[-1]
     assert "PER 10-20" in labels
     assert any(":" in label and "PER" not in label for label in labels[3:-1])
+
+
+def test_cockpit_filter_summary_chips_show_readable_etf_expense_condition():
+    values = {
+        **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
+        "market_data_cockpit_product_type": "etf",
+        "market_data_cockpit_max_expense": "2.0",
+    }
+
+    labels = [
+        chip["label"]
+        for chip in cockpit_filter_summary_chips_from_values(values, candidate_count=12)
+    ]
+
+    assert "信託報酬 2%以下" in labels
 
 
 def test_cockpit_filter_summary_chips_html_escapes_labels():

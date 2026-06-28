@@ -7027,37 +7027,42 @@ def _cockpit_filter_detail_chips_v2(
         label = _short_filter_label(
             RANKING_OFFICIAL_SECTOR_LABELS.get(official_sector, official_sector)
         )
-        chips.append(f"讌ｭ遞ｮ: {label}")
+        chips.append(f"業種: {label}")
     if "investment_theme" in detail_filters and theme != "all":
         label = _short_filter_label(RANKING_INVESTMENT_THEME_LABELS.get(theme, theme))
-        chips.append(f"繝・・繝・ {label}")
+        chips.append(f"テーマ: {label}")
     if "market_cap" in detail_filters and market_cap_tier != "all":
-        label = _short_filter_label(RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier))
-        chips.append(f"隕乗ｨ｡: {label}")
+        label = _short_filter_label(
+            RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier)
+        )
+        chips.append(f"規模: {label}")
     if "risk_band" in detail_filters and risk_band != "all":
         label = _short_filter_label(RANKING_BETA_RISK_LABELS.get(risk_band, risk_band))
-        chips.append(f"ﾎｲ: {label}")
+        chips.append(f"β: {label}")
     if "benchmark_index" in detail_filters and index_family != "all":
-        chips.append(f"謖・焚: {RANKING_INDEX_FAMILY_LABELS.get(index_family, index_family)}")
+        index_label = RANKING_INDEX_FAMILY_LABELS.get(index_family, index_family)
+        chips.append(f"指数: {index_label}")
     if "expense_ratio" in detail_filters and max_expense_ratio_pct != str(
         MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"]
     ):
-        chips.append(f"邨瑚ｲｻ邇・ {_compact_filter_number(max_expense_ratio_pct)}%莉･荳・")
+        chips.append(f"信託報酬 {_compact_filter_number(max_expense_ratio_pct)}%以下")
     if "complexity" in detail_filters and complexity != str(
         MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]
     ):
-        chips.append(f"隍・尅縺・ {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}")
+        chips.append(
+            f"商品特性: {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}"
+        )
     if "dividend_yield" in detail_filters and dividend_category != "all":
         label = _dividend_category_option_label(dividend_category, product_type)
-        chips.append(f"驟榊ｽ・ {_short_filter_label(label)}")
+        chips.append(f"配当: {_short_filter_label(label)}")
     if currency != "all":
-        chips.append(f"騾夊ｲｨ: {RANKING_CURRENCY_LABELS.get(currency, currency)}")
+        chips.append(f"通貨: {RANKING_CURRENCY_LABELS.get(currency, currency)}")
     if "dividend_yield" in detail_filters and _truthy_filter_value(
         values.get("market_data_cockpit_dividend_enabled", False)
     ):
         chips.append(
             _range_filter_chip(
-                "驟榊ｽ灘茜蝗槭ｊ",
+                "配当利回り",
                 values.get("market_data_cockpit_min_dividend", "3.0"),
                 values.get("market_data_cockpit_dividend_max", "10.0"),
                 "%",
@@ -7879,6 +7884,7 @@ def _cockpit_filter_bool(key: str, default: bool) -> bool:
 def _clear_cockpit_symbol_filter_state() -> None:
     for key in MARKET_DATA_COCKPIT_FILTER_DEFAULTS:
         st.session_state.pop(key, None)
+    st.session_state.pop("market_data_cockpit_favorites_only", None)
     st.session_state.pop("market_data_symbol_candidate", None)
 
 
@@ -7909,11 +7915,22 @@ def merged_symbol_candidate_rows(
 def favorite_prioritized_symbol_candidate_labels(
     rows: list[dict[str, str]],
     favorite_symbols: set[str],
+    *,
+    favorites_only: bool = False,
 ) -> list[str]:
     labels = symbol_candidate_labels(rows)
     normalized_favorites = {
-        normalize_favorite_symbol(symbol) for symbol in favorite_symbols if symbol.strip()
+        normalize_favorite_symbol(symbol)
+        for symbol in favorite_symbols
+        if symbol.strip()
     }
+    if favorites_only:
+        labels = [
+            label
+            for label in labels
+            if normalize_favorite_symbol(_symbol_from_candidate(label) or "")
+            in normalized_favorites
+        ]
     return sorted(
         labels,
         key=lambda label: (
@@ -7928,7 +7945,9 @@ def favorite_symbol_candidate_display_label(
     favorite_symbols: set[str],
 ) -> str:
     symbol = normalize_favorite_symbol(_symbol_from_candidate(label) or "")
-    normalized_favorites = {normalize_favorite_symbol(favorite) for favorite in favorite_symbols}
+    normalized_favorites = {
+        normalize_favorite_symbol(favorite) for favorite in favorite_symbols
+    }
     return f"★ {label}" if symbol and symbol in normalized_favorites else label
 
 
@@ -7951,6 +7970,10 @@ def _render_market_data_cockpit() -> None:
         "分析したい銘柄を検索し、データ取得元と候補を選びます。"
         "</p>"
         "</section>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<span class="smai-cockpit-controls-anchor"></span>',
         unsafe_allow_html=True,
     )
     col_provider, col_search, col_symbol, col_detail, col_name = st.columns(
@@ -7976,23 +7999,37 @@ def _render_market_data_cockpit() -> None:
             placeholder="銘柄コード、会社名、テーマ",
             help="会社名、銘柄コード、テーマ、業種などで候補を部分一致検索します。",
         )
+    local_candidate_rows = cockpit_keyword_filtered_symbol_rows(
+        filtered_symbol_options,
+        symbol_query,
+    )
+    live_symbol_options = (
+        yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
+    )
+    candidate_rows = merged_symbol_candidate_rows(
+        local_candidate_rows,
+        live_symbol_options,
+    )
+    favorite_symbols = {favorite.symbol for favorite in load_favorites()}
+    favorite_option_labels = favorite_prioritized_symbol_candidate_labels(
+        candidate_rows,
+        favorite_symbols,
+        favorites_only=True,
+    )
+    favorites_only = bool(
+        st.session_state.get("market_data_cockpit_favorites_only", False)
+    )
     with col_symbol:
-        local_candidate_rows = cockpit_keyword_filtered_symbol_rows(
-            filtered_symbol_options,
-            symbol_query,
-        )
-        live_symbol_options = (
-            yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
-        )
-        candidate_rows = merged_symbol_candidate_rows(local_candidate_rows, live_symbol_options)
-        favorite_symbols = {favorite.symbol for favorite in load_favorites()}
         symbol_option_labels = favorite_prioritized_symbol_candidate_labels(
             candidate_rows,
             favorite_symbols,
+            favorites_only=favorites_only,
         )
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
-        _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
+        _ensure_selectbox_state_value(
+            "market_data_symbol_candidate", symbol_option_labels
+        )
         symbol_candidate = cast(
             str,
             st.selectbox(
@@ -8014,9 +8051,25 @@ def _render_market_data_cockpit() -> None:
                 ),
             ),
         )
+        st.markdown(
+            '<span class="smai-cockpit-favorites-toggle-anchor"></span>',
+            unsafe_allow_html=True,
+        )
+        st.toggle(
+            f"お気に入りのみ（{len(favorite_option_labels)}件）",
+            key="market_data_cockpit_favorites_only",
+        )
+    if favorites_only and not favorite_option_labels:
+        st.info(
+            "現在の条件に合うお気に入りがありません。"
+            "銘柄を選んで「お気に入りに追加」するか、キーワード・絞り込み条件を解除してください。"
+        )
     symbol = _symbol_from_candidate(symbol_candidate) or ""
     with col_detail:
-        st.write("")
+        st.markdown(
+            '<span class="smai-cockpit-detail-action-anchor"></span>',
+            unsafe_allow_html=True,
+        )
         if selected_symbol_has_universe_detail(symbol):
             if st.button(
                 "銘柄データを見る",
@@ -8028,8 +8081,17 @@ def _render_market_data_cockpit() -> None:
         else:
             st.caption("銘柄データ未登録")
     with col_name:
-        company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
-        st.text_input("銘柄名", value=company_name, disabled=True, key="market_data_symbol_name")
+        company_name = (
+            symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
+        )
+        company_name_display = html.escape(company_name or "未登録")
+        st.markdown(
+            '<div class="smai-cockpit-symbol-name-field">'
+            '<span class="smai-cockpit-symbol-name-label">銘柄名</span>'
+            f'<span class="smai-cockpit-symbol-name-value">{company_name_display}</span>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
     symbol_detail_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
     if symbol_detail_row is not None:
         st.caption(symbol_universe_cache_status_text(symbol_detail_row))

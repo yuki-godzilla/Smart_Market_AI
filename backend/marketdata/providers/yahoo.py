@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, FundamentalSnapshot, FxRate, Interval, Quote, Symbol
@@ -142,7 +142,7 @@ class YahooMarketDataProviderAdapter:
             ts, row = _last_row(frame)
             rates.append(
                 FxRate(
-                    pair=pair,
+                    pair=cast(Any, pair),
                     rate=_decimal_cell(row, "Close"),
                     ts=_normalize_timestamp(ts),
                     source="yahoo",
@@ -585,7 +585,7 @@ def _normalize_symbol(raw_symbol: str) -> Symbol:
                 raw=raw_symbol,
                 exchange=exchange,
                 code=raw_symbol.removesuffix(suffix),
-                currency=currency,
+                currency=cast(Any, currency),
             )
     return Symbol(raw=raw_symbol, exchange="NASDAQ", code=raw_symbol, currency="USD")
 
@@ -899,7 +899,7 @@ def _last_row(frame: Any) -> tuple[object, Any]:
 
 
 def _download_symbol_frame(frame: Any, raw_symbol: str) -> Any:
-    columns = getattr(frame, "columns", [])
+    columns: Any = getattr(frame, "columns", [])
     if not hasattr(columns, "nlevels") or columns.nlevels < 2:
         return frame
 

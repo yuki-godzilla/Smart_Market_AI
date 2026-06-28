@@ -4,7 +4,6 @@ import argparse
 import csv
 import json
 import re
-import sys
 import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -290,10 +289,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     source_kinds = args.source_kind or list(SBI_FOREIGN_LIST_URLS)
     all_rows: list[dict[str, str]] = []
+    source_reports: dict[str, object] = {}
     report: dict[str, object] = {
         "as_of": args.as_of.isoformat(),
         "generated_at": datetime.now().astimezone().isoformat(),
-        "sources": {},
+        "sources": source_reports,
     }
     for source_kind in source_kinds:
         url = SBI_FOREIGN_LIST_URLS[source_kind]
@@ -307,7 +307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             html, source_kind=source_kind, as_of=args.as_of, source_url=url
         )
         all_rows.extend(rows)
-        report["sources"][source_kind] = {
+        source_reports[source_kind] = {
             "url": url,
             "rows": len(rows),
             "by_asset_type": _counts(row["asset_type"] for row in rows),
@@ -439,7 +439,7 @@ def _normalize_source_row(
     if not local_symbol:
         return None
     name = row.get("name") or row.get("name_ja") or row.get("name_kana")
-    name = _clean_text(name)
+    name = _clean_text(name or "")
     if not name:
         return None
     description = _clean_text(row.get("description", ""))

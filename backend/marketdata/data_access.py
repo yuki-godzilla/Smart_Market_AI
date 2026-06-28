@@ -2,7 +2,7 @@ import csv
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import (
@@ -155,7 +155,7 @@ class DataAccess:
             rate = SUPPORTED_JPY_FX_PAIRS.get(pair)
             if rate is None:
                 raise DataSourceError("Unsupported FX pair", details={"pair": pair})
-            rates.append(FxRate(pair=pair, rate=rate, ts=ts, source="mock"))
+            rates.append(FxRate(pair=cast(Any, pair), rate=rate, ts=ts, source="mock"))
 
         return rates
 
@@ -284,7 +284,7 @@ class DataAccess:
             latest = max(matching, key=lambda row: _parse_datetime(row["ts"]))
             rates.append(
                 FxRate(
-                    pair=pair,
+                    pair=cast(Any, pair),
                     rate=Decimal(latest["rate"]),
                     ts=_parse_datetime(latest["ts"]),
                     source=latest.get("source") or "csv",

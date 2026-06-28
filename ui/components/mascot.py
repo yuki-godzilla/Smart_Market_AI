@@ -5,7 +5,7 @@ import html
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import streamlit as st
 
@@ -205,10 +205,8 @@ def render_app_header(
 
 
 def _title_asset_data_uri(mascot: str) -> str:
-    asset_name = MASCOT_TITLE_ASSETS.get(
-        mascot,  # type: ignore[arg-type]
-        MASCOT_TITLE_ASSETS["investment_radar"],
-    )
+    mascot_key = cast(TitleMascot, mascot) if mascot in MASCOT_TITLE_ASSETS else "investment_radar"
+    asset_name = MASCOT_TITLE_ASSETS[mascot_key]
     if not (MASCOT_ASSET_DIR / asset_name).is_file():
         asset_name = MASCOT_TITLE_ASSETS["investment_radar"]
     return _asset_data_uri(asset_name)

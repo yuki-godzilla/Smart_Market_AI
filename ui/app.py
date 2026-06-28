@@ -3976,7 +3976,7 @@ def _render_detail_selectbox(
             options,
             index=_selectbox_index(options, _ranking_filter_value(key, default)),
             key=key,
-            format_func=format_func,
+            format_func=cast(Any, format_func),
             help=help_text,
             disabled=disabled,
         ),
@@ -7316,6 +7316,9 @@ def _render_cockpit_symbol_filter_detail_fields(
         risk_band=risk_band,
         official_sector=official_sector,
         theme=theme,
+        index_family="all",
+        max_expense_ratio_pct="100",
+        complexity="all",
         dividend_yield_enabled=dividend_enabled,
         min_dividend_yield_pct=min_dividend,
         dividend_yield_max_pct=max_dividend,
@@ -7575,17 +7578,17 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
         )
 
     dividend_enabled = False
-    min_dividend = "3.0"
-    max_dividend = "10.0"
+    min_dividend: float = 3.0
+    max_dividend: float = 10.0
     per_enabled = False
-    per_min = "2.0"
-    per_max = "20.0"
+    per_min: float = 2.0
+    per_max: float = 20.0
     pbr_enabled = False
-    pbr_min = "0.5"
-    pbr_max = "2.0"
+    pbr_min: float = 0.5
+    pbr_max: float = 2.0
     roe_enabled = False
-    roe_min = "8.0"
-    roe_max = "30.0"
+    roe_min: float = 8.0
+    roe_max: float = 30.0
 
     metric_filters: list[tuple[str, dict[str, object]]] = []
     if "dividend_yield" in detail_filters:
@@ -7661,7 +7664,7 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
                 metric_cols, metric_filters[start_index : start_index + 2]
             ):
                 with column:
-                    enabled, lower, upper = _render_metric_range_filter(label, **config)
+                    enabled, lower, upper = _render_metric_range_filter(label, **cast(Any, config))
                 if config["enabled_key"] == "market_data_cockpit_dividend_enabled":
                     dividend_enabled, min_dividend, max_dividend = enabled, lower, upper
                 elif config["enabled_key"] == "market_data_cockpit_per_enabled":
@@ -10104,24 +10107,31 @@ def _render_segmented_or_radio(
     if key in st.session_state and st.session_state.get(key) not in options:
         st.session_state[key] = selected_default
     segmented_control = getattr(st, "segmented_control", None)
-    display_kwargs = {"format_func": format_func} if format_func is not None else {}
     if callable(segmented_control):
-        selected = segmented_control(
-            label,
-            options,
-            default=selected_default,
-            key=key,
-            **display_kwargs,
-        )
+        if format_func is None:
+            selected = segmented_control(
+                label,
+                options,
+                default=selected_default,
+                key=key,
+            )
+        else:
+            selected = segmented_control(
+                label,
+                options,
+                default=selected_default,
+                key=key,
+                format_func=format_func,
+            )
     else:
-        selected = st.radio(
-            label,
-            options,
-            index=options.index(selected_default),
-            horizontal=horizontal,
-            key=key,
-            **display_kwargs,
-        )
+        radio_kwargs: dict[str, Any] = {
+            "index": options.index(selected_default),
+            "horizontal": horizontal,
+            "key": key,
+        }
+        if format_func is not None:
+            radio_kwargs["format_func"] = format_func
+        selected = st.radio(label, options, **radio_kwargs)
     return selected if selected in options else selected_default
 
 
@@ -10685,7 +10695,7 @@ def _favorite_display_payload(
     symbol = favorite.symbol
     row = dict(universe_by_symbol.get(symbol, {}))
     if snapshot is not None:
-        snapshot_values = {
+        snapshot_values: dict[str, str | float | None] = {
             "name": snapshot.name,
             "market": snapshot.market,
             "asset_type": snapshot.asset_type,
@@ -10698,7 +10708,7 @@ def _favorite_display_payload(
             "price_change_5d": snapshot.price_change_5d,
             "price_change_1m": snapshot.price_change_1m,
         }
-        row.update({key: value for key, value in snapshot_values.items() if value is not None})
+        row.update({key: str(value) for key, value in snapshot_values.items() if value is not None})
     name = str(row.get("name") or favorite.name or symbol)
     market = str(row.get("market") or favorite.market or "未取得")
     asset_type = str(row.get("asset_type") or favorite.asset_type or "未取得")
@@ -10758,10 +10768,10 @@ def _favorite_display_payload(
         "price_change_1d": price_change_1d or "",
         "price_change_5d": price_change_5d or "",
         "price_change_1m": price_change_1m or "",
-        "movement_status": movement_status,
-        "snapshot_status": snapshot.status if snapshot is not None else "missing",
-        "snapshot_error": snapshot.error if snapshot is not None else "",
-        "last_snapshot_at": snapshot.last_snapshot_at if snapshot is not None else "",
+        "movement_status": movement_status or "unknown",
+        "snapshot_status": snapshot.status or "missing" if snapshot is not None else "missing",
+        "snapshot_error": snapshot.error or "" if snapshot is not None else "",
+        "last_snapshot_at": snapshot.last_snapshot_at or "" if snapshot is not None else "",
         "research_status": "未調査",
         "latest_news": "投資レーダーで確認" if favorite.last_news_checked_at else "未確認",
         "related_news": "あり" if favorite.last_news_checked_at else "未確認",

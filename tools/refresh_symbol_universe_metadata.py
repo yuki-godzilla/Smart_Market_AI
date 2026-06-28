@@ -346,8 +346,8 @@ def _configure_live_provider_runtime(
 
         def _progress(payload: dict[str, object]) -> None:
             event = str(payload.get("event") or "")
-            index = int(payload.get("index") or 0)
-            total = int(payload.get("total") or 0)
+            index = int(str(payload.get("index") or 0))
+            total = int(str(payload.get("total") or 0))
             should_print = event in {"failure", "timeout"} or (
                 event == "done" and (index == 1 or index == total or index % progress_every == 0)
             )

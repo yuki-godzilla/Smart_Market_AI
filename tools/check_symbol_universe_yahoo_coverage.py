@@ -8,7 +8,9 @@ import sys
 from collections import Counter
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, TypeVar
+
+T = TypeVar("T")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -348,7 +350,7 @@ def _default_label(args: argparse.Namespace) -> str:
     return f"yahoo_coverage_{args.metadata_source}_{scope}_{args.end.isoformat().replace('-', '')}"
 
 
-def _chunks(symbols: Sequence[str], size: int) -> list[list[str]]:
+def _chunks(symbols: Sequence[T], size: int) -> list[list[T]]:
     if size <= 0:
         raise ValueError("batch-size must be greater than 0.")
     return [list(symbols[index : index + size]) for index in range(0, len(symbols), size)]

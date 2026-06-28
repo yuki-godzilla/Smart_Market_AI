@@ -91,8 +91,7 @@ def test_watchlist_page_keeps_refresh_in_header_and_removes_radar_actions():
 
 
 def test_favorite_active_state_and_watchlist_refresh_have_emphasis_styles():
-    assert "color: #FBBF24 !important;" in SMAI_GLOBAL_CSS
-    assert "color: #FCD34D !important;" in SMAI_GLOBAL_CSS
+    assert "color: #422006 !important;" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-header-refresh-anchor" in SMAI_GLOBAL_CSS
     assert 'data-variant="prominent"' in SMAI_GLOBAL_CSS
     assert ".smai-cockpit-favorite-action-anchor" in SMAI_GLOBAL_CSS

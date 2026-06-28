@@ -1517,7 +1517,7 @@ def _coerce_int(value: object, fallback: int) -> int:
 def news_symbol_handoff_label(
     symbol: str,
     *,
-    symbol_name_map: dict[str, str] | None = None,
+    symbol_name_map: Mapping[str, str] | None = None,
 ) -> str:
     """Return a symbol handoff label with known company name."""
 

@@ -537,7 +537,11 @@ body,
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
-    + div[data-testid="stButton"] button {
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-favorite-button-anchor)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
     border-color: #38BDF8 !important;
     background: linear-gradient(135deg, #075985 0%, #1D4ED8 100%) !important;
     color: #F0F9FF !important;
@@ -550,7 +554,11 @@ body,
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button:hover,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
-    + div[data-testid="stButton"] button:hover {
+    + div[data-testid="stButton"] button:hover,
+.element-container:has(.smai-favorite-button-anchor)
+    + .element-container div[data-testid="stButton"] button:hover,
+div[data-testid="stElementContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button:hover {
     border-color: #7DD3FC !important;
     background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%) !important;
     color: #FFFFFF !important;
@@ -562,7 +570,13 @@ body,
 
 .smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
-    + div[data-testid="stButton"] button {
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-favorite-button-anchor[data-active="true"])
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-active="true"]
+    )
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
     border-color: #FDE047 !important;
     background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
     color: #422006 !important;
@@ -576,7 +590,13 @@ body,
 
 .smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button:hover,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
-    + div[data-testid="stButton"] button:hover {
+    + div[data-testid="stButton"] button:hover,
+.element-container:has(.smai-favorite-button-anchor[data-active="true"])
+    + .element-container div[data-testid="stButton"] button:hover,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-active="true"]
+    )
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button:hover {
     border-color: #FEF08A !important;
     color: #422006 !important;
     background: linear-gradient(135deg, #FBBF24 0%, #FDE047 100%) !important;
@@ -588,7 +608,13 @@ body,
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button:focus-visible,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
-    + div[data-testid="stButton"] button:focus-visible {
+    + div[data-testid="stButton"] button:focus-visible,
+.element-container:has(.smai-favorite-button-anchor)
+    + .element-container div[data-testid="stButton"] button:focus-visible,
+div[data-testid="stElementContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stElementContainer"]
+    div[data-testid="stButton"]
+    button:focus-visible {
     outline: 3px solid rgba(125, 211, 252, 0.72) !important;
     outline-offset: 2px;
 }
@@ -596,13 +622,25 @@ body,
 .smai-favorite-button-anchor[data-active="true"]
     + div[data-testid="stButton"] button:focus-visible,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
-    + div[data-testid="stButton"] button:focus-visible {
+    + div[data-testid="stButton"] button:focus-visible,
+.element-container:has(.smai-favorite-button-anchor[data-active="true"])
+    + .element-container div[data-testid="stButton"] button:focus-visible,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-active="true"]
+    )
+    + div[data-testid="stElementContainer"]
+    div[data-testid="stButton"]
+    button:focus-visible {
     outline-color: rgba(253, 224, 71, 0.78) !important;
 }
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button *,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
-    + div[data-testid="stButton"] button * {
+    + div[data-testid="stButton"] button *,
+.element-container:has(.smai-favorite-button-anchor)
+    + .element-container div[data-testid="stButton"] button *,
+div[data-testid="stElementContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button * {
     color: inherit !important;
 }
 
@@ -610,7 +648,15 @@ body,
 [data-testid="stMarkdownContainer"]:has(
         .smai-favorite-button-anchor[data-variant="prominent"]
     )
-    + div[data-testid="stButton"] button {
+    + div[data-testid="stButton"] button,
+.element-container:has(
+        .smai-favorite-button-anchor[data-variant="prominent"]
+    )
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"]
+    )
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
     min-height: 3.15rem;
     padding: 0.8rem 1.35rem !important;
     border-width: 2px !important;
@@ -624,7 +670,15 @@ body,
 [data-testid="stMarkdownContainer"]:has(
         .smai-favorite-button-anchor[data-variant="prominent"][data-active="false"]
     )
-    + div[data-testid="stButton"] button {
+    + div[data-testid="stButton"] button,
+.element-container:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="false"]
+    )
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="false"]
+    )
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
     border-color: rgba(56, 189, 248, 0.95) !important;
     background:
         linear-gradient(135deg, rgba(3, 105, 161, 0.98), rgba(29, 78, 216, 0.96)) !important;
@@ -639,7 +693,15 @@ body,
 [data-testid="stMarkdownContainer"]:has(
         .smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]
     )
-    + div[data-testid="stButton"] button {
+    + div[data-testid="stButton"] button,
+.element-container:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]
+    )
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]
+    )
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
     border-color: #FDE047 !important;
     background:
         linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
@@ -651,7 +713,7 @@ body,
         0 12px 30px rgba(245, 158, 11, 0.3) !important;
 }
 
-[data-testid="stColumn"]:has(.smai-cockpit-favorite-action-anchor)
+[data-testid="column"]:has(.smai-cockpit-favorite-action-anchor)
     [data-testid="stButton"]
     button {
     min-height: 3.15rem !important;
@@ -668,7 +730,7 @@ body,
         0 10px 28px rgba(14, 165, 233, 0.34) !important;
 }
 
-[data-testid="stColumn"]:has(
+[data-testid="column"]:has(
         .smai-cockpit-favorite-action-anchor
     ):has(
         .smai-favorite-button-anchor[data-active="true"]
@@ -684,41 +746,6 @@ body,
         inset 0 1px 0 rgba(255, 255, 255, 0.42),
         0 0 18px rgba(250, 204, 21, 0.42),
         0 12px 30px rgba(245, 158, 11, 0.34) !important;
-}
-
-/* Streamlit wraps consecutive elements, so target the keyed widget itself.
-   The on/off state is encoded into the prominent button key. */
-[class*="st-key-smai_prominent_favorite_"] button {
-    min-height: 3.15rem !important;
-    padding: 0.8rem 1.35rem !important;
-    border-width: 2px !important;
-    border-radius: 999px !important;
-    font-size: 1rem !important;
-    font-weight: 900 !important;
-}
-
-[class*="st-key-smai_prominent_favorite_off_"] button {
-    border-color: #38BDF8 !important;
-    background: linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
-    color: #F0F9FF !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 10px 28px rgba(14, 165, 233, 0.34) !important;
-}
-
-[class*="st-key-smai_prominent_favorite_on_"] button {
-    border-color: #FDE047 !important;
-    background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
-    color: #422006 !important;
-    text-shadow: none !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.42),
-        0 0 18px rgba(250, 204, 21, 0.42),
-        0 12px 30px rgba(245, 158, 11, 0.34) !important;
-}
-
-[class*="st-key-smai_prominent_favorite_"] button * {
-    color: inherit !important;
 }
 
 .investment-news-symbol-chip-open-anchor + div[data-testid="stButton"] button,

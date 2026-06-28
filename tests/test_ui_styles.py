@@ -129,8 +129,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "width: min(43rem, 72vw);" in SMAI_GLOBAL_CSS
     assert "object-position: center center;" in SMAI_GLOBAL_CSS
     assert "object-fit: contain;" in SMAI_GLOBAL_CSS
-    assert '[class*="st-key-smai_prominent_favorite_off_"] button' in SMAI_GLOBAL_CSS
-    assert '[class*="st-key-smai_prominent_favorite_on_"] button' in SMAI_GLOBAL_CSS
+    assert ".element-container:has(.smai-favorite-button-anchor)" in SMAI_GLOBAL_CSS
+    assert '[data-testid="column"]:has(.smai-cockpit-favorite-action-anchor)' in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
 
 
@@ -159,8 +159,11 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert '.smai-favorite-button-anchor[data-active="true"]' in SMAI_GLOBAL_CSS
     assert "background: linear-gradient(135deg, #075985 0%, #1D4ED8 100%)" in SMAI_GLOBAL_CSS
     assert "background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%)" in SMAI_GLOBAL_CSS
-    assert ".smai-favorite-button-anchor + div[data-testid=\"stButton\"] button:focus-visible" in SMAI_GLOBAL_CSS
-    assert "rgba(251, 191, 36, 0.82)" in SMAI_GLOBAL_CSS
+    assert (
+        '.smai-favorite-button-anchor + div[data-testid="stButton"] button:focus-visible'
+        in SMAI_GLOBAL_CSS
+    )
+    assert "border-color: #FDE047 !important;" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-card" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-radar-grid" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-filter-chip-anchor" in SMAI_GLOBAL_CSS

@@ -606,10 +606,6 @@ def render_favorite_button(
         return False
     active = is_favorite(normalized)
     label = "★ お気に入り中" if active else "☆ お気に入りに追加"
-    button_key = key or f"favorite_{source_screen}_{normalized}"
-    if prominent:
-        state = "on" if active else "off"
-        button_key = f"smai_prominent_favorite_{state}_{button_key}"
     st.markdown(
         favorite_button_anchor_html(
             active=active,
@@ -620,7 +616,7 @@ def render_favorite_button(
     )
     clicked = st.button(
         label,
-        key=button_key,
+        key=key or f"favorite_{source_screen}_{normalized}",
         use_container_width=use_container_width,
         help="Myウォッチリストに追加・解除します。",
     )

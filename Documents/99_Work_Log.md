@@ -3759,3 +3759,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - コックピット、ランキング、投資レーダーで共用するお気に入りボタンを、未追加は青背景＋白文字、追加済みは黄背景＋濃茶文字へ統一。
 - hover時の浮き上がりと、キーボード操作時の状態別focus outlineを追加し、追加前後の判別性を改善。
 - Ruffはpass。pytestと実画面smokeは、仮想環境Pythonが削除済みWindows Store Pythonを参照して起動できないため未実施。
+
+## 2026-06-28 お気に入り配色 Streamlit 1.38互換・CI復旧・Exe再生成
+
+- Streamlit 1.38ではwidget key由来の `st-key-*` classが生成されず、Markdown markerとbuttonもelement containerで分離されるため、既存のお気に入り配色selectorが実DOMへ一致していなかった。
+- `.element-container` / `stElementContainer` の隣接marker selectorと、1.38の `data-testid="column"` を使う互換selectorへ変更。実ブラウザのcomputed styleで追加済みボタンの黄gradient、濃茶文字、黄border、高さ約50pxを確認。
+- CIのRuff 3件と、その後に露出したMypy型エラーを修正。Ruff / Black / Mypyはpass、全pytestは1854 passed / 2 skipped / 1 xfailed。
+- PyInstaller 6.20.0で `dist/SMAI/SMAI.exe` をクリーン生成。Exe smokeで `/_stcore/health` がHTTP 200 / `ok` を返すことを確認し、確認プロセスは停止済み。

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Callable, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Protocol, Sequence, runtime_checkable
 
 METADATA_PROVENANCE_FIELDS = (
     "per",
@@ -478,7 +478,7 @@ def _read_yahoo_ticker_info_with_timeout(
 ) -> dict[str, object]:
     if timeout_seconds <= 0:
         return _read_yahoo_ticker_info(symbol)
-    ctx = multiprocessing.get_context("spawn" if os.name == "nt" else "fork")
+    ctx: Any = multiprocessing.get_context("spawn" if os.name == "nt" else "fork")
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
     process = ctx.Process(target=_read_yahoo_ticker_info_worker, args=(symbol, result_queue))
     process.daemon = True

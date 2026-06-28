@@ -453,19 +453,19 @@ def draft_estimated_candidate_count(rows: Sequence[dict[str, str]], *, product_t
         # Use one baseline sector count map over the product-only universe. Values can overlap,
         # so this is an upper-bound-ish estimate; using min across categories keeps it conservative.
         base_rows = _baseline_rows(rows, product_type)
-        counts: dict[str, int] = {}
+        sector_counts: dict[str, int] = {}
         for row in base_rows:
             for value in _row_sector_values(row):
-                counts[value] = counts.get(value, 0) + 1
-        estimates.append(sum(counts.get(value, 0) for value in sectors))
+                sector_counts[value] = sector_counts.get(value, 0) + 1
+        estimates.append(sum(sector_counts.get(value, 0) for value in sectors))
     themes = filters.get("theme", [])
     if themes:
         base_rows = _baseline_rows(rows, product_type)
-        counts: dict[str, int] = {}
+        theme_counts: dict[str, int] = {}
         for row in base_rows:
             for value in _row_theme_values(row):
-                counts[value] = counts.get(value, 0) + 1
-        estimates.append(sum(counts.get(value, 0) for value in themes))
+                theme_counts[value] = theme_counts.get(value, 0) + 1
+        estimates.append(sum(theme_counts.get(value, 0) for value in themes))
     if not estimates:
         return len(_baseline_rows(rows, product_type))
     return max(min(estimates), 0)

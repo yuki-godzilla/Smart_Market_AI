@@ -11,7 +11,9 @@ from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
-DEFAULT_REPORT_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_quality_normalization.json"
+DEFAULT_REPORT_PATH = (
+    PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_quality_normalization.json"
+)
 
 METRICS = (
     "per",

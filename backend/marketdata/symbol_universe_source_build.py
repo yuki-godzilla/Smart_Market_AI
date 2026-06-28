@@ -1155,7 +1155,9 @@ def build_sbi_indonesia_stock_source_rows(
     *,
     as_of: date,
 ) -> SymbolUniverseSourceBuildResult:
-    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_indonesia_stock")
+    return _build_sbi_foreign_stock_source_rows(
+        raw_rows, as_of=as_of, profile="sbi_indonesia_stock"
+    )
 
 
 def build_sbi_singapore_stock_source_rows(
@@ -1163,7 +1165,9 @@ def build_sbi_singapore_stock_source_rows(
     *,
     as_of: date,
 ) -> SymbolUniverseSourceBuildResult:
-    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_singapore_stock")
+    return _build_sbi_foreign_stock_source_rows(
+        raw_rows, as_of=as_of, profile="sbi_singapore_stock"
+    )
 
 
 def build_sbi_thailand_stock_source_rows(
@@ -1197,11 +1201,17 @@ def _build_sbi_foreign_stock_source_rows(
         name = _first_value(raw_row, _US_NAME_ALIASES)
         sector_raw = _first_value(raw_row, _SECTOR_ALIASES)
         if not local_symbol or not name:
-            skipped_rows.append(_skipped_row(index, local_symbol, "SBI-FOREIGN-MISSING-SYMBOL-OR-NAME"))
+            skipped_rows.append(
+                _skipped_row(index, local_symbol, "SBI-FOREIGN-MISSING-SYMBOL-OR-NAME")
+            )
             continue
 
         theme, sector = _theme_sector_for_us_sector(sector_raw)
-        symbol = f"{local_symbol}{defaults['yahoo_suffix']}" if defaults["yahoo_suffix"] else local_symbol
+        symbol = (
+            f"{local_symbol}{defaults['yahoo_suffix']}"
+            if defaults["yahoo_suffix"]
+            else local_symbol
+        )
         output_rows.append(
             {
                 "symbol": symbol,
@@ -1219,10 +1229,13 @@ def _build_sbi_foreign_stock_source_rows(
                 "fx_pair_to_jpy": defaults["fx_pair_to_jpy"],
                 "foreign_market_group": defaults["foreign_market_group"],
                 "country_risk_band": defaults["country_risk_band"],
-                "liquidity_tier": _first_value(raw_row, ("liquidity_tier", "流動性ランク")) or "unknown",
+                "liquidity_tier": _first_value(raw_row, ("liquidity_tier", "流動性ランク"))
+                or "unknown",
                 "sector": sector,
                 "theme": theme,
-                "aliases": _aliases_for_values(name, sector_raw, defaults["country"], defaults["exchange"]),
+                "aliases": _aliases_for_values(
+                    name, sector_raw, defaults["country"], defaults["exchange"]
+                ),
                 "data_quality": _first_value(raw_row, _DATA_QUALITY_ALIASES) or "WARN",
                 "risk_band": _first_value(raw_row, _RISK_BAND_ALIASES) or "standard",
                 "foreign_data_quality": "WARN",

@@ -70,10 +70,22 @@ SOURCE_BUILDERS = {
     "sbi_hk_stock": (build_sbi_hk_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
     "sbi_korea_stock": (build_sbi_korea_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
     "sbi_vietnam_stock": (build_sbi_vietnam_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
-    "sbi_indonesia_stock": (build_sbi_indonesia_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
-    "sbi_singapore_stock": (build_sbi_singapore_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
-    "sbi_thailand_stock": (build_sbi_thailand_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
-    "sbi_malaysia_stock": (build_sbi_malaysia_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_indonesia_stock": (
+        build_sbi_indonesia_stock_source_rows,
+        SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "sbi_singapore_stock": (
+        build_sbi_singapore_stock_source_rows,
+        SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "sbi_thailand_stock": (
+        build_sbi_thailand_stock_source_rows,
+        SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "sbi_malaysia_stock": (
+        build_sbi_malaysia_stock_source_rows,
+        SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
+    ),
 }
 
 

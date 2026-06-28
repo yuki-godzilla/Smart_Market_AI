@@ -13,7 +13,13 @@ from typing import Any, Iterable, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_URL = "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_etf.html"
-DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_sources" / "sbi_overseas_etf_official_latest.csv"
+DEFAULT_OUTPUT_CSV = (
+    PROJECT_ROOT
+    / "data"
+    / "marketdata"
+    / "symbol_universe_sources"
+    / "sbi_overseas_etf_official_latest.csv"
+)
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "marketdata" / "raw" / "sbi_overseas_etf"
 DEFAULT_REPORT = PROJECT_ROOT / "reports" / "sbi_overseas_etf_import_report.json"
 
@@ -109,6 +115,7 @@ OUTPUT_FIELDNAMES = [
     "source_url",
 ]
 
+
 @dataclass(frozen=True)
 class SectionConfig:
     market: str
@@ -118,12 +125,14 @@ class SectionConfig:
     country_risk_band: str
     default_exchange: str
 
+
 SECTION_CONFIGS: dict[str, SectionConfig] = {
     "米国ETF": SectionConfig("us", "United States", "us", "USD", "MEDIUM", "NYSEARCA"),
     "中国ETF": SectionConfig("hong_kong", "Hong Kong", "china_hk", "HKD", "MEDIUM", "HKEX"),
     "韓国ETF": SectionConfig("korea", "South Korea", "korea", "KRW", "MEDIUM", "KRX"),
     "シンガポールETF": SectionConfig("singapore", "Singapore", "asean", "SGD", "MEDIUM", "SGX"),
 }
+
 
 class _SbiHtmlTableParser(HTMLParser):
     def __init__(self) -> None:
@@ -188,19 +197,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Fetch SBI official overseas ETF list and build a symbol-universe source CSV."
     )
     parser.add_argument("--url", default=DEFAULT_URL)
-    parser.add_argument("--input-html", type=Path, help="Use a local SBI HTML file instead of downloading.")
+    parser.add_argument(
+        "--input-html", type=Path, help="Use a local SBI HTML file instead of downloading."
+    )
     parser.add_argument("--output-csv", type=Path, default=DEFAULT_OUTPUT_CSV)
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
-    parser.add_argument("--base-csv", type=Path, help="Optional current symbol_universe.csv for coverage analysis.")
+    parser.add_argument(
+        "--base-csv", type=Path, help="Optional current symbol_universe.csv for coverage analysis."
+    )
     parser.add_argument("--as-of", type=_parse_date, default=date.today())
-    parser.add_argument("--write", action="store_true", help="Write CSV/raw HTML/report. Without this, dry-run only.")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write CSV/raw HTML/report. Without this, dry-run only.",
+    )
     args = parser.parse_args(argv)
 
-    html = args.input_html.read_text(encoding="utf-8", errors="replace") if args.input_html else _download_text(args.url)
+    html = (
+        args.input_html.read_text(encoding="utf-8", errors="replace")
+        if args.input_html
+        else _download_text(args.url)
+    )
     if args.write:
         args.raw_dir.mkdir(parents=True, exist_ok=True)
-        (args.raw_dir / f"sbi_overseas_etf_{args.as_of.isoformat().replace('-', '')}.html").write_text(html, encoding="utf-8")
+        (
+            args.raw_dir / f"sbi_overseas_etf_{args.as_of.isoformat().replace('-', '')}.html"
+        ).write_text(html, encoding="utf-8")
 
     rows = parse_sbi_overseas_etf_html(html, as_of=args.as_of, source_url=args.url)
     report: dict[str, Any] = {
@@ -213,7 +236,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "by_exchange": _counts(row["exchange"] for row in rows),
         "by_asset_class": _counts(row["asset_class"] for row in rows),
         "by_index_family": _counts(row["index_family"] for row in rows if row["index_family"]),
-        "by_region_exposure": _counts(row["region_exposure"] for row in rows if row["region_exposure"]),
+        "by_region_exposure": _counts(
+            row["region_exposure"] for row in rows if row["region_exposure"]
+        ),
         "nisa_growth_status": _counts(row["nisa_growth_status"] for row in rows),
         "duplicate_symbols": sorted(_duplicates(row["symbol"] for row in rows)),
         "validation_errors": _validation_errors(rows),
@@ -225,7 +250,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.output_csv.parent.mkdir(parents=True, exist_ok=True)
         _write_csv(args.output_csv, rows)
         args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        args.report.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if not report["validation_errors"] else 2
@@ -246,14 +274,20 @@ def parse_sbi_overseas_etf_html(html: str, *, as_of: date, source_url: str) -> l
     return _dedupe_rows(rows)
 
 
-def _table_to_rows(table_rows: list[list[str]], *, section: str, as_of: date, source_url: str) -> list[dict[str, str]]:
+def _table_to_rows(
+    table_rows: list[list[str]], *, section: str, as_of: date, source_url: str
+) -> list[dict[str, str]]:
     header_index = _find_header(table_rows)
     if header_index is None:
         return []
     headers = [_normalize_header(cell) for cell in table_rows[header_index]]
     rows: list[dict[str, str]] = []
-    for values in table_rows[header_index + 1:]:
-        raw = {headers[index]: values[index] if index < len(values) else "" for index in range(len(headers)) if headers[index]}
+    for values in table_rows[header_index + 1 :]:
+        raw = {
+            headers[index]: values[index] if index < len(values) else ""
+            for index in range(len(headers))
+            if headers[index]
+        }
         normalized = _normalize_source_row(raw, section=section, as_of=as_of, source_url=source_url)
         if normalized:
             rows.append(normalized)
@@ -289,7 +323,9 @@ def _normalize_header(value: str) -> str:
     return text
 
 
-def _normalize_source_row(raw: dict[str, str], *, section: str, as_of: date, source_url: str) -> dict[str, str] | None:
+def _normalize_source_row(
+    raw: dict[str, str], *, section: str, as_of: date, source_url: str
+) -> dict[str, str] | None:
     local_symbol = _normalize_local_symbol(raw.get("code", ""))
     name = _clean_text(raw.get("name", ""))
     if not local_symbol or not name:
@@ -301,15 +337,34 @@ def _normalize_source_row(raw: dict[str, str], *, section: str, as_of: date, sou
     yahoo_symbol, yahoo_note = _best_effort_yahoo_symbol(section, local_symbol, exchange)
     description = _clean_text(raw.get("description", ""))
     expense_ratio_pct = _normalize_percent(raw.get("expense_ratio_pct", ""))
-    nisa_growth_status, nisa_growth_verified, nisa_growth_eligible = _nisa_growth_fields(raw.get("nisa_growth", ""))
+    nisa_growth_status, nisa_growth_verified, nisa_growth_eligible = _nisa_growth_fields(
+        raw.get("nisa_growth", "")
+    )
     asset_class = _asset_class(name, description)
     region_exposure = _region_exposure(section, name, description)
     index_family = _index_family(section, name, description, asset_class, region_exposure)
     is_leveraged = _bool_text(_is_leveraged(name, description))
     is_inverse = _bool_text(_is_inverse(name, description))
-    sector, theme, tags = _classification(asset_class, index_family, region_exposure, name, description, is_leveraged == "true", is_inverse == "true")
-    complexity = _complexity(asset_class, is_leveraged == "true", is_inverse == "true", name, description)
-    risk_band = _risk_band(asset_class, config.country_risk_band, is_leveraged == "true", is_inverse == "true", name, description)
+    sector, theme, tags = _classification(
+        asset_class,
+        index_family,
+        region_exposure,
+        name,
+        description,
+        is_leveraged == "true",
+        is_inverse == "true",
+    )
+    complexity = _complexity(
+        asset_class, is_leveraged == "true", is_inverse == "true", name, description
+    )
+    risk_band = _risk_band(
+        asset_class,
+        config.country_risk_band,
+        is_leveraged == "true",
+        is_inverse == "true",
+        name,
+        description,
+    )
     reasons = ["sbi_official_overseas_etf_list_imported"]
     if yahoo_note:
         reasons.append(yahoo_note)
@@ -323,7 +378,11 @@ def _normalize_source_row(raw: dict[str, str], *, section: str, as_of: date, sou
         reasons.append("single_stock_etf")
     data_quality = "WARN" if reasons != ["sbi_official_overseas_etf_list_imported"] else "OK"
     now = datetime.now().astimezone().isoformat()
-    nisa_category = "growth" if nisa_growth_eligible == "true" else ("none" if nisa_growth_eligible == "false" else "unknown")
+    nisa_category = (
+        "growth"
+        if nisa_growth_eligible == "true"
+        else ("none" if nisa_growth_eligible == "false" else "unknown")
+    )
     return {
         "symbol": symbol,
         "name": name,
@@ -340,7 +399,9 @@ def _normalize_source_row(raw: dict[str, str], *, section: str, as_of: date, sou
         "is_inverse": is_inverse,
         "theme": theme,
         "sector": sector,
-        "aliases": _aliases(local_symbol, name, description, raw.get("management_company", ""), source_market),
+        "aliases": _aliases(
+            local_symbol, name, description, raw.get("management_company", ""), source_market
+        ),
         "dividend_category": _dividend_category(name, description),
         "market_cap_tier": "",
         "index_family": index_family,
@@ -441,9 +502,7 @@ def _internal_symbol(section: str, local_symbol: str, exchange: str) -> str:
 
 def _best_effort_yahoo_symbol(section: str, local_symbol: str, exchange: str) -> tuple[str, str]:
     normalized_local_symbol = local_symbol.strip().upper()
-    override = SBI_OVERSEAS_ETF_YAHOO_SYMBOL_OVERRIDES.get(section, {}).get(
-        normalized_local_symbol
-    )
+    override = SBI_OVERSEAS_ETF_YAHOO_SYMBOL_OVERRIDES.get(section, {}).get(normalized_local_symbol)
     if override:
         return override, ""
     if section == "米国ETF":
@@ -459,11 +518,28 @@ def _best_effort_yahoo_symbol(section: str, local_symbol: str, exchange: str) ->
 
 def _asset_class(name: str, description: str) -> str:
     text = f"{name} {description}".lower()
-    if any(k in text for k in ["債券", "国債", "社債", "bond", "treasury", "debt", "loan", "ローン"]):
+    if any(
+        k in text for k in ["債券", "国債", "社債", "bond", "treasury", "debt", "loan", "ローン"]
+    ):
         return "bond"
     if any(k in text for k in ["reit", "リート", "不動産投資信託", "不動産"]):
         return "reit"
-    if any(k in text for k in ["gold", "金 ", "ゴールド", "silver", "シルバー", "原油", "oil", "天然ガス", "gas", "commodity", "コモディティ"]):
+    if any(
+        k in text
+        for k in [
+            "gold",
+            "金 ",
+            "ゴールド",
+            "silver",
+            "シルバー",
+            "原油",
+            "oil",
+            "天然ガス",
+            "gas",
+            "commodity",
+            "コモディティ",
+        ]
+    ):
         return "commodity"
     if any(k in text for k in ["通貨", "currency", "ドル", "円", "為替"]):
         return "currency"
@@ -482,7 +558,10 @@ def _region_exposure(section: str, name: str, description: str) -> str:
         if "asia" in text or "アジア" in text:
             return "asia_pacific"
         return "singapore"
-    if any(k in text for k in ["s&p 500", "sp 500", "s&p500", "nasdaq", "米国", "us ", "usa", "u.s.", "nyse"]):
+    if any(
+        k in text
+        for k in ["s&p 500", "sp 500", "s&p500", "nasdaq", "米国", "us ", "usa", "u.s.", "nyse"]
+    ):
         return "us"
     if any(k in text for k in ["global", "world", "グローバル", "世界", "acwi"]):
         return "global"
@@ -505,7 +584,9 @@ def _region_exposure(section: str, name: str, description: str) -> str:
     return "global"
 
 
-def _index_family(section: str, name: str, description: str, asset_class: str, region_exposure: str) -> str:
+def _index_family(
+    section: str, name: str, description: str, asset_class: str, region_exposure: str
+) -> str:
     text = f"{name} {description}".lower()
     if _is_single_stock(text):
         return "single_stock"
@@ -531,38 +612,73 @@ def _index_family(section: str, name: str, description: str, asset_class: str, r
         return "japan_equity"
     if region_exposure == "singapore":
         return "singapore_equity"
-    if any(k in text for k in ["sector", "セクター", "ヘルスケア", "テクノロジー", "金融", "エネルギー", "公益", "不動産", "生活必需品", "一般消費財"]):
+    if any(
+        k in text
+        for k in [
+            "sector",
+            "セクター",
+            "ヘルスケア",
+            "テクノロジー",
+            "金融",
+            "エネルギー",
+            "公益",
+            "不動産",
+            "生活必需品",
+            "一般消費財",
+        ]
+    ):
         return "sector"
     return "active" if "アクティブ" in text or "active" in text else ""
 
 
-def _classification(asset_class: str, index_family: str, region_exposure: str, name: str, description: str, leveraged: bool, inverse: bool) -> tuple[str, str, str]:
+def _classification(
+    asset_class: str,
+    index_family: str,
+    region_exposure: str,
+    name: str,
+    description: str,
+    leveraged: bool,
+    inverse: bool,
+) -> tuple[str, str, str]:
     text = f"{name} {description}".lower()
     tags = ["index"]
     sector = "index"
     theme = "index"
     if asset_class == "bond":
-        tags.append("bond"); theme = "bond"
+        tags.append("bond")
+        theme = "bond"
     elif asset_class == "reit":
-        tags.extend(["reit", "real_estate"]); theme = "reit"
+        tags.extend(["reit", "real_estate"])
+        theme = "reit"
     elif asset_class == "commodity":
-        tags.append("commodity"); theme = "commodity"
+        tags.append("commodity")
+        theme = "commodity"
     elif asset_class == "currency":
-        tags.append("commodity"); theme = "currency"
+        tags.append("commodity")
+        theme = "currency"
     elif any(k in text for k in ["dividend", "配当", "高配当", "インカム", "income"]):
         # `theme` is a core enum used by Ranking filters; dividend/high-dividend
         # are represented as tags/dividend_category instead of a theme value.
-        tags.extend(["dividend", "high_dividend"]); theme = "balanced"
-    elif any(k in text for k in ["technology", "テクノロジー", "ai", "ビッグデータ", "半導体", "semiconductor"]):
-        tags.append("technology"); theme = "technology"
+        tags.extend(["dividend", "high_dividend"])
+        theme = "balanced"
+    elif any(
+        k in text
+        for k in ["technology", "テクノロジー", "ai", "ビッグデータ", "半導体", "semiconductor"]
+    ):
+        tags.append("technology")
+        theme = "technology"
     elif any(k in text for k in ["health", "ヘルスケア", "バイオ", "biotech"]):
-        tags.append("healthcare"); theme = "healthcare"
+        tags.append("healthcare")
+        theme = "healthcare"
     elif any(k in text for k in ["energy", "エネルギー", "原油", "oil", "gas"]):
-        tags.append("energy"); theme = "energy"
+        tags.append("energy")
+        theme = "energy"
     elif any(k in text for k in ["financial", "金融", "bank"]):
-        tags.append("financial"); theme = "financial"
+        tags.append("financial")
+        theme = "financial"
     elif any(k in text for k in ["consumer", "消費", "生活必需品"]):
-        tags.append("consumer"); theme = "consumer"
+        tags.append("consumer")
+        theme = "consumer"
     if leveraged or inverse:
         tags.append("trading")
     if _expense_low(text):
@@ -570,9 +686,17 @@ def _classification(asset_class: str, index_family: str, region_exposure: str, n
     return sector, theme, ",".join(tags)
 
 
-def _complexity(asset_class: str, leveraged: bool, inverse: bool, name: str, description: str) -> str:
+def _complexity(
+    asset_class: str, leveraged: bool, inverse: bool, name: str, description: str
+) -> str:
     text = f"{name} {description}".lower()
-    if leveraged or inverse or _is_single_stock(text) or "カバード" in text or "covered call" in text:
+    if (
+        leveraged
+        or inverse
+        or _is_single_stock(text)
+        or "カバード" in text
+        or "covered call" in text
+    ):
         return "advanced"
     if asset_class in {"bond", "reit", "commodity", "currency"}:
         return "standard"
@@ -581,12 +705,26 @@ def _complexity(asset_class: str, leveraged: bool, inverse: bool, name: str, des
     return "standard"
 
 
-def _risk_band(asset_class: str, country_risk_band: str, leveraged: bool, inverse: bool, name: str, description: str) -> str:
+def _risk_band(
+    asset_class: str,
+    country_risk_band: str,
+    leveraged: bool,
+    inverse: bool,
+    name: str,
+    description: str,
+) -> str:
     text = f"{name} {description}".lower()
     if leveraged or inverse or _is_single_stock(text):
         return "HIGH"
     if asset_class == "bond":
-        return "MEDIUM" if any(k in text for k in ["high yield", "ハイイールド", "新興国", "emerging", "レバレッジド"] ) else "LOW"
+        return (
+            "MEDIUM"
+            if any(
+                k in text
+                for k in ["high yield", "ハイイールド", "新興国", "emerging", "レバレッジド"]
+            )
+            else "LOW"
+        )
     if asset_class in {"commodity", "currency"}:
         return "MEDIUM"
     if country_risk_band == "HIGH":
@@ -596,16 +734,26 @@ def _risk_band(asset_class: str, country_risk_band: str, leveraged: bool, invers
 
 def _is_leveraged(name: str, description: str) -> bool:
     text = f"{name} {description}".lower()
-    return bool(re.search(r"\b[23]倍\b|ブル\s*[23]|[23]x|200%|300%|レバレッジ|leveraged|bull", text))
+    return bool(
+        re.search(r"\b[23]倍\b|ブル\s*[23]|[23]x|200%|300%|レバレッジ|leveraged|bull", text)
+    )
 
 
 def _is_inverse(name: str, description: str) -> bool:
     text = f"{name} {description}".lower()
-    return any(k in text for k in ["ベア", "インバース", "inverse", "bear", "マイナス", "opposite", "逆数"])
+    return any(
+        k in text for k in ["ベア", "インバース", "inverse", "bear", "マイナス", "opposite", "逆数"]
+    )
 
 
 def _is_single_stock(text: str) -> bool:
-    return bool(re.search(r"\b[a-z]{1,5}\)の日々のパフォーマンス|普通株式の日々のパフォーマンス|single stock", text, flags=re.IGNORECASE))
+    return bool(
+        re.search(
+            r"\b[a-z]{1,5}\)の日々のパフォーマンス|普通株式の日々のパフォーマンス|single stock",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _expense_low(text: str) -> bool:
@@ -661,10 +809,34 @@ def _aliases(*values: str) -> str:
 
 def _normalize_tags(value: str) -> str:
     allowed = {
-        "automotive", "balanced", "bank", "bond", "commodity", "communication", "consumer", "dividend",
-        "energy", "financial", "growth", "healthcare", "high_dividend", "industrial", "index", "installment",
-        "insurance", "lower_risk", "low_cost", "materials", "quality", "real_estate", "reit", "semiconductor",
-        "technology", "trading", "utilities", "value",
+        "automotive",
+        "balanced",
+        "bank",
+        "bond",
+        "commodity",
+        "communication",
+        "consumer",
+        "dividend",
+        "energy",
+        "financial",
+        "growth",
+        "healthcare",
+        "high_dividend",
+        "industrial",
+        "index",
+        "installment",
+        "insurance",
+        "lower_risk",
+        "low_cost",
+        "materials",
+        "quality",
+        "real_estate",
+        "reit",
+        "semiconductor",
+        "technology",
+        "trading",
+        "utilities",
+        "value",
     }
     tags: list[str] = []
     for raw in re.split(r"[,;]", value or ""):
@@ -749,10 +921,24 @@ def _validation_errors(rows: Sequence[dict[str, str]]) -> list[str]:
             errors.append(f"row {index}: invalid risk_band={row.get('risk_band')}")
         if row.get("complexity") not in {"beginner", "standard", "advanced", "thematic"}:
             errors.append(f"row {index}: invalid complexity={row.get('complexity')}")
-        if row.get("nisa_growth_status") not in {"confirmed", "estimated", "unknown", "not_supported"}:
-            errors.append(f"row {index}: invalid nisa_growth_status={row.get('nisa_growth_status')}")
-        if row.get("nisa_tsumitate_status") not in {"confirmed", "estimated", "unknown", "not_supported"}:
-            errors.append(f"row {index}: invalid nisa_tsumitate_status={row.get('nisa_tsumitate_status')}")
+        if row.get("nisa_growth_status") not in {
+            "confirmed",
+            "estimated",
+            "unknown",
+            "not_supported",
+        }:
+            errors.append(
+                f"row {index}: invalid nisa_growth_status={row.get('nisa_growth_status')}"
+            )
+        if row.get("nisa_tsumitate_status") not in {
+            "confirmed",
+            "estimated",
+            "unknown",
+            "not_supported",
+        }:
+            errors.append(
+                f"row {index}: invalid nisa_tsumitate_status={row.get('nisa_tsumitate_status')}"
+            )
     return errors[:200]
 
 
@@ -761,7 +947,11 @@ def _coverage_report(base_csv: Path, source_rows: Sequence[dict[str, str]]) -> d
     with base_csv.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         existing_rows = list(reader)
-    existing_by_symbol = {row.get("symbol", "").strip().upper(): row for row in existing_rows if row.get("symbol", "").strip()}
+    existing_by_symbol = {
+        row.get("symbol", "").strip().upper(): row
+        for row in existing_rows
+        if row.get("symbol", "").strip()
+    }
     source_symbols = [row["symbol"].strip().upper() for row in source_rows]
     existing = [symbol for symbol in source_symbols if symbol in existing_by_symbol]
     missing = [symbol for symbol in source_symbols if symbol not in existing_by_symbol]

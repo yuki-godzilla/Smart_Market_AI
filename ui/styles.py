@@ -592,6 +592,86 @@ body,
     color: inherit !important;
 }
 
+.smai-favorite-button-anchor[data-variant="prominent"] + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"]
+    )
+    + div[data-testid="stButton"] button {
+    min-height: 3.15rem;
+    padding: 0.8rem 1.35rem !important;
+    border-width: 2px !important;
+    border-radius: 999px !important;
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+}
+
+.smai-favorite-button-anchor[data-variant="prominent"][data-active="false"]
+    + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="false"]
+    )
+    + div[data-testid="stButton"] button {
+    border-color: rgba(56, 189, 248, 0.95) !important;
+    background:
+        linear-gradient(135deg, rgba(3, 105, 161, 0.98), rgba(29, 78, 216, 0.96)) !important;
+    color: #F0F9FF !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 10px 28px rgba(14, 165, 233, 0.3) !important;
+}
+
+.smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]
+    + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(
+        .smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]
+    )
+    + div[data-testid="stButton"] button {
+    border-color: #FDE047 !important;
+    background:
+        linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
+    color: #422006 !important;
+    text-shadow: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        0 0 18px rgba(250, 204, 21, 0.38),
+        0 12px 30px rgba(245, 158, 11, 0.3) !important;
+}
+
+[data-testid="stColumn"]:has(.smai-cockpit-favorite-action-anchor)
+    [data-testid="stButton"]
+    button {
+    min-height: 3.15rem !important;
+    padding: 0.8rem 1.35rem !important;
+    border: 2px solid rgba(56, 189, 248, 0.95) !important;
+    border-radius: 999px !important;
+    background:
+        linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
+    color: #F0F9FF !important;
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 10px 28px rgba(14, 165, 233, 0.34) !important;
+}
+
+[data-testid="stColumn"]:has(
+        .smai-cockpit-favorite-action-anchor
+    ):has(
+        .smai-favorite-button-anchor[data-active="true"]
+    )
+    [data-testid="stButton"]
+    button {
+    border-color: #FDE047 !important;
+    background:
+        linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
+    color: #422006 !important;
+    text-shadow: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        0 0 18px rgba(250, 204, 21, 0.42),
+        0 12px 30px rgba(245, 158, 11, 0.34) !important;
+}
+
 .investment-news-symbol-chip-open-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.investment-news-symbol-chip-open-anchor)
     + div[data-testid="stButton"] button {
@@ -5656,6 +5736,26 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
 
 .smai-watchlist-remove-anchor {
     height: 0;
+}
+
+.smai-watchlist-detail-anchor,
+.smai-watchlist-cockpit-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-detail-anchor)
+    + div[data-testid="stButton"] button {
+    border-color: rgba(34, 211, 238, 0.66) !important;
+    background: rgba(8, 145, 178, 0.24) !important;
+    color: #ECFEFF !important;
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.1) !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-cockpit-anchor)
+    + div[data-testid="stButton"] button {
+    border-color: rgba(96, 165, 250, 0.58) !important;
+    background: rgba(30, 64, 175, 0.18) !important;
+    color: #E0ECFF !important;
 }
 
 [data-testid="stMarkdownContainer"]:has(.smai-watchlist-remove-anchor)

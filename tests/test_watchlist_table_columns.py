@@ -2,12 +2,14 @@ import inspect
 
 from ui.app import (
     _favorite_table_rows,
+    _render_cockpit_symbol_filter_panel,
     _render_my_watchlist_page,
     favorite_prioritized_symbol_candidate_labels,
     favorite_symbol_candidate_display_label,
     ranking_favorite_event_token_from_aggrid_response,
 )
 from ui.styles import SMAI_GLOBAL_CSS
+from ui.views.cockpit import render_cockpit_summary_header
 
 
 def test_favorite_table_rows_keep_daily_columns_and_hide_internal_fields():
@@ -74,14 +76,8 @@ def test_ranking_favorite_event_token_distinguishes_repeat_clicks():
 
     first_token = ranking_favorite_event_token_from_aggrid_response(first_click, "7203.T")
     assert first_token == "cellClicked|favorite|7203.T|2|1001"
-    assert (
-        ranking_favorite_event_token_from_aggrid_response(first_click, "7203.T")
-        == first_token
-    )
-    assert (
-        ranking_favorite_event_token_from_aggrid_response(second_click, "7203.T")
-        != first_token
-    )
+    assert ranking_favorite_event_token_from_aggrid_response(first_click, "7203.T") == first_token
+    assert ranking_favorite_event_token_from_aggrid_response(second_click, "7203.T") != first_token
     assert ranking_favorite_event_token_from_aggrid_response(first_click, None) is None
 
 
@@ -98,6 +94,27 @@ def test_favorite_active_state_and_watchlist_refresh_have_emphasis_styles():
     assert "color: #FBBF24 !important;" in SMAI_GLOBAL_CSS
     assert "color: #FCD34D !important;" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-header-refresh-anchor" in SMAI_GLOBAL_CSS
+    assert 'data-variant="prominent"' in SMAI_GLOBAL_CSS
+    assert ".smai-cockpit-favorite-action-anchor" in SMAI_GLOBAL_CSS
+    assert (
+        '.smai-favorite-button-anchor[data-variant="prominent"][data-active="true"]'
+        in SMAI_GLOBAL_CSS
+    )
+    assert "linear-gradient(135deg, #F59E0B 0%, #FACC15 100%)" in SMAI_GLOBAL_CSS
+
+
+def test_cockpit_filter_expander_stays_closed_after_reruns():
+    source = inspect.getsource(_render_cockpit_symbol_filter_panel)
+
+    assert "expanded=False" in source
+    assert "expanded=filter_active" not in source
+
+
+def test_cockpit_summary_header_uses_streamlit_compatible_action_marker():
+    source = inspect.getsource(render_cockpit_summary_header)
+
+    assert "smai-cockpit-favorite-action-anchor" in source
+    assert "st.container(key=" not in source
 
 
 def test_cockpit_symbol_candidates_prioritize_and_mark_favorites():
@@ -116,7 +133,6 @@ def test_cockpit_symbol_candidates_prioritize_and_mark_favorites():
         "7203.T - Toyota Motor",
     ]
     assert (
-        favorite_symbol_candidate_display_label(labels[0], favorites)
-        == "★ 9983.T - Fast Retailing"
+        favorite_symbol_candidate_display_label(labels[0], favorites) == "★ 9983.T - Fast Retailing"
     )
     assert favorite_symbol_candidate_display_label(labels[-1], favorites) == labels[-1]

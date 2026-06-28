@@ -164,6 +164,8 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert ".smai-watchlist-movement" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-data-needed" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-remove-anchor" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-detail-anchor" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-cockpit-anchor" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-metric-grid" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-decision-title" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-decision-empty" in SMAI_GLOBAL_CSS

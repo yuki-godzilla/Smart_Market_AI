@@ -136,7 +136,14 @@ def test_yahoo_provider_prefers_explicit_yahoo_symbol_without_network():
     provider = YahooSymbolMetadataProvider(ticker_info_reader=_reader)
 
     updates = provider.fetch_metadata(
-        [{"symbol": "00001.HK", "yahoo_symbol": "0001.HK", "asset_type": "stock", "currency": "HKD"}],
+        [
+            {
+                "symbol": "00001.HK",
+                "yahoo_symbol": "0001.HK",
+                "asset_type": "stock",
+                "currency": "HKD",
+            }
+        ],
         as_of=date(2026, 5, 18),
         updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
     )

@@ -30,7 +30,17 @@ class BatchPlan:
 PRESETS = {
     "all-core": BatchPlan(
         name="all-core",
-        markets=("jp", "us", "hong_kong", "korea", "singapore", "thailand", "malaysia", "indonesia", "vietnam"),
+        markets=(
+            "jp",
+            "us",
+            "hong_kong",
+            "korea",
+            "singapore",
+            "thailand",
+            "malaysia",
+            "indonesia",
+            "vietnam",
+        ),
         asset_type="",
         missing_any=DEFAULT_METRICS,
         chunk_size=200,
@@ -73,7 +83,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--allow-live", action="store_true")
     parser.add_argument("--write", action="store_true")
     parser.add_argument("--fill-missing-only", action="store_true", default=True)
-    parser.add_argument("--dry-run-refresh", action="store_true", help="Do not pass --write to refresh tool.")
+    parser.add_argument(
+        "--dry-run-refresh", action="store_true", help="Do not pass --write to refresh tool."
+    )
     args = parser.parse_args(argv)
 
     plan = _resolve_plan(args)
@@ -244,7 +256,9 @@ def _resolve_plan(args: argparse.Namespace) -> BatchPlan:
     asset_type = base.asset_type if args.asset_type is None else args.asset_type
     missing_any = args.missing_any or base.missing_any
     chunk_size = args.chunk_size or base.chunk_size
-    timeout = base.timeout_seconds if args.symbol_timeout_seconds < 0 else args.symbol_timeout_seconds
+    timeout = (
+        base.timeout_seconds if args.symbol_timeout_seconds < 0 else args.symbol_timeout_seconds
+    )
     return BatchPlan(
         name=base.name,
         markets=markets,

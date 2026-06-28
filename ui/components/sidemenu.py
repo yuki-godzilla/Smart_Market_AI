@@ -6,7 +6,9 @@ import streamlit as st
 
 from ui.components.mascot import render_mascot_panel
 
-SideMenuPage = Literal["cockpit", "ranking", "news", "watchlist", "copilot", "rebalance", "settings"]
+SideMenuPage = Literal[
+    "cockpit", "ranking", "news", "watchlist", "copilot", "rebalance", "settings"
+]
 
 SIDEMENU_PAGE_COCKPIT: SideMenuPage = "cockpit"
 SIDEMENU_PAGE_RANKING: SideMenuPage = "ranking"

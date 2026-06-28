@@ -280,9 +280,17 @@ def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monk
     assert app.selectbox(key="market_data_watchlist_sort").value == "追加日が新しい順"
     assert "最大更新件数" not in {item.label for item in app.number_input}
     assert {item.label for item in app.button} >= {
-        "ウォッチリストを更新",
-        "投資レーダーで関連ニュースを見る",
+        "↻ ウォッチリストを更新",
+        "銘柄を詳しく見る",
+        "Cockpit画面で確認",
     }
+    assert "投資レーダーで関連ニュースを見る" not in {item.label for item in app.button}
+    assert "AI調査" not in {item.label for item in app.button}
+    assert "レポート" not in {item.label for item in app.button}
+
+    app.button(key="watchlist_detail_5932.T").click().run()
+    assert not app.exception
+    assert "AI Research" in {item.label for item in app.tabs}
 
     app.radio(key="market_data_watchlist_filter").set_value("更新推奨").run()
     assert not app.exception

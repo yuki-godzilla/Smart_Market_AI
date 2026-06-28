@@ -305,6 +305,17 @@ def test_favorite_button_anchor_html_escapes_symbol():
     assert "NVDA&quot;&gt;&lt;script&gt;" in markup
 
 
+def test_favorite_button_anchor_html_supports_prominent_variant():
+    markup = favorites.favorite_button_anchor_html(
+        active=True,
+        symbol="7203.T",
+        prominent=True,
+    )
+
+    assert 'data-active="true"' in markup
+    assert 'data-variant="prominent"' in markup
+
+
 def test_sidemenu_exposes_my_watchlist_page():
     assert sidemenu.SIDEMENU_PAGE_LABELS[sidemenu.SIDEMENU_PAGE_WATCHLIST] == "Myウォッチリスト"
 

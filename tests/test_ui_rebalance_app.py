@@ -289,11 +289,11 @@ def test_symbol_display_helpers_explain_current_mvp_symbols():
     assert symbol_display_name("MSFT") == "MSFT (Microsoft)"
     rows = symbol_reference_rows()
     assert len(rows) >= 80
-    assert {"symbol": "7203.T", "name": "Toyota Motor", "yahoo_symbol": ""} in rows
-    assert {"symbol": "9983.T", "name": "Fast Retailing", "yahoo_symbol": ""} in rows
-    assert {"symbol": "AAPL", "name": "Apple Inc.", "yahoo_symbol": ""} in rows
-    assert {"symbol": "MSFT", "name": "Microsoft", "yahoo_symbol": ""} in rows
-    assert {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "yahoo_symbol": ""} in rows
+    assert {"symbol": "7203.T", "name": "Toyota Motor", "yahoo_symbol": "7203.T"} in rows
+    assert {"symbol": "9983.T", "name": "Fast Retailing", "yahoo_symbol": "9983.T"} in rows
+    assert {"symbol": "AAPL", "name": "Apple Inc.", "yahoo_symbol": "AAPL"} in rows
+    assert {"symbol": "MSFT", "name": "Microsoft", "yahoo_symbol": "MSFT"} in rows
+    assert {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "yahoo_symbol": "SPY"} in rows
 
 
 def test_yfinance_search_symbol_rows_returns_empty_for_blank_query():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
@@ -673,7 +674,11 @@ def _research_confidence_label(report: CompanyResearchReport) -> str:
     return "低め"
 
 
-def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
+def render_cockpit_summary_header(
+    items: list[dict[str, str]],
+    *,
+    header_action: Callable[[], None] | None = None,
+) -> None:
     item_by_label = {item["label"]: item for item in items}
     symbol = _item_value(item_by_label, "銘柄コード")
     name = _item_value(item_by_label, "銘柄名")
@@ -688,6 +693,14 @@ def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
             ("総合評価", _item_value(item_by_label, "総合評価")),
         ],
     )
+    if header_action is not None:
+        _action_spacer, action_col = st.columns([3.4, 1.6])
+        with action_col:
+            st.markdown(
+                '<span class="smai-cockpit-favorite-action-anchor"></span>',
+                unsafe_allow_html=True,
+            )
+            header_action()
     render_section_heading("01 サマリー / 銘柄コックピット")
     st.caption(
         "この画面は、選択銘柄の価格・予測・スコア・根拠資料を整理する分析ビューです。表示内容は売買推奨ではありません。"

@@ -191,9 +191,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
         if args.strict_validation:
-            print("Refusing to write because --strict-validation is set and validation_after has errors.", file=sys.stderr)
+            print(
+                "Refusing to write because --strict-validation is set and validation_after has errors.",
+                file=sys.stderr,
+            )
         else:
-            print("Refusing to write because validation_after introduced additional errors.", file=sys.stderr)
+            print(
+                "Refusing to write because validation_after introduced additional errors.",
+                file=sys.stderr,
+            )
         return 2
     if args.write and validation_after_summary["errors"]:
         print(
@@ -354,7 +360,9 @@ def _configure_live_provider_runtime(
             message["rate_symbols_per_second"] = round(rate, 4)
             if remaining is not None:
                 message["eta_seconds"] = round(remaining, 1)
-            print(json.dumps(message, ensure_ascii=False, sort_keys=True), file=sys.stderr, flush=True)
+            print(
+                json.dumps(message, ensure_ascii=False, sort_keys=True), file=sys.stderr, flush=True
+            )
 
         setattr(provider, "progress_callback", _progress)
 

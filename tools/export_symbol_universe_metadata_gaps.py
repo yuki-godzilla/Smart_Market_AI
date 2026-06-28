@@ -10,8 +10,12 @@ from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "marketdata" / "manual_metadata_patches" / "metadata_gap_candidates.csv"
-DEFAULT_REPORT_PATH = PROJECT_ROOT / "data" / "marketdata" / "manual_metadata_patches" / "metadata_gap_report.json"
+DEFAULT_OUTPUT_PATH = (
+    PROJECT_ROOT / "data" / "marketdata" / "manual_metadata_patches" / "metadata_gap_candidates.csv"
+)
+DEFAULT_REPORT_PATH = (
+    PROJECT_ROOT / "data" / "marketdata" / "manual_metadata_patches" / "metadata_gap_report.json"
+)
 CORE_METRICS = ("per", "pbr", "roe_pct", "dividend_yield_pct", "market_cap", "average_volume")
 PATCH_VALUE_COLUMNS = (
     "per",
@@ -64,11 +68,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT_PATH)
     parser.add_argument("--preset", choices=sorted(PRESETS), default="weak-asia")
-    parser.add_argument("--markets", default="", help="Comma-separated market allowlist; overrides preset.")
-    parser.add_argument("--asset-type", default=None, help="Asset type filter; overrides preset when set.")
-    parser.add_argument("--metrics", default="", help="Comma-separated target metrics; overrides preset.")
+    parser.add_argument(
+        "--markets", default="", help="Comma-separated market allowlist; overrides preset."
+    )
+    parser.add_argument(
+        "--asset-type", default=None, help="Asset type filter; overrides preset when set."
+    )
+    parser.add_argument(
+        "--metrics", default="", help="Comma-separated target metrics; overrides preset."
+    )
     parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--include-complete", action="store_true", help="Include rows even when target metrics are complete.")
+    parser.add_argument(
+        "--include-complete",
+        action="store_true",
+        help="Include rows even when target metrics are complete.",
+    )
     parser.add_argument("--sort", choices=("gap_count", "market", "symbol"), default="gap_count")
     args = parser.parse_args(argv)
 
@@ -96,10 +110,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     fieldnames = _fieldnames(metrics)
     _write_csv(args.output, candidates, fieldnames)
-    report = _report(candidates, metrics=metrics, markets=markets, asset_type=asset_type, preset=args.preset)
+    report = _report(
+        candidates, metrics=metrics, markets=markets, asset_type=asset_type, preset=args.preset
+    )
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({**report, "output": _display_path(args.output), "report": _display_path(args.report)}, ensure_ascii=False, indent=2, sort_keys=True))
+    args.report.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {**report, "output": _display_path(args.output), "report": _display_path(args.report)},
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -166,7 +191,14 @@ def _search_query(*, symbol: str, name: str, market: str, missing: Sequence[str]
     return f"{symbol} {name} {market} {metrics} financial metrics"
 
 
-def _report(candidates: Sequence[dict[str, str]], *, metrics: Sequence[str], markets: Sequence[str], asset_type: str, preset: str) -> dict[str, object]:
+def _report(
+    candidates: Sequence[dict[str, str]],
+    *,
+    metrics: Sequence[str],
+    markets: Sequence[str],
+    asset_type: str,
+    preset: str,
+) -> dict[str, object]:
     by_market: Counter[str] = Counter(row.get("market", "") or "(blank)" for row in candidates)
     by_metric: Counter[str] = Counter()
     for row in candidates:
@@ -197,8 +229,14 @@ def _fieldnames(metrics: Sequence[str]) -> list[str]:
         "gap_count",
         "recommended_source",
     ]
-    value_columns = [column for column in PATCH_VALUE_COLUMNS if column in set(metrics) or column in {"sector_gics", "industry_gics"}]
-    return base + value_columns + ["source", "source_url", "as_of", "quality", "note", "search_query"]
+    value_columns = [
+        column
+        for column in PATCH_VALUE_COLUMNS
+        if column in set(metrics) or column in {"sector_gics", "industry_gics"}
+    ]
+    return (
+        base + value_columns + ["source", "source_url", "as_of", "quality", "note", "search_query"]
+    )
 
 
 def _read_rows(path: Path) -> list[dict[str, str]]:

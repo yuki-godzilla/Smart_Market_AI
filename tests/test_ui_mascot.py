@@ -130,6 +130,7 @@ def test_page_title_html_can_include_top_right_accessory():
     assert 'class="smai-page-title-accessory"' in markup
     assert '<span class="demo-accessory">情報鮮度 最新</span>' in markup
 
+
 def test_page_title_html_supports_watchlist_and_unknown_fallback():
     watchlist_markup = page_title_html(
         "Myウォッチリスト",

@@ -51,7 +51,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     check_rows = _coverage_check_rows(selected_rows)
     if args.sample_size > 0:
-        selected_symbols = set(_even_sample([row["symbol"] for row in check_rows], args.sample_size))
+        selected_symbols = set(
+            _even_sample([row["symbol"] for row in check_rows], args.sample_size)
+        )
         check_rows = [row for row in check_rows if row["symbol"] in selected_symbols]
     if args.limit > 0:
         check_rows = check_rows[: args.limit]
@@ -116,7 +118,6 @@ def _select_rows(
     ]
 
 
-
 def _coverage_check_rows(rows: Sequence[dict[str, str]]) -> list[dict[str, str]]:
     check_rows: list[dict[str, str]] = []
     for row in rows:
@@ -132,6 +133,7 @@ def _coverage_check_rows(rows: Sequence[dict[str, str]]) -> list[dict[str, str]]
             }
         )
     return check_rows
+
 
 def _even_sample(symbols: Sequence[str], sample_size: int) -> list[str]:
     if sample_size <= 0 or sample_size >= len(symbols):
@@ -165,7 +167,9 @@ async def _check_yahoo_coverage(
     for batch_index, batch_rows in enumerate(_chunks(list(rows), batch_size), start=1):
         provider_symbols = [row["provider_symbol"] for row in batch_rows]
         try:
-            bars = await provider.fetch_ohlcv(provider_symbols, start=start_dt, end=end_dt, interval="1d")
+            bars = await provider.fetch_ohlcv(
+                provider_symbols, start=start_dt, end=end_dt, interval="1d"
+            )
         except AppError as exc:
             results.extend(
                 _failed_row(
@@ -251,7 +255,6 @@ def _failed_row(
     }
 
 
-
 def _recommended_action(status: str, row: dict[str, str]) -> str:
     if status == "ok":
         return "mark_confirmed"
@@ -259,6 +262,7 @@ def _recommended_action(status: str, row: dict[str, str]) -> str:
     if current_status in {"confirmed", "generated", "stale"}:
         return "review_or_mark_unavailable"
     return "keep_requires_review_or_mark_unavailable"
+
 
 def _manifest(
     rows: Sequence[dict[str, str]],

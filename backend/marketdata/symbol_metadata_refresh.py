@@ -256,7 +256,9 @@ class YahooSymbolMetadataProvider:
             return ticker_info_reader(symbol)
         if not use_subprocess_timeout:
             return ticker_info_reader(symbol)
-        return _read_yahoo_ticker_info_with_timeout(symbol, timeout_seconds=self.symbol_timeout_seconds)
+        return _read_yahoo_ticker_info_with_timeout(
+            symbol, timeout_seconds=self.symbol_timeout_seconds
+        )
 
     def _emit_progress(self, payload: dict[str, object]) -> None:
         if self.progress_callback is None:
@@ -399,7 +401,9 @@ def refresh_symbol_universe_metadata(
         "unknown_symbols": unknown_symbols,
         "failed_symbols": [failure.symbol for failure in failures],
         "no_update_symbols": sorted({symbol for symbol in no_update_symbols if symbol}),
-        "unchanged_update_symbols": sorted({symbol for symbol in unchanged_update_symbols if symbol}),
+        "unchanged_update_symbols": sorted(
+            {symbol for symbol in unchanged_update_symbols if symbol}
+        ),
         "failures": [
             {
                 "symbol": failure.symbol,

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from tools.backfill_symbol_universe_screening_metadata import (
     _backfill_etf_classification,
-    _backfill_official_classification,
     _backfill_metric_quality_reasons,
+    _backfill_official_classification,
     _backfill_reliability_status,
     _backfill_theme_tags,
 )

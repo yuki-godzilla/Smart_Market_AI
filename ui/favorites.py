@@ -585,11 +585,16 @@ def render_favorite_button(
     source_screen: str = "unknown",
     key: str | None = None,
     use_container_width: bool = True,
+    prominent: bool = False,
 ) -> bool:
     normalized = normalize_favorite_symbol(symbol)
     if not normalized:
         st.markdown(
-            '<span class="smai-favorite-button-anchor" data-active="false"></span>',
+            favorite_button_anchor_html(
+                active=False,
+                symbol="",
+                prominent=prominent,
+            ),
             unsafe_allow_html=True,
         )
         st.button(
@@ -602,7 +607,11 @@ def render_favorite_button(
     active = is_favorite(normalized)
     label = "★ お気に入り中" if active else "☆ お気に入りに追加"
     st.markdown(
-        favorite_button_anchor_html(active=active, symbol=normalized),
+        favorite_button_anchor_html(
+            active=active,
+            symbol=normalized,
+            prominent=prominent,
+        ),
         unsafe_allow_html=True,
     )
     clicked = st.button(
@@ -632,10 +641,16 @@ def render_favorite_button(
     return active
 
 
-def favorite_button_anchor_html(*, active: bool, symbol: str) -> str:
+def favorite_button_anchor_html(
+    *,
+    active: bool,
+    symbol: str,
+    prominent: bool = False,
+) -> str:
     return (
         '<span class="smai-favorite-button-anchor" '
         f'data-active="{str(active).lower()}" '
+        f'data-variant="{"prominent" if prominent else "default"}" '
         f'data-symbol="{html.escape(symbol)}"></span>'
     )
 

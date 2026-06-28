@@ -160,42 +160,74 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         label="取引通貨",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}),
+        allowed_values=frozenset(
+            {"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}
+        ),
     ),
     MetadataField(
         key="settlement_currency",
         label="決済通貨",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}),
+        allowed_values=frozenset(
+            {"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}
+        ),
     ),
     MetadataField(
         key="quote_currency",
         label="価格表示通貨",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}),
+        allowed_values=frozenset(
+            {"JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY", "unknown"}
+        ),
     ),
     MetadataField(
         key="fx_pair_to_jpy",
         label="円換算FXペア",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"", "USDJPY", "HKDJPY", "KRWJPY", "VNDJPY", "IDRJPY", "SGDJPY", "THBJPY", "MYRJPY", "CNYJPY"}),
+        allowed_values=frozenset(
+            {
+                "",
+                "USDJPY",
+                "HKDJPY",
+                "KRWJPY",
+                "VNDJPY",
+                "IDRJPY",
+                "SGDJPY",
+                "THBJPY",
+                "MYRJPY",
+                "CNYJPY",
+            }
+        ),
     ),
     MetadataField(
         key="foreign_market_group",
         label="外国株市場グループ",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"japan", "us", "china_hk", "korea", "asean", "other_global", "not_applicable", "unknown"}),
+        allowed_values=frozenset(
+            {
+                "japan",
+                "us",
+                "china_hk",
+                "korea",
+                "asean",
+                "other_global",
+                "not_applicable",
+                "unknown",
+            }
+        ),
     ),
     MetadataField(
         key="country_risk_band",
         label="カントリーリスク",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"LOW", "MEDIUM", "HIGH", "VERY_HIGH", "unknown", "not_applicable"}),
+        allowed_values=frozenset(
+            {"LOW", "MEDIUM", "HIGH", "VERY_HIGH", "unknown", "not_applicable"}
+        ),
     ),
     MetadataField(
         key="liquidity_tier",
@@ -430,7 +462,9 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         label="Yahoo銘柄コード確認状態",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"confirmed", "generated", "requires_review", "unavailable", "stale"}),
+        allowed_values=frozenset(
+            {"confirmed", "generated", "requires_review", "unavailable", "stale"}
+        ),
     ),
     MetadataField(
         key="yahoo_symbol_checked_at",
@@ -926,7 +960,18 @@ SYMBOL_METADATA_FIELDS += tuple(
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
         value_type="date" if suffix == "as_of" else "text",
         allowed_values=(
-            frozenset({"confirmed", "derived", "estimated", "unknown", "stale", "missing"})
+            frozenset(
+                {
+                    "confirmed",
+                    "derived",
+                    "estimated",
+                    "unknown",
+                    "stale",
+                    "missing",
+                    "suspicious",
+                    "reviewed",
+                }
+            )
             if suffix == "quality"
             else frozenset()
         ),

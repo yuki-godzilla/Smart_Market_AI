@@ -95,6 +95,16 @@ def test_ranking_tags_use_comma_separator() -> None:
 def test_reit_detection_does_not_match_concrete_or_street() -> None:
     from tools.fetch_sbi_foreign_symbol_universe_sources import _asset_type_for_section
 
-    assert _asset_type_for_section("ベトナム株式一覧", "Hoa Cam Concrete JSC", "コンクリートなどの建設資材メーカー") == "stock"
-    assert _asset_type_for_section("ベトナム株式一覧", "Wall Street Securities JSC", "証券会社") == "stock"
-    assert _asset_type_for_section("REIT銘柄一覧", "リンク リート", "REIT（不動産投資信託）") == "reit"
+    assert (
+        _asset_type_for_section(
+            "ベトナム株式一覧", "Hoa Cam Concrete JSC", "コンクリートなどの建設資材メーカー"
+        )
+        == "stock"
+    )
+    assert (
+        _asset_type_for_section("ベトナム株式一覧", "Wall Street Securities JSC", "証券会社")
+        == "stock"
+    )
+    assert (
+        _asset_type_for_section("REIT銘柄一覧", "リンク リート", "REIT（不動産投資信託）") == "reit"
+    )

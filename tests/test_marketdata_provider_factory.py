@@ -247,7 +247,6 @@ def test_yahoo_adapter_uses_ticker_history_for_single_ohlcv(monkeypatch):
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
 
 
-
 def test_yahoo_adapter_drops_trailing_empty_japan_history_row(monkeypatch):
     history_frame = pd.DataFrame(
         {
@@ -425,6 +424,7 @@ def test_yahoo_decimal_cell_rejects_empty_or_non_finite_values(value):
 
     with pytest.raises(SchemaMismatchError):
         yahoo._decimal_cell(row, "Close")
+
 
 def test_yahoo_adapter_reports_empty_single_history(monkeypatch):
     fake_yfinance = _FakeYFinance(empty=True)

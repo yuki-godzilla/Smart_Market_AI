@@ -717,9 +717,7 @@ def _is_valid_numeric_value(value: object) -> bool:
 
 def _decimal_numeric_value(value: object) -> Decimal:
     if value is None:
-        raise SchemaMismatchError(
-            "Yahoo market-data response contains an empty numeric value"
-        )
+        raise SchemaMismatchError("Yahoo market-data response contains an empty numeric value")
     text = str(value).strip()
     if text.lower() in {
         "",
@@ -735,9 +733,7 @@ def _decimal_numeric_value(value: object) -> Decimal:
         "+infinity",
         "-infinity",
     }:
-        raise SchemaMismatchError(
-            "Yahoo market-data response contains an empty numeric value"
-        )
+        raise SchemaMismatchError("Yahoo market-data response contains an empty numeric value")
     try:
         decimal_value = Decimal(text)
     except (InvalidOperation, ValueError) as exc:
@@ -745,9 +741,7 @@ def _decimal_numeric_value(value: object) -> Decimal:
             "Yahoo market-data response contains an invalid numeric value"
         ) from exc
     if not decimal_value.is_finite():
-        raise SchemaMismatchError(
-            "Yahoo market-data response contains a non-finite numeric value"
-        )
+        raise SchemaMismatchError("Yahoo market-data response contains a non-finite numeric value")
     return decimal_value
 
 

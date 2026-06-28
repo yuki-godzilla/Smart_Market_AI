@@ -85,6 +85,8 @@ def test_symbol_metadata_catalog_supports_extended_classification_and_provenance
         "unknown",
         "stale",
         "missing",
+        "suspicious",
+        "reviewed",
     }
 
 

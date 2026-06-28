@@ -13,7 +13,13 @@ from pathlib import Path
 from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_sources" / "sbi_foreign_stock_official_latest.csv"
+DEFAULT_OUTPUT_CSV = (
+    PROJECT_ROOT
+    / "data"
+    / "marketdata"
+    / "symbol_universe_sources"
+    / "sbi_foreign_stock_official_latest.csv"
+)
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "marketdata" / "raw" / "sbi_foreign"
 DEFAULT_REPORT = PROJECT_ROOT / "reports" / "sbi_foreign_stock_import_report.json"
 
@@ -27,6 +33,7 @@ SBI_FOREIGN_LIST_URLS: dict[str, str] = {
     "sbi_malaysia_stock": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_my_list.html",
 }
 
+
 @dataclass(frozen=True)
 class MarketConfig:
     market: str
@@ -38,14 +45,29 @@ class MarketConfig:
     internal_suffix: str
     url_source: str
 
+
 MARKET_CONFIGS: dict[str, MarketConfig] = {
-    "sbi_hk_stock": MarketConfig("hong_kong", "Hong Kong", "china_hk", "HKD", "HKEX", "MEDIUM", ".HK", "sbi_hk_stock"),
-    "sbi_korea_stock": MarketConfig("korea", "South Korea", "korea", "KRW", "KRX", "MEDIUM", ".KS", "sbi_korea_stock"),
-    "sbi_vietnam_stock": MarketConfig("vietnam", "Vietnam", "asean", "VND", "HOSE", "HIGH", ".VN", "sbi_vietnam_stock"),
-    "sbi_indonesia_stock": MarketConfig("indonesia", "Indonesia", "asean", "IDR", "IDX", "HIGH", ".JK", "sbi_indonesia_stock"),
-    "sbi_singapore_stock": MarketConfig("singapore", "Singapore", "asean", "SGD", "SGX", "MEDIUM", ".SI", "sbi_singapore_stock"),
-    "sbi_thailand_stock": MarketConfig("thailand", "Thailand", "asean", "THB", "SET", "HIGH", ".BK", "sbi_thailand_stock"),
-    "sbi_malaysia_stock": MarketConfig("malaysia", "Malaysia", "asean", "MYR", "BURSA", "MEDIUM", ".KL", "sbi_malaysia_stock"),
+    "sbi_hk_stock": MarketConfig(
+        "hong_kong", "Hong Kong", "china_hk", "HKD", "HKEX", "MEDIUM", ".HK", "sbi_hk_stock"
+    ),
+    "sbi_korea_stock": MarketConfig(
+        "korea", "South Korea", "korea", "KRW", "KRX", "MEDIUM", ".KS", "sbi_korea_stock"
+    ),
+    "sbi_vietnam_stock": MarketConfig(
+        "vietnam", "Vietnam", "asean", "VND", "HOSE", "HIGH", ".VN", "sbi_vietnam_stock"
+    ),
+    "sbi_indonesia_stock": MarketConfig(
+        "indonesia", "Indonesia", "asean", "IDR", "IDX", "HIGH", ".JK", "sbi_indonesia_stock"
+    ),
+    "sbi_singapore_stock": MarketConfig(
+        "singapore", "Singapore", "asean", "SGD", "SGX", "MEDIUM", ".SI", "sbi_singapore_stock"
+    ),
+    "sbi_thailand_stock": MarketConfig(
+        "thailand", "Thailand", "asean", "THB", "SET", "HIGH", ".BK", "sbi_thailand_stock"
+    ),
+    "sbi_malaysia_stock": MarketConfig(
+        "malaysia", "Malaysia", "asean", "MYR", "BURSA", "MEDIUM", ".KL", "sbi_malaysia_stock"
+    ),
 }
 
 
@@ -135,18 +157,64 @@ SBI_FOREIGN_YAHOO_SYMBOL_OVERRIDES = {
 }
 
 OUTPUT_FIELDNAMES = [
-    "symbol", "name", "market", "asset_type", "currency", "broker", "tradability",
-    "nisa_category", "investment_style", "is_sbi_supported", "is_active", "is_leveraged",
-    "is_inverse", "theme", "sector", "aliases", "dividend_category", "market_cap_tier",
-    "index_family", "expense_ratio_pct", "complexity", "tags", "data_quality", "risk_band",
-    "metadata_source", "metadata_as_of", "metadata_updated_at", "yahoo_symbol", "yahoo_symbol_status", "yahoo_symbol_checked_at", "yahoo_symbol_note", "country",
-    "exchange", "local_symbol", "primary_listing_country", "trading_currency", "settlement_currency",
-    "quote_currency", "fx_pair_to_jpy", "foreign_market_group", "country_risk_band",
-    "liquidity_tier", "foreign_data_quality", "foreign_data_quality_reasons",
-    "sbi_foreign_tradability", "sbi_foreign_tradability_as_of", "sbi_foreign_tradability_source",
-    "sbi_tradability_status", "sbi_tradability_verified", "sbi_tradability_as_of", "sbi_tradability_source",
-    "source_section", "source_market", "source_industry", "source_description", "source_url",
+    "symbol",
+    "name",
+    "market",
+    "asset_type",
+    "currency",
+    "broker",
+    "tradability",
+    "nisa_category",
+    "investment_style",
+    "is_sbi_supported",
+    "is_active",
+    "is_leveraged",
+    "is_inverse",
+    "theme",
+    "sector",
+    "aliases",
+    "dividend_category",
+    "market_cap_tier",
+    "index_family",
+    "expense_ratio_pct",
+    "complexity",
+    "tags",
+    "data_quality",
+    "risk_band",
+    "metadata_source",
+    "metadata_as_of",
+    "metadata_updated_at",
+    "yahoo_symbol",
+    "yahoo_symbol_status",
+    "yahoo_symbol_checked_at",
+    "yahoo_symbol_note",
+    "country",
+    "exchange",
+    "local_symbol",
+    "primary_listing_country",
+    "trading_currency",
+    "settlement_currency",
+    "quote_currency",
+    "fx_pair_to_jpy",
+    "foreign_market_group",
+    "country_risk_band",
+    "liquidity_tier",
+    "foreign_data_quality",
+    "foreign_data_quality_reasons",
+    "sbi_foreign_tradability",
+    "sbi_foreign_tradability_as_of",
+    "sbi_foreign_tradability_source",
+    "sbi_tradability_status",
+    "sbi_tradability_verified",
+    "sbi_tradability_as_of",
+    "sbi_tradability_source",
+    "source_section",
+    "source_market",
+    "source_industry",
+    "source_description",
+    "source_url",
 ]
+
 
 class _SbiHtmlTableParser(HTMLParser):
     def __init__(self) -> None:
@@ -213,7 +281,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--as-of", type=_parse_date, default=date.today())
-    parser.add_argument("--write", action="store_true", help="Write CSV/raw HTML/report. Without this, dry-run only.")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write CSV/raw HTML/report. Without this, dry-run only.",
+    )
     args = parser.parse_args(argv)
 
     source_kinds = args.source_kind or list(SBI_FOREIGN_LIST_URLS)
@@ -228,8 +300,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         html = _download_text(url)
         if args.write:
             args.raw_dir.mkdir(parents=True, exist_ok=True)
-            (args.raw_dir / f"{source_kind}_{args.as_of.isoformat().replace('-', '')}.html").write_text(html, encoding="utf-8")
-        rows = parse_sbi_foreign_list_html(html, source_kind=source_kind, as_of=args.as_of, source_url=url)
+            (
+                args.raw_dir / f"{source_kind}_{args.as_of.isoformat().replace('-', '')}.html"
+            ).write_text(html, encoding="utf-8")
+        rows = parse_sbi_foreign_list_html(
+            html, source_kind=source_kind, as_of=args.as_of, source_url=url
+        )
         all_rows.extend(rows)
         report["sources"][source_kind] = {
             "url": url,
@@ -247,12 +323,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.output_csv.parent.mkdir(parents=True, exist_ok=True)
         _write_csv(args.output_csv, all_rows)
         args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        args.report.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if not report["validation_errors"] else 2
 
 
-def parse_sbi_foreign_list_html(html: str, *, source_kind: str, as_of: date, source_url: str) -> list[dict[str, str]]:
+def parse_sbi_foreign_list_html(
+    html: str, *, source_kind: str, as_of: date, source_url: str
+) -> list[dict[str, str]]:
     config = MARKET_CONFIGS[source_kind]
     parser = _SbiHtmlTableParser()
     parser.feed(html)
@@ -262,19 +343,47 @@ def parse_sbi_foreign_list_html(html: str, *, source_kind: str, as_of: date, sou
         table_rows = table.get("rows") or []
         if not isinstance(table_rows, list):
             continue
-        rows.extend(_table_to_rows(table_rows, section=section, config=config, source_kind=source_kind, as_of=as_of, source_url=source_url))
+        rows.extend(
+            _table_to_rows(
+                table_rows,
+                section=section,
+                config=config,
+                source_kind=source_kind,
+                as_of=as_of,
+                source_url=source_url,
+            )
+        )
     return rows
 
 
-def _table_to_rows(table_rows: list[list[str]], *, section: str, config: MarketConfig, source_kind: str, as_of: date, source_url: str) -> list[dict[str, str]]:
+def _table_to_rows(
+    table_rows: list[list[str]],
+    *,
+    section: str,
+    config: MarketConfig,
+    source_kind: str,
+    as_of: date,
+    source_url: str,
+) -> list[dict[str, str]]:
     header_index = _find_header(table_rows)
     if header_index is None:
         return []
     headers = [_normalize_header(cell) for cell in table_rows[header_index]]
     rows: list[dict[str, str]] = []
-    for values in table_rows[header_index + 1:]:
-        row = {headers[index]: values[index] if index < len(values) else "" for index in range(len(headers)) if headers[index]}
-        normalized = _normalize_source_row(row, section=section, config=config, source_kind=source_kind, as_of=as_of, source_url=source_url)
+    for values in table_rows[header_index + 1 :]:
+        row = {
+            headers[index]: values[index] if index < len(values) else ""
+            for index in range(len(headers))
+            if headers[index]
+        }
+        normalized = _normalize_source_row(
+            row,
+            section=section,
+            config=config,
+            source_kind=source_kind,
+            as_of=as_of,
+            source_url=source_url,
+        )
         if normalized:
             rows.append(normalized)
     return rows
@@ -283,7 +392,9 @@ def _table_to_rows(table_rows: list[list[str]], *, section: str, config: MarketC
 def _find_header(rows: list[list[str]]) -> int | None:
     for index, row in enumerate(rows):
         headers = {_normalize_header(cell) for cell in row}
-        if ("code" in headers or "ticker" in headers) and ("name" in headers or "name_ja" in headers or "name_kana" in headers):
+        if ("code" in headers or "ticker" in headers) and (
+            "name" in headers or "name_ja" in headers or "name_kana" in headers
+        ):
             return index
     return None
 
@@ -315,7 +426,15 @@ def _normalize_header(value: str) -> str:
     return text
 
 
-def _normalize_source_row(row: dict[str, str], *, section: str, config: MarketConfig, source_kind: str, as_of: date, source_url: str) -> dict[str, str] | None:
+def _normalize_source_row(
+    row: dict[str, str],
+    *,
+    section: str,
+    config: MarketConfig,
+    source_kind: str,
+    as_of: date,
+    source_url: str,
+) -> dict[str, str] | None:
     local_symbol = _normalize_local_symbol(row.get("ticker") or row.get("code") or "")
     if not local_symbol:
         return None
@@ -329,7 +448,9 @@ def _normalize_source_row(row: dict[str, str], *, section: str, config: MarketCo
     source_market = _clean_text(row.get("source_market", "")) or combined_market or config.exchange
     source_industry = _clean_text(row.get("source_industry", "")) or combined_industry
     asset_type = _asset_type_for_section(section, name, description)
-    sector, theme, tags, index_family = _classification(asset_type, source_industry, name, description)
+    sector, theme, tags, index_family = _classification(
+        asset_type, source_industry, name, description
+    )
     exchange = _exchange_for_row(config, source_market)
     symbol = _internal_symbol(local_symbol, config, exchange)
     yahoo_symbol, yahoo_note = _best_effort_yahoo_symbol(local_symbol, config, exchange)
@@ -356,7 +477,14 @@ def _normalize_source_row(row: dict[str, str], *, section: str, config: MarketCo
         "is_inverse": "false",
         "theme": theme,
         "sector": sector,
-        "aliases": _aliases(local_symbol, name, row.get("name_kana", ""), row.get("name_ja", ""), description, source_industry),
+        "aliases": _aliases(
+            local_symbol,
+            name,
+            row.get("name_kana", ""),
+            row.get("name_ja", ""),
+            description,
+            source_industry,
+        ),
         # Keep generated rows strictly compatible with symbol_metadata_schema.py.
         # Blank values are safer than unapproved placeholders because the importer
         # validates allowed-value fields for the whole DB after appending rows.
@@ -401,8 +529,6 @@ def _normalize_source_row(row: dict[str, str], *, section: str, config: MarketCo
         "source_description": description,
         "source_url": source_url,
     }
-
-
 
 
 def _split_market_industry(value: str) -> tuple[str, str]:
@@ -489,7 +615,9 @@ def _looks_like_reit(section: str, name: str, description: str) -> bool:
     return bool(re.search(r"(?<![ァ-ンー])リート(?![ァ-ンー])", text))
 
 
-def _classification(asset_type: str, source_industry: str, name: str, description: str) -> tuple[str, str, str, str]:
+def _classification(
+    asset_type: str, source_industry: str, name: str, description: str
+) -> tuple[str, str, str, str]:
     text = f"{source_industry} {name} {description}".lower()
     if asset_type == "etf":
         index_family = _index_family(text)
@@ -507,15 +635,65 @@ def _classification(asset_type: str, source_industry: str, name: str, descriptio
         (("銀行", "bank", "commercial bank"), "financial", "bank", "bank"),
         (("保険", "insurance"), "financial", "insurance", "insurance"),
         (("金融", "証券", "securities", "financial"), "financial", "financial", "financial"),
-        (("半導体", "semiconductor", "電子", "電気", "technology", "通信・技術", "it", "ソフト", "インターネット"), "technology", "technology", "technology"),
-        (("通信", "telecom", "携帯電話", "インターネット"), "communication", "telecom", "communication"),
-        (("不動産", "property", "real estate", "reit"), "real_estate", "real_estate", "real_estate"),
+        (
+            (
+                "半導体",
+                "semiconductor",
+                "電子",
+                "電気",
+                "technology",
+                "通信・技術",
+                "it",
+                "ソフト",
+                "インターネット",
+            ),
+            "technology",
+            "technology",
+            "technology",
+        ),
+        (
+            ("通信", "telecom", "携帯電話", "インターネット"),
+            "communication",
+            "telecom",
+            "communication",
+        ),
+        (
+            ("不動産", "property", "real estate", "reit"),
+            "real_estate",
+            "real_estate",
+            "real_estate",
+        ),
         (("電力", "ガス", "utilities", "発電", "水道"), "utilities", "utilities", "utilities"),
-        (("石油", "天然ガス", "エネルギー", "energy", "oil", "coal", "石炭"), "energy", "energy", "energy"),
-        (("医薬", "ヘルスケア", "病院", "health", "pharma", "biotech"), "healthcare", "healthcare", "healthcare"),
-        (("自動車", "automotive", "vehicle", "motor", "バッテリー", "タイヤ"), "consumer", "automotive", "automotive"),
-        (("食品", "小売", "飲料", "consumer", "retail", "ホテル", "航空", "旅行", "カジノ"), "consumer", "consumer", "consumer"),
-        (("建設", "資材", "鉄鋼", "素材", "化学", "セメント", "鉱物", "製造", "工業"), "industrial", "industrial", "industrial"),
+        (
+            ("石油", "天然ガス", "エネルギー", "energy", "oil", "coal", "石炭"),
+            "energy",
+            "energy",
+            "energy",
+        ),
+        (
+            ("医薬", "ヘルスケア", "病院", "health", "pharma", "biotech"),
+            "healthcare",
+            "healthcare",
+            "healthcare",
+        ),
+        (
+            ("自動車", "automotive", "vehicle", "motor", "バッテリー", "タイヤ"),
+            "consumer",
+            "automotive",
+            "automotive",
+        ),
+        (
+            ("食品", "小売", "飲料", "consumer", "retail", "ホテル", "航空", "旅行", "カジノ"),
+            "consumer",
+            "consumer",
+            "consumer",
+        ),
+        (
+            ("建設", "資材", "鉄鋼", "素材", "化学", "セメント", "鉱物", "製造", "工業"),
+            "industrial",
+            "industrial",
+            "industrial",
+        ),
     ]
     for keywords, sector, theme, tag in keyword_map:
         if any(keyword in text for keyword in keywords):
@@ -530,7 +708,14 @@ def _index_family(text: str) -> str:
         return "reit"
     if "singapore" in text or "ストレーツタイムズ" in text or "straits times" in text:
         return "singapore_equity"
-    if "hang seng" in text or "ハンセン" in text or "csi" in text or "中国a50" in text or "china" in text or "中国" in text:
+    if (
+        "hang seng" in text
+        or "ハンセン" in text
+        or "csi" in text
+        or "中国a50" in text
+        or "china" in text
+        or "中国" in text
+    ):
         return "china"
     if "msci" in text or "ftse" in text:
         return "emerging"
@@ -561,7 +746,9 @@ def _internal_symbol(local_symbol: str, config: MarketConfig, exchange: str) -> 
     return f"{local_symbol}{suffix}"
 
 
-def _best_effort_yahoo_symbol(local_symbol: str, config: MarketConfig, exchange: str) -> tuple[str, str]:
+def _best_effort_yahoo_symbol(
+    local_symbol: str, config: MarketConfig, exchange: str
+) -> tuple[str, str]:
     normalized_local_symbol = local_symbol.strip().upper()
     override = SBI_FOREIGN_YAHOO_SYMBOL_OVERRIDES.get(config.market, {}).get(
         normalized_local_symbol

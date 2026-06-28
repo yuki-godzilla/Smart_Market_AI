@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-28 - Watchlist in-place symbol detail
+
+- replaced card-level AI調査 / レポート navigation actions with `銘柄を詳しく見る`, reusing the Ranking `銘柄データ` dialog and its AI Research tab.
+- passed current snapshot price/AI総合/upside/downside/checkpoint values into the dialog's existing judgment-support rows.
+- widened the symbol dialog to `94vw` / `1500px` and changed its two AI Research loading stages from full-app blocking overlays to dialog-contained inline progress.
+- renamed and restyled the remaining page transition as `Cockpit画面で確認`; kept remove as a subdued destructive action.
+- AppTest clicked the detail action and verified the AI Research tab without a page transition; targeted tests passed.
+
 ## 2026-06-28 - Myウォッチリスト 3-pass runtime polish
 
 - Pass 1: inspected real `favorites.json` / `watchlist_snapshots.json`, fixed snapshot price precedence, and removed the remaining empty Decision Trail row from cards.

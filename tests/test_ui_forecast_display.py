@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 from contextlib import nullcontext
 from datetime import UTC, date, datetime, timedelta
@@ -547,16 +548,22 @@ def test_favorite_movement_status_handles_changes_and_missing_values(
 
 
 def test_favorite_change_value_distinguishes_ratio_and_percent_fields():
-    assert app_module._favorite_change_value(
-        {"return_5d": "0.048"},
-        "price_change_5d",
-        "return_5d",
-    ) == "4.8"
-    assert app_module._favorite_change_value(
-        {"price_change_5d": "0.4"},
-        "price_change_5d",
-        "return_5d",
-    ) == "0.4"
+    assert (
+        app_module._favorite_change_value(
+            {"return_5d": "0.048"},
+            "price_change_5d",
+            "return_5d",
+        )
+        == "4.8"
+    )
+    assert (
+        app_module._favorite_change_value(
+            {"price_change_5d": "0.4"},
+            "price_change_5d",
+            "return_5d",
+        )
+        == "0.4"
+    )
 
 
 def test_favorite_card_html_adds_movement_accent_and_missing_data_hint():
@@ -579,6 +586,32 @@ def test_favorite_card_html_adds_movement_accent_and_missing_data_hint():
     assert "…</strong><span>値動きデータなし" in markup
     assert "データ更新が必要です" in markup
     assert "ウォッチリスト更新で価格・AI評価・ニュース状態を確認できます。" in markup
+
+
+def test_watchlist_ranking_detail_row_reuses_snapshot_values():
+    row = app_module._watchlist_ranking_detail_row(
+        {
+            "symbol": "9432.T",
+            "name": "NTT",
+            "price": "144.3円",
+            "ai_score": "68.63",
+            "upside": "44.36",
+            "downside": "57.39",
+            "snapshot_status": "ok",
+            "checkpoint": "ニュースを確認",
+        }
+    )
+
+    assert row == {
+        "銘柄": "9432.T",
+        "銘柄名": "NTT",
+        "現在株価": "144.3円",
+        "総合スコア": "68.63",
+        "上昇気配": "44.36",
+        "下降警戒": "57.39",
+        "データ品質": "ok",
+        "確認ポイント": "ニュースを確認",
+    }
 
 
 def test_watchlist_background_refresh_candidates_prioritize_and_limit_with_ttl():
@@ -682,9 +715,7 @@ def test_request_watchlist_background_refresh_runs_once_and_respects_provider(mo
     monkeypatch.setattr(
         app_module,
         "get_settings",
-        lambda: SimpleNamespace(
-            dataaccess=SimpleNamespace(allow_external_providers=False)
-        ),
+        lambda: SimpleNamespace(dataaccess=SimpleNamespace(allow_external_providers=False)),
     )
     monkeypatch.setattr(
         app_module,
@@ -816,8 +847,7 @@ def test_refresh_watchlist_snapshots_fetches_ohlcv_when_live_provider_enabled(mo
         async def fetch_ohlcv(self, symbols, *, start, end):
             fetched.append((list(symbols), start, end))
             return [
-                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="7203.T")
-                for day in range(1, 22)
+                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="7203.T") for day in range(1, 22)
             ]
 
     monkeypatch.setattr(
@@ -863,8 +893,7 @@ def test_refresh_watchlist_snapshots_reuses_cockpit_preview_for_scores(monkeypat
     async def fake_preview(**_):
         return SimpleNamespace(
             bars=[
-                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="6367.T")
-                for day in range(1, 22)
+                _bar(f"2026-06-{day:02d}", close=100 + day, symbol="6367.T") for day in range(1, 22)
             ],
             investment_score_rows=[
                 {
@@ -981,9 +1010,7 @@ def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeyp
     )
 
     assert selected == "要確認"
-    assert calls == [
-        ("表示フィルター", ["すべて", "要確認"], "すべて", "favorite_filter")
-    ]
+    assert calls == [("表示フィルター", ["すべて", "要確認"], "すべて", "favorite_filter")]
 
 
 def test_render_segmented_or_radio_falls_back_to_radio(monkeypatch):
@@ -1005,9 +1032,7 @@ def test_render_segmented_or_radio_falls_back_to_radio(monkeypatch):
     )
 
     assert selected == "すべて"
-    assert calls == [
-        ("表示フィルター", ["すべて", "要確認"], 0, True, "favorite_filter")
-    ]
+    assert calls == [("表示フィルター", ["すべて", "要確認"], 0, True, "favorite_filter")]
 
 
 def test_favorite_filter_and_sort_rows_applies_selected_controls(monkeypatch):
@@ -1448,7 +1473,7 @@ def test_cockpit_filter_expander_label_summarizes_current_conditions():
     )
 
 
-def test_cockpit_filter_panel_keeps_expander_open_when_filter_active(monkeypatch):
+def test_cockpit_filter_panel_stays_closed_when_filter_active(monkeypatch):
     values = {
         **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
         "market_data_cockpit_region": "japan",
@@ -1479,7 +1504,7 @@ def test_cockpit_filter_panel_keeps_expander_open_when_filter_active(monkeypatch
     assert expander_calls == [
         {
             "label": "銘柄を絞り込む　現在の条件: 国内 / NISA指定なし / 商品指定なし / 候補 1件",
-            "expanded": True,
+            "expanded": False,
         }
     ]
 
@@ -1998,14 +2023,21 @@ def test_symbol_database_preflight_refresh_suppresses_failure(monkeypatch):
 
 
 def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():
-    assert "90vw" in SYMBOL_DETAIL_DIALOG_CSS
-    assert "1100px" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "94vw" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "1500px" in SYMBOL_DETAIL_DIALOG_CSS
     assert '[data-testid="stMetricValue"]' in SYMBOL_DETAIL_DIALOG_CSS
     assert "overflow-wrap: anywhere" in SYMBOL_DETAIL_DIALOG_CSS
     assert ".symbol-detail-table" in SYMBOL_DETAIL_DIALOG_CSS
     assert "table-layout: fixed" in SYMBOL_DETAIL_DIALOG_CSS
     assert "font-size: 0.95rem" in SYMBOL_DETAIL_DIALOG_CSS
     assert "line-height: 1.6" in SYMBOL_DETAIL_DIALOG_CSS
+
+
+def test_symbol_detail_research_loading_stays_inside_dialog():
+    source = inspect.getsource(app_module._render_ranking_symbol_research_lookup)
+
+    assert source.count('mode="inline"') == 2
+    assert 'mode="blocking"' not in source
 
 
 def test_symbol_detail_table_html_wraps_and_escapes_long_text():
@@ -4838,9 +4870,33 @@ def test_filter_symbol_universe_rows_ignores_dividend_range_when_disabled():
 def test_filter_symbol_universe_rows_filters_by_metric_ranges():
     rows = symbol_universe_rows(
         [
-            {"symbol": "7203.T", "name": "Toyota Motor"},
-            {"symbol": "AAPL", "name": "Apple Inc."},
-            {"symbol": "PFE", "name": "Pfizer"},
+            {
+                "symbol": "7203.T",
+                "name": "Toyota Motor",
+                "per": "12",
+                "pbr": "1.1",
+                "dividend_yield_pct": "2.5",
+                "roe_pct": "12",
+                "consensus_rating": "3.2",
+            },
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "per": "30",
+                "pbr": "2.0",
+                "dividend_yield_pct": "1.0",
+                "roe_pct": "15",
+                "consensus_rating": "3.5",
+            },
+            {
+                "symbol": "PFE",
+                "name": "Pfizer",
+                "per": "15",
+                "pbr": "1.5",
+                "dividend_yield_pct": "4.0",
+                "roe_pct": "10",
+                "consensus_rating": "3.0",
+            },
         ]
     )
 
@@ -4863,6 +4919,7 @@ def test_filter_symbol_universe_rows_filters_by_metric_ranges():
             consensus_enabled=True,
             consensus_min="2.5",
             consensus_max="5.0",
+            active_detail_filters={"per", "pbr", "dividend_yield", "roe", "consensus"},
         )
     ] == ["7203.T", "PFE"]
 
@@ -5163,7 +5220,7 @@ def test_filter_symbol_universe_rows_ignores_hidden_stock_filters_for_etf():
             rows,
             region="all",
             product_type="etf",
-            theme="technology",
+            theme="all",
             market_cap_tier="large",
             per_enabled=True,
             per_min="2.0",
@@ -5790,7 +5847,7 @@ def test_ranking_filter_signature_ignores_hidden_stock_filters_for_etf():
         dividend_category="all",
         market_cap_tier="large",
         complexity="standard",
-        theme="technology",
+        theme="all",
         query="",
         per_enabled=True,
         per_min="2.0",

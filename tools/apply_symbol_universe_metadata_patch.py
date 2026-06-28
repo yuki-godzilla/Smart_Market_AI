@@ -9,7 +9,9 @@ from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
-DEFAULT_REPORT_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_manual_patch_report.json"
+DEFAULT_REPORT_PATH = (
+    PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_manual_patch_report.json"
+)
 METADATA_COLUMNS = (
     "per",
     "pbr",
@@ -116,7 +118,14 @@ def apply_patch_rows(
                 row[column] = value
                 row_changed = True
                 changed_columns.add(column)
-            if column in {"sector", "theme", "sector_gics", "industry_gics", "asset_class", "index_family"}:
+            if column in {
+                "sector",
+                "theme",
+                "sector_gics",
+                "industry_gics",
+                "asset_class",
+                "index_family",
+            }:
                 continue
             for suffix, suffix_value in (
                 ("source", patch_source),
@@ -131,7 +140,9 @@ def apply_patch_rows(
 
         note = patch.get("note", "").strip()
         source_url = patch.get("source_url", "").strip()
-        reasons = {part.strip() for part in row.get("data_quality_reasons", "").split(";") if part.strip()}
+        reasons = {
+            part.strip() for part in row.get("data_quality_reasons", "").split(";") if part.strip()
+        }
         if note:
             reasons.add(f"manual_patch:{note}")
         if source_url:

@@ -200,6 +200,7 @@ def _foreign_stock_profile(
         ),
     )
 
+
 SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
     "jpx_listed_stock": SymbolUniverseSourceProfile(
         name="jpx_listed_stock",
@@ -838,7 +839,6 @@ def _local_symbol_from_provider_symbol(symbol: str) -> str:
     return normalized
 
 
-
 def _default_yahoo_symbol_status(row: dict[str, str]) -> str:
     reasons = row.get("foreign_data_quality_reasons", "")
     yahoo_symbol = row.get("yahoo_symbol", "").strip()
@@ -855,6 +855,7 @@ def _default_yahoo_symbol_status(row: dict[str, str]) -> str:
         return "generated"
     return "requires_review"
 
+
 def _apply_foreign_operational_defaults(row: dict[str, str]) -> None:
     currency = row.get("currency", "").strip().upper()
     market = row.get("market", "").strip()
@@ -867,8 +868,12 @@ def _apply_foreign_operational_defaults(row: dict[str, str]) -> None:
     if not row.get("fx_pair_to_jpy", "") and currency not in {"", "JPY"}:
         row["fx_pair_to_jpy"] = f"{currency}JPY"
     if row.get("sbi_foreign_tradability") == "tradable":
-        row["sbi_foreign_tradability_as_of"] = row.get("sbi_foreign_tradability_as_of") or row.get("metadata_as_of", "")
-        row["sbi_foreign_tradability_source"] = row.get("sbi_foreign_tradability_source") or row.get("metadata_source", "")
+        row["sbi_foreign_tradability_as_of"] = row.get("sbi_foreign_tradability_as_of") or row.get(
+            "metadata_as_of", ""
+        )
+        row["sbi_foreign_tradability_source"] = row.get(
+            "sbi_foreign_tradability_source"
+        ) or row.get("metadata_source", "")
     if not row.get("foreign_market_group", ""):
         row["foreign_market_group"] = {
             "jp": "japan",

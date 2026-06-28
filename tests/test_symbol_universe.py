@@ -54,11 +54,12 @@ def test_symbol_universe_csv_matches_schema():
     ]
     stock_rows = [row for row in rows if row["asset_type"] == "stock"]
     etf_rows = [row for row in rows if row["asset_type"] == "etf"]
+    yahoo_etf_rows = [row for row in etf_rows if row["metadata_source"] == "yahoo"]
     assert len(jp_stock_growth_rows) >= 3700
     assert len(us_stock_growth_rows) >= 4300
     assert all(row["investment_style"] == "lump_sum" for row in stock_rows)
-    assert all(row["nisa_category"] != "unknown" for row in etf_rows)
-    assert all(row["index_family"] for row in etf_rows)
+    assert all(row["nisa_category"] != "unknown" for row in yahoo_etf_rows)
+    assert all(row["index_family"] for row in yahoo_etf_rows)
     assert _nisa_flags_match_category(rows)
     assert rows[0]["is_sbi_supported"] == "true"
     assert rows[0]["is_active"] == "true"
@@ -71,8 +72,11 @@ def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 6, 1))
 
     assert summary["total_rows"] >= 9197
-    assert summary["source_counts"] == {"yahoo": 9197}
-    assert summary["metadata_period"] == "2026-06-01"
+    assert summary["source_counts"]["yahoo"] == 9197
+    assert summary["source_counts"]["sbi_hk_stock"] >= 1200
+    assert summary["source_counts"]["sbi_overseas_etf"] >= 20
+    assert sum(summary["source_counts"].values()) == summary["total_rows"]
+    assert summary["metadata_period"] == "2026-06-01 〜 2026-06-23"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"

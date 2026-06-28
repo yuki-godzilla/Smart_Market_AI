@@ -93,6 +93,8 @@ JPY_FX_PAIRS_BY_CURRENCY = {
 
 def _jpy_fx_pair_for_currency(currency: str) -> str:
     return JPY_FX_PAIRS_BY_CURRENCY.get(currency.strip().upper(), "")
+
+
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
 DEFAULT_POSITIONS_JSON = """[
   {

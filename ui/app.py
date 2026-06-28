@@ -687,8 +687,8 @@ function(valueA, valueB, nodeA, nodeB, isDescending) {
 SYMBOL_DETAIL_DIALOG_CSS = """
 <style>
 div[data-testid="stDialog"] div[role="dialog"] {
-    width: min(90vw, 1100px);
-    max-width: min(90vw, 1100px);
+    width: min(94vw, 1500px);
+    max-width: min(94vw, 1500px);
 }
 div[data-testid="stDialog"] [data-testid="stMetricValue"] {
     font-size: clamp(1.05rem, 1.35vw, 1.35rem);
@@ -3988,11 +3988,7 @@ def _filter_options_with_available_counts(
     counts: Mapping[str, int],
 ) -> list[str]:
     options = ["all"] if "all" in labels else []
-    options.extend(
-        key
-        for key in labels
-        if key != "all" and int(counts.get(key, 0)) > 0
-    )
+    options.extend(key for key in labels if key != "all" and int(counts.get(key, 0)) > 0)
     return options or list(labels)
 
 
@@ -7042,15 +7038,12 @@ def _cockpit_filter_detail_chips_v2(
         chips.append(f"ﾎｲ: {label}")
     if "benchmark_index" in detail_filters and index_family != "all":
         chips.append(f"謖・焚: {RANKING_INDEX_FAMILY_LABELS.get(index_family, index_family)}")
-    if (
-        "expense_ratio" in detail_filters
-        and max_expense_ratio_pct
-        != str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"])
+    if "expense_ratio" in detail_filters and max_expense_ratio_pct != str(
+        MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"]
     ):
         chips.append(f"邨瑚ｲｻ邇・ {_compact_filter_number(max_expense_ratio_pct)}%莉･荳・")
-    if (
-        "complexity" in detail_filters
-        and complexity != str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"])
+    if "complexity" in detail_filters and complexity != str(
+        MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]
     ):
         chips.append(f"隍・尅縺・ {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}")
     if "dividend_yield" in detail_filters and dividend_category != "all":
@@ -7117,7 +7110,7 @@ def _render_cockpit_symbol_filter_panel(
         '<div class="smai-cockpit-filter-expander-anchor"></div>',
         unsafe_allow_html=True,
     )
-    with st.expander(cockpit_filter_expander_label(chips), expanded=filter_active):
+    with st.expander(cockpit_filter_expander_label(chips), expanded=False):
         if filter_active and st.button(
             "条件をクリア",
             key="market_data_cockpit_filter_clear",
@@ -7482,7 +7475,9 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
                 options=list(RANKING_BETA_RISK_LABELS),
                 key="market_data_cockpit_risk_band",
                 format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
-                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_risk_band"]),
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_risk_band"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
             )
     if "benchmark_index" in detail_filters:
@@ -7530,7 +7525,9 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
                     complexity_counts,
                     value,
                 ),
-                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]),
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
             )
     if "dividend_yield" in detail_filters:
@@ -7551,7 +7548,9 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
                     dividend_category_counts,
                     value,
                 ),
-                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_dividend"]),
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_dividend"]
+                ),
                 help_text=_dividend_filter_help_text(
                     RANKING_FILTER_HELP_TEXTS["dividend_category"],
                     product_type,
@@ -7658,7 +7657,9 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
         st.markdown("**数値条件**")
         for start_index in range(0, len(metric_filters), 2):
             metric_cols = st.columns(2)
-            for column, (label, config) in zip(metric_cols, metric_filters[start_index : start_index + 2]):
+            for column, (label, config) in zip(
+                metric_cols, metric_filters[start_index : start_index + 2]
+            ):
                 with column:
                     enabled, lower, upper = _render_metric_range_filter(label, **config)
                 if config["enabled_key"] == "market_data_cockpit_dividend_enabled":
@@ -7923,9 +7924,7 @@ def favorite_symbol_candidate_display_label(
     favorite_symbols: set[str],
 ) -> str:
     symbol = normalize_favorite_symbol(_symbol_from_candidate(label) or "")
-    normalized_favorites = {
-        normalize_favorite_symbol(favorite) for favorite in favorite_symbols
-    }
+    normalized_favorites = {normalize_favorite_symbol(favorite) for favorite in favorite_symbols}
     return f"★ {label}" if symbol and symbol in normalized_favorites else label
 
 
@@ -8311,7 +8310,9 @@ def _render_market_data_ranking() -> None:
         purpose=purpose,
     )
     if ranking_filter_dialog_is_open():
-        st.caption("探索条件モーダルを表示中です。ランキング候補・結果の再描画はスキップしています。")
+        st.caption(
+            "探索条件モーダルを表示中です。ランキング候補・結果の再描画はスキップしています。"
+        )
         return
     filter_values = _ranking_filter_state_snapshot()
     market = "all"
@@ -8435,7 +8436,9 @@ def _render_market_data_ranking() -> None:
         )
         expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
         with st.expander(expander_label, expanded=True):
-            st.caption("手動選択時だけ候補リストを生成しています。候補が多い場合は条件で絞ると軽くなります。")
+            st.caption(
+                "手動選択時だけ候補リストを生成しています。候補が多い場合は条件で絞ると軽くなります。"
+            )
             selected_labels = cast(
                 list[str],
                 st.multiselect(
@@ -9585,18 +9588,18 @@ async def _fetch_ranking_ohlcv_tolerant(
         return await adapter.fetch_ohlcv(symbol_chunk, start=start, end=end), [], set()
     except AppError as exc:
         if len(symbol_chunk) <= 1:
-            display_symbols = display_symbols_by_provider_symbol.get(
-                symbol_chunk[0], symbol_chunk
+            display_symbols = display_symbols_by_provider_symbol.get(symbol_chunk[0], symbol_chunk)
+            return (
+                [],
+                ranking_provider_error_rows(provider, display_symbols, exc),
+                set(display_symbols),
             )
-            return [], ranking_provider_error_rows(provider, display_symbols, exc), set(display_symbols)
 
     bars: list[Bar] = []
     error_rows: list[dict[str, str]] = []
     failed_display_symbols: set[str] = set()
     for provider_symbol in symbol_chunk:
-        display_symbols = display_symbols_by_provider_symbol.get(
-            provider_symbol, [provider_symbol]
-        )
+        display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
             bars.extend(await adapter.fetch_ohlcv([provider_symbol], start=start, end=end))
         except AppError as exc:
@@ -9623,9 +9626,7 @@ async def _fetch_ranking_fundamentals_tolerant(
     fundamentals: list[FundamentalSnapshot] = []
     error_rows: list[dict[str, str]] = []
     for provider_symbol in provider_symbols:
-        display_symbols = display_symbols_by_provider_symbol.get(
-            provider_symbol, [provider_symbol]
-        )
+        display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
             fundamentals.extend(await adapter.fetch_fundamentals([provider_symbol], as_of=as_of))
         except AppError as exc:
@@ -9634,12 +9635,13 @@ async def _fetch_ranking_fundamentals_tolerant(
 
 
 def _display_symbols_by_provider_symbol(
-    provider_symbols_by_symbol: Mapping[str, str]
+    provider_symbols_by_symbol: Mapping[str, str],
 ) -> dict[str, list[str]]:
     display_symbols: dict[str, list[str]] = {}
     for display_symbol, provider_symbol in provider_symbols_by_symbol.items():
         display_symbols.setdefault(provider_symbol, []).append(display_symbol)
     return display_symbols
+
 
 def _provider_symbols_by_display_symbol(
     symbols: list[str],
@@ -9807,7 +9809,9 @@ async def _build_market_data_ranking_rows_from_previews(
                 forecast_horizon_days=forecast_horizon_days,
             )
         preview_bars = getattr(preview, "bars", [])
-        preview_currency = str(preview_bars[0].symbol.currency).strip().upper() if preview_bars else ""
+        preview_currency = (
+            str(preview_bars[0].symbol.currency).strip().upper() if preview_bars else ""
+        )
         preview_fx_rate = chart_fx_rate_from_rows(
             getattr(preview, "fx_rows", []),
             source_currency=preview_currency,
@@ -10146,9 +10150,7 @@ def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str,
             '<div class="smai-watchlist-filter-chip-anchor"></div>',
             unsafe_allow_html=True,
         )
-        filter_counts = {
-            option: _favorite_filter_count(rows, option) for option in filter_options
-        }
+        filter_counts = {option: _favorite_filter_count(rows, option) for option in filter_options}
         selected_filter = _render_segmented_or_radio(
             "表示フィルター",
             filter_options,
@@ -10178,14 +10180,17 @@ def _favorite_row_matches_filter(row: Mapping[str, str], selected_filter: str | 
     if selected_filter == "要確認":
         return row.get("refresh_status") == "needs_attention"
     if selected_filter == "更新推奨":
-        return row.get("snapshot_status") in {"missing", "failed"} or row.get(
-            "refresh_status"
-        ) in {
-            "needs_attention",
-            "never_checked",
-            "stale",
-            "failed",
-        } or _watchlist_snapshot_row_is_stale(row)
+        return (
+            row.get("snapshot_status") in {"missing", "failed"}
+            or row.get("refresh_status")
+            in {
+                "needs_attention",
+                "never_checked",
+                "stale",
+                "failed",
+            }
+            or _watchlist_snapshot_row_is_stale(row)
+        )
     if selected_filter == "上昇傾向":
         return row.get("status") in {"上昇候補", "上昇傾向", "短期上昇"}
     if selected_filter == "下落注意":
@@ -10361,9 +10366,7 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         raw_row.get("upside_score") or raw_row.get("上昇気配") or ""
                     ),
                     "downside_risk_score": str(
-                        raw_row.get("downside_risk_score")
-                        or raw_row.get("下降警戒")
-                        or ""
+                        raw_row.get("downside_risk_score") or raw_row.get("下降警戒") or ""
                     ),
                 }
             )
@@ -10651,11 +10654,7 @@ def _request_watchlist_background_refresh_once(rows: Sequence[Mapping[str, str]]
         }
         return
     st.session_state[WATCHLIST_BACKGROUND_REFRESH_STATE_KEY] = {
-        "status": (
-            "queued"
-            if provider_config.allow_external_providers
-            else "local_only"
-        ),
+        "status": ("queued" if provider_config.allow_external_providers else "local_only"),
         "symbols": requested,
     }
 
@@ -11199,18 +11198,32 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
 def _render_favorite_card(payload: Mapping[str, str]) -> None:
     symbol = payload["symbol"]
     st.markdown(_favorite_card_html(payload), unsafe_allow_html=True)
-    col_cockpit, col_research, col_report, col_remove = st.columns(4)
+    col_detail, col_cockpit, col_remove = st.columns([1.1, 1.25, 0.65])
+    with col_detail:
+        st.markdown(
+            '<div class="smai-watchlist-detail-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "銘柄を詳しく見る",
+            key=f"watchlist_detail_{symbol}",
+            use_container_width=True,
+        ):
+            _render_symbol_universe_detail_dialog(
+                symbol,
+                ranking_row=_watchlist_ranking_detail_row(payload),
+            )
     with col_cockpit:
-        if st.button("Cockpit", key=f"watchlist_cockpit_{symbol}", use_container_width=True):
+        st.markdown(
+            '<div class="smai-watchlist-cockpit-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Cockpit画面で確認",
+            key=f"watchlist_cockpit_{symbol}",
+            use_container_width=True,
+        ):
             _select_favorite_symbol_for_cockpit(symbol, "cockpit")
-            st.rerun()
-    with col_research:
-        if st.button("AI調査", key=f"watchlist_research_{symbol}", use_container_width=True):
-            _select_favorite_symbol_for_cockpit(symbol, "research")
-            st.rerun()
-    with col_report:
-        if st.button("レポート", key=f"watchlist_report_{symbol}", use_container_width=True):
-            _select_favorite_symbol_for_cockpit(symbol, "report")
             st.rerun()
     with col_remove:
         st.markdown(
@@ -11224,6 +11237,23 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
     if _favorite_has_decision_details(payload):
         with st.expander("判断メモを編集"):
             _render_favorite_decision_form(payload)
+
+
+def _watchlist_ranking_detail_row(payload: Mapping[str, str]) -> dict[str, str]:
+    return {
+        "銘柄": str(payload.get("symbol") or ""),
+        "銘柄名": str(payload.get("name") or ""),
+        "現在株価": str(payload.get("price") or ""),
+        "総合スコア": str(payload.get("ai_score") or ""),
+        "上昇気配": str(payload.get("upside") or ""),
+        "下降警戒": str(payload.get("downside") or ""),
+        "データ品質": (
+            "前回データ"
+            if payload.get("snapshot_status") == "failed"
+            else str(payload.get("snapshot_status") or "未取得")
+        ),
+        "確認ポイント": str(payload.get("checkpoint") or ""),
+    }
 
 
 def _render_favorite_decision_form(payload: Mapping[str, str]) -> None:
@@ -11383,21 +11413,19 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
     reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
     score_display_rows = investment_score_display_rows(preview.investment_score_rows)
-    render_cockpit_summary_header(
-        cockpit_summary_items(
-            symbol=symbol,
-            name=symbol_name(symbol) or "",
-            provider=provider_name,
-            as_of=_market_data_as_of(preview),
-            reference_period_days=reference_period,
-            forecast_horizon_days=forecast_horizon_days,
-            score_row=score_display_rows[0] if score_display_rows else None,
-            symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
-        )
+    summary_items = cockpit_summary_items(
+        symbol=symbol,
+        name=symbol_name(symbol) or "",
+        provider=provider_name,
+        as_of=_market_data_as_of(preview),
+        reference_period_days=reference_period,
+        forecast_horizon_days=forecast_horizon_days,
+        score_row=score_display_rows[0] if score_display_rows else None,
+        symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
     )
-    if symbol:
-        _favorite_spacer, favorite_col = st.columns([4.0, 1.0])
-        with favorite_col:
+
+    def render_cockpit_favorite_action() -> None:
+        if symbol:
             universe_row = _symbol_universe_rows_by_symbol().get(symbol.upper(), {})
             render_favorite_button(
                 symbol,
@@ -11407,7 +11435,13 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 currency=str(universe_row.get("currency") or ""),
                 source_screen="cockpit",
                 key=f"market_data_cockpit_favorite_{symbol}",
+                prominent=True,
             )
+
+    render_cockpit_summary_header(
+        summary_items,
+        header_action=render_cockpit_favorite_action if symbol else None,
+    )
     render_mascot_panel(
         "cockpit",
         message="KPIとチャートで全体感をつかみ、AI解釈メモ、スコア、根拠資料の順に確認します。",
@@ -13234,7 +13268,7 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
                     message="外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。",
                     current_step="外部参照ソースを確認しています。",
                     progress=0.18,
-                    mode="blocking",
+                    mode="inline",
                     headlines=loading_headlines,
                     headline_note=loading_headline_note,
                 ),
@@ -13267,7 +13301,7 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
                         ),
                         current_step="企業リサーチメモを生成しています。",
                         progress=0.72,
-                        mode="blocking",
+                        mode="inline",
                         headlines=loading_headlines,
                         headline_note=loading_headline_note,
                     ),

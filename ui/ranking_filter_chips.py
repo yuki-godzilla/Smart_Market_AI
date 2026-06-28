@@ -199,7 +199,14 @@ def _csv_values(value: object) -> set[str]:
 
 def _row_theme_values(row: Mapping[str, str]) -> set[str]:
     values: set[str] = set()
-    for field in ("theme", "tags", "smai_theme_tags", "index_family", "asset_class", "dividend_category"):
+    for field in (
+        "theme",
+        "tags",
+        "smai_theme_tags",
+        "index_family",
+        "asset_class",
+        "dividend_category",
+    ):
         values.update(_csv_values(row.get(field, "")))
     if str(row.get("is_leveraged", "")).lower() == "true":
         values.add("leveraged")
@@ -284,7 +291,9 @@ def _rows_signature(rows: Sequence[dict[str, str]]) -> tuple[object, ...]:
     return (len(rows), tuple(symbols[:8]), tuple(symbols[-8:]))
 
 
-def _static_counts_cache_key(rows: Sequence[dict[str, str]], product_type: str, category: str, view: str = "") -> tuple[object, ...]:
+def _static_counts_cache_key(
+    rows: Sequence[dict[str, str]], product_type: str, category: str, view: str = ""
+) -> tuple[object, ...]:
     return (_rows_signature(rows), product_type, category, view)
 
 
@@ -337,7 +346,9 @@ def _country_options(rows: Sequence[dict[str, str]], product_type: str) -> list[
     return options
 
 
-def _sector_options(rows: Sequence[dict[str, str]], product_type: str, view: str) -> list[FilterOption]:
+def _sector_options(
+    rows: Sequence[dict[str, str]], product_type: str, view: str
+) -> list[FilterOption]:
     cache_key = _static_counts_cache_key(rows, product_type, "sector", view)
     cache = st.session_state.setdefault(STATIC_OPTION_COUNTS_CACHE_STATE_KEY, {})
     cached = cache.get(cache_key)
@@ -374,7 +385,9 @@ def _sector_options(rows: Sequence[dict[str, str]], product_type: str, view: str
     return options
 
 
-def _theme_options(rows: Sequence[dict[str, str]], product_type: str, view: str) -> list[FilterOption]:
+def _theme_options(
+    rows: Sequence[dict[str, str]], product_type: str, view: str
+) -> list[FilterOption]:
     cache_key = _static_counts_cache_key(rows, product_type, "theme", view)
     cache = st.session_state.setdefault(STATIC_OPTION_COUNTS_CACHE_STATE_KEY, {})
     cached = cache.get(cache_key)
@@ -481,7 +494,7 @@ def _card_html(title: str, selected_text: str, *, active: bool, dirty: bool) -> 
     return (
         f'<div class="{" ".join(class_names)}">'
         f'<span class="smai-filter-card-title">{html.escape(title)}</span>'
-        f'<strong>{html.escape(selected_text)}</strong>'
+        f"<strong>{html.escape(selected_text)}</strong>"
         f"{badge}"
         "</div>"
     )
@@ -671,23 +684,47 @@ def render_ranking_exploration_filter_cards(
     )
     country_labels = dict(COUNTRY_MARKET_OPTIONS)
     sector_labels = {
-        value: RANKING_OFFICIAL_SECTOR_LABELS.get(value, RANKING_INVESTMENT_THEME_LABELS.get(value, value))
-        for value in set(MAJOR_SECTOR_VALUES) | set(ETF_SECTOR_VALUES) | set(_selected(DRAFT_SECTOR_FILTER_STATE_KEY))
+        value: RANKING_OFFICIAL_SECTOR_LABELS.get(
+            value, RANKING_INVESTMENT_THEME_LABELS.get(value, value)
+        )
+        for value in set(MAJOR_SECTOR_VALUES)
+        | set(ETF_SECTOR_VALUES)
+        | set(_selected(DRAFT_SECTOR_FILTER_STATE_KEY))
     }
     theme_labels = {
-        value: RANKING_INVESTMENT_THEME_LABELS.get(value, RANKING_OFFICIAL_SECTOR_LABELS.get(value, value))
+        value: RANKING_INVESTMENT_THEME_LABELS.get(
+            value, RANKING_OFFICIAL_SECTOR_LABELS.get(value, value)
+        )
         for value in set(MAJOR_THEME_VALUES) | set(_selected(DRAFT_THEME_FILTER_STATE_KEY))
     }
     dirty = exploration_filters_dirty()
     card_specs = (
-        ("国・市場", _format_selected(country_labels, _selected(DRAFT_COUNTRY_FILTER_STATE_KEY)), "country", bool(_selected(DRAFT_COUNTRY_FILTER_STATE_KEY))),
-        ("業種・セクター", _format_selected(sector_labels, _selected(DRAFT_SECTOR_FILTER_STATE_KEY)), "sector", bool(_selected(DRAFT_SECTOR_FILTER_STATE_KEY))),
-        ("投資テーマ", _format_selected(theme_labels, _selected(DRAFT_THEME_FILTER_STATE_KEY)), "theme", bool(_selected(DRAFT_THEME_FILTER_STATE_KEY))),
+        (
+            "国・市場",
+            _format_selected(country_labels, _selected(DRAFT_COUNTRY_FILTER_STATE_KEY)),
+            "country",
+            bool(_selected(DRAFT_COUNTRY_FILTER_STATE_KEY)),
+        ),
+        (
+            "業種・セクター",
+            _format_selected(sector_labels, _selected(DRAFT_SECTOR_FILTER_STATE_KEY)),
+            "sector",
+            bool(_selected(DRAFT_SECTOR_FILTER_STATE_KEY)),
+        ),
+        (
+            "投資テーマ",
+            _format_selected(theme_labels, _selected(DRAFT_THEME_FILTER_STATE_KEY)),
+            "theme",
+            bool(_selected(DRAFT_THEME_FILTER_STATE_KEY)),
+        ),
     )
     cols = st.columns(3)
     for col, (title, selected_text, category, active) in zip(cols, card_specs, strict=True):
         with col:
-            st.markdown(_card_html(title, selected_text, active=active, dirty=dirty and active), unsafe_allow_html=True)
+            st.markdown(
+                _card_html(title, selected_text, active=active, dirty=dirty and active),
+                unsafe_allow_html=True,
+            )
             st.button(
                 f"{title}を選ぶ",
                 key=f"ranking_filter_open_{category}",
@@ -744,7 +781,12 @@ def _render_active_dialog(rows: Sequence[dict[str, str]], *, product_type: str) 
     if not category:
         return
     if category == "country":
-        _show_dialog("国・市場を選択", lambda: _render_option_dialog_body(DRAFT_COUNTRY_FILTER_STATE_KEY, _country_options(rows, product_type)))
+        _show_dialog(
+            "国・市場を選択",
+            lambda: _render_option_dialog_body(
+                DRAFT_COUNTRY_FILTER_STATE_KEY, _country_options(rows, product_type)
+            ),
+        )
     elif category == "sector":
         _show_dialog("業種・セクターを選択", lambda: _render_sector_dialog(rows, product_type))
     elif category == "theme":
@@ -754,9 +796,11 @@ def _render_active_dialog(rows: Sequence[dict[str, str]], *, product_type: str) 
 def _show_dialog(title: str, renderer: Callable[[], None]) -> None:
     dialog = getattr(st, "dialog", None)
     if callable(dialog):
+
         @dialog(title)
         def _dialog() -> None:
             renderer()
+
         _dialog()
     else:
         with st.container(border=True):
@@ -806,6 +850,7 @@ def _discard_pending_checkboxes(state_key: str, option_values: Sequence[str]) ->
         st.session_state.pop(f"{state_key}_pending_{value}", None)
     st.session_state.pop(PENDING_DIALOG_SIGNATURE_STATE_KEY, None)
 
+
 def _checkbox_grid_options(state_key: str, options: Sequence[FilterOption]) -> list[str]:
     current = set(_selected(state_key))
     selected: list[str] = []
@@ -825,7 +870,9 @@ def _checkbox_grid_options(state_key: str, options: Sequence[FilterOption]) -> l
 
 
 def _render_option_dialog_body(state_key: str, options: Sequence[FilterOption]) -> None:
-    st.caption("件数は商品条件のみ反映した目安です。現在の絞り込み結果は候補サマリーで確認できます。")
+    st.caption(
+        "件数は商品条件のみ反映した目安です。現在の絞り込み結果は候補サマリーで確認できます。"
+    )
     st.markdown(
         '<p class="smai-chip-checkbox-hint">チップ風の候補を選び、適用でカードとランキング候補だけ更新します。ランキング結果の再作成は「ランキング作成」まで行いません。</p>',
         unsafe_allow_html=True,
@@ -839,11 +886,7 @@ def _render_option_dialog_body(state_key: str, options: Sequence[FilterOption]) 
     # widgets are pending-only state, so their reruns do not update ranking
     # results; Apply/Cancel are plain buttons that close the dialog explicitly.
     selected = _checkbox_grid_options(state_key, options)
-    current_labels = [
-        _option_label(option)
-        for option in options
-        if option.value in set(selected)
-    ]
+    current_labels = [_option_label(option) for option in options if option.value in set(selected)]
     if current_labels:
         st.caption("選択中: " + " / ".join(label.rsplit(" ", 1)[0] for label in current_labels[:6]))
 
@@ -888,7 +931,9 @@ def _render_sector_dialog(rows: Sequence[dict[str, str]], product_type: str) -> 
         key="market_data_ranking_sector_view_radio",
     )
     st.session_state[SECTOR_VIEW_STATE_KEY] = view
-    _render_option_dialog_body(DRAFT_SECTOR_FILTER_STATE_KEY, _sector_options(rows, product_type, view))
+    _render_option_dialog_body(
+        DRAFT_SECTOR_FILTER_STATE_KEY, _sector_options(rows, product_type, view)
+    )
 
 
 def _render_theme_dialog(rows: Sequence[dict[str, str]], product_type: str) -> None:
@@ -903,10 +948,18 @@ def _render_theme_dialog(rows: Sequence[dict[str, str]], product_type: str) -> N
         key="market_data_ranking_theme_view_radio",
     )
     st.session_state[THEME_VIEW_STATE_KEY] = view
-    _render_option_dialog_body(DRAFT_THEME_FILTER_STATE_KEY, _theme_options(rows, product_type, view))
+    _render_option_dialog_body(
+        DRAFT_THEME_FILTER_STATE_KEY, _theme_options(rows, product_type, view)
+    )
 
 
-def _top_counts(rows: Sequence[dict[str, str]], value_func: Callable[[Mapping[str, str]], Iterable[str]], labels: Mapping[str, str], *, limit: int = 5) -> str:
+def _top_counts(
+    rows: Sequence[dict[str, str]],
+    value_func: Callable[[Mapping[str, str]], Iterable[str]],
+    labels: Mapping[str, str],
+    *,
+    limit: int = 5,
+) -> str:
     counts: dict[str, int] = {}
     for row in rows:
         for value in value_func(row):
@@ -915,7 +968,9 @@ def _top_counts(rows: Sequence[dict[str, str]], value_func: Callable[[Mapping[st
             counts[value] = counts.get(value, 0) + 1
     if not counts:
         return "該当なし"
-    ordered = sorted(counts.items(), key=lambda item: (-item[1], labels.get(item[0], item[0])))[:limit]
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], labels.get(item[0], item[0])))[
+        :limit
+    ]
     return " / ".join(f"{labels.get(value, value)} {count:,}" for value, count in ordered)
 
 
@@ -929,13 +984,13 @@ def result_summary_html(rows: Sequence[dict[str, str]], *, dirty: bool = False) 
     dirty_note = ""
     return (
         '<section class="smai-ranking-target-summary smai-ranking-target-summary--ready">'
-        '<strong>現在の候補サマリー</strong>'
-        f'<span>候補数: {len(rows):,}件</span>'
-        f'{dirty_note}'
+        "<strong>現在の候補サマリー</strong>"
+        f"<span>候補数: {len(rows):,}件</span>"
+        f"{dirty_note}"
         '<div class="smai-result-summary-grid">'
         f'<div class="smai-result-summary-card"><span>国・市場</span><strong>{html.escape(country_text)}</strong></div>'
         f'<div class="smai-result-summary-card"><span>業種・セクター</span><strong>{html.escape(sector_text)}</strong></div>'
         f'<div class="smai-result-summary-card"><span>投資テーマ</span><strong>{html.escape(theme_text)}</strong></div>'
-        '</div>'
-        '</section>'
+        "</div>"
+        "</section>"
     )

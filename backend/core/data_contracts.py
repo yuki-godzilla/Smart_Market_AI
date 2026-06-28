@@ -29,7 +29,9 @@ class Symbol(StrictBaseModel):
 class FxRate(StrictBaseModel):
     """Foreign-exchange rate normalized to UTC and a named source."""
 
-    pair: Literal["USDJPY", "HKDJPY", "KRWJPY", "VNDJPY", "IDRJPY", "SGDJPY", "THBJPY", "MYRJPY", "CNYJPY"]
+    pair: Literal[
+        "USDJPY", "HKDJPY", "KRWJPY", "VNDJPY", "IDRJPY", "SGDJPY", "THBJPY", "MYRJPY", "CNYJPY"
+    ]
     rate: Decimal = Field(gt=0)
     ts: datetime
     source: str = "mock"

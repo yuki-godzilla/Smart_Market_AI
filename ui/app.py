@@ -262,6 +262,7 @@ from ui.ranking import (
     ranking_filter_signature,
     ranking_fundamental_metric_is_abnormal,
     ranking_fundamental_metric_value,
+    ranking_insufficient_bars_error_row,
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
@@ -9454,6 +9455,17 @@ async def _build_market_data_ranking_rows_fast(
                     display_end=end,
                     fetch_start=feature_start_dt,
                     fetch_end=end_dt,
+                )
+            )
+            continue
+        if len(symbol_bars) < 2:
+            error_rows.append(
+                ranking_insufficient_bars_error_row(
+                    provider=provider,
+                    symbol=symbol,
+                    bar_count=len(symbol_bars),
+                    display_start=start,
+                    display_end=end,
                 )
             )
             continue

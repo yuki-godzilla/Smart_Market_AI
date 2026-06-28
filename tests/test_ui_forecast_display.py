@@ -6533,7 +6533,8 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
                     code=symbol,
                     currency="USD",
                 )
-                for day in range(30):
+                bar_count = 1 if symbol == "BBB" else 30
+                for day in range(bar_count):
                     close = Decimal("100") + Decimal(day)
                     bars.append(
                         Bar(
@@ -6590,8 +6591,19 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     assert adapter.ohlcv_calls == 1
     assert adapter.fundamental_calls == 1
     assert adapter.healthcheck_calls == 1
-    assert [row["symbol"] for row in rows] == ["AAA", "BBB"]
-    assert error_rows == []
+    assert [row["symbol"] for row in rows] == ["AAA"]
+    assert error_rows == [
+        {
+            "symbol": "BBB",
+            "code": "RANKING-INSUFFICIENT-BARS",
+            "message": "価格データが2本未満のため、ランキングから除外しました。",
+            "details": (
+                '{"bar_count": 1, "display_end": "2026-04-30", '
+                '"display_start": "2026-04-20", "provider": "mock", '
+                '"reason": "insufficient_ohlcv_rows", "symbol": "BBB"}'
+            ),
+        }
+    ]
 
 
 def test_build_market_data_ranking_rows_adds_current_price_jpy_for_usd(monkeypatch):

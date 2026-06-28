@@ -1708,6 +1708,32 @@ def ranking_no_bars_error_row(
     }
 
 
+def ranking_insufficient_bars_error_row(
+    *,
+    provider: str,
+    symbol: str,
+    bar_count: int,
+    display_start: date,
+    display_end: date,
+) -> dict[str, str]:
+    """Explain why a symbol with too little history was excluded."""
+
+    details = {
+        "provider": provider,
+        "symbol": symbol,
+        "bar_count": bar_count,
+        "display_start": display_start.isoformat(),
+        "display_end": display_end.isoformat(),
+        "reason": "insufficient_ohlcv_rows",
+    }
+    return {
+        "symbol": symbol,
+        "code": "RANKING-INSUFFICIENT-BARS",
+        "message": "価格データが2本未満のため、ランキングから除外しました。",
+        "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
+    }
+
+
 def ranking_symbol_chunks(symbols: list[str]) -> list[list[str]]:
     return [
         symbols[index : index + MAX_RANKING_BATCH_FETCH_SYMBOLS]

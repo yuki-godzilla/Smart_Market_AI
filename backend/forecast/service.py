@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from math import sqrt, tanh
 from typing import Literal, Protocol, TypedDict
 
@@ -21,6 +21,7 @@ DirectionSignalLabel = Literal[
 
 VOLATILITY_FLOOR = Decimal("0.02")
 DIRECTION_EDGE_SCALE = Decimal("1.25")
+MAX_MOMENTUM_FORECAST_RATIO = Decimal("10")
 
 
 class ForecastDirectionSignal(TypedDict):
@@ -219,9 +220,18 @@ class MomentumForecastModel:
         if previous <= 0:
             forecast_close = latest
         else:
-            period_return = (latest / previous) - Decimal("1")
-            daily_return = period_return / Decimal(self.lookback)
-            forecast_close = latest * ((Decimal("1") + daily_return) ** horizon_days)
+            try:
+                period_return = (latest / previous) - Decimal("1")
+                daily_return = period_return / Decimal(self.lookback)
+                forecast_close = latest * ((Decimal("1") + daily_return) ** horizon_days)
+            except DecimalException:
+                forecast_close = latest
+            if (
+                not forecast_close.is_finite()
+                or forecast_close < 0
+                or forecast_close > latest * MAX_MOMENTUM_FORECAST_RATIO
+            ):
+                forecast_close = latest
         return ForecastPoint(
             symbol=history[-1].symbol.raw,
             model_name=self.name,

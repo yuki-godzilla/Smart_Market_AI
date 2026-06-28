@@ -494,6 +494,15 @@ def test_momentum_predict_extends_recent_return():
     assert forecast.forecast_close == Decimal("133.7050")
 
 
+def test_momentum_predict_neutralizes_explosive_long_horizon_projection():
+    forecast = MomentumForecastModel(lookback=1).predict(
+        _bars([1, 100]),
+        horizon_days=60,
+    )
+
+    assert forecast.forecast_close == Decimal("100.0000")
+
+
 def test_forecast_model_rejects_too_short_history():
     with pytest.raises(ValueError, match="moving_average_3 requires at least 3 bars"):
         MovingAverageForecastModel(window=3).predict(_bars([100, 101]))

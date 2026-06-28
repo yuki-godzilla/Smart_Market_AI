@@ -132,6 +132,12 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".element-container:has(.smai-favorite-button-anchor)" in SMAI_GLOBAL_CSS
     assert '[data-testid="column"]:has(.smai-cockpit-favorite-action-anchor)' in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
+    assert "/* LAN tablet/mobile baseline." in SMAI_GLOBAL_CSS
+    assert "@media (max-width: 900px)" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stDataFrame"]' in SMAI_GLOBAL_CSS
+    assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
+    assert "@media (max-width: 640px)" in SMAI_GLOBAL_CSS
+    assert "flex-wrap: wrap;" in SMAI_GLOBAL_CSS
 
 
 def test_global_theme_tokens_define_dark_financial_ai_palette():

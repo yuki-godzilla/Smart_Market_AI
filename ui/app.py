@@ -218,6 +218,7 @@ from ui.favorites import (
     update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
+from ui.pwa import inject_pwa_head_metadata
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
@@ -1715,7 +1716,12 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 
 
 def main() -> None:
-    st.set_page_config(page_title="Smart Market AI", layout="wide")
+    st.set_page_config(
+        page_title="Smart Market AI",
+        page_icon="static/pwa/favicon.png",
+        layout="wide",
+    )
+    inject_pwa_head_metadata()
     render_global_styles()
     _start_symbol_background_refresh_worker_once()
     _start_news_background_refresh_worker_once()
@@ -7032,9 +7038,7 @@ def _cockpit_filter_detail_chips_v2(
         label = _short_filter_label(RANKING_INVESTMENT_THEME_LABELS.get(theme, theme))
         chips.append(f"テーマ: {label}")
     if "market_cap" in detail_filters and market_cap_tier != "all":
-        label = _short_filter_label(
-            RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier)
-        )
+        label = _short_filter_label(RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier))
         chips.append(f"規模: {label}")
     if "risk_band" in detail_filters and risk_band != "all":
         label = _short_filter_label(RANKING_BETA_RISK_LABELS.get(risk_band, risk_band))
@@ -7049,9 +7053,7 @@ def _cockpit_filter_detail_chips_v2(
     if "complexity" in detail_filters and complexity != str(
         MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]
     ):
-        chips.append(
-            f"商品特性: {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}"
-        )
+        chips.append(f"商品特性: {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}")
     if "dividend_yield" in detail_filters and dividend_category != "all":
         label = _dividend_category_option_label(dividend_category, product_type)
         chips.append(f"配当: {_short_filter_label(label)}")
@@ -7920,9 +7922,7 @@ def favorite_prioritized_symbol_candidate_labels(
 ) -> list[str]:
     labels = symbol_candidate_labels(rows)
     normalized_favorites = {
-        normalize_favorite_symbol(symbol)
-        for symbol in favorite_symbols
-        if symbol.strip()
+        normalize_favorite_symbol(symbol) for symbol in favorite_symbols if symbol.strip()
     }
     if favorites_only:
         labels = [
@@ -7945,9 +7945,7 @@ def favorite_symbol_candidate_display_label(
     favorite_symbols: set[str],
 ) -> str:
     symbol = normalize_favorite_symbol(_symbol_from_candidate(label) or "")
-    normalized_favorites = {
-        normalize_favorite_symbol(favorite) for favorite in favorite_symbols
-    }
+    normalized_favorites = {normalize_favorite_symbol(favorite) for favorite in favorite_symbols}
     return f"★ {label}" if symbol and symbol in normalized_favorites else label
 
 
@@ -8003,9 +8001,7 @@ def _render_market_data_cockpit() -> None:
         filtered_symbol_options,
         symbol_query,
     )
-    live_symbol_options = (
-        yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
-    )
+    live_symbol_options = yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
     candidate_rows = merged_symbol_candidate_rows(
         local_candidate_rows,
         live_symbol_options,
@@ -8016,9 +8012,7 @@ def _render_market_data_cockpit() -> None:
         favorite_symbols,
         favorites_only=True,
     )
-    favorites_only = bool(
-        st.session_state.get("market_data_cockpit_favorites_only", False)
-    )
+    favorites_only = bool(st.session_state.get("market_data_cockpit_favorites_only", False))
     with col_symbol:
         symbol_option_labels = favorite_prioritized_symbol_candidate_labels(
             candidate_rows,
@@ -8027,9 +8021,7 @@ def _render_market_data_cockpit() -> None:
         )
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
-        _ensure_selectbox_state_value(
-            "market_data_symbol_candidate", symbol_option_labels
-        )
+        _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
         symbol_candidate = cast(
             str,
             st.selectbox(
@@ -8081,9 +8073,7 @@ def _render_market_data_cockpit() -> None:
         else:
             st.caption("銘柄データ未登録")
     with col_name:
-        company_name = (
-            symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
-        )
+        company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
         company_name_display = html.escape(company_name or "未登録")
         st.markdown(
             '<div class="smai-cockpit-symbol-name-field">'

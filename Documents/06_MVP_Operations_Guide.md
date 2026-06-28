@@ -349,6 +349,18 @@ CSV sample は `data/marketdata/` 配下にあります。
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+### 同一LANのiPad / iPhoneから使う
+
+信頼できる家庭内LANに限り、`scripts\run_lan_server.bat` から
+`0.0.0.0:8501` で起動できます。通常起動とEXEの起動設定は変更しません。
+iPad / iPhoneは同じWi-Fiから `http://<Desktop PCのIPv4>:8501` をSafariで開きます。
+ホーム画面用アイコンとPWA風metadataも配信しますが、オフライン動作やService Workerを
+含む完全なPWAではありません。FirewallはPrivate profileだけを許可し、ルーターの
+ポート開放やインターネットへの直接公開は行いません。
+
+IP確認、Firewall、固定IP予約、ホーム画面追加、制約、トラブルシュートの詳細は
+`docs/LAN_PWA_ACCESS_GUIDE.md` を参照してください。
+
 ### プレ配布EXE
 
 Windows向けプレ配布は PyInstaller の `onedir` 形式で作成します。

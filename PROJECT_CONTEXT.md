@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-06-26
+Last updated: 2026-06-28
 
 ## Project Summary
 
@@ -25,6 +25,15 @@ The product direction is to help users compare symbols, inspect provider-backed 
 - SMAI Assistant now treats valid Gateway answers as `response_source=llm` and reserves `response_source=deterministic_fallback` for Gateway/provider/model/timeout/schema/empty-answer failure paths. Assistant turns preserve `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, `profile`, `timeout_sec`, `context_tokens_estimate`, `prompt_chars`, `response_chars`, `tool_execution_ms`, `llm_generation_ms`, `total_elapsed_ms`, conversation mode, and Gateway/provider diagnostic metadata. The UI keeps runtime metadata in a folded `技術情報を表示` block for analysis-style answers, but hides technical fallback metadata for normal chat / identity / capability turns. The header uses a centralized `AssistantRuntimeStatus` model for ready / checking / generating / research planned / research running / degraded / Gateway unavailable / provider unavailable / model missing states, keeps first display neutral as `LLM待機中`, and refreshes from pending events, cached diagnostics, or the latest answer response so success / fallback status stays aligned with the chat. New conversation clears stale runtime status and Gateway diagnostic cache.
 
 Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
+
+LAN内PWA風アクセスの初期slice is implemented. `scripts/run_lan_server.bat` starts the
+existing full Streamlit app on `0.0.0.0:8501` only when explicitly selected; normal startup,
+EXE behavior, Assistant, Gateway, and Agent Workflow remain unchanged. Streamlit static serving
+provides the existing SMAI mark plus `SMAI` label as home-screen icons and a web manifest,
+best-effort iOS metadata is injected without modifying Streamlit internals, and mobile-only CSS
+adds touch targets, horizontal table scrolling, narrow-screen stacking, and a bounded floating
+assistant. `docs/LAN_PWA_ACCESS_GUIDE.md` limits use to a trusted same-LAN network and documents
+IP, Private-profile Firewall, router DHCP reservation, home-screen addition, and non-PWA limits.
 
 Phase 31-SDB Screening DB Reliability is implemented as a backward-compatible DB quality slice. The symbol metadata schema now accepts separate official-industry / SMAI-theme fields, SBI/NISA confirmation states, ETF asset-class/AUM/average-volume fields, and per-metric source/as-of/quality metadata without requiring new columns in existing CSVs. Yahoo metadata refresh can fill missing values only and preserves existing canonical values; unavailable values remain null. `symbol_universe_quality_report.json` provides network-free total, region, product, Japan-stock, US-stock, and ETF coverage. The 2026-06-22 deterministic screening backfill fills JPX official `tse_33_industry` / `topix_17` for 3,746 Japan-stock rows and one-to-one mappable `sector_gics` for 3,662 US-stock rows, while keeping ambiguous consumer GICS splits blank. Ranking/Cockpit UI now separates `業種・セクター` from SMAI `投資テーマ`; theme filtering uses `theme` / `smai_theme_tags`, and official-sector filtering uses `sector` / GICS / JPX fields. Ranking UI now calls the `risk_band` filter `値動きリスク` instead of presenting the band as an exact beta value. Phase 31-SDB operational maintenance on 2026-06-26 added deterministic provenance normalization via `tools/normalize_symbol_universe_quality.py`, a reviewed patch workflow via `tools/export_symbol_universe_metadata_gaps.py` and `tools/apply_symbol_universe_metadata_patch.py`, and chunked weak-Asia refresh auditing that records `no_update_symbols`, `unchanged_update_symbols`, and batch `no_update_symbols.csv` outputs. Live backfill remains explicit opt-in and Execution/Broker scope remains deferred.
 

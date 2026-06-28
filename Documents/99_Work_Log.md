@@ -3766,3 +3766,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `.element-container` / `stElementContainer` の隣接marker selectorと、1.38の `data-testid="column"` を使う互換selectorへ変更。実ブラウザのcomputed styleで追加済みボタンの黄gradient、濃茶文字、黄border、高さ約50pxを確認。
 - CIのRuff 3件と、その後に露出したMypy型エラーを修正。Ruff / Black / Mypyはpass、全pytestは1854 passed / 2 skipped / 1 xfailed。
 - PyInstaller 6.20.0で `dist/SMAI/SMAI.exe` をクリーン生成。Exe smokeで `/_stcore/health` がHTTP 200 / `ok` を返すことを確認し、確認プロセスは停止済み。
+
+## 2026-06-28 LAN内PWA風アクセス
+
+- 明示起動時だけ `0.0.0.0:8501` で待ち受ける `scripts/run_lan_server.bat` を追加し、通常起動・EXE・Assistant・Gateway・Agent Workflowは変更しない構成にした。
+- Streamlit static配信、manifest、iOS向けbest-effort metadata、既存SMAIシンボルと`SMAI`文字を一体化したホーム画面アイコンを追加。
+- 900px以下のtable横スクロール・touch target・floating assistant制限と、640px以下のcolumn縦並びを追加。PC幅は変更なし。
+- `docs/LAN_PWA_ACCESS_GUIDE.md` と運用ガイドへ、IP確認、Private Firewall、ルーター側IP予約、ホーム画面追加、外部公開禁止、完全PWAではない制約を記載。
+- Targeted Ruff pass、PWA/style tests 9 passed。実Streamlit起動と物理iPad/iPhone LAN smokeは未実施。

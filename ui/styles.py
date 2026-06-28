@@ -7084,6 +7084,79 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
 .stApp [class*="Heading"] {
     color: var(--text-heading);
 }
+
+/* LAN tablet/mobile baseline. Desktop layout remains unchanged above 900px. */
+@media (max-width: 900px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 1.1rem;
+        padding-right: 1.1rem;
+    }
+
+    [data-testid="stDataFrame"],
+    [data-testid="stTable"],
+    .ag-root-wrapper,
+    .smai-table-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    [data-testid="stButton"] button,
+    [data-testid="stDownloadButton"] button,
+    [data-testid="stLinkButton"] a {
+        min-height: 2.75rem;
+        touch-action: manipulation;
+    }
+
+    .smai-floating-assistant {
+        right: 0.75rem;
+        bottom: 0.75rem;
+        max-width: calc(100vw - 1.5rem);
+    }
+
+    .smai-floating-assistant-stage {
+        max-height: min(62vh, 31rem);
+    }
+
+    .investment-news-card,
+    .smai-watchlist-card,
+    .smai-ranking-card {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 640px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap;
+    }
+
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        width: 100% !important;
+    }
+
+    .smai-floating-assistant {
+        right: 0.5rem;
+        bottom: 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+
+    .smai-floating-assistant-stage {
+        max-height: min(58vh, 28rem);
+    }
+
+    .smai-page-title,
+    .smai-page-title--copilot {
+        overflow-wrap: anywhere;
+    }
+}
 </style>
 """
 

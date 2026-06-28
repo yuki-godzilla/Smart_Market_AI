@@ -3753,3 +3753,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Myウォッチリストの表示フィルターを互換helper経由に変更し、`st.segmented_control` がないStreamlit 1.38.0では横並びの `st.radio` へfallbackするよう修正。
 - filter / sort、My Radar、Decision Trail、favorites storeの契約・保存形式は変更なし。
 - 新旧API経路とfilter / sort連携のdeterministic UIテストを追加。
+
+## 2026-06-28 お気に入りボタン状態配色
+
+- コックピット、ランキング、投資レーダーで共用するお気に入りボタンを、未追加は青背景＋白文字、追加済みは黄背景＋濃茶文字へ統一。
+- hover時の浮き上がりと、キーボード操作時の状態別focus outlineを追加し、追加前後の判別性を改善。
+- Ruffはpass。pytestと実画面smokeは、仮想環境Pythonが削除済みWindows Store Pythonを参照して起動できないため未実施。

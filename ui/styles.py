@@ -538,52 +538,66 @@ body,
 .smai-favorite-button-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
     + div[data-testid="stButton"] button {
-    border-color: rgba(102, 128, 162, 0.7) !important;
-    background:
-        linear-gradient(180deg, rgba(17, 31, 53, 0.78), rgba(8, 15, 29, 0.82)) !important;
-    color: #EAF6FF !important;
+    border-color: #38BDF8 !important;
+    background: linear-gradient(135deg, #075985 0%, #1D4ED8 100%) !important;
+    color: #F0F9FF !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 1px rgba(3, 7, 18, 0.34);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 0 0 1px rgba(34, 211, 238, 0.06);
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 6px 18px rgba(14, 165, 233, 0.24);
 }
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button:hover,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
     + div[data-testid="stButton"] button:hover {
-    border-color: rgba(125, 211, 252, 0.78) !important;
-    background:
-        linear-gradient(180deg, rgba(21, 43, 70, 0.92), rgba(10, 24, 44, 0.9)) !important;
+    border-color: #7DD3FC !important;
+    background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%) !important;
+    color: #FFFFFF !important;
+    transform: translateY(-1px);
     box-shadow:
-        0 0 0 1px rgba(103, 232, 249, 0.14),
-        0 10px 22px rgba(8, 145, 178, 0.14);
+        0 0 0 1px rgba(103, 232, 249, 0.2),
+        0 10px 24px rgba(14, 165, 233, 0.3);
 }
 
 .smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
     + div[data-testid="stButton"] button {
-    border-color: rgba(251, 191, 36, 0.82) !important;
-    background:
-        linear-gradient(180deg, rgba(146, 92, 14, 0.84), rgba(92, 55, 11, 0.86)) !important;
-    color: #FBBF24 !important;
-    text-shadow:
-        0 1px 0 rgba(17, 24, 39, 0.34),
-        0 0 12px rgba(250, 204, 21, 0.22);
+    border-color: #FDE047 !important;
+    background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%) !important;
+    color: #422006 !important;
+    font-weight: 900 !important;
+    text-shadow: none !important;
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        0 0 0 1px rgba(250, 204, 21, 0.18),
-        0 10px 24px rgba(245, 158, 11, 0.16);
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        0 0 16px rgba(250, 204, 21, 0.3),
+        0 8px 22px rgba(245, 158, 11, 0.26);
 }
 
 .smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button:hover,
 [data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
     + div[data-testid="stButton"] button:hover {
-    border-color: rgba(254, 240, 138, 0.92) !important;
-    color: #FCD34D !important;
-    background:
-        linear-gradient(180deg, rgba(180, 111, 18, 0.9), rgba(120, 72, 12, 0.92)) !important;
+    border-color: #FEF08A !important;
+    color: #422006 !important;
+    background: linear-gradient(135deg, #FBBF24 0%, #FDE047 100%) !important;
+    transform: translateY(-1px);
     box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.24),
-        0 12px 28px rgba(245, 158, 11, 0.2);
+        0 0 0 1px rgba(250, 204, 21, 0.28),
+        0 12px 28px rgba(245, 158, 11, 0.32);
+}
+
+.smai-favorite-button-anchor + div[data-testid="stButton"] button:focus-visible,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stButton"] button:focus-visible {
+    outline: 3px solid rgba(125, 211, 252, 0.72) !important;
+    outline-offset: 2px;
+}
+
+.smai-favorite-button-anchor[data-active="true"]
+    + div[data-testid="stButton"] button:focus-visible,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
+    + div[data-testid="stButton"] button:focus-visible {
+    outline-color: rgba(253, 224, 71, 0.78) !important;
 }
 
 .smai-favorite-button-anchor + div[data-testid="stButton"] button *,

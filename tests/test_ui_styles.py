@@ -157,6 +157,9 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     )
     assert '[data-testid="stButton"] button *' in SMAI_GLOBAL_CSS
     assert '.smai-favorite-button-anchor[data-active="true"]' in SMAI_GLOBAL_CSS
+    assert "background: linear-gradient(135deg, #075985 0%, #1D4ED8 100%)" in SMAI_GLOBAL_CSS
+    assert "background: linear-gradient(135deg, #F59E0B 0%, #FACC15 100%)" in SMAI_GLOBAL_CSS
+    assert ".smai-favorite-button-anchor + div[data-testid=\"stButton\"] button:focus-visible" in SMAI_GLOBAL_CSS
     assert "rgba(251, 191, 36, 0.82)" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-card" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-radar-grid" in SMAI_GLOBAL_CSS

@@ -3844,3 +3844,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ## 2026-06-29 AGENTS.md レスポンシブ計画
 
 - 対象4 viewport、共通ブレークポイント、R-0〜R-5の進行順、共通CSS命名、横スクロール、タッチターゲット、network-free Playwright smoke、スクリーンショット保存先を安定ルールとして追記。
+
+## 2026-06-29 My Radar レスポンシブ改善
+
+- My Radar専用の旧900px/640pxブレークポイントを共通基準へ統一し、iPad縦は2列、iPhoneは1列へ調整。
+- Myウォッチリストへ遷移する任意Playwright smokeを追加。4 viewportで横はみ出し・Streamlit例外なしを確認し、スクリーンショットを保存。
+- iPhoneの縦積み操作、iPad縦のフィルター2列と監視カード2列、状態色・更新・Cockpit導線を目視確認。監視・再取得ロジックは変更なし。

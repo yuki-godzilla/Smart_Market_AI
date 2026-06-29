@@ -19,9 +19,9 @@ VIEWPORTS = (
     os.getenv("SMAI_RUN_RESPONSIVE_SMOKE") != "1",
     reason="Set SMAI_RUN_RESPONSIVE_SMOKE=1 with Streamlit running to enable.",
 )
-def test_ranking_responsive_viewports() -> None:
+def test_my_radar_responsive_viewports() -> None:
     base_url = os.getenv("SMAI_STREAMLIT_URL", "http://127.0.0.1:8501")
-    screenshot_dir = Path("docs/responsive/screenshots/ranking")
+    screenshot_dir = Path("docs/responsive/screenshots/my_radar")
     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
     with playwright.sync_playwright() as runtime:
@@ -33,7 +33,7 @@ def test_ranking_responsive_viewports() -> None:
                 sidebar_control = page.locator('[data-testid="stSidebarCollapsedControl"] button')
                 if sidebar_control.count() and sidebar_control.is_visible():
                     sidebar_control.click()
-                page.get_by_role("button", name="銘柄ランキング", exact=True).click()
+                page.get_by_role("button", name="Myウォッチリスト", exact=True).click()
                 sidebar_close = page.locator('[data-testid="stSidebarCollapseButton"] button')
                 if sidebar_close.count() and sidebar_close.is_visible():
                     sidebar_close.click()
@@ -47,7 +47,7 @@ def test_ranking_responsive_viewports() -> None:
                 )
                 assert body_width["scrollWidth"] <= body_width["clientWidth"] + 2
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
-                assert page.get_by_text("銘柄ランキング", exact=True).count() > 0
+                assert page.get_by_text("Myウォッチリスト", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
 
                 page.screenshot(

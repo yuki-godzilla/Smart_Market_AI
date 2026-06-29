@@ -6037,9 +6037,9 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     font-weight: 720;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 768px) and (max-width: 1024px) {
     .smai-watchlist-radar-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .smai-watchlist-metric-grid,
@@ -6048,9 +6048,9 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
     .smai-watchlist-radar-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
 
     .smai-watchlist-card-header {

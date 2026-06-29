@@ -26,6 +26,14 @@ MASCOTS = {
     "robot": "🦾 AIロボット",
     "penguin": "🐧 ペンギン",
 }
+CATEGORY_LABELS = {
+    "すべて": "すべて",
+    "FAVORITE": "お気に入り",
+    "MARKET_TREND": "市場",
+    "INVESTMENT_NEWS": "ニュース",
+    "SMAI_INSIGHT": "SMAI分析",
+    "SYSTEM": "システム",
+}
 
 
 def trusted_device_bootstrap_html() -> str:
@@ -158,11 +166,18 @@ def _render_notification_center(repository: NotificationHistoryRepository, user:
     st.markdown("#### 通知センター")
     category = st.selectbox(
         "カテゴリ",
-        ["すべて", "FAVORITE", "MARKET_TREND", "INVESTMENT_NEWS", "SMAI_INSIGHT", "SYSTEM"],
+        list(CATEGORY_LABELS),
+        format_func=lambda value: CATEGORY_LABELS[value],
         key="notification_center_category",
     )
     state = st.selectbox("状態", ["unread", "read", "archived"], key="notification_center_state")
     period = st.selectbox("期間", [1, 7, 30], format_func=lambda value: f"{value}日")
+    severity = st.selectbox(
+        "重要度",
+        ["すべて", "critical", "high", "medium", "low"],
+        format_func=lambda value: value.title() if value != "すべて" else value,
+        key="notification_center_severity",
+    )
     important = st.checkbox("重要のみ", key="notification_center_important")
     try:
         items = repository.list(
@@ -171,6 +186,7 @@ def _render_notification_center(repository: NotificationHistoryRepository, user:
             category=None if category == "すべて" else category,
             days=period,
             important_only=important,
+            severity=None if severity == "すべて" else severity,
         )
     except NotificationSettingsError:
         st.error("通知を読み込めませんでした。")

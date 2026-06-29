@@ -78,6 +78,7 @@ class NotificationHistoryRepository:
         category: str | None = None,
         days: int | None = None,
         important_only: bool = False,
+        severity: str | None = None,
     ) -> list[AppNotification]:
         self._settings.load(user_id)
         clauses, params = ["user_id = ?"], [user_id]
@@ -92,6 +93,9 @@ class NotificationHistoryRepository:
             params.append((datetime.now(UTC) - timedelta(days=days)).isoformat())
         if important_only:
             clauses.append("severity IN ('critical', 'high')")
+        if severity:
+            clauses.append("severity = ?")
+            params.append(severity)
         query = "SELECT * FROM app_notifications WHERE " + " AND ".join(clauses)
         try:
             with sqlite3.connect(self.database_path) as connection:

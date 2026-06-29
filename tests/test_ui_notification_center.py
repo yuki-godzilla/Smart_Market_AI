@@ -13,6 +13,7 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert "smai-user-detail" in html
     assert "通知センター" in source
     assert "重要のみ" in source
+    assert '"重要度"' in source
     assert "アーカイブ" in source
     assert "通知センター" not in sidemenu
 

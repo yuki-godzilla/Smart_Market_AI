@@ -116,6 +116,8 @@ def test_history_dedupes_filters_and_updates_state(tmp_path) -> None:
     repository.archive("yuki", "evt-1")
     assert len(repository.list("yuki", state="archived")) == 1
     assert repository.list("family")[0].event_id == "evt-2"
+    assert repository.list("family", severity="high")[0].event_id == "evt-2"
+    assert repository.list("family", severity="low") == []
 
 
 def test_service_saves_before_failed_delivery_and_sanitizes_result(tmp_path) -> None:

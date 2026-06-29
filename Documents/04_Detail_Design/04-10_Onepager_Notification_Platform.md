@@ -206,4 +206,3 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - topic や秘密情報をログへ出さない。
 - 既存 Streamlit 画面と既存テストを壊さない。
 - README / 運用ガイドに安全な ntfy 設定と network-free テスト手順がある。
-

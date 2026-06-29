@@ -20,6 +20,7 @@ def test_trusted_device_bind_resolve_revoke_and_mascot(tmp_path) -> None:
     assert repository.list("local_user")[0].device_name == "Desk PC"
     repository.set_icon("local_user", "smai_pet_cat")
     users = repository.users()
+    assert [user.user_id for user in users] == ["local_user", "default"]
     local_user = next(user for user in users if user.user_id == "local_user")
     default_user = next(user for user in users if user.user_id == "default")
     assert local_user.icon_id == "smai_pet_cat"
@@ -36,5 +37,5 @@ def test_device_id_validation_and_browser_bridge() -> None:
     html = trusted_device_bootstrap_html()
     assert "localStorage" not in html
     assert "crypto.randomUUID" not in html
-    assert 'button.style.position = "fixed"' in html
+    assert 'button.style.setProperty("position", "fixed", "important")' in html
     assert "clientIP" not in html

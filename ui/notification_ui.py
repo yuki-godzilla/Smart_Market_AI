@@ -187,7 +187,9 @@ def render_notification_destination(user_id: str = DEFAULT_NOTIFICATION_USER_ID)
                     getattr(st, level)(message)
 
 
-def render_notification_preferences(user_id: str = DEFAULT_NOTIFICATION_USER_ID) -> None:
+def render_notification_preferences(
+    user_id: str = DEFAULT_NOTIFICATION_USER_ID,
+) -> str | None:
     """Render per-category notification preferences."""
     repository = NotificationSettingsRepository()
     loaded = load_notification_setting_safe(repository, user_id=user_id)
@@ -203,7 +205,14 @@ def render_notification_preferences(user_id: str = DEFAULT_NOTIFICATION_USER_ID)
             key=f"notification_category_{category.lower()}",
         )
     )
-    if st.button("通知内容を保存", key="notification_categories_save", type="primary"):
+    save_col, cancel_col = st.columns(2)
+    save_clicked = save_col.button(
+        "通知設定を保存", key="notification_categories_save", type="primary"
+    )
+    cancel_clicked = cancel_col.button("キャンセル", key="notification_categories_cancel")
+    if cancel_clicked:
+        return "cancelled"
+    if save_clicked:
         try:
             save_notification_setting(
                 repository,
@@ -222,7 +231,8 @@ def render_notification_preferences(user_id: str = DEFAULT_NOTIFICATION_USER_ID)
         except NotificationSettingsError:
             st.error("通知内容を保存できませんでした。時間をおいて再度お試しください。")
         else:
-            st.success("通知内容を保存しました。")
+            return "saved"
+    return None
 
 
 def _time_value(value: str | None, fallback: time) -> time:

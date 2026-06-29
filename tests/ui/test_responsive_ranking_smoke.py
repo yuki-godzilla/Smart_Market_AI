@@ -17,9 +17,9 @@ VIEWPORTS = (
 
 def _start_app_session(page) -> None:
     page.wait_for_timeout(5_000)
-    page.get_by_role("button", name="Yukiを選択", exact=True).click()
+    page.get_by_role("link", name="Yukiを選択", exact=True).click()
     page.wait_for_timeout(800)
-    page.get_by_role("button", name="このユーザーで開始", exact=True).click()
+    page.get_by_role("link", name="このユーザーで開始", exact=True).click()
     page.wait_for_timeout(8_000)
 
 

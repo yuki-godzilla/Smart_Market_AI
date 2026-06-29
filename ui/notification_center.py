@@ -26,7 +26,10 @@ DEFAULT_NOTIFICATION_USER_ID = "local_user"
 DEVICE_QUERY_KEY = "smai_device_id"
 DEVICE_NAME_QUERY_KEY = "smai_device_name"
 PROFILE_QUERY_KEY = "smai_profile"
+START_PROFILE_QUERY_KEY = "smai_start_profile"
 ADD_PROFILE_QUERY_KEY = "smai_add_profile"
+ICON_QUERY_KEY = "smai_icon"
+ICON_ACTION_QUERY_KEY = "smai_icon_action"
 CATEGORY_LABELS = {
     "すべて": "すべて",
     "FAVORITE": "お気に入り",
@@ -56,10 +59,14 @@ def trusted_device_bootstrap_html(
   const displayName = {display_json};
   const userId = {user_json};
   const unread = {max(0, unread)};
+  const decorateUserArea = Boolean(iconUrl || displayName || userId);
   const decorate = () => {{
     let found = false;
     for (const button of window.parent.document.querySelectorAll("button")) {{
-      if (button.innerText.includes("SMAI_USER_AREA")) {{
+      if (decorateUserArea && (
+        button.innerText.includes("SMAI_USER_AREA")
+        || button.classList.contains("smai-user-trigger")
+      )) {{
         found = true;
         button.textContent = "";
         button.classList.add("smai-user-trigger");
@@ -130,6 +137,34 @@ def trusted_device_bootstrap_html(
       `;
       window.parent.document.head.appendChild(style);
     }}
+    const profileLinks = window.parent.document.querySelectorAll(
+      ".smai-profile-link[data-user-id]"
+    );
+    for (const link of profileLinks) {{
+      if (link.dataset.smaiBound === "1") continue;
+      link.dataset.smaiBound = "1";
+      link.addEventListener("click", (event) => {{
+        event.preventDefault();
+        const selectedId = link.dataset.userId || "";
+        const url = new URL(window.parent.location.href);
+        url.searchParams.set("{PROFILE_QUERY_KEY}", selectedId);
+        url.searchParams.delete("{ADD_PROFILE_QUERY_KEY}");
+        window.parent.history.replaceState({{}}, "", url.toString());
+        for (const card of window.parent.document.querySelectorAll(".smai-profile-card")) {{
+          card.classList.toggle("selected", card.closest("a") === link);
+        }}
+        const start = window.parent.document.getElementById("smai-profile-start");
+        if (start) {{
+          const startUrl = new URL(window.parent.location.href);
+          startUrl.searchParams.delete("{PROFILE_QUERY_KEY}");
+          startUrl.searchParams.set("{START_PROFILE_QUERY_KEY}", selectedId);
+          start.href = startUrl.toString();
+          start.classList.remove("disabled");
+          start.removeAttribute("aria-disabled");
+        }}
+      }});
+    }}
+    if (profileLinks.length) found = true;
     return found;
   }};
   let attempts = 0;
@@ -152,12 +187,31 @@ def render_user_notification_area() -> bool:
         st.warning("ユーザー情報を読み込めませんでした。")
         return False
     users = devices.users()
+    start_user_id = _query_value(START_PROFILE_QUERY_KEY)
+    start_user = next((item for item in users if item.user_id == start_user_id), None)
+    if start_user is not None:
+        st.session_state["smai_current_user_id"] = start_user.user_id
+        st.session_state.pop("smai_profile_candidate", None)
+        _clear_query_value(START_PROFILE_QUERY_KEY)
+        _clear_query_value(PROFILE_QUERY_KEY)
+        st.rerun()
     session_user_id = st.session_state.get("smai_current_user_id")
     user = next((item for item in users if item.user_id == session_user_id), None)
     if user is None:
         user = _select_user(users)
     if user is None:
         return False
+    icon_action = _query_value(ICON_ACTION_QUERY_KEY)
+    if icon_action in {"save", "cancel"}:
+        if icon_action == "save":
+            selected_icon = _query_value(ICON_QUERY_KEY)
+            valid_icon_ids = {asset.icon_id for asset in load_user_icon_assets()}
+            if selected_icon in valid_icon_ids:
+                devices.set_icon(user.user_id, selected_icon)
+        st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
+        _clear_query_value(ICON_ACTION_QUERY_KEY)
+        _clear_query_value(ICON_QUERY_KEY)
+        st.rerun()
 
     repository = NotificationHistoryRepository()
     try:
@@ -242,6 +296,16 @@ def _select_user(
           background: #0b1b30; color: #8ca6bd; font-size: 4rem; cursor: pointer;
         }
         .smai-profile-link { display: block; color: inherit; text-decoration: none !important; }
+        .smai-start-button {
+          display: flex; align-items: center; justify-content: center;
+          width: min(100%, 260px); min-height: 44px; margin: 1.1rem auto 0;
+          border: 1px solid #22d3ee; border-radius: .55rem; background: #0891b2;
+          color: #fff !important; font-weight: 800; text-decoration: none !important;
+          box-shadow: 0 0 18px rgba(34,211,238,.2);
+        }
+        .smai-start-button.disabled {
+          opacity: .42; pointer-events: none; box-shadow: none;
+        }
         div[data-testid="stButton"] > button {
           display: flex; width: min(100%, 220px); min-width: 0; margin-inline: auto;
           justify-content: center;
@@ -281,6 +345,7 @@ def _select_user(
                 st.markdown(
                     f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
                     f'{html.escape(candidate.user_id)}" target="_self" '
+                    f'data-user-id="{html.escape(candidate.user_id)}" '
                     f'aria-label="{html.escape(candidate.display_name)}を選択">'
                     f'<div class="smai-profile-card{selected_class}">'
                     f'<img src="{html.escape(source)}" alt="">'
@@ -308,19 +373,18 @@ def _select_user(
         st.info("ユーザー追加は次フェーズで対応予定です。")
 
     selected = next((item for item in users if item.user_id == selected_user_id), None)
-    if selected is not None and st.button(
-        "このユーザーで開始",
-        key="start_selected_profile",
-        type="primary",
-    ):
-        st.markdown(
-            "<style>.smai-profile-card,.smai-add-profile{visibility:hidden!important}</style>",
-            unsafe_allow_html=True,
-        )
-        st.session_state["smai_current_user_id"] = selected.user_id
-        st.session_state.pop("smai_profile_candidate", None)
-        _clear_query_value(PROFILE_QUERY_KEY)
-        st.rerun()
+    start_href = (
+        f"?{START_PROFILE_QUERY_KEY}={html.escape(selected.user_id)}"
+        if selected is not None
+        else "#"
+    )
+    disabled_class = "" if selected is not None else " disabled"
+    disabled_attr = "" if selected is not None else ' aria-disabled="true"'
+    st.markdown(
+        f'<a id="smai-profile-start" class="smai-start-button{disabled_class}" '
+        f'href="{start_href}" target="_self"{disabled_attr}>このユーザーで開始</a>',
+        unsafe_allow_html=True,
+    )
     session_user = st.session_state.get("smai_current_user_id")
     return next((user for user in users if user.user_id == session_user), None)
 
@@ -417,17 +481,16 @@ def _render_user_area_view(
         """,
         unsafe_allow_html=True,
     )
-    if st.button("← SMAIに戻る", key="close_user_area_view"):
-        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
-        st.rerun()
-
     if view == "notification_settings":
         st.title("通知設定")
-        render_notification_preferences(user.user_id)
+        action = render_notification_preferences(user.user_id)
+        if action in {"saved", "cancelled"}:
+            st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+            st.rerun()
     elif view == "user_settings":
         _render_user_settings(user_repository, user)
     elif view == "icon_settings":
-        _render_icon_settings(user_repository, user)
+        _render_icon_settings(user)
     elif view == "switch_user":
         st.session_state.pop("smai_current_user_id", None)
         st.session_state.pop("smai_profile_candidate", None)
@@ -457,36 +520,105 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     render_notification_destination(user.user_id)
 
 
-def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -> None:
+def _render_icon_settings(user: SmaiUser) -> None:
     st.title("アイコン変更")
-    current = resolve_user_icon(user.icon_id)
-    if current.file_path is not None:
-        st.image(str(current.file_path), width=160, caption="現在のアイコン")
     assets = load_user_icon_assets()
     if not assets:
         st.info("選択可能なアイコンAssetはありません。")
         return
-    icon_ids = [asset.icon_id for asset in assets]
-    selected_icon = st.selectbox(
-        "プロフィールアイコン",
-        icon_ids,
-        index=icon_ids.index(user.icon_id) if user.icon_id in icon_ids else 0,
-        format_func=lambda value: next(
-            asset.display_name for asset in assets if asset.icon_id == value
-        ),
-        key="smai_user_icon",
+    query_icon = _query_value(ICON_QUERY_KEY)
+    selected_icon = (
+        query_icon if any(asset.icon_id == query_icon for asset in assets) else user.icon_id
+    )
+    st.markdown(
+        """
+        <style>
+        .smai-icon-link { display: block; color: inherit; text-decoration: none !important; }
+        .smai-icon-card { padding: .65rem; border: 2px solid #24415f; border-radius: 14px;
+          background: #0a192b; transition: border-color .18s ease, box-shadow .18s ease; }
+        .smai-icon-card:hover, .smai-icon-card.selected { border-color: #22d3ee;
+          box-shadow: 0 0 24px rgba(34,211,238,.28); }
+        .smai-icon-card img { width: 100%; aspect-ratio: 1; object-fit: cover;
+          border-radius: 10px; display: block; }
+        .smai-icon-label { margin-top: .45rem; text-align: center; font-weight: 700; }
+        .smai-icon-actions { display: flex; justify-content: center; gap: .8rem; margin-top: 1.25rem; }
+        .smai-icon-action { display: inline-flex; align-items: center; justify-content: center;
+          min-width: 180px; min-height: 44px; padding: .5rem 1rem; border-radius: .55rem;
+          border: 1px solid #22d3ee; text-decoration: none !important; font-weight: 800; }
+        .smai-icon-save { color: #fff !important; background: #0891b2; }
+        .smai-icon-cancel { color: #d7e7f5 !important; background: #14243a; }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
     columns = st.columns(4)
     for index, asset in enumerate(assets):
         with columns[index % 4]:
-            st.image(
-                str(asset.file_path),
-                width=160,
-                caption=("選択中: " if asset.icon_id == selected_icon else "") + asset.display_name,
+            source = user_icon_browser_source(resolve_user_icon(asset.icon_id))
+            if source is None:
+                continue
+            selected_class = " selected" if asset.icon_id == selected_icon else ""
+            st.markdown(
+                f'<a class="smai-icon-link" href="?{ICON_QUERY_KEY}='
+                f'{html.escape(asset.icon_id)}" data-icon-id="{html.escape(asset.icon_id)}" '
+                f'target="_self" aria-label="{html.escape(asset.display_name)}を選択">'
+                f'<div class="smai-icon-card{selected_class}">'
+                f'<img src="{html.escape(source)}" alt="">'
+                f'<div class="smai-icon-label">{html.escape(asset.display_name)}</div>'
+                "</div></a>",
+                unsafe_allow_html=True,
             )
-    if st.button("アイコンを保存", key="save_smai_user_icon", type="primary"):
-        repository.set_icon(user.user_id, selected_icon)
-        st.rerun()
+    save_href = f"?{ICON_ACTION_QUERY_KEY}=save&{ICON_QUERY_KEY}={html.escape(selected_icon)}"
+    cancel_href = f"?{ICON_ACTION_QUERY_KEY}=cancel"
+    st.markdown(
+        '<div class="smai-icon-actions">'
+        f'<a id="smai-icon-save" class="smai-icon-action smai-icon-save" '
+        f'href="{save_href}" target="_self">アイコンを保存</a>'
+        f'<a class="smai-icon-action smai-icon-cancel" href="{cancel_href}" '
+        'target="_self">キャンセル</a></div>',
+        unsafe_allow_html=True,
+    )
+    components.html(_icon_selection_bootstrap_html(), height=0, width=0)
+
+
+def _icon_selection_bootstrap_html() -> str:
+    return f"""
+<script>
+(() => {{
+  const bind = () => {{
+    const links = window.parent.document.querySelectorAll(".smai-icon-link[data-icon-id]");
+    for (const link of links) {{
+      if (link.dataset.smaiBound === "1") continue;
+      link.dataset.smaiBound = "1";
+      link.addEventListener("click", (event) => {{
+        event.preventDefault();
+        const iconId = link.dataset.iconId || "";
+        const url = new URL(window.parent.location.href);
+        url.searchParams.set("{ICON_QUERY_KEY}", iconId);
+        window.parent.history.replaceState({{}}, "", url.toString());
+        for (const card of window.parent.document.querySelectorAll(".smai-icon-card")) {{
+          card.classList.toggle("selected", card.closest("a") === link);
+        }}
+        const save = window.parent.document.getElementById("smai-icon-save");
+        if (save) {{
+          const saveUrl = new URL(window.parent.location.href);
+          saveUrl.searchParams.set("{ICON_ACTION_QUERY_KEY}", "save");
+          saveUrl.searchParams.set("{ICON_QUERY_KEY}", iconId);
+          save.href = saveUrl.toString();
+        }}
+      }});
+    }}
+    return links.length > 0;
+  }};
+  let attempts = 0;
+  const timer = window.setInterval(() => {{
+    attempts += 1;
+    if (bind() || attempts >= 40) window.clearInterval(timer);
+  }}, 125);
+  bind();
+}})();
+</script>
+"""
 
 
 def _query_value(key: str) -> str:

@@ -56,6 +56,7 @@ def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() ->
 
 def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     source = Path("ui/notification_center.py").read_text(encoding="utf-8")
+    notification_source = Path("ui/notification_ui.py").read_text(encoding="utf-8")
     app_source = Path("ui/app.py").read_text(encoding="utf-8")
 
     assert "どのユーザーで使いますか？" in source
@@ -66,10 +67,21 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
         encoding="utf-8"
     )
     assert "max-width: 960px" in source
-    assert '"このユーザーで開始"' in source
+    assert "smai-profile-start" in source
+    assert "history.replaceState" in source
+    assert "START_PROFILE_QUERY_KEY" in source
     assert "remember_device_user" not in source
     assert 'class="smai-profile-link"' in source
     assert "select_profile_" not in source
+    assert "smai-icon-link" in source
+    assert "smai-icon-save" in source
+    assert "アイコンを保存" in source
+    assert "キャンセル" in source
+    assert "← SMAIに戻る" not in source
+    assert '"通知設定を保存"' in notification_source
+    assert '"キャンセル"' in notification_source
+    assert 'return "saved"' in notification_source
+    assert 'return "cancelled"' in notification_source
     assert app_source.index("if not render_user_notification_area():") < app_source.index(
         "selected_page = render_sidemenu"
     )

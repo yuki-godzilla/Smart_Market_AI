@@ -50,7 +50,7 @@ class TrustedDeviceRepository:
             rows = connection.execute(
                 "SELECT user_id, display_name, icon_asset_id AS icon_id, "
                 "is_system_user, deletable FROM users "
-                "WHERE is_active = 1 ORDER BY is_system_user DESC, created_at"
+                "WHERE is_active = 1 ORDER BY is_system_user ASC, created_at"
             ).fetchall()
         return [SmaiUser(row[0], row[1], row[2], bool(row[3]), bool(row[4])) for row in rows]
 

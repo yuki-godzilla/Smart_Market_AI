@@ -39,6 +39,8 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 assert page.locator(".smai-profile-card img").count() >= 1
                 assert page.get_by_text("SMAIデフォルト", exact=True).is_visible()
                 assert page.get_by_text("Yuki", exact=True).is_visible()
+                profile_names = page.locator(".smai-profile-name").all_text_contents()
+                assert profile_names[:3] == ["Yuki", "SMAIデフォルト", "ユーザー追加"]
                 dimensions = page.locator("body").evaluate(
                     "(element) => ({scrollWidth: element.scrollWidth, "
                     "clientWidth: element.clientWidth})"
@@ -49,14 +51,18 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                     full_page=True,
                 )
 
+                page.evaluate("window.__smaiProfileSelectionMarker = 'kept'")
                 page.get_by_role("link", name="Yukiを選択", exact=True).click()
+                assert page.evaluate("window.__smaiProfileSelectionMarker") == "kept"
                 page.get_by_text("Yuki", exact=True).wait_for(state="visible")
-                page.get_by_role("button", name="このユーザーで開始", exact=True).click()
+                page.get_by_role("link", name="このユーザーで開始", exact=True).click()
                 page.get_by_text("銘柄コックピット", exact=True).wait_for(
                     state="visible", timeout=60_000
                 )
                 user_area = page.get_by_role("button", name="SMAI_USER_AREA", exact=False)
                 user_area.wait_for(state="visible", timeout=30_000)
+                assert page.locator(".smai-user-avatar").count() == 1
+                assert "Yuki" in user_area.inner_text()
                 initial_box = user_area.bounding_box()
                 assert initial_box is not None
                 assert 60 <= initial_box["y"] <= 120

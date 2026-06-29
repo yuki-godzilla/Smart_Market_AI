@@ -3840,3 +3840,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 折りたたみサイドバーを開閉してRankingへ遷移する、任意実行のPlaywright 4 viewport smokeを追加。
 - 375x812 / 810x1080 / 1080x810 / 1366x768で、ページ全体の横はみ出しなし、Streamlit例外なし、見出し・ボタン表示を確認し、各スクリーンショットを保存。
 - iPhoneのフィルター縦積み、iPad横の2列・3列条件配置を目視確認。外部Yahoo取得とランキング計算は発火せず、既存ロジックを変更しないnetwork-free UI確認に限定。
+
+## 2026-06-29 AGENTS.md レスポンシブ計画
+
+- 対象4 viewport、共通ブレークポイント、R-0〜R-5の進行順、共通CSS命名、横スクロール、タッチターゲット、network-free Playwright smoke、スクリーンショット保存先を安定ルールとして追記。

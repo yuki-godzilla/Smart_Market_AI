@@ -88,6 +88,20 @@ Near-term priority:
 Execution and broker order sending stay lower priority unless explicitly requested.
 Execution と broker order 送信は、明示依頼がない限り優先度を下げます。
 
+## Responsive Design Plan / レスポンシブデザイン計画
+
+Improve the existing Streamlit UI for LAN use without changing investment, ranking, forecast, data acquisition, AI, RAG, Decision Report, or symbol-refresh logic.
+既存の投資判断、ランキング、予測、データ取得、AI、RAG、Decision Report、銘柄更新ロジックを変えず、LAN利用時のStreamlit UIを改善します。
+
+- Target viewports: iPhone 13 mini `375x812`, iPad portrait `810x1080`, iPad landscape `1080x810`, and PC `1366x768` or larger.
+- Shared breakpoints: smartphone `max-width: 767px`, tablet `768px–1024px`, desktop `1025px` or larger. Treat 1080px iPad landscape as compact desktop and avoid overly dense rows.
+- Phase order: R-0 shared CSS foundation -> R-1 Cockpit -> R-2 Ranking -> R-3 My Radar -> R-4 Investment Radar -> R-5 SMAI Assistant.
+- Prefer shared `smai-responsive-*`, `smai-mobile-*`, `smai-tablet-*`, and `smai-card-grid-*` classes; avoid duplicate page-local CSS.
+- Prevent page-level horizontal scrolling. Allow component-local horizontal scrolling only for tables, heatmaps, charts, or other content that genuinely needs it.
+- Keep mobile CTAs easy to tap, stack crowded Streamlit columns when needed, and preserve desktop information density.
+- Use deterministic/network-free checks. Optional Playwright smoke tests live under `tests/ui/test_responsive_*_smoke.py`; screenshots live under `docs/responsive/screenshots/<screen>/`.
+- Read `docs/responsive/README.md` and `docs/responsive_checklist.md` before responsive UI work. Verify one screen at a time and record durable results in `Documents/99_Work_Log.md`.
+
 ## Speed Rules / 実装速度を上げるルール
 
 - Prefer one narrow vertical slice: contract -> service -> API/UI -> test -> docs only if needed.
@@ -250,6 +264,7 @@ Streamlit UI:
 - user-facing text explains reason/warning, not only raw numbers
 - configured default provider remains safe/local; any UI live-provider selection must opt in explicitly and keep tests deterministic
 - manual UI confirmation point is documented when phase completion depends on UI
+- responsive changes verify the four target viewports, page-level overflow, touch targets, and Streamlit error absence without changing domain logic
 
 Provider/live data:
 - adapter is explicit opt-in

@@ -183,7 +183,7 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - テスト通知関数
 - gateway 失敗を本体へ伝播させない contract
 
-実装状態: N1 / N2 実装済み。親側は `backend/notifications/notification_client.py` に独立した軽量 contract、`NotificationClient` protocol、`SafeNotificationClient`、明示呼び出し専用の `send_test_notification()` を持つ。既存イベント、Streamlit UI、起動処理には未接続。
+実装状態: N1 / N2 / N3-A 実装済み。親側は `backend/notifications/notification_client.py` に独立した軽量 contract、`NotificationClient` protocol、`SafeNotificationClient`、明示呼び出し専用の `send_test_notification()` を持つ。`backend/notifications/gateway_adapter.py` は親request / 一時設定を子event / settingへ変換し、子delivery resultを親resultへ戻す。子packageのimport失敗、dispatcher例外、不正response、子failed messageは秘密値なしの短いfailed resultへ変換する。既存イベント、Streamlit UI、起動処理には未接続。
 
 ### Phase N3: 通知設定
 

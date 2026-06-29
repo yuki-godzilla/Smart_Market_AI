@@ -3887,3 +3887,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `send_test_notification()` は明示呼び出し時だけ `SYSTEM` / `medium` のテストeventを生成し、timeout、client例外、不正event ID応答を安全な失敗結果へ変換する。
 - 親側は子gatewayの具象型をimportせず、既存イベント、Streamlit設定画面、起動処理、自動通知には未接続。
 - 親N2テスト7件、子N1回帰28件、対象Ruff / Mypy、Black helperがpass。外部通信は未実施。
+
+## 2026-06-29 通知基盤 Phase N3-A 親子gateway adapter
+
+- `backend/notifications/gateway_adapter.py` に遅延import型の `NotificationGatewayAdapter` と永続化前の最小 `GatewayNotificationSettings` を追加。
+- 親request全項目を子eventへ、ntfy有効状態・server・topic・threshold・quiet hoursを子settingへ変換し、子のsent/skipped/disabled/filtered/failed resultを親resultへ変換。
+- 子package未導入、load失敗、dispatcher例外、不正event ID/status、子failed messageを、topic/full URL/Authorization相当値を含まない安全なfailed resultへ変換。
+- fake bindingsのみのN3-Aテスト6件を追加。親通知テスト計14件、Ruff / Mypy / Blackがpass。実子gatewayはntfy disabledでnetwork-free smokeを行い、`disabled/channel_disabled`を確認。
+- 設定永続化、Streamlit設定画面、テスト通知ボタン、既存イベント接続、自動通知はN3-B以降へ残した。

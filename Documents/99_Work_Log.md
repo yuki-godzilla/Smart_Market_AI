@@ -3951,6 +3951,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - プロフィール選択をclient-side focus更新へ変更し、選び直し時のpage再描画を撤去。表示順をcustom user→system default→追加へ変更し、開始時だけ選択を確定する。
 - 初期の空header decoratorが選択ユーザー情報を上書きする競合を防ぎ、右上tagへ選択icon・表示名を安定表示。アイコン設定も画像click選択へ変更し、保存/キャンセルでユーザー設定へ戻る。通知設定も保存/キャンセルで元画面へ戻し、共通`SMAIに戻る`buttonを撤去。
 - 通知先をユーザー設定から専用通知設定へ移動。通知種類、アプリ内/ntfy通知先、重要度、通知しない時間帯を3カードに統合し、1回の保存/キャンセルへ整理。テスト通知とtopic明示削除は独立操作を維持し、`設定 / データ情報`画面の重複フォームを撤去。
+- ユーザー設定を最大760pxの中央profile formへ縮小し、先頭に現在iconと変更導線を配置。ユーザー設定の保存/キャンセルはmain viewへ戻る。icon選択は最大960px・約200px cardの画像全体をStreamlit button化し、保存/キャンセルの両方をユーザー設定へ戻す同一session導線へ修正。
 ## 2026-06-29 Responsive modal centering / モーダル全画面マスク調整
 
 - `ui/styles.py` で `stDialog` の共通スタイルを `role="dialog"` 全体から切り離し、全画面固定・中央配置・背景マスクに整理。`SMAI Assistant` の通常ポップアップには副作用を出さないようにした。

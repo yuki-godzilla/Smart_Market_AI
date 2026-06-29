@@ -25,8 +25,6 @@ DEVICE_NAME_QUERY_KEY = "smai_device_name"
 PROFILE_QUERY_KEY = "smai_profile"
 START_PROFILE_QUERY_KEY = "smai_start_profile"
 ADD_PROFILE_QUERY_KEY = "smai_add_profile"
-ICON_QUERY_KEY = "smai_icon"
-ICON_ACTION_QUERY_KEY = "smai_icon_action"
 CATEGORY_LABELS = {
     "すべて": "すべて",
     "FAVORITE": "お気に入り",
@@ -198,18 +196,6 @@ def render_user_notification_area() -> bool:
         user = _select_user(users)
     if user is None:
         return False
-    icon_action = _query_value(ICON_ACTION_QUERY_KEY)
-    if icon_action in {"save", "cancel"}:
-        if icon_action == "save":
-            selected_icon = _query_value(ICON_QUERY_KEY)
-            valid_icon_ids = {asset.icon_id for asset in load_user_icon_assets()}
-            if selected_icon in valid_icon_ids:
-                devices.set_icon(user.user_id, selected_icon)
-        st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
-        _clear_query_value(ICON_ACTION_QUERY_KEY)
-        _clear_query_value(ICON_QUERY_KEY)
-        st.rerun()
-
     repository = NotificationHistoryRepository()
     try:
         unread = repository.unread_count(user.user_id)
@@ -488,7 +474,7 @@ def _render_user_area_view(
     elif view == "user_settings":
         _render_user_settings(user_repository, user)
     elif view == "icon_settings":
-        _render_icon_settings(user)
+        _render_icon_settings(user_repository, user)
     elif view == "switch_user":
         st.session_state.pop("smai_current_user_id", None)
         st.session_state.pop("smai_profile_candidate", None)
@@ -501,120 +487,134 @@ def _render_user_area_view(
 
 
 def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -> None:
-    st.title("ユーザー設定")
-    st.caption("プロフィールと、この端末で使うユーザーを管理します。")
-    display_name = st.text_input("表示名", value=user.display_name, disabled=user.is_system_user)
-    st.text_input("user_id", value=user.user_id, disabled=True)
-    st.text_input("icon_asset_id", value=user.icon_id, disabled=True)
-    if user.is_system_user:
-        st.info("SMAIデフォルトはシステム標準ユーザーのため、削除・名称変更できません。")
-    elif st.button("表示名を保存", key="save_smai_display_name", type="primary"):
-        repository.set_display_name(user.user_id, display_name)
-        st.rerun()
-    if st.button("アイコンを変更", key="user_settings_open_icons"):
-        st.session_state[USER_AREA_VIEW_KEY] = "icon_settings"
-        st.rerun()
+    st.markdown(
+        """
+        <style>
+        .st-key-smai_user_settings_panel {
+          width: min(100%, 760px); margin-inline: auto;
+        }
+        .st-key-smai_user_settings_panel [data-testid="stImage"] img {
+          width: 128px; height: 128px; object-fit: cover; border-radius: 16px;
+          border: 1px solid #22d3ee;
+        }
+        .st-key-smai_user_settings_panel div[data-testid="stButton"] > button {
+          width: min(100%, 220px);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.container(key="smai_user_settings_panel"):  # type: ignore[call-arg]
+        st.title("ユーザー設定")
+        st.caption("選択中ユーザーのプロフィールを編集します。")
+        icon_col, action_col = st.columns([1, 2], vertical_alignment="center")
+        current_icon = resolve_user_icon(user.icon_id)
+        with icon_col:
+            if current_icon.file_path is not None:
+                st.image(str(current_icon.file_path), width=128)
+        with action_col:
+            st.markdown("**選択中のアイコン**")
+            if st.button("アイコンを変更", key="user_settings_open_icons"):
+                st.session_state["smai_icon_candidate"] = user.icon_id
+                st.session_state[USER_AREA_VIEW_KEY] = "icon_settings"
+                st.rerun()
+
+        display_name = st.text_input(
+            "表示名", value=user.display_name, disabled=user.is_system_user
+        )
+        st.text_input("user_id", value=user.user_id, disabled=True)
+        if user.is_system_user:
+            st.info("SMAIデフォルトはシステム標準ユーザーのため、名称変更できません。")
+
+        save_col, cancel_col = st.columns(2)
+        save_clicked = save_col.button(
+            "ユーザー設定を保存", key="save_smai_user_settings", type="primary"
+        )
+        cancel_clicked = cancel_col.button("キャンセル", key="cancel_smai_user_settings")
+        if save_clicked:
+            if not user.is_system_user and not display_name.strip():
+                st.warning("表示名を入力してください。")
+            elif not user.is_system_user:
+                repository.set_display_name(user.user_id, display_name)
+                st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+                st.rerun()
+            else:
+                st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+                st.rerun()
+        if cancel_clicked:
+            st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+            st.rerun()
 
 
-def _render_icon_settings(user: SmaiUser) -> None:
+def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -> None:
     st.title("アイコン変更")
     assets = load_user_icon_assets()
     if not assets:
         st.info("選択可能なアイコンAssetはありません。")
         return
-    query_icon = _query_value(ICON_QUERY_KEY)
-    selected_icon = (
-        query_icon if any(asset.icon_id == query_icon for asset in assets) else user.icon_id
-    )
+    valid_icon_ids = {asset.icon_id for asset in assets}
+    candidate = str(st.session_state.get("smai_icon_candidate", user.icon_id))
+    selected_icon = candidate if candidate in valid_icon_ids else user.icon_id
     st.markdown(
         """
         <style>
-        .smai-icon-link { display: block; color: inherit; text-decoration: none !important; }
-        .smai-icon-card { padding: .65rem; border: 2px solid #24415f; border-radius: 14px;
+        .st-key-smai_icon_grid { width: min(100%, 960px); margin-inline: auto; }
+        .st-key-smai_icon_grid [data-testid="stColumn"] { position: relative; }
+        .smai-icon-card { width: min(100%, 200px); margin: 0 auto; padding: .65rem;
+          border: 2px solid #24415f; border-radius: 14px;
           background: #0a192b; transition: border-color .18s ease, box-shadow .18s ease; }
         .smai-icon-card:hover, .smai-icon-card.selected { border-color: #22d3ee;
           box-shadow: 0 0 24px rgba(34,211,238,.28); }
         .smai-icon-card img { width: 100%; aspect-ratio: 1; object-fit: cover;
           border-radius: 10px; display: block; }
         .smai-icon-label { margin-top: .45rem; text-align: center; font-weight: 700; }
-        .smai-icon-actions { display: flex; justify-content: center; gap: .8rem; margin-top: 1.25rem; }
-        .smai-icon-action { display: inline-flex; align-items: center; justify-content: center;
-          min-width: 180px; min-height: 44px; padding: .5rem 1rem; border-radius: .55rem;
-          border: 1px solid #22d3ee; text-decoration: none !important; font-weight: 800; }
-        .smai-icon-save { color: #fff !important; background: #0891b2; }
-        .smai-icon-cancel { color: #d7e7f5 !important; background: #14243a; }
+        .st-key-smai_icon_grid [data-testid="stButton"] {
+          position: absolute; inset: 0; z-index: 2;
+        }
+        .st-key-smai_icon_grid [data-testid="stButton"] > button {
+          width: 100%; height: 100%; opacity: 0;
+        }
+        .st-key-smai_icon_actions { width: min(100%, 440px); margin: 1.25rem auto 0; }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    columns = st.columns(4)
-    for index, asset in enumerate(assets):
-        with columns[index % 4]:
-            source = user_icon_browser_source(resolve_user_icon(asset.icon_id))
-            if source is None:
-                continue
-            selected_class = " selected" if asset.icon_id == selected_icon else ""
-            st.markdown(
-                f'<a class="smai-icon-link" href="?{ICON_QUERY_KEY}='
-                f'{html.escape(asset.icon_id)}" data-icon-id="{html.escape(asset.icon_id)}" '
-                f'target="_self" aria-label="{html.escape(asset.display_name)}を選択">'
-                f'<div class="smai-icon-card{selected_class}">'
-                f'<img src="{html.escape(source)}" alt="">'
-                f'<div class="smai-icon-label">{html.escape(asset.display_name)}</div>'
-                "</div></a>",
-                unsafe_allow_html=True,
-            )
-    save_href = f"?{ICON_ACTION_QUERY_KEY}=save&{ICON_QUERY_KEY}={html.escape(selected_icon)}"
-    cancel_href = f"?{ICON_ACTION_QUERY_KEY}=cancel"
-    st.markdown(
-        '<div class="smai-icon-actions">'
-        f'<a id="smai-icon-save" class="smai-icon-action smai-icon-save" '
-        f'href="{save_href}" target="_self">アイコンを保存</a>'
-        f'<a class="smai-icon-action smai-icon-cancel" href="{cancel_href}" '
-        'target="_self">キャンセル</a></div>',
-        unsafe_allow_html=True,
-    )
-    components.html(_icon_selection_bootstrap_html(), height=0, width=0)
+    with st.container(key="smai_icon_grid"):  # type: ignore[call-arg]
+        for row_start in range(0, len(assets), 4):
+            columns = st.columns(4)
+            for column, asset in zip(columns, assets[row_start : row_start + 4]):
+                with column:
+                    source = user_icon_browser_source(resolve_user_icon(asset.icon_id))
+                    if source is None:
+                        continue
+                    selected_class = " selected" if asset.icon_id == selected_icon else ""
+                    st.markdown(
+                        f'<div class="smai-icon-card{selected_class}">'
+                        f'<img src="{html.escape(source)}" alt="">'
+                        f'<div class="smai-icon-label">{html.escape(asset.display_name)}</div>'
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        f"{asset.display_name}を選択",
+                        key=f"select_smai_icon_{asset.icon_id}",
+                    ):
+                        st.session_state["smai_icon_candidate"] = asset.icon_id
+                        st.rerun()
 
-
-def _icon_selection_bootstrap_html() -> str:
-    return f"""
-<script>
-(() => {{
-  const bind = () => {{
-    const links = window.parent.document.querySelectorAll(".smai-icon-link[data-icon-id]");
-    for (const link of links) {{
-      if (link.dataset.smaiBound === "1") continue;
-      link.dataset.smaiBound = "1";
-      link.addEventListener("click", (event) => {{
-        event.preventDefault();
-        const iconId = link.dataset.iconId || "";
-        const url = new URL(window.parent.location.href);
-        url.searchParams.set("{ICON_QUERY_KEY}", iconId);
-        window.parent.history.replaceState({{}}, "", url.toString());
-        for (const card of window.parent.document.querySelectorAll(".smai-icon-card")) {{
-          card.classList.toggle("selected", card.closest("a") === link);
-        }}
-        const save = window.parent.document.getElementById("smai-icon-save");
-        if (save) {{
-          const saveUrl = new URL(window.parent.location.href);
-          saveUrl.searchParams.set("{ICON_ACTION_QUERY_KEY}", "save");
-          saveUrl.searchParams.set("{ICON_QUERY_KEY}", iconId);
-          save.href = saveUrl.toString();
-        }}
-      }});
-    }}
-    return links.length > 0;
-  }};
-  let attempts = 0;
-  const timer = window.setInterval(() => {{
-    attempts += 1;
-    if (bind() || attempts >= 40) window.clearInterval(timer);
-  }}, 125);
-  bind();
-}})();
-</script>
-"""
+    with st.container(key="smai_icon_actions"):  # type: ignore[call-arg]
+        save_col, cancel_col = st.columns(2)
+        save_clicked = save_col.button("アイコンを保存", key="save_smai_user_icon", type="primary")
+        cancel_clicked = cancel_col.button("キャンセル", key="cancel_smai_user_icon")
+        if save_clicked:
+            repository.set_icon(user.user_id, selected_icon)
+            st.session_state.pop("smai_icon_candidate", None)
+            st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
+            st.rerun()
+        if cancel_clicked:
+            st.session_state.pop("smai_icon_candidate", None)
+            st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
+            st.rerun()
 
 
 def _query_value(key: str) -> str:

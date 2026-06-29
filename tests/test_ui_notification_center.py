@@ -73,10 +73,13 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert "remember_device_user" not in source
     assert 'class="smai-profile-link"' in source
     assert "select_profile_" not in source
-    assert "smai-icon-link" in source
-    assert "smai-icon-save" in source
+    assert "smai_icon_candidate" in source
+    assert "select_smai_icon_" in source
+    assert "st-key-smai_icon_grid" in source
     assert "アイコンを保存" in source
     assert "キャンセル" in source
+    assert "ユーザー設定を保存" in source
+    assert 'USER_AREA_VIEW_KEY] = "user_settings"' in source
     assert "← SMAIに戻る" not in source
     assert '"通知設定を保存"' in notification_source
     assert '"キャンセル"' in notification_source

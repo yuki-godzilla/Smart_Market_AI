@@ -4,7 +4,7 @@
 
 ## 通知基盤（N1〜N3-B実装済み）
 
-Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。独立gateway、親client/adapter、SQLite通知設定、既存の`設定 / データ情報`画面に置く通知設定と明示テスト通知まで実装済み。SMAI は既存イベントから通知を自動送信せず、実ntfy送信が許可されるのはユーザーが`テスト通知を送る`を押した場合だけである。アプリ内履歴と通知センターはN4の未実装範囲。
+Phase N1〜N5-Cで、アプリ内通知、ntfy Push、通知カタログ、専用通知センター、オプトインscheduler基盤を段階導入した。通常確認はnetwork-freeで、実ntfy送信は明示テストまたは将来client接続済みProducerだけに限定する。
 
 設定保存:
 
@@ -32,7 +32,7 @@ Quiet hours:
 
 テスト通知:
 
-1. `設定 / データ情報`の`通知設定`を開く。
+1. 右上ユーザータグから`通知設定`を開く。
 2. ntfyをONにしてserver URLとtopicを保存する。
 3. ntfyアプリ側で同じtopicを購読する。
 4. `テスト通知を送る`を1回押す。
@@ -50,6 +50,10 @@ Phase N4:
 - 新しいbrowser sessionではプロフィール画像を選び、`このユーザーで開始`を押す。
 - 右上ユーザーメニューは`ユーザー設定`、`通知設定`、`ユーザー切替`の3項目。ユーザー設定はプロフィールとアイコン、通知設定は通知種類、アプリ内/ntfy通知先、重要度、通知しない時間帯をまとめる。
 - Trusted Deviceによる自動選択と登録端末管理は使用しない。`ユーザー切替`はプロフィール選択画面へ戻る。
+- 右上ユーザータグの`通知センター`はサイドメニューを隠した専用画面。縦スクロールで通知を確認し、既読、archive、カテゴリ/状態/期間/重要度順を操作する。
+- 定時通知は初期OFF。通知設定の`定時通知を有効にする`を明示選択し、別プロセスで`scripts\run_notification_scheduler.bat`を起動した場合だけdue jobを確認する。
+- 1回だけ確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --once`
+- 通知カタログと手動生成は`SMAI_NOTIFICATION_DEBUG=1`で起動した通知センター内だけに表示する。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
 - 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。
 - 選択画像が無い場合はdefault、local placeholder、CSS silhouetteの順でfallbackし、外部画像URLは参照しない。

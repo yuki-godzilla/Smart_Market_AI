@@ -20,8 +20,11 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert "smai-user-id" in html
     assert "smai-user-avatar" in html
     assert "通知センター" in source
-    assert "重要のみ" in source
-    assert '"重要度"' in source
+    assert "重要度順" in source
+    assert "通知の詳細" in source
+    assert "SMAI_NOTIFICATION_DEBUG" in source
+    assert "通知カタログ（開発用）" in source
+    assert "SMAIホームへ戻る" in source
     assert "アーカイブ" in source
     assert "通知センター" not in sidemenu
     menu_source = source.split("def _render_user_menu", 1)[1].split(
@@ -35,7 +38,7 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert '("通知設定", "notification_settings")' in menu_source
     assert '("ユーザー切替", "switch_user")' in menu_source
     assert "if user.is_system_user" in menu_source
-    assert "通知センター" not in menu_source
+    assert '("通知センター", "notification_center")' in menu_source
     assert "アイコン変更" not in menu_source
     assert "登録済み端末" not in menu_source
     assert "render_notification_preferences(user.user_id)" in source
@@ -47,7 +50,7 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
 def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() -> None:
     source = Path("ui/notification_center.py").read_text(encoding="utf-8")
 
-    assert "st.link_button" in source
+    assert "cta_col.link_button" in source
     assert "update_research" not in source
     assert "create_decision_report" not in source
     assets = load_user_icon_assets()

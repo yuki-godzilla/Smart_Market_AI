@@ -23,11 +23,29 @@ class NotificationService:
     ) -> tuple[AppNotification, NotificationClientResult | None]:
         metadata = dict(request.metadata)
         asset_references = {
+            "template_id": content.template_id,
             "icon_asset_id": content.icon_asset_id,
             "thumbnail_asset_id": content.thumbnail_asset_id,
             "hero_asset_id": content.hero_asset_id,
         }
         metadata.update({key: value for key, value in asset_references.items() if value})
+        metadata.update(
+            {
+                "what_happened": content.what_happened,
+                "why_it_matters": content.why_it_matters or "",
+                "smai_assessment": content.smai_assessment or "",
+                "next_check": content.next_check or "",
+                "metrics": [
+                    {
+                        "label": metric.label,
+                        "value": metric.value,
+                        "previous_value": metric.previous_value,
+                        "direction": metric.direction,
+                    }
+                    for metric in content.metrics
+                ],
+            }
+        )
         item = AppNotification(
             event_id=request.event_id,
             user_id=request.user_id,

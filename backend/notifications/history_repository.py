@@ -114,6 +114,29 @@ class NotificationHistoryRepository:
     def unread_count(self, user_id: str) -> int:
         return len(self.list(user_id, state="unread"))
 
+    def get(self, user_id: str, event_id: str) -> AppNotification | None:
+        self._settings.load(user_id)
+        try:
+            with sqlite3.connect(self.database_path) as connection:
+                connection.row_factory = sqlite3.Row
+                row = connection.execute(
+                    "SELECT * FROM app_notifications WHERE user_id = ? AND event_id = ?",
+                    (user_id, event_id),
+                ).fetchone()
+        except sqlite3.Error as exc:
+            raise NotificationSettingsError("Notification history could not be loaded.") from exc
+        return _from_row(row) if row else None
+
+    def counts(self, user_id: str) -> dict[str, int]:
+        items = self.list(user_id)
+        now = datetime.now(UTC)
+        return {
+            "unread": sum(item.state == "unread" for item in items),
+            "read": sum(item.state == "read" for item in items),
+            "today": sum(item.created_at.date() == now.date() for item in items),
+            "week": sum(item.created_at >= now - timedelta(days=7) for item in items),
+        }
+
     def save_delivery(self, result: NotificationClientResult) -> None:
         try:
             with sqlite3.connect(self.database_path) as connection:

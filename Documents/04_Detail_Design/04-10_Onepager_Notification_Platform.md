@@ -255,6 +255,15 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - 右上は32〜48pxの円形画像とし、desktopは名前/ID、tabletはID省略、smartphoneは通知件数と画像中心にする。
 - custom uploadは将来範囲とし、`ui/assets/user_icons/custom/`だけを予約する。
 
+### Phase N5/N6 foundation
+
+- `backend/notifications/catalog/`でtemplate ID、表示/技術category、channel、Asset、trigger、既定schedule、severity、文面、body layout、CTA、sample、versionを型付き管理する。
+- `CatalogNotificationProducer`はアプリ内通知OFF、category OFF、同一dedupe keyをskipし、通知履歴を外部送信より先に保存する。
+- 通知センターは右上ユーザー入口から開く専用viewとし、sidebar非表示、summary、filter、sort、縦scroll card、Asset、detail、既読/archive、安全なCTAを提供する。
+- `SMAI_NOTIFICATION_DEBUG=1`の場合だけcatalog previewと手動生成を表示する。
+- schedulerは初期OFFのユーザー別設定、固定daily job registry、run claim、sanitized logを持つ。UI描画に依存せず`python -m backend.notifications.scheduler_runner`で常駐できる。
+- 現段階のscheduled dataはdeterministic sample/cache-shaped payloadである。favorite/news/sectorの実cache adapterとResearch/report完了event接続は次のN6 integrationで行う。
+
 ## 10. 受け入れ条件
 
 - アプリ内通知が外部送信より先に保存される。

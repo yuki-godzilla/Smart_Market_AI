@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import html
 import json
+import os
+from datetime import UTC, datetime
 
 import streamlit as st
 import streamlit.components.v1 as components
 
+from backend.notifications.catalog import NOTIFICATION_TEMPLATES
 from backend.notifications.history_repository import NotificationHistoryRepository
-from backend.notifications.settings_repository import NotificationSettingsError
+from backend.notifications.producer import CatalogNotificationProducer
+from backend.notifications.settings_repository import (
+    NotificationSettingsError,
+    NotificationSettingsRepository,
+)
 from backend.notifications.trusted_devices import (
     SmaiUser,
     TrustedDeviceRepository,
@@ -398,37 +405,100 @@ def _select_user(
 
 
 def _render_notification_center(repository: NotificationHistoryRepository, user: SmaiUser) -> None:
-    st.markdown("#### 通知センター")
-    category = st.selectbox(
-        "カテゴリ",
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
+        .block-container { max-width: 1320px !important; padding-inline: 1.25rem !important; }
+        .smai-notification-summary { border: 1px solid #24415f; border-radius: 14px;
+          padding: 1rem 1.15rem; background: #0b1b30; }
+        .smai-notification-summary strong { color: #f4fbff; font-size: 1.8rem; }
+        .smai-notification-row { display: grid; grid-template-columns: 72px 1fr auto;
+          gap: 1rem; align-items: center; border: 1px solid #24415f; border-radius: 12px;
+          padding: .75rem 1rem; margin: .55rem 0; background: #08172a; }
+        .smai-notification-row.unread { border-left: 4px solid #22d3ee;
+          box-shadow: 0 0 18px rgba(34,211,238,.12); }
+        .smai-notification-row.high { border-color: #d97706; }
+        .smai-notification-row.critical { border-color: #ef4444; }
+        .smai-notification-row img { width: 64px; height: 64px; object-fit: cover;
+          border-radius: 12px; }
+        .smai-notification-badges { display: flex; gap: .4rem; flex-wrap: wrap; }
+        .smai-notification-badge { border: 1px solid #27728a; border-radius: 6px;
+          padding: .12rem .45rem; color: #8ee8fa; font-size: .78rem; }
+        .smai-notification-time { color: #9db0c5; white-space: nowrap; }
+        @media (max-width: 767px) {
+          .smai-notification-row { grid-template-columns: 52px 1fr; }
+          .smai-notification-row img { width: 48px; height: 48px; }
+          .smai-notification-time { grid-column: 2; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("← SMAIホームへ戻る", key="notification_center_back"):
+        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+        st.rerun()
+    st.title("通知センター")
+    st.caption("受け取った通知を確認し、関連画面で詳しい材料を確認できます。")
+    counts = repository.counts(user.user_id)
+    summary_values = (
+        ("未読", counts["unread"]),
+        ("既読", counts["read"]),
+        ("今日の通知", counts["today"]),
+        ("今週の通知", counts["week"]),
+    )
+    for column, (label, value) in zip(st.columns(4), summary_values):
+        column.markdown(
+            f'<div class="smai-notification-summary">{html.escape(label)}<br>'
+            f"<strong>{value}件</strong></div>",
+            unsafe_allow_html=True,
+        )
+    filter_col, state_col, period_col, sort_col = st.columns(4)
+    category = filter_col.selectbox(
+        "通知の種類",
         list(CATEGORY_LABELS),
         format_func=lambda value: CATEGORY_LABELS[value],
         key="notification_center_category",
     )
-    state = st.selectbox("状態", ["unread", "read", "archived"], key="notification_center_state")
-    period = st.selectbox("期間", [1, 7, 30], format_func=lambda value: f"{value}日")
-    severity = st.selectbox(
-        "重要度",
-        ["すべて", "critical", "high", "medium", "low"],
-        format_func=lambda value: value.title() if value != "すべて" else value,
-        key="notification_center_severity",
+    state = state_col.selectbox(
+        "状態",
+        ["すべて", "unread", "read", "archived"],
+        format_func=lambda value: {
+            "すべて": "すべて",
+            "unread": "未読",
+            "read": "既読",
+            "archived": "アーカイブ",
+        }[value],
+        key="notification_center_state",
     )
-    important = st.checkbox("重要のみ", key="notification_center_important")
+    period = period_col.selectbox(
+        "期間", [1, 7, 30], format_func=lambda value: {1: "今日", 7: "今週", 30: "30日"}[value]
+    )
+    sort_order = sort_col.selectbox(
+        "並び替え",
+        ["new", "old", "severity"],
+        format_func=lambda value: {"new": "新しい順", "old": "古い順", "severity": "重要度順"}[
+            value
+        ],
+    )
     try:
         items = repository.list(
             user.user_id,
-            state=state,
+            state=None if state == "すべて" else state,
             category=None if category == "すべて" else category,
             days=period,
-            important_only=important,
-            severity=None if severity == "すべて" else severity,
         )
     except NotificationSettingsError:
         st.error("通知を読み込めませんでした。")
         return
     if not items:
         st.info("該当する通知はありません。")
-    for item in items[:30]:
+    if sort_order == "old":
+        items.reverse()
+    elif sort_order == "severity":
+        priority = {"critical": 0, "high": 1, "medium": 2, "low": 3, "silent": 4}
+        items.sort(key=lambda item: (priority.get(item.severity, 9), -item.created_at.timestamp()))
+    for item in items:
         notification_icon = resolve_user_icon(str((item.metadata or {}).get("icon_asset_id", "")))
         notification_icon_source = user_icon_browser_source(notification_icon)
         icon_html = (
@@ -437,15 +507,18 @@ def _render_notification_center(repository: NotificationHistoryRepository, user:
             if notification_icon_source
             else ""
         )
+        age = _relative_notification_time(item.created_at)
         st.markdown(
-            '<div class="smai-notification-card '
-            f'{html.escape(item.severity)}">{icon_html}<strong>{html.escape(item.title)}</strong>'
-            f"<br>{html.escape(item.summary)}<br><small>"
-            f"{html.escape(item.presentation_category)} / {html.escape(item.severity)}"
-            "</small></div>",
+            f'<div class="smai-notification-row {html.escape(item.state)} '
+            f'{html.escape(item.severity)}">{icon_html}<div>'
+            f'<div class="smai-notification-badges"><span class="smai-notification-badge">'
+            f"{html.escape(CATEGORY_LABELS.get(item.presentation_category, item.presentation_category))}"
+            f'</span><span class="smai-notification-badge">{html.escape(item.severity.title())}</span>'
+            f"</div><strong>{html.escape(item.title)}</strong><br>"
+            f'{html.escape(item.summary)}</div><div class="smai-notification-time">{age}</div></div>',
             unsafe_allow_html=True,
         )
-        read_col, archive_col = st.columns(2)
+        read_col, archive_col, cta_col = st.columns([1, 1, 3])
         if item.state == "unread" and read_col.button(
             "既読", key=f"notification_read_{item.event_id}"
         ):
@@ -455,7 +528,63 @@ def _render_notification_center(repository: NotificationHistoryRepository, user:
             repository.archive(user.user_id, item.event_id)
             st.rerun()
         if item.action_url and item.action_url.startswith(("/", "?")):
-            st.link_button("詳しく確認する", item.action_url)
+            cta_col.link_button("関連画面で確認", item.action_url)
+        metadata = item.metadata or {}
+        with st.expander("通知の詳細", expanded=False):
+            for label, key in (
+                ("何が起きたか", "what_happened"),
+                ("なぜ確認したいか", "why_it_matters"),
+                ("SMAIの見方", "smai_assessment"),
+                ("次に見ること", "next_check"),
+            ):
+                if metadata.get(key):
+                    st.markdown(f"**{label}**  \n{metadata[key]}")
+    if os.getenv("SMAI_NOTIFICATION_DEBUG") == "1":
+        _render_notification_catalog(repository, user)
+
+
+def _render_notification_catalog(repository: NotificationHistoryRepository, user: SmaiUser) -> None:
+    st.divider()
+    st.subheader("通知カタログ（開発用）")
+    producer = CatalogNotificationProducer(
+        repository,
+        NotificationSettingsRepository(str(repository.database_path)),
+    )
+    for template in NOTIFICATION_TEMPLATES:
+        with st.expander(f"{template.display_name} / {template.template_id}"):
+            st.caption(
+                f"{template.presentation_category} / {template.default_severity} / "
+                f"{template.icon_asset_id} / {template.default_schedule or 'event'}"
+            )
+            st.markdown(f"**{template.title_template}**")
+            st.write(template.summary_template.format_map(template.sample_data))
+            st.code(
+                f"SMAI\n{template.title_template}\n"
+                f"{template.summary_template.format_map(template.sample_data)}",
+                language=None,
+            )
+            if st.button(
+                "このサンプル通知を生成",
+                key=f"manual_notification_{template.template_id}",
+            ):
+                producer.produce(
+                    template.template_id,
+                    user_id=user.user_id,
+                    dedupe_key=f"manual:{template.template_id}:{datetime.now(UTC).isoformat()}",
+                )
+                st.rerun()
+
+
+def _relative_notification_time(created_at: datetime) -> str:
+    elapsed = datetime.now(UTC) - created_at.astimezone(UTC)
+    seconds = max(0, int(elapsed.total_seconds()))
+    if seconds < 60:
+        return "たった今"
+    if seconds < 3600:
+        return f"{seconds // 60}分前"
+    if seconds < 86400:
+        return f"{seconds // 3600}時間前"
+    return f"{seconds // 86400}日前"
 
 
 def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
@@ -465,6 +594,7 @@ def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
         (("ユーザー切替", "switch_user"),)
         if user.is_system_user
         else (
+            ("通知センター", "notification_center"),
             ("ユーザー設定", "user_settings"),
             ("通知設定", "notification_settings"),
             ("ユーザー切替", "switch_user"),
@@ -482,6 +612,7 @@ def _render_user_area_view(
     user: SmaiUser,
 ) -> None:
     if user.is_system_user and view in {
+        "notification_center",
         "user_settings",
         "notification_settings",
         "icon_settings",
@@ -506,7 +637,9 @@ def _render_user_area_view(
         """,
         unsafe_allow_html=True,
     )
-    if view == "notification_settings":
+    if view == "notification_center":
+        _render_notification_center(NotificationHistoryRepository(), user)
+    elif view == "notification_settings":
         _, notification_col, _ = st.columns([1, 5, 1])
         with notification_col:
             st.markdown(
@@ -564,9 +697,7 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         )
         st.title("ユーザー設定")
         st.caption("選択中ユーザーのプロフィールを編集します。")
-        icon_col, action_col = st.columns(
-            [0.22, 0.78], gap="small", vertical_alignment="center"
-        )
+        icon_col, action_col = st.columns([0.22, 0.78], gap="small", vertical_alignment="center")
         current_icon = resolve_user_icon(user.icon_id)
         with icon_col:
             if current_icon.file_path is not None:

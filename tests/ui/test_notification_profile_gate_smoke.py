@@ -73,11 +73,18 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 assert scrolled_box is not None
                 assert abs(initial_box["y"] - scrolled_box["y"]) <= 2
                 user_area.click()
+                assert page.get_by_role("button", name="通知センター", exact=True).is_visible()
                 assert page.get_by_role("button", name="ユーザー設定", exact=True).is_visible()
                 assert page.get_by_role("button", name="通知設定", exact=True).is_visible()
                 assert page.get_by_role("button", name="ユーザー切替", exact=True).is_visible()
-                assert page.get_by_role("button", name="通知センター", exact=True).count() == 0
                 assert page.get_by_role("button", name="登録済み端末", exact=True).count() == 0
+                page.get_by_role("button", name="通知センター", exact=True).click()
+                page.get_by_role("heading", name="通知センター", exact=True).wait_for(
+                    state="visible", timeout=30_000
+                )
+                assert page.locator('[data-testid="stSidebar"]').is_hidden()
+                assert page.get_by_text("未読", exact=True).is_visible()
+                assert page.get_by_text("今日の通知", exact=True).is_visible()
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 dimensions = page.locator("body").evaluate(
                     "(element) => ({scrollWidth: element.scrollWidth, "

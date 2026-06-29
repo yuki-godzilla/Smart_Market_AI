@@ -6,6 +6,10 @@ from typing import cast
 import streamlit as st
 
 from backend.notifications.notification_client import NotificationSeverity
+from backend.notifications.scheduler import (
+    NotificationScheduleRepository,
+    NotificationScheduleSetting,
+)
 from backend.notifications.settings_repository import (
     DEFAULT_NOTIFICATION_CATEGORIES,
     NotificationSettingsError,
@@ -43,8 +47,10 @@ def render_notification_preferences(
 ) -> str | None:
     """Render the complete per-user notification settings surface."""
     repository = NotificationSettingsRepository()
+    schedule_repository = NotificationScheduleRepository(str(repository.database_path))
     loaded = load_notification_setting_safe(repository, user_id=user_id)
     setting = loaded.setting
+    schedule = schedule_repository.load(user_id)
     if loaded.warning:
         st.warning("通知設定を読み込めなかったため、安全な初期設定を表示しています。")
 
@@ -135,6 +141,39 @@ def render_notification_preferences(
             disabled=not quiet_enabled,
         )
 
+    with st.container(border=True):
+        st.subheader("4. スケジュール")
+        schedule_enabled = st.checkbox(
+            "定時通知を有効にする",
+            value=schedule.enabled,
+            key="notification_schedule_enabled",
+        )
+        weekdays_only = st.checkbox(
+            "平日のみ実行する",
+            value=schedule.weekdays_only,
+            key="notification_schedule_weekdays",
+            disabled=not schedule_enabled,
+        )
+        daily_col, news_col, sector_col = st.columns(3)
+        favorite_daily_time = daily_col.time_input(
+            "お気に入り日次",
+            value=_time_value(schedule.favorite_daily_time, time(7, 30)),
+            key="notification_schedule_favorite_daily",
+            disabled=not schedule_enabled,
+        )
+        investment_news_time = news_col.time_input(
+            "投資ニュース",
+            value=_time_value(schedule.investment_news_time, time(8, 0)),
+            key="notification_schedule_investment_news",
+            disabled=not schedule_enabled,
+        )
+        sector_momentum_time = sector_col.time_input(
+            "市場動向",
+            value=_time_value(schedule.sector_momentum_time, time(8, 30)),
+            key="notification_schedule_sector",
+            disabled=not schedule_enabled,
+        )
+
     save_col, cancel_col = st.columns(2)
     save_clicked = save_col.button("通知設定を保存", key="notification_save", type="primary")
     cancel_clicked = cancel_col.button("キャンセル", key="notification_cancel")
@@ -156,6 +195,18 @@ def render_notification_preferences(
                     quiet_hours_end=quiet_end,
                     enabled_categories=selected_categories,
                 ),
+            )
+            schedule_repository.save(
+                NotificationScheduleSetting(
+                    user_id=user_id,
+                    enabled=schedule_enabled,
+                    favorite_daily_time=favorite_daily_time.strftime("%H:%M"),
+                    investment_news_time=investment_news_time.strftime("%H:%M"),
+                    sector_momentum_time=sector_momentum_time.strftime("%H:%M"),
+                    favorite_move_interval_minutes=schedule.favorite_move_interval_minutes,
+                    favorite_news_interval_minutes=schedule.favorite_news_interval_minutes,
+                    weekdays_only=weekdays_only,
+                )
             )
         except NotificationSettingValidationError as exc:
             st.warning(str(exc))

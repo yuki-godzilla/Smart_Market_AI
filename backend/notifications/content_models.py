@@ -30,6 +30,7 @@ class NotificationContent:
     headline: str
     summary: str
     what_happened: str
+    template_id: str = "custom"
     why_it_matters: str | None = None
     smai_assessment: str | None = None
     next_check: str | None = None

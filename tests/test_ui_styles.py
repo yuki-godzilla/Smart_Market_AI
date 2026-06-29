@@ -132,11 +132,20 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".element-container:has(.smai-favorite-button-anchor)" in SMAI_GLOBAL_CSS
     assert '[data-testid="column"]:has(.smai-cockpit-favorite-action-anchor)' in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
-    assert "/* LAN tablet/mobile baseline." in SMAI_GLOBAL_CSS
-    assert "@media (max-width: 900px)" in SMAI_GLOBAL_CSS
+    assert "Responsive baseline for LAN clients." in SMAI_GLOBAL_CSS
+    assert ".smai-responsive-grid" in SMAI_GLOBAL_CSS
+    assert ".smai-card-grid-responsive" in SMAI_GLOBAL_CSS
+    assert "@media (min-width: 768px) and (max-width: 1024px)" in SMAI_GLOBAL_CSS
     assert '[data-testid="stDataFrame"]' in SMAI_GLOBAL_CSS
+    assert '[data-testid="stDataEditor"]' in SMAI_GLOBAL_CSS
+    assert '[data-testid="stPlotlyChart"]' in SMAI_GLOBAL_CSS
     assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
-    assert "@media (max-width: 640px)" in SMAI_GLOBAL_CSS
+    assert "@media (max-width: 767px)" in SMAI_GLOBAL_CSS
+    assert "@media (min-width: 1025px)" in SMAI_GLOBAL_CSS
+    assert "repeat(3, minmax(0, 1fr))" in SMAI_GLOBAL_CSS
+    assert "repeat(2, minmax(0, 1fr))" in SMAI_GLOBAL_CSS
+    assert "overflow-wrap: anywhere;" in SMAI_GLOBAL_CSS
+    assert "word-break: break-word;" in SMAI_GLOBAL_CSS
     assert "flex-wrap: wrap;" in SMAI_GLOBAL_CSS
 
 

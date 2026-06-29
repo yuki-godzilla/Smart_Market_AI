@@ -3826,3 +3826,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 既存report 51件をファイル名の実行日時優先、日時なしは更新日時で実行単位フォルダへ仕分け。
 - CI最新2件の失敗stepがMypyであることを公開GitHub APIで確認。CSV contract testのOptional / fragment wrapper型エラー3件をローカル全体Mypyで再現して修正。
 - report / maintenance / CSV contractの対象pytest 11件、対象Ruff、全体Mypyがpass。全pytestは1,896 passed / 2 skipped。
+
+## 2026-06-29 レスポンシブデザイン共通基盤
+
+- 共通ブレークポイントを smartphone 767px 以下、tablet 768–1024px、desktop 1025px 以上に統一。
+- Streamlit columns、カード、チャート、表、data editor、ダイアログ、Assistant の幅・折り返し・タッチターゲットを共通CSSで調整。投資判断・ランキング・予測・データ取得・AI/RAGロジックは変更なし。
+- CSS回帰テスト、任意実行のPlaywright Cockpit 4 viewport smoke、レスポンシブ確認ガイドと画面別チェックリストを追加。
+- 対象UIテスト90件、Ruff、Black、全体ローカルチェック1,896 passed / 2 skipped。Playwright実行直前にWindows Store Pythonのベース実行ファイルが参照不能となり、スクリーンショット取得は未完了。

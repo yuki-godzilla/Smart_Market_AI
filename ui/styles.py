@@ -7085,20 +7085,92 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     color: var(--text-heading);
 }
 
-/* LAN tablet/mobile baseline. Desktop layout remains unchanged above 900px. */
-@media (max-width: 900px) {
+/*
+ * Responsive baseline for LAN clients.
+ * Page-specific layouts may add a semantic class, but these shared rules own
+ * breakpoints, safe wrapping, touch targets, charts, tables, and Streamlit
+ * columns. Desktop information density remains unchanged above 1024px.
+ */
+.smai-responsive-grid,
+.smai-card-grid-responsive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+    width: 100%;
+}
+
+.smai-responsive-grid > *,
+.smai-card-grid-responsive > *,
+.smai-metric-card,
+.smai-ranking-card,
+.smai-watchlist-card,
+.investment-news-card,
+[data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.smai-metric-card,
+.smai-ranking-card,
+.smai-watchlist-card,
+.investment-news-card,
+.smai-section-card,
+.smai-copilot-panel,
+.smai-copilot-answer-grid,
+.smai-dashboard-header {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+[data-testid="stPlotlyChart"],
+[data-testid="stVegaLiteChart"],
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"],
+[data-testid="stTable"],
+.js-plotly-plot,
+.plot-container,
+.plotly,
+.vega-embed {
+    min-width: 0;
+    max-width: 100%;
+}
+
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"],
+[data-testid="stTable"],
+.ag-root-wrapper,
+.smai-table-scroll {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+dialog,
+[role="dialog"],
+[data-testid="stDialog"] {
+    max-width: min(44rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow: auto;
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
     [data-testid="stMainBlockContainer"] {
         padding-left: 1.1rem;
         padding-right: 1.1rem;
     }
 
-    [data-testid="stDataFrame"],
-    [data-testid="stTable"],
-    .ag-root-wrapper,
-    .smai-table-scroll {
-        max-width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .smai-responsive-grid,
+    .smai-card-grid-responsive {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap;
+    }
+
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 calc(50% - 0.5rem) !important;
+        width: calc(50% - 0.5rem) !important;
     }
 
     [data-testid="stButton"] button,
@@ -7126,7 +7198,7 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
     [data-testid="stMainBlockContainer"] {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
@@ -7142,6 +7214,50 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
         width: 100% !important;
     }
 
+    .smai-responsive-grid,
+    .smai-card-grid-responsive,
+    .smai-copilot-answer-grid,
+    .smai-ranking-weight-grid {
+        grid-template-columns: 1fr;
+    }
+
+    [data-testid="stButton"],
+    [data-testid="stDownloadButton"],
+    [data-testid="stLinkButton"],
+    [data-testid="stSelectbox"],
+    [data-testid="stMultiSelect"] {
+        width: 100%;
+        min-width: 0;
+    }
+
+    [data-testid="stButton"] button,
+    [data-testid="stDownloadButton"] button,
+    [data-testid="stLinkButton"] a {
+        width: 100%;
+        min-height: 2.75rem;
+        white-space: normal;
+        touch-action: manipulation;
+    }
+
+    [data-testid="stPlotlyChart"],
+    [data-testid="stVegaLiteChart"] {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    [data-testid="stTabs"] [role="tablist"] {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    [data-testid="stMetric"],
+    .smai-metric-card,
+    .smai-ranking-card,
+    .smai-watchlist-card,
+    .investment-news-card {
+        width: 100%;
+    }
+
     .smai-floating-assistant {
         right: 0.5rem;
         bottom: 0.5rem;
@@ -7155,6 +7271,13 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     .smai-page-title,
     .smai-page-title--copilot {
         overflow-wrap: anywhere;
+    }
+}
+
+@media (min-width: 1025px) {
+    .smai-responsive-grid,
+    .smai-card-grid-responsive {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 </style>

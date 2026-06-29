@@ -4,7 +4,7 @@
 
 ## 通知基盤（N1/N2/N3-A実装済み・UI未接続）
 
-Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。独立gateway、親SMAI側の薄いclient、親子contract adapter、明示テスト通知関数までは実装済み。adapterは子`notification_gateway` packageを遅延importし、未導入時は秘密値を含まない安全なfailed resultを返す。設定保存/UI、既存イベント接続、アプリ内履歴は未実装であり、SMAI はまだ通知を自動送信しない。
+Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。独立gateway、親SMAI側の薄いclient、親子contract adapter、明示テスト通知関数までは実装済み。adapterはinstalled packageを優先して子`notification_gateway`を遅延importし、monorepo開発時は同一workspaceの`src`へfallbackする。子moduleが存在しない場合は秘密値を含まない安全なfailed resultを返す。設定保存/UI、既存イベント接続、アプリ内履歴は未実装であり、SMAI はまだ通知を自動送信しない。
 
 予定する運用境界:
 

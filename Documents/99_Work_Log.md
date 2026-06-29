@@ -3894,4 +3894,5 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 親request全項目を子eventへ、ntfy有効状態・server・topic・threshold・quiet hoursを子settingへ変換し、子のsent/skipped/disabled/filtered/failed resultを親resultへ変換。
 - 子package未導入、load失敗、dispatcher例外、不正event ID/status、子failed messageを、topic/full URL/Authorization相当値を含まない安全なfailed resultへ変換。
 - fake bindingsのみのN3-Aテスト6件を追加。親通知テスト計14件、Ruff / Mypy / Blackがpass。実子gatewayはntfy disabledでnetwork-free smokeを行い、`disabled/channel_disabled`を確認。
+- 子packageはinstalled packageを優先し、monorepo標準起動では同一workspaceの`smai-notification-gateway/src`をfallback importする。子module自体が無ければ安全な`gateway_unavailable`へ戻る。
 - 設定永続化、Streamlit設定画面、テスト通知ボタン、既存イベント接続、自動通知はN3-B以降へ残した。

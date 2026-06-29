@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Protocol, cast
 
 from backend.notifications.notification_client import (
@@ -118,6 +120,7 @@ class NotificationGatewayAdapter:
 def load_notification_gateway_bindings() -> GatewayBindings:
     """Load the independently packaged child gateway only when first used."""
 
+    _ensure_local_gateway_import_path()
     channels = importlib.import_module("notification_gateway.channels")
     dispatcher_module = importlib.import_module("notification_gateway.dispatcher")
     models = importlib.import_module("notification_gateway.models")
@@ -137,6 +140,25 @@ def load_notification_gateway_bindings() -> GatewayBindings:
         severity_factory=models.Severity,
         dispatcher_factory=dispatcher_factory,
     )
+
+
+def _ensure_local_gateway_import_path() -> None:
+    """Expose the checked-out child package without requiring editable install."""
+
+    try:
+        importlib.import_module("notification_gateway")
+        return
+    except ModuleNotFoundError as exc:
+        if exc.name != "notification_gateway":
+            raise
+
+    child_src = Path(__file__).resolve().parents[2] / "smai-notification-gateway" / "src"
+    if not (child_src / "notification_gateway" / "__init__.py").is_file():
+        raise ModuleNotFoundError("notification_gateway")
+    child_src_value = str(child_src)
+    if child_src_value not in sys.path:
+        sys.path.insert(0, child_src_value)
+    importlib.invalidate_caches()
 
 
 def _convert_gateway_result(

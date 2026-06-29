@@ -3968,3 +3968,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `ui/views/copilot.py` と `.smai-workflow-loading--blocking` のオーバーレイを `inset: 0` / `z-index: 2000` に統一し、PC・tablet でもサイドバーを含む全画面マスク上に中央表示されるよう修正。
 - `tests/ui/test_responsive_ranking_smoke.py` と `tests/ui/test_responsive_assistant_smoke.py` を現行のユーザー選択導線対応に更新し、ランキングのフィルターモーダルと Assistant ロードモーダルの中央表示を viewport ごとに確認できるようにした。
 - 実画面確認では `http://127.0.0.1:8502` で `Yuki` ユーザーを選択して遷移し、`docs/responsive/screenshots/ranking/*_filter_modal.png` と `docs/responsive/screenshots/assistant/*.png` を更新して全画面マスクと中央帯表示を確認した。
+
+## 2026-06-30 ユーザー選択後の余分な再描画を抑制
+
+- 開始用query parameterからユーザーを確定した直後の明示的な`st.rerun()`を撤去し、同じ実行内でアプリ画面の描画を続けるよう変更。query parameter整理と重複していた全画面再実行を1回削減した。
+- `このユーザーで開始`を押した瞬間にブラウザ側で全画面ローディングモーダルを表示し、必要な画面遷移中に操作可能と誤認しないようにした。次画面の読み込み完了時に自然に消える一時表示で、通常のアプリ操作は覆わない。
+- `tests/test_ui_notification_center.py` 4件と対象Ruffがpass。通常確認はnetwork-free。起動済みStreamlitのcache更新ファイルは既存変更として触れていない。

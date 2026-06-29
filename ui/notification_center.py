@@ -191,6 +191,48 @@ def trusted_device_bootstrap_html(
       }});
     }}
     if (profileLinks.length) found = true;
+    const startButton = window.parent.document.getElementById("smai-profile-start");
+    if (startButton && startButton.dataset.smaiLoadingBound !== "1") {{
+      startButton.dataset.smaiLoadingBound = "1";
+      startButton.addEventListener("click", () => {{
+        if (startButton.classList.contains("disabled")) return;
+        const overlay = window.parent.document.createElement("div");
+        overlay.id = "smai-profile-start-loading";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", "アプリを準備しています");
+        overlay.innerHTML = `
+          <div class="smai-profile-start-loading-panel">
+            <div class="smai-profile-start-spinner" aria-hidden="true"></div>
+            <strong>アプリを準備しています</strong>
+            <span>画面が表示されるまで、そのままお待ちください。</span>
+          </div>
+        `;
+        const style = window.parent.document.createElement("style");
+        style.id = "smai-profile-start-loading-style";
+        style.textContent = `
+          #smai-profile-start-loading {{
+            position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center;
+            padding: 1.25rem; background: rgba(2, 8, 23, .78); backdrop-filter: blur(5px);
+          }}
+          .smai-profile-start-loading-panel {{
+            display: grid; justify-items: center; gap: .7rem; width: min(100%, 24rem);
+            padding: 1.6rem; border: 1px solid #22d3ee; border-radius: 16px;
+            background: #08182a; color: #f8fbff; text-align: center;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+          }}
+          .smai-profile-start-loading-panel span {{ color: #a9bfd2; font-size: .92rem; }}
+          .smai-profile-start-spinner {{
+            width: 2.4rem; height: 2.4rem; border: 3px solid rgba(103, 232, 249, .22);
+            border-top-color: #67e8f9; border-radius: 50%;
+            animation: smai-profile-start-spin .8s linear infinite;
+          }}
+          @keyframes smai-profile-start-spin {{ to {{ transform: rotate(360deg); }} }}
+        `;
+        window.parent.document.head.appendChild(style);
+        window.parent.document.body.appendChild(overlay);
+      }});
+    }}
     positionUserMenu();
     return found;
   }};
@@ -221,7 +263,6 @@ def render_user_notification_area() -> bool:
         st.session_state.pop("smai_profile_candidate", None)
         _clear_query_value(START_PROFILE_QUERY_KEY)
         _clear_query_value(PROFILE_QUERY_KEY)
-        st.rerun()
     session_user_id = st.session_state.get("smai_current_user_id")
     user = next((item for item in users if item.user_id == session_user_id), None)
     if user is None:

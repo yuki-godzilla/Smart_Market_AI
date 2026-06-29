@@ -82,6 +82,8 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert "smai-profile-start" in source
     assert "history.replaceState" in source
     assert "START_PROFILE_QUERY_KEY" in source
+    assert "smai-profile-start-loading" in source
+    assert "アプリを準備しています" in source
     assert "remember_device_user" not in source
     assert 'class="smai-profile-link"' in source
     assert "select_profile_" not in source
@@ -108,3 +110,14 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert app_source.index("if not render_user_notification_area():") < app_source.index(
         "selected_page = render_sidemenu"
     )
+
+
+def test_start_profile_activation_does_not_force_an_extra_rerun() -> None:
+    source = Path("ui/notification_center.py").read_text(encoding="utf-8")
+    activation_source = source.split("if start_user is not None:", 1)[1].split(
+        "session_user_id =", 1
+    )[0]
+
+    assert 'st.session_state["smai_current_user_id"] = start_user.user_id' in activation_source
+    assert "_clear_query_value(START_PROFILE_QUERY_KEY)" in activation_source
+    assert "st.rerun()" not in activation_source

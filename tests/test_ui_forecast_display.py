@@ -11003,7 +11003,7 @@ def test_provider_error_summary_rows_explain_ranking_no_bars():
     assert details["request"]["display_end"] == "2026-05-18"
 
 
-def test_render_market_chart_uses_currency_axis_title_and_responsive_width(monkeypatch):
+def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeypatch):
     captured: dict[str, object] = {}
     markdown_calls: list[str] = []
 
@@ -11072,7 +11072,7 @@ def test_render_market_chart_uses_currency_axis_title_and_responsive_width(monke
         "予測: 直近値維持",
     ]
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
-    assert captured["use_container_width"] is True
+    assert captured["use_container_width"] is False
     assert markdown_calls == []
     assert any(param.get("select", {}).get("on") == "click" for param in spec["params"])
 

@@ -57,6 +57,14 @@ Remove-Item Env:SMAI_RUN_RESPONSIVE_SMOKE
 
 URLを変更する場合は `SMAI_STREAMLIT_URL` も指定します。テストは4 viewportの横はみ出し、Streamlit例外、画面見出し、ボタンの存在を検査し、Cockpit / Ranking / My Radar / 投資レーダーのスクリーンショットを保存します。
 
+Cockpitチャートの実描画確認は、ローカルのmock providerを使う次の任意スモークで行います。
+
+```powershell
+$env:SMAI_RUN_RESPONSIVE_CHART_SMOKE = "1"
+.\venv_SMAI\Scripts\python.exe -m pytest tests/ui/test_responsive_cockpit_smoke.py -q
+Remove-Item Env:SMAI_RUN_RESPONSIVE_CHART_SMOKE
+```
+
 ## 既知の残課題
 
 - Streamlit の DOM 属性はバージョン変更で変わる場合があります。

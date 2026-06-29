@@ -119,7 +119,6 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '.smai-insight-range > div[data-case="upside"]' in SMAI_GLOBAL_CSS
     assert ".vega-embed" in SMAI_GLOBAL_CSS
     assert ".vega-embed {\n    width: 100%;" in SMAI_GLOBAL_CSS
-    assert '[data-testid="stVegaLiteChart"] .vega-embed' not in SMAI_GLOBAL_CSS
     assert ".smai-ranking-condition-card" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-weight-grid" in SMAI_GLOBAL_CSS
     assert "@media print" in SMAI_GLOBAL_CSS
@@ -156,6 +155,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '[data-testid="stDataFrame"]' in SMAI_GLOBAL_CSS
     assert '[data-testid="stDataEditor"]' in SMAI_GLOBAL_CSS
     assert '[data-testid="stPlotlyChart"]' in SMAI_GLOBAL_CSS
+    assert '[data-testid="stVegaLiteChart"] canvas' in SMAI_GLOBAL_CSS
+    assert "contain: inline-size;" in SMAI_GLOBAL_CSS
     assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
     assert "@media (max-width: 767px)" in SMAI_GLOBAL_CSS
     assert "@media (min-width: 1025px)" in SMAI_GLOBAL_CSS

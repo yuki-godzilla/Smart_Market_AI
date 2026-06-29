@@ -3861,3 +3861,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - 固定内部幅を持つ価格・予測AltairチャートのStreamlit描画を親コンテナ幅追従へ変更し、iPhone / iPad / PCで利用可能幅に自動縮尺。
 - メインチャート、予測フォーカス、凡例、軸、モデル表示ロジックは維持。対象pytest 3件、Ruff、Blackがpass。
+
+## 2026-06-29 Cockpitチャート表示消失の復旧
+
+- Streamlit 1.38では横連結したAltair複合チャートと `use_container_width=True` の組み合わせで描画が消えることを確認し、互換描画へ戻した。
+- Vega canvas/svgだけを親幅内へ縮小する限定CSSを追加。mock `7203.T` を取得するiPhone実画面スモークで、描画要素・正の実寸・viewport内幅・例外なしを確認し、復旧スクリーンショットを保存。
+- Forecast UI / CSSテスト361件、Ruff、Blackがpass。価格・予測・凡例・モデル計算ロジックは変更なし。

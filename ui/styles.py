@@ -7151,6 +7151,23 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     max-width: 100%;
 }
 
+[data-testid="stVegaLiteChart"] {
+    contain: inline-size;
+    overflow: hidden;
+    width: 100%;
+}
+
+[data-testid="stVegaLiteChart"] .vega-embed,
+[data-testid="stVegaLiteChart"] .vega-embed > div {
+    max-width: 100%;
+}
+
+[data-testid="stVegaLiteChart"] canvas,
+[data-testid="stVegaLiteChart"] svg {
+    height: auto !important;
+    max-width: 100% !important;
+}
+
 [data-testid="stDataFrame"],
 [data-testid="stDataEditor"],
 [data-testid="stTable"],

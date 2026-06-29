@@ -85,6 +85,9 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert 'div[data-testid="stChatMessage"]' in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatInput"]' in SMAI_GLOBAL_CSS
     assert ".smai-copilot-answer-grid" in SMAI_GLOBAL_CSS
+    assert (
+        "@media (max-width: 767px) {\n" "    .smai-workflow-loading--blocking"
+    ) in SMAI_GLOBAL_CSS
     assert "--smai-chat-main-width: 1180px;" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-inline-sections" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-natural-lead" in SMAI_GLOBAL_CSS
@@ -141,6 +144,9 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-responsive-grid" in SMAI_GLOBAL_CSS
     assert ".smai-card-grid-responsive" in SMAI_GLOBAL_CSS
     assert "@media (min-width: 768px) and (max-width: 1024px)" in SMAI_GLOBAL_CSS
+    assert ":has(.smai-copilot-composer-toolbar):has(" in SMAI_GLOBAL_CSS
+    assert "flex: 0 1 30% !important;" in SMAI_GLOBAL_CSS
+    assert "flex: 1 1 82% !important;" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-radar-grid" in SMAI_GLOBAL_CSS
     assert (
         "@media (min-width: 768px) and (max-width: 1024px) {\n"

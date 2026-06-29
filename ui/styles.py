@@ -5042,7 +5042,7 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
     .smai-workflow-loading--blocking {
         inset: 3.75rem 0 0 0;
         padding: 0.75rem;
@@ -7187,6 +7187,53 @@ dialog,
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+            div[data-testid="stForm"]
+        ) {
+        left: 0;
+        flex-wrap: nowrap;
+        padding-right: 1.1rem;
+        padding-left: 1.1rem;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+            div[data-testid="stForm"]
+        )
+        > [data-testid="column"]:first-child {
+        flex: 0 1 30% !important;
+        width: 30% !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+            div[data-testid="stForm"]
+        )
+        > [data-testid="column"]:last-child {
+        flex: 1 1 70% !important;
+        width: 70% !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar)
+        div[data-testid="stForm"]
+        div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar)
+        div[data-testid="stForm"]
+        div[data-testid="stHorizontalBlock"]
+        > [data-testid="column"]:first-child {
+        flex: 1 1 82% !important;
+        width: 82% !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar)
+        div[data-testid="stForm"]
+        div[data-testid="stHorizontalBlock"]
+        > [data-testid="column"]:last-child {
+        flex: 0 1 18% !important;
+        width: 18% !important;
+    }
+
     [data-testid="stMainBlockContainer"] {
         padding-left: 1.1rem;
         padding-right: 1.1rem;

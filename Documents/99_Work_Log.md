@@ -3867,3 +3867,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Streamlit 1.38では横連結したAltair複合チャートと `use_container_width=True` の組み合わせで描画が消えることを確認し、互換描画へ戻した。
 - Vega canvas/svgだけを親幅内へ縮小する限定CSSを追加。mock `7203.T` を取得するiPhone実画面スモークで、描画要素・正の実寸・viewport内幅・例外なしを確認し、復旧スクリーンショットを保存。
 - Forecast UI / CSSテスト361件、Ruff、Blackがpass。価格・予測・凡例・モデル計算ロジックは変更なし。
+
+## 2026-06-29 SMAI Assistant レスポンシブ改善
+
+- Assistant / loading / composerのスマホ用ブレークポイントを767pxへ統一。
+- iPad縦で固定composerがデスクトップ用左余白により右半分へ圧縮される問題を修正し、モデル30%・入力領域70%、入力82%・送信18%で全幅表示。
+- Assistantへ遷移するPlaywright 4 viewport smokeを追加し、横はみ出し・Streamlit例外なし、見出し・入力欄表示を確認。関連UIテスト72件、Ruff、Black、Playwrightがpass。Assistantの計画・確認・実行ロジックは変更なし。

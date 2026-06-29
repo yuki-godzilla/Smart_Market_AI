@@ -47,9 +47,9 @@ Phase N4:
 - 未読件数、重要件数、カテゴリ、未読/既読/archive、1日/7日/30日、重要のみを確認できる。
 - CTAは内部画面への遷移だけで、AI調査や注文などの処理を開始しない。
 - ブラウザごとのUUIDはlocalStorageへ保持し、SQLiteの`trusted_devices`と関連付ける。IPアドレスは識別に使わない。
-- 初回はユーザーを選択し、端末記憶を選んだ場合だけ次回から自動選択する。
-- 右上ユーザーメニューで今回だけ/端末既定を変更するユーザー切替、マスコット選択、端末名変更、端末解除ができる。
-- Trusted Deviceは認証機能ではない。端末を共有する場合はユーザー切替または端末解除を行う。
+- 新しいbrowser sessionではプロフィール画像を選び、`このユーザーで開始`を押す。
+- 右上ユーザーメニューは`ユーザー設定`、`通知設定`、`ユーザー切替`の3項目。ユーザー設定に通知先とアイコン変更をまとめる。
+- Trusted Deviceによる自動選択と登録端末管理は使用しない。`ユーザー切替`はプロフィール選択画面へ戻る。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
 - 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。
 - 選択画像が無い場合はdefault、local placeholder、CSS silhouetteの順でfallbackし、外部画像URLは参照しない。

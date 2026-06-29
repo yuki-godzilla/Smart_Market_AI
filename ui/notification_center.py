@@ -11,9 +11,11 @@ from backend.notifications.settings_repository import NotificationSettingsError
 from backend.notifications.trusted_devices import (
     SmaiUser,
     TrustedDeviceRepository,
-    normalize_device_id,
 )
-from ui.notification_ui import render_notification_settings
+from ui.notification_ui import (
+    render_notification_destination,
+    render_notification_preferences,
+)
 from ui.user_icon_assets import (
     load_user_icon_assets,
     resolve_user_icon,
@@ -23,6 +25,8 @@ from ui.user_icon_assets import (
 DEFAULT_NOTIFICATION_USER_ID = "local_user"
 DEVICE_QUERY_KEY = "smai_device_id"
 DEVICE_NAME_QUERY_KEY = "smai_device_name"
+PROFILE_QUERY_KEY = "smai_profile"
+ADD_PROFILE_QUERY_KEY = "smai_add_profile"
 CATEGORY_LABELS = {
     "すべて": "すべて",
     "FAVORITE": "お気に入り",
@@ -52,25 +56,11 @@ def trusted_device_bootstrap_html(
   const displayName = {display_json};
   const userId = {user_json};
   const unread = {max(0, unread)};
-  const key = "smai_trusted_device_id";
-  let id = window.parent.localStorage.getItem(key);
-  if (!id) {{
-    id = window.parent.crypto.randomUUID();
-    window.parent.localStorage.setItem(key, id);
-  }}
-  const ua = window.parent.navigator.userAgent;
-  const name = /iPad/.test(ua) ? "iPad Safari"
-    : /iPhone/.test(ua) ? "iPhone Safari"
-    : /Windows/.test(ua) ? "Windows Browser" : "Browser Device";
-  const url = new URL(window.parent.location.href);
-  if (url.searchParams.get("{DEVICE_QUERY_KEY}") !== id) {{
-    url.searchParams.set("{DEVICE_QUERY_KEY}", id);
-    url.searchParams.set("{DEVICE_NAME_QUERY_KEY}", name);
-    window.parent.location.replace(url.toString());
-  }}
-  setTimeout(() => {{
+  const decorate = () => {{
+    let found = false;
     for (const button of window.parent.document.querySelectorAll("button")) {{
       if (button.innerText.includes("SMAI_USER_AREA")) {{
+        found = true;
         button.textContent = "";
         button.classList.add("smai-user-trigger");
         const bell = window.parent.document.createElement("span");
@@ -93,6 +83,10 @@ def trusted_device_bootstrap_html(
         id.className = "smai-user-id";
         id.textContent = userId ? ` / ${{userId}}` : "";
         button.append(bell, avatar, name, id);
+        button.style.position = "fixed";
+        button.style.top = "0.55rem";
+        button.style.right = "1rem";
+        button.style.zIndex = "100000";
         const host = button.closest('[data-testid="stPopover"]');
         if (host) {{
           host.style.position = "fixed";
@@ -132,7 +126,14 @@ def trusted_device_bootstrap_html(
       `;
       window.parent.document.head.appendChild(style);
     }}
-  }}, 250);
+    return found;
+  }};
+  let attempts = 0;
+  const timer = window.setInterval(() => {{
+    attempts += 1;
+    if (decorate() || attempts >= 40) window.clearInterval(timer);
+  }}, 125);
+  decorate();
 }})();
 </script>
 """
@@ -141,8 +142,6 @@ def trusted_device_bootstrap_html(
 def render_user_notification_area() -> bool:
     """Resolve the active user before allowing the main SMAI surface to render."""
     components.html(trusted_device_bootstrap_html(), height=0, width=0)
-    device_id = _query_value(DEVICE_QUERY_KEY)
-    device_name = _query_value(DEVICE_NAME_QUERY_KEY) or "この端末"
     try:
         devices = TrustedDeviceRepository()
     except NotificationSettingsError:
@@ -152,9 +151,7 @@ def render_user_notification_area() -> bool:
     session_user_id = st.session_state.get("smai_current_user_id")
     user = next((item for item in users if item.user_id == session_user_id), None)
     if user is None:
-        user = devices.resolve(device_id) if device_id else None
-    if user is None:
-        user = _select_user(devices, users, device_id, device_name)
+        user = _select_user(users)
     if user is None:
         return False
 
@@ -181,22 +178,15 @@ def render_user_notification_area() -> bool:
     if view != USER_AREA_HOME:
         _render_user_area_view(
             view,
-            repository,
             devices,
             user,
-            users,
-            device_id,
-            device_name,
         )
         return False
     return True
 
 
 def _select_user(
-    repository: TrustedDeviceRepository,
     users: list[SmaiUser],
-    device_id: str,
-    device_name: str,
 ) -> SmaiUser | None:
     if not users:
         return None
@@ -247,17 +237,7 @@ def _select_user(
           margin: 0 auto .45rem; border: 2px dashed #35516e; border-radius: 18px;
           background: #0b1b30; color: #8ca6bd; font-size: 4rem; cursor: pointer;
         }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
-          position: relative;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]
-          div[data-testid="stButton"] {
-          position: absolute; inset: 0 0 auto; height: calc(100% - .25rem); z-index: 2;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]
-          div[data-testid="stButton"] > button {
-          width: 100%; height: 100%; opacity: 0;
-        }
+        .smai-profile-link { display: block; color: inherit; text-decoration: none !important; }
         div[data-testid="stButton"] > button {
           display: flex; width: min(100%, 220px); min-width: 0; margin-inline: auto;
           justify-content: center;
@@ -277,7 +257,14 @@ def _select_user(
         """,
         unsafe_allow_html=True,
     )
-    selected_user_id = str(st.session_state.get("smai_profile_candidate", ""))
+    query_candidate = _query_value(PROFILE_QUERY_KEY)
+    selected_user_id = (
+        query_candidate
+        if any(candidate.user_id == query_candidate for candidate in users)
+        else str(st.session_state.get("smai_profile_candidate", ""))
+    )
+    if selected_user_id:
+        st.session_state["smai_profile_candidate"] = selected_user_id
     card_count = len(users) + 1
     column_count = min(5, card_count)
     columns = st.columns(column_count, gap="medium")
@@ -288,10 +275,13 @@ def _select_user(
         with columns[index % column_count]:
             if source:
                 st.markdown(
+                    f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
+                    f'{html.escape(candidate.user_id)}" target="_self" '
+                    f'aria-label="{html.escape(candidate.display_name)}を選択">'
                     f'<div class="smai-profile-card{selected_class}">'
                     f'<img src="{html.escape(source)}" alt="">'
                     f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
-                    "</div>",
+                    "</div></a>",
                     unsafe_allow_html=True,
                 )
             else:
@@ -302,37 +292,30 @@ def _select_user(
                     "</div>",
                     unsafe_allow_html=True,
                 )
-            if st.button(
-                f"{candidate.display_name}を選択",
-                key=f"select_profile_{candidate.user_id}",
-                type="primary" if candidate.user_id == selected_user_id else "secondary",
-            ):
-                st.session_state["smai_profile_candidate"] = candidate.user_id
-                st.rerun()
     with columns[len(users) % column_count]:
         st.markdown(
+            f'<a class="smai-profile-link" href="?{ADD_PROFILE_QUERY_KEY}=1" '
+            'target="_self" aria-label="ユーザー追加">'
             '<div class="smai-add-profile" aria-hidden="true">＋</div>'
-            '<div class="smai-profile-name">ユーザー追加</div>',
+            '<div class="smai-profile-name">ユーザー追加</div></a>',
             unsafe_allow_html=True,
         )
-        if st.button("ユーザー追加", key="add_smai_profile"):
-            st.info("ユーザー追加は次フェーズで対応予定です。")
+    if _query_value(ADD_PROFILE_QUERY_KEY) == "1":
+        st.info("ユーザー追加は次フェーズで対応予定です。")
 
-    remember = st.checkbox(
-        "この端末では次回からこのユーザーを使用する",
-        value=True,
-        key="remember_device_user",
-    )
     selected = next((item for item in users if item.user_id == selected_user_id), None)
     if selected is not None and st.button(
         "このユーザーで開始",
         key="start_selected_profile",
         type="primary",
     ):
-        if remember and normalize_device_id(device_id):
-            repository.trust(device_id, selected.user_id, device_name)
+        st.markdown(
+            "<style>.smai-profile-card,.smai-add-profile{visibility:hidden!important}</style>",
+            unsafe_allow_html=True,
+        )
         st.session_state["smai_current_user_id"] = selected.user_id
         st.session_state.pop("smai_profile_candidate", None)
+        _clear_query_value(PROFILE_QUERY_KEY)
         st.rerun()
     session_user = st.session_state.get("smai_current_user_id")
     return next((user for user in users if user.user_id == session_user), None)
@@ -403,11 +386,8 @@ def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
     st.markdown(f"**{user.display_name}**")
     st.caption(f"{user.user_id}　未読 {unread}件 / 重要 {important}件")
     links = (
-        ("通知センター", "notification_center"),
-        ("通知設定", "notification_settings"),
         ("ユーザー設定", "user_settings"),
-        ("アイコン変更", "icon_settings"),
-        ("登録済み端末", "trusted_devices"),
+        ("通知設定", "notification_settings"),
         ("ユーザー切替", "switch_user"),
     )
     for label, view in links:
@@ -418,12 +398,8 @@ def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
 
 def _render_user_area_view(
     view: str,
-    notification_repository: NotificationHistoryRepository,
     user_repository: TrustedDeviceRepository,
     user: SmaiUser,
-    users: list[SmaiUser],
-    device_id: str,
-    device_name: str,
 ) -> None:
     st.markdown(
         """
@@ -441,35 +417,25 @@ def _render_user_area_view(
         st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
         st.rerun()
 
-    if view == "notification_center":
-        unread = notification_repository.unread_count(user.user_id)
-        important = len(
-            notification_repository.list(user.user_id, state="unread", important_only=True)
-        )
-        st.title("通知センター")
-        st.caption(f"未読 {unread}件 / 重要 {important}件")
-        _render_notification_center(notification_repository, user)
-    elif view == "notification_settings":
+    if view == "notification_settings":
         st.title("通知設定")
-        st.caption("通知方法、重要度、Quiet hoursを設定します。保存だけでは送信しません。")
-        render_notification_settings(user.user_id)
+        render_notification_preferences(user.user_id)
     elif view == "user_settings":
-        _render_user_settings(user_repository, user, device_id)
+        _render_user_settings(user_repository, user)
     elif view == "icon_settings":
         _render_icon_settings(user_repository, user)
-    elif view == "trusted_devices":
-        st.title("登録済み端末")
-        _render_trusted_devices(user_repository, user, device_id)
     elif view == "switch_user":
-        _render_user_switch(user_repository, user, users, device_id, device_name)
+        st.session_state.pop("smai_current_user_id", None)
+        st.session_state.pop("smai_profile_candidate", None)
+        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+        _clear_query_value(PROFILE_QUERY_KEY)
+        st.rerun()
     else:
         st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
         st.rerun()
 
 
-def _render_user_settings(
-    repository: TrustedDeviceRepository, user: SmaiUser, device_id: str
-) -> None:
+def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -> None:
     st.title("ユーザー設定")
     st.caption("プロフィールと、この端末で使うユーザーを管理します。")
     display_name = st.text_input("表示名", value=user.display_name, disabled=user.is_system_user)
@@ -484,11 +450,7 @@ def _render_user_settings(
         st.session_state[USER_AREA_VIEW_KEY] = "icon_settings"
         st.rerun()
     st.divider()
-    st.subheader("登録済み端末")
-    _render_trusted_devices(repository, user, device_id)
-    if st.button("ユーザーを切り替える", key="user_settings_switch_user"):
-        st.session_state[USER_AREA_VIEW_KEY] = "switch_user"
-        st.rerun()
+    render_notification_destination(user.user_id)
 
 
 def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -> None:
@@ -515,68 +477,11 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         with columns[index % 4]:
             st.image(
                 str(asset.file_path),
-                use_container_width=True,
+                width=160,
                 caption=("選択中: " if asset.icon_id == selected_icon else "") + asset.display_name,
             )
     if st.button("アイコンを保存", key="save_smai_user_icon", type="primary"):
         repository.set_icon(user.user_id, selected_icon)
-        st.rerun()
-
-
-def _render_trusted_devices(
-    repository: TrustedDeviceRepository, user: SmaiUser, device_id: str
-) -> None:
-    st.caption("端末記憶はユーザー選択の自動化であり、ログイン認証ではありません。")
-    devices = repository.list(user.user_id)
-    if not devices:
-        st.info("登録済み端末はありません。")
-        return
-    for device in devices:
-        label = f"{device.device_name} / {device.last_seen_at.date().isoformat()}"
-        st.markdown(f"**{'現在の端末: ' if device.device_id == device_id else ''}{label}**")
-        renamed = st.text_input(
-            "端末名",
-            value=device.device_name,
-            key=f"device_name_{device.device_id}",
-            label_visibility="collapsed",
-        )
-        rename_col, revoke_col = st.columns(2)
-        if rename_col.button("名前を変更", key=f"rename_device_{device.device_id}"):
-            repository.rename(user.user_id, device.device_id, renamed)
-            st.rerun()
-        if revoke_col.button("Trusted Deviceを解除", key=f"revoke_device_{device.device_id}"):
-            repository.revoke(user.user_id, device.device_id)
-            if device.device_id == device_id:
-                st.session_state.pop("smai_current_user_id", None)
-                st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
-            st.rerun()
-
-
-def _render_user_switch(
-    repository: TrustedDeviceRepository,
-    user: SmaiUser,
-    users: list[SmaiUser],
-    device_id: str,
-    device_name: str,
-) -> None:
-    st.title("ユーザー切替")
-    selected_user = st.selectbox(
-        "使用するユーザー",
-        [item.user_id for item in users],
-        index=[item.user_id for item in users].index(user.user_id),
-        format_func=lambda value: next(u.display_name for u in users if u.user_id == value),
-        key="switch_smai_user",
-    )
-    remember_switch = st.checkbox(
-        "この端末では次回からこのユーザーを使用する",
-        value=True,
-        key="remember_switched_user",
-    )
-    if st.button("このユーザーに切り替える", key="switch_smai_user_button", type="primary"):
-        if remember_switch and normalize_device_id(device_id):
-            repository.trust(device_id, selected_user, device_name)
-        st.session_state["smai_current_user_id"] = selected_user
-        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
         st.rerun()
 
 
@@ -586,3 +491,9 @@ def _query_value(key: str) -> str:
     if isinstance(value, list):
         return str(value[0]) if value else ""
     return str(value)
+
+
+def _clear_query_value(key: str) -> None:
+    params = getattr(st, "query_params", None)
+    if params is not None and key in params:
+        del params[key]

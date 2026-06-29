@@ -49,22 +49,26 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                     full_page=True,
                 )
 
-                page.get_by_role("button", name="Yukiを選択", exact=True).click()
+                page.get_by_role("link", name="Yukiを選択", exact=True).click()
+                page.get_by_text("Yuki", exact=True).wait_for(state="visible")
                 page.get_by_role("button", name="このユーザーで開始", exact=True).click()
                 page.get_by_text("銘柄コックピット", exact=True).wait_for(
                     state="visible", timeout=60_000
                 )
                 user_area = page.get_by_role("button", name="SMAI_USER_AREA", exact=False)
                 user_area.wait_for(state="visible", timeout=30_000)
+                initial_box = user_area.bounding_box()
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(250)
+                scrolled_box = user_area.bounding_box()
+                assert initial_box is not None and scrolled_box is not None
+                assert abs(initial_box["y"] - scrolled_box["y"]) <= 2
                 user_area.click()
-                assert page.get_by_role("button", name="通知センター", exact=True).is_visible()
-                assert page.get_by_text("カテゴリ", exact=True).count() == 0
-                assert page.locator(".smai-notification-card").count() == 0
-                page.get_by_role("button", name="通知センター", exact=True).click()
-                page.get_by_role("heading", name="通知センター", exact=True).wait_for(
-                    state="visible", timeout=30_000
-                )
-                assert page.get_by_text("カテゴリ", exact=True).is_visible()
+                assert page.get_by_role("button", name="ユーザー設定", exact=True).is_visible()
+                assert page.get_by_role("button", name="通知設定", exact=True).is_visible()
+                assert page.get_by_role("button", name="ユーザー切替", exact=True).is_visible()
+                assert page.get_by_role("button", name="通知センター", exact=True).count() == 0
+                assert page.get_by_role("button", name="登録済み端末", exact=True).count() == 0
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 dimensions = page.locator("body").evaluate(
                     "(element) => ({scrollWidth: element.scrollWidth, "

@@ -71,6 +71,31 @@ def test_empty_topic_input_preserves_existing_topic(tmp_path) -> None:
     assert saved.ntfy_server_url == "https://ntfy.sh"
 
 
+def test_notification_categories_are_saved_without_changing_topic(tmp_path) -> None:
+    repository = NotificationSettingsRepository(tmp_path / "notifications.sqlite")
+    repository.save(
+        NotificationSetting(
+            user_id="yuki",
+            ntfy_enabled=True,
+            ntfy_topic="existing-secret",
+        )
+    )
+
+    saved = save_notification_setting(
+        repository,
+        user_id="yuki",
+        update=NotificationSettingUpdate(
+            app_enabled=True,
+            ntfy_enabled=True,
+            ntfy_server_url="https://ntfy.sh",
+            enabled_categories=("INVESTMENT_NEWS", "SYSTEM"),
+        ),
+    )
+
+    assert saved.ntfy_topic == "existing-secret"
+    assert saved.enabled_categories == ("INVESTMENT_NEWS", "SYSTEM")
+
+
 def test_topic_is_removed_only_by_explicit_clear(tmp_path) -> None:
     repository = NotificationSettingsRepository(tmp_path / "notifications.sqlite")
     repository.save(

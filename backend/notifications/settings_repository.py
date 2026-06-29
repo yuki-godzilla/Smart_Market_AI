@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -10,8 +11,15 @@ from typing import Iterator
 from backend.core.runtime_paths import USER_CONFIG_DIR_ENV, runtime_path_from_env
 from backend.notifications.notification_client import NotificationSeverity
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 NOTIFICATION_DB_FILENAME = "notifications.sqlite"
+DEFAULT_NOTIFICATION_CATEGORIES = (
+    "FAVORITE",
+    "MARKET_TREND",
+    "INVESTMENT_NEWS",
+    "SMAI_INSIGHT",
+    "SYSTEM",
+)
 
 
 class NotificationSettingsError(Exception):
@@ -29,6 +37,7 @@ class NotificationSetting:
     quiet_hours_enabled: bool = False
     quiet_hours_start: str | None = None
     quiet_hours_end: str | None = None
+    enabled_categories: tuple[str, ...] = DEFAULT_NOTIFICATION_CATEGORIES
     updated_at: datetime | None = None
 
     @property
@@ -52,7 +61,8 @@ class NotificationSettingsRepository:
                     """
                     SELECT user_id, app_enabled, ntfy_enabled, ntfy_server_url,
                            ntfy_topic, severity_threshold, quiet_hours_enabled,
-                           quiet_hours_start, quiet_hours_end, updated_at
+                           quiet_hours_start, quiet_hours_end,
+                           enabled_categories_json, updated_at
                     FROM notification_settings
                     WHERE user_id = ?
                     """,
@@ -76,8 +86,9 @@ class NotificationSettingsRepository:
                     INSERT INTO notification_settings (
                         user_id, app_enabled, ntfy_enabled, ntfy_server_url,
                         ntfy_topic, severity_threshold, quiet_hours_enabled,
-                        quiet_hours_start, quiet_hours_end, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        quiet_hours_start, quiet_hours_end, updated_at,
+                        enabled_categories_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(user_id) DO UPDATE SET
                         app_enabled = excluded.app_enabled,
                         ntfy_enabled = excluded.ntfy_enabled,
@@ -87,6 +98,7 @@ class NotificationSettingsRepository:
                         quiet_hours_enabled = excluded.quiet_hours_enabled,
                         quiet_hours_start = excluded.quiet_hours_start,
                         quiet_hours_end = excluded.quiet_hours_end,
+                        enabled_categories_json = excluded.enabled_categories_json,
                         updated_at = excluded.updated_at
                     """,
                     (
@@ -100,6 +112,7 @@ class NotificationSettingsRepository:
                         setting.quiet_hours_start,
                         setting.quiet_hours_end,
                         updated_at.isoformat(),
+                        json.dumps(setting.enabled_categories),
                     ),
                 )
         except (OSError, sqlite3.Error) as exc:
@@ -114,6 +127,7 @@ class NotificationSettingsRepository:
             quiet_hours_enabled=setting.quiet_hours_enabled,
             quiet_hours_start=setting.quiet_hours_start,
             quiet_hours_end=setting.quiet_hours_end,
+            enabled_categories=setting.enabled_categories,
             updated_at=updated_at,
         )
 
@@ -130,6 +144,7 @@ class NotificationSettingsRepository:
                 quiet_hours_enabled=current.quiet_hours_enabled,
                 quiet_hours_start=current.quiet_hours_start,
                 quiet_hours_end=current.quiet_hours_end,
+                enabled_categories=current.enabled_categories,
             )
         )
 
@@ -201,6 +216,17 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         )
         """
     )
+    setting_columns = {
+        str(row["name"])
+        for row in connection.execute("PRAGMA table_info(notification_settings)").fetchall()
+    }
+    if "enabled_categories_json" not in setting_columns:
+        connection.execute(
+            "ALTER TABLE notification_settings ADD COLUMN "
+            "enabled_categories_json TEXT NOT NULL DEFAULT "
+            '\'["FAVORITE", "MARKET_TREND", "INVESTMENT_NEWS", '
+            '"SMAI_INSIGHT", "SYSTEM"]\''
+        )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_notifications_user_created "
         "ON app_notifications(user_id, created_at DESC)"
@@ -307,6 +333,13 @@ def _setting_from_row(row: sqlite3.Row) -> NotificationSetting:
     threshold = str(row["severity_threshold"])
     if threshold not in {"critical", "high", "medium", "low", "silent"}:
         raise ValueError("Invalid notification severity.")
+    try:
+        saved_categories = json.loads(str(row["enabled_categories_json"]))
+    except (json.JSONDecodeError, TypeError):
+        saved_categories = list(DEFAULT_NOTIFICATION_CATEGORIES)
+    enabled_categories = tuple(
+        category for category in DEFAULT_NOTIFICATION_CATEGORIES if category in saved_categories
+    )
     return NotificationSetting(
         user_id=str(row["user_id"]),
         app_enabled=bool(row["app_enabled"]),
@@ -317,5 +350,6 @@ def _setting_from_row(row: sqlite3.Row) -> NotificationSetting:
         quiet_hours_enabled=bool(row["quiet_hours_enabled"]),
         quiet_hours_start=(str(row["quiet_hours_start"]) if row["quiet_hours_start"] else None),
         quiet_hours_end=str(row["quiet_hours_end"]) if row["quiet_hours_end"] else None,
+        enabled_categories=enabled_categories,
         updated_at=datetime.fromisoformat(str(row["updated_at"])),
     )

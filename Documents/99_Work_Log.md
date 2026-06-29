@@ -3940,6 +3940,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 通知センター、通知設定、ユーザー設定、アイコン変更、登録済み端末、ユーザー切替を`session_state`切替の専用viewへ分離。サイドメニューは追加していない。
 - 通知設定rendererをactive user対応にし、topic非再表示、保存とテスト送信の分離を維持。
 - UI contract testとresponsive Playwright smokeを更新。Ruffはpass。pytest / Mypy / Blackはlocal venvが削除済みWindowsApps Pythonを参照して起動できず未実施。起動済みStreamlit healthは`ok`を確認したが、in-app browser操作機能がこのsessionに公開されておらず新画面の実操作確認は未実施。
+
+## 2026-06-30 Phase N4 プロフィール選択・ユーザーメニュー再整理
+
+- プロフィール画像を直接選択するlinkへ変更し、画像下の選択buttonとTrusted Device checkboxを撤去。開始時は旧profile要素を即時非表示にしてrerun中の画像拡大flashを抑止。
+- localStorage UUID、自動ユーザー解決、登録端末UIを通常フローから外し、ユーザー切替はプロフィール選択画面へ戻す単純な導線へ変更。
+- 右上ユーザー入口をbutton自体のfixed配置で補強し、メニューをユーザー設定、通知設定、ユーザー切替の3項目に限定。
+- ユーザー設定へntfy通知先とアイコン変更を統合。通知設定はお気に入り、市場動向、投資ニュース、SMAI分析、システムのユーザー別checkboxとし、schema v5でSQLiteへ保存。
 ## 2026-06-29 Responsive modal centering / モーダル全画面マスク調整
 
 - `ui/styles.py` で `stDialog` の共通スタイルを `role="dialog"` 全体から切り離し、全画面固定・中央配置・背景マスクに整理。`SMAI Assistant` の通常ポップアップには副作用を出さないようにした。

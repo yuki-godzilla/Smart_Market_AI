@@ -7,6 +7,7 @@ import streamlit as st
 
 from backend.notifications.notification_client import NotificationSeverity
 from backend.notifications.settings_repository import (
+    DEFAULT_NOTIFICATION_CATEGORIES,
     NotificationSettingsError,
     NotificationSettingsRepository,
 )
@@ -28,10 +29,22 @@ SEVERITY_LABELS = {
     "low": "Low以上",
     "silent": "Silent以上",
 }
+CATEGORY_LABELS = {
+    "FAVORITE": "お気に入り銘柄",
+    "MARKET_TREND": "市場動向",
+    "INVESTMENT_NEWS": "投資ニュース",
+    "SMAI_INSIGHT": "SMAI分析",
+    "SYSTEM": "システム",
+}
 
 
 def render_notification_settings(user_id: str = DEFAULT_NOTIFICATION_USER_ID) -> None:
-    """Render notification settings for the requested local user."""
+    """Render the legacy combined destination settings surface."""
+    render_notification_destination(user_id)
+
+
+def render_notification_destination(user_id: str = DEFAULT_NOTIFICATION_USER_ID) -> None:
+    """Render ntfy destination and delivery-window settings."""
 
     repository = NotificationSettingsRepository()
     loaded = load_notification_setting_safe(
@@ -40,7 +53,7 @@ def render_notification_settings(user_id: str = DEFAULT_NOTIFICATION_USER_ID) ->
     )
     setting = loaded.setting
 
-    with st.expander("通知設定", expanded=False):
+    with st.expander("通知先", expanded=False):
         st.caption(
             "スマホ通知（ntfy）はオプション機能です。ntfy通知をONにしてtopicを設定し、"
             "テスト通知ボタンを押した場合だけ送信します。"
@@ -137,6 +150,7 @@ def render_notification_settings(user_id: str = DEFAULT_NOTIFICATION_USER_ID) ->
                         quiet_hours_enabled=quiet_enabled,
                         quiet_hours_start=quiet_start,
                         quiet_hours_end=quiet_end,
+                        enabled_categories=setting.enabled_categories,
                     ),
                 )
             except NotificationSettingValidationError as exc:
@@ -171,6 +185,44 @@ def render_notification_settings(user_id: str = DEFAULT_NOTIFICATION_USER_ID) ->
                 else:
                     level, message = notification_result_message(result)
                     getattr(st, level)(message)
+
+
+def render_notification_preferences(user_id: str = DEFAULT_NOTIFICATION_USER_ID) -> None:
+    """Render per-category notification preferences."""
+    repository = NotificationSettingsRepository()
+    loaded = load_notification_setting_safe(repository, user_id=user_id)
+    setting = loaded.setting
+    st.subheader("受け取る通知")
+    st.caption("必要な通知の種類を選択します。設定はユーザーごとに保存されます。")
+    selected_categories = tuple(
+        category
+        for category in DEFAULT_NOTIFICATION_CATEGORIES
+        if st.checkbox(
+            CATEGORY_LABELS[category],
+            value=category in setting.enabled_categories,
+            key=f"notification_category_{category.lower()}",
+        )
+    )
+    if st.button("通知内容を保存", key="notification_categories_save", type="primary"):
+        try:
+            save_notification_setting(
+                repository,
+                user_id=user_id,
+                update=NotificationSettingUpdate(
+                    app_enabled=setting.app_enabled,
+                    ntfy_enabled=setting.ntfy_enabled,
+                    ntfy_server_url=setting.ntfy_server_url,
+                    severity_threshold=setting.severity_threshold,
+                    quiet_hours_enabled=setting.quiet_hours_enabled,
+                    quiet_hours_start=setting.quiet_hours_start,
+                    quiet_hours_end=setting.quiet_hours_end,
+                    enabled_categories=selected_categories,
+                ),
+            )
+        except NotificationSettingsError:
+            st.error("通知内容を保存できませんでした。時間をおいて再度お試しください。")
+        else:
+            st.success("通知内容を保存しました。")
 
 
 def _time_value(value: str | None, fallback: time) -> time:

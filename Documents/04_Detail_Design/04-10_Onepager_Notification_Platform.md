@@ -229,9 +229,11 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - 通知センターと簡易 filter
 - delivery result の確認導線
 
-実装状態: Phase N4実装済み。schema v2へ`app_notifications`、`delivery_results`、`users`、`trusted_devices`を追加し、N3設定を保持したままmigrationする。`NotificationService`は履歴保存成功後だけ外部clientを呼び、テスト通知だけをProducerとして接続する。右上固定ユーザーエリアのpopoverから通知センター、ユーザー切替、マスコット選択、登録端末管理を開き、サイドメニューには通知画面を追加しない。
+実装状態: Phase N4実装済み。schema v5へ`app_notifications`、`delivery_results`、`users`、通知カテゴリ設定を追加し、N3設定を保持したままmigrationする。`NotificationService`は履歴保存成功後だけ外部clientを呼び、テスト通知だけをProducerとして接続する。右上固定ユーザーエリアはユーザー設定、通知設定、ユーザー切替の入口に限定し、通知先とアイコンはユーザー設定へまとめる。サイドメニューには通知画面を追加しない。
 
 ### Trusted Device
+
+2026-06-30のUI回帰修正で自動ユーザー選択と登録端末管理は廃止した。既存SQLite tableはmigration互換のため残すが、通常UIとユーザー解決では参照しない。新しいbrowser sessionはプロフィール選択画面を経由する。
 
 - ブラウザごとに`crypto.randomUUID()`でdevice IDを生成し、localStorageへ保存する。
 - IPアドレスは識別に使わない。

@@ -3,6 +3,7 @@ import sqlite3
 import pytest
 
 from backend.notifications.settings_repository import (
+    DEFAULT_NOTIFICATION_CATEGORIES,
     SCHEMA_VERSION,
     NotificationSetting,
     NotificationSettingsError,
@@ -20,6 +21,7 @@ def test_repository_creates_database_schema_and_default_setting(tmp_path) -> Non
     assert not setting.ntfy_enabled
     assert setting.ntfy_server_url == "https://ntfy.sh"
     assert setting.severity_threshold == "medium"
+    assert setting.enabled_categories == DEFAULT_NOTIFICATION_CATEGORIES
     with sqlite3.connect(database) as connection:
         version = connection.execute(
             "SELECT value FROM notification_meta WHERE key = 'schema_version'"
@@ -39,6 +41,7 @@ def test_repository_saves_users_separately_and_clears_topic(tmp_path) -> None:
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00",
+            enabled_categories=("FAVORITE", "SYSTEM"),
         )
     )
     repository.save(
@@ -54,6 +57,7 @@ def test_repository_saves_users_separately_and_clears_topic(tmp_path) -> None:
     cleared = repository.clear_topic("yuki")
 
     assert yuki.ntfy_topic == "secret-yuki"
+    assert yuki.enabled_categories == ("FAVORITE", "SYSTEM")
     assert family.ntfy_topic == "secret-family"
     assert cleared.ntfy_topic is None
     assert not cleared.ntfy_enabled

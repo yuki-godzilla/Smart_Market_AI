@@ -10,6 +10,8 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     sidemenu = Path("ui/components/sidemenu.py").read_text(encoding="utf-8")
 
     assert 'host.style.position = "fixed"' in html
+    assert 'button.style.position = "fixed"' in html
+    assert "window.setInterval" in html
     assert "@media (max-width: 767px)" in html
     assert "smai-user-name" in html
     assert "smai-user-id" in html
@@ -27,6 +29,13 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert "selectbox" not in menu_source
     assert "expander" not in menu_source
     assert '("ユーザー設定", "user_settings")' in menu_source
+    assert '("通知設定", "notification_settings")' in menu_source
+    assert '("ユーザー切替", "switch_user")' in menu_source
+    assert "通知センター" not in menu_source
+    assert "アイコン変更" not in menu_source
+    assert "登録済み端末" not in menu_source
+    assert "render_notification_destination(user.user_id)" in source
+    assert "render_notification_preferences(user.user_id)" in source
 
 
 def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() -> None:
@@ -57,6 +66,9 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     )
     assert "max-width: 960px" in source
     assert '"このユーザーで開始"' in source
+    assert "remember_device_user" not in source
+    assert 'class="smai-profile-link"' in source
+    assert "select_profile_" not in source
     assert app_source.index("if not render_user_notification_area():") < app_source.index(
         "selected_page = render_sidemenu"
     )

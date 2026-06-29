@@ -48,6 +48,7 @@ class NotificationSettingUpdate:
     quiet_hours_enabled: bool = False
     quiet_hours_start: str | time | None = None
     quiet_hours_end: str | time | None = None
+    enabled_categories: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,11 @@ def save_notification_setting(
             quiet_hours_enabled=update.quiet_hours_enabled,
             quiet_hours_start=start if update.quiet_hours_enabled else None,
             quiet_hours_end=end if update.quiet_hours_enabled else None,
+            enabled_categories=(
+                update.enabled_categories
+                if update.enabled_categories is not None
+                else current.enabled_categories
+            ),
         )
     )
 

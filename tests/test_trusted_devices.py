@@ -34,9 +34,7 @@ def test_trusted_device_bind_resolve_revoke_and_mascot(tmp_path) -> None:
 def test_device_id_validation_and_browser_bridge() -> None:
     assert normalize_device_id("not-a-uuid") is None
     html = trusted_device_bootstrap_html()
-    assert "localStorage" in html
-    assert "crypto.randomUUID" in html
-    assert "smai_device_id" in html
-    assert "navigator.userAgent" in html
-    assert "location.replace" in html
+    assert "localStorage" not in html
+    assert "crypto.randomUUID" not in html
+    assert 'button.style.position = "fixed"' in html
     assert "clientIP" not in html

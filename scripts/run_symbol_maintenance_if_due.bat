@@ -74,7 +74,7 @@ if not "%SMAI_STATE_EXIT%"=="0" (
 
 call :log "[SMAI] Finished at: %DATE% %TIME%"
 call :log "[SMAI] Maintenance exit code: %SMAI_MAINTENANCE_EXIT%"
-call :log "[SMAI] Reports: reports\"
+call :log "[SMAI] Reports: reports\YYYY-MM-DD_HHMM\"
 call :log "[SMAI] Backups: data\marketdata\backup\"
 exit /b %SMAI_MAINTENANCE_EXIT%
 

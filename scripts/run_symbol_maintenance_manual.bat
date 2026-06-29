@@ -11,7 +11,7 @@ echo.
 echo This is a heavy maintenance operation with external data retrieval.
 echo It can update data\marketdata\symbol_universe.csv and metadata.
 echo Backups: data\marketdata\backup\
-echo Reports: reports\
+echo Reports: reports\YYYY-MM-DD_HHMM\
 echo Logs: logs\maintenance\
 echo The SMAI LAN server is managed separately and will not be stopped.
 echo ============================================================
@@ -88,7 +88,7 @@ if not "%SMAI_STATE_EXIT%"=="0" (
 
 call :log "[SMAI] Finished at: %DATE% %TIME%"
 call :log "[SMAI] Maintenance exit code: %SMAI_MAINTENANCE_EXIT%"
-call :log "[SMAI] Reports: reports\"
+call :log "[SMAI] Reports: reports\YYYY-MM-DD_HHMM\"
 call :log "[SMAI] Backups: data\marketdata\backup\"
 exit /b %SMAI_MAINTENANCE_EXIT%
 

@@ -25,8 +25,7 @@ def csv_download_contract(*, data: bytes, file_name: str) -> CsvDownloadContract
     }
 
 
-@st.fragment
-def render_csv_download_button(
+def _render_csv_download_button_body(
     *,
     label: str,
     data: bytes | None,
@@ -42,3 +41,6 @@ def render_csv_download_button(
         label,
         **csv_download_contract(data=data, file_name=file_name),
     )
+
+
+render_csv_download_button = st.fragment(_render_csv_download_button_body)

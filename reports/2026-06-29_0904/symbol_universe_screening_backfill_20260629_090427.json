@@ -1,0 +1,20 @@
+{
+  "added_columns": [],
+  "changed_cells_by_column": {},
+  "csv": "data/marketdata/symbol_universe.csv",
+  "dry_run": false,
+  "etf_classification_rows": 0,
+  "metric_provenance_rows": 0,
+  "official_classification_rows": 0,
+  "official_classification_source": "data/marketdata/symbol_universe_sources/jpx_listed_stock_20260520.csv",
+  "operation": "symbol_universe_screening_metadata_backfill",
+  "reliability_status_rows": 0,
+  "theme_tagged_rows": 0,
+  "total_rows": 11071,
+  "updated_at": "2026-06-29T09:04:46.807263+09:00",
+  "validation_after": {
+    "errors": 0,
+    "total": 0,
+    "warnings": 0
+  }
+}

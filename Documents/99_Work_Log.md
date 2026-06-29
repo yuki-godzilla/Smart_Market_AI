@@ -3818,3 +3818,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - CSVをUTF-8 BOM付きbytesへ統一し、CSV buttonを`st.fragment`へ集約。空データはbuttonを隠して警告し、ZIP内CSVもbytesを保持。
 - Myウォッチリスト、ニュース、銘柄DBには現時点でCSV download buttonがなく、対象はRanking / Forecast / Screening / Investment Score / Rebalance。
 - Ruff / Black / mypy pass、全pytest 1,894 passed / 2 skipped。修正版をタスク運用SMAIへ反映し、localhost/LAN health 200、起動ログのCSV missingなしを確認。
+
+## 2026-06-29 Report実施日別整理・CI復旧
+
+- 初回銘柄メンテナンスが09:04:49 JSTにexit 0で完了し、状態ファイルの最終成功更新とlock削除を確認。
+- `run_symbol_universe_import_all.bat` のreport出力先をPCローカル実施日時の `reports/YYYY-MM-DD_HHMM/` へ変更。
+- 既存report 51件をファイル名の実行日時優先、日時なしは更新日時で実行単位フォルダへ仕分け。
+- CI最新2件の失敗stepがMypyであることを公開GitHub APIで確認。CSV contract testのOptional / fragment wrapper型エラー3件をローカル全体Mypyで再現して修正。
+- report / maintenance / CSV contractの対象pytest 11件、対象Ruff、全体Mypyがpass。全pytestは1,896 passed / 2 skipped。

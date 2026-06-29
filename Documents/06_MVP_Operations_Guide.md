@@ -376,6 +376,7 @@ Windowsログオン時の自動起動、状態確認、停止、タスク登録/
 銘柄DBメンテナンスとの分離は `docs/SERVER_OPERATIONS_GUIDE.md` を参照してください。
 銘柄DBメンテナンスは別のif-dueタスクで最終成功から既定7日経過時だけ実行し、
 失敗後24時間は再実行を抑制します。
+一括更新のreportは実施日時ごとに `reports/YYYY-MM-DD_HHMM/` へ保存します。
 ホーム画面アイコンは
 `http://<Desktop PCのIPv4>:8501/app/static/pwa/apple-touch-icon-v2.png`
 で直接確認できます。旧アイコンが残る場合は既存ショートカットを削除し、

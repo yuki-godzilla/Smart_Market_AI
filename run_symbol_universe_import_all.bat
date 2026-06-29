@@ -32,6 +32,7 @@ if "%AS_OF%"=="" (
 )
 set "AS_OF_COMPACT=%AS_OF:-=%"
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "RUN_ID=%%i"
+set "RUN_SLOT=%RUN_ID:~0,4%-%RUN_ID:~4,2%-%RUN_ID:~6,2%_%RUN_ID:~9,4%"
 
 set "PYTHON_EXE=python"
 if exist "venv_SMAI\Scripts\python.exe" set "PYTHON_EXE=venv_SMAI\Scripts\python.exe"
@@ -39,7 +40,7 @@ if exist "venv_SMAI\Scripts\python.exe" set "PYTHON_EXE=venv_SMAI\Scripts\python
 set "BASE_CSV=data\marketdata\symbol_universe.csv"
 set "SOURCE_DIR=data\marketdata\symbol_universe_sources"
 set "RAW_DIR=data\marketdata\raw"
-set "REPORT_DIR=reports"
+set "REPORT_DIR=reports\%RUN_SLOT%"
 set "LOG_DIR=logs"
 set "BACKUP_DIR=data\marketdata\backup"
 set "LOG_FILE=%LOG_DIR%\symbol_universe_import_all_%RUN_ID%.log"

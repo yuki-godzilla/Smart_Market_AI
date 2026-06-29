@@ -28,5 +28,14 @@ set RUN_RANKING_METADATA=1
 ## 出力
 
 - `logs/symbol_universe_import_all_<RUN_ID>.log`
-- `reports/import_*_<RUN_ID>.json`
+- `reports/<実施日時>/import_*_<RUN_ID>.json`
 - `data/marketdata/backup/symbol_universe_before_import_all_<RUN_ID>.csv`
+
+レポートは実施日時ごとに `YYYY-MM-DD_HHMM` フォルダへ分けます。
+
+```text
+reports/2026-06-29_0904/
+```
+
+引数の基準日ではなく、実際にメンテナンスを実行したPCローカル日時を使います。
+既存レポートを含む配置規約は `reports/README.md` を参照してください。

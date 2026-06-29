@@ -17,6 +17,7 @@ def test_if_due_script_uses_state_gate_lock_and_existing_runner() -> None:
     assert "call run_symbol_universe_import_all.bat" in script
     assert "Maintenance is not due. Skipping." in script
     assert "retry cooldown" in script
+    assert "Reports: reports\\YYYY-MM-DD_HHMM\\" in script
     assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script
 
 
@@ -31,6 +32,7 @@ def test_manual_script_warns_prompts_and_supports_force() -> None:
     assert "heavy maintenance operation" in script
     assert "external data retrieval" in script
     assert "symbol_universe.csv" in script
+    assert "Reports: reports\\YYYY-MM-DD_HHMM\\" in script
     assert "--force" in script
     assert "call run_symbol_universe_import_all.bat" in script
     assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script

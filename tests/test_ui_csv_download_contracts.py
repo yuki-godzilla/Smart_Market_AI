@@ -7,8 +7,8 @@ import pytest
 
 from ui.components.downloads import (
     CSV_MIME,
+    _render_csv_download_button_body,
     csv_download_contract,
-    render_csv_download_button,
 )
 
 CSV_UI_FILES = (
@@ -34,10 +34,9 @@ def test_all_literal_csv_download_calls_use_csv_filename() -> None:
 
     assert csv_calls
     for path, line, keywords in csv_calls:
-        assert _literal_text(keywords.get("file_name", None)).endswith(".csv"), (
-            path,
-            line,
-        )
+        file_name = _literal_text(keywords.get("file_name", None))
+        assert file_name is not None, (path, line)
+        assert file_name.endswith(".csv"), (path, line)
         assert "data" in keywords, (path, line)
 
 
@@ -66,7 +65,7 @@ def test_csv_download_fragment_renders_bytes_contract(monkeypatch) -> None:
         lambda label, **kwargs: calls.append((label, kwargs)),
     )
 
-    render_csv_download_button.__wrapped__(
+    _render_csv_download_button_body(
         label="CSV保存",
         data=b"\xef\xbb\xbfsymbol\n7203.T\n",
         file_name="symbols.csv",
@@ -95,7 +94,7 @@ def test_csv_download_fragment_warns_instead_of_rendering_empty(monkeypatch) -> 
         lambda *_args, **_kwargs: pytest.fail("empty CSV must not render a button"),
     )
 
-    render_csv_download_button.__wrapped__(
+    _render_csv_download_button_body(
         label="CSV保存",
         data=None,
         file_name="symbols.csv",

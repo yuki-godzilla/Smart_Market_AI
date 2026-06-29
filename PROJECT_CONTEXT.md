@@ -40,6 +40,8 @@ Symbol-universe bulk import remains separate from LAN server startup. A maintena
 runs 10 minutes after logon, but calls the heavy existing import only when the last success is at
 least 7 days old; failures use a 24-hour cooldown. Machine-local atomic state/lock files and
 maintenance logs record attempts, success, exit code, and duplicate/stale-lock skips.
+Symbol-universe maintenance reports are grouped by local execution time under
+`reports/YYYY-MM-DD_HHMM/`; the heavy import writes directly to that run folder.
 Streamlit CSV exports now use UTF-8 BOM bytes, `.csv` filenames, `text/csv`, and fragment-scoped
 download buttons so LAN latency does not race a full-app rerun against Streamlit's in-memory media
 URL. Empty Rebalance/score datasets do not render header-only download buttons.

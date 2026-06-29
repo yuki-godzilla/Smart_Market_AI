@@ -100,6 +100,12 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".investment-news-card.compact" in SMAI_GLOBAL_CSS
     assert "height: auto;" in SMAI_GLOBAL_CSS
     assert ".investment-news-board-page" in SMAI_GLOBAL_CSS
+    assert ".investment-stock-heatmap-board" in SMAI_GLOBAL_CSS
+    assert (
+        "@media (min-width: 768px) and (max-width: 1024px) {\n"
+        "    .investment-stock-heatmap-board {\n"
+        "        grid-template-columns: repeat(2, minmax(0, 1fr));"
+    ) in SMAI_GLOBAL_CSS
     assert "animation: investment-news-board-cycle" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS

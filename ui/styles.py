@@ -1172,7 +1172,7 @@ div[data-testid="stElementContainer"]:has(
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
     .investment-news-ticker {
         min-height: 18.2rem;
     }
@@ -1868,7 +1868,23 @@ div[data-testid="stElementContainer"]:has(
     display: none;
 }
 
-@media (max-width: 760px) {
+@media (min-width: 768px) and (max-width: 1024px) {
+    .investment-stock-heatmap-board {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: auto;
+    }
+
+    .investment-stock-heatmap-group,
+    .investment-stock-heatmap-group.mega,
+    .investment-stock-heatmap-group.large,
+    .investment-stock-heatmap-group.medium {
+        grid-column: span 1;
+        grid-row: auto;
+        min-height: 16rem;
+    }
+}
+
+@media (max-width: 767px) {
     .investment-news-card,
     .investment-news-card.compact {
         grid-template-columns: 1fr;

@@ -3850,3 +3850,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - My Radar専用の旧900px/640pxブレークポイントを共通基準へ統一し、iPad縦は2列、iPhoneは1列へ調整。
 - Myウォッチリストへ遷移する任意Playwright smokeを追加。4 viewportで横はみ出し・Streamlit例外なしを確認し、スクリーンショットを保存。
 - iPhoneの縦積み操作、iPad縦のフィルター2列と監視カード2列、状態色・更新・Cockpit導線を目視確認。監視・再取得ロジックは変更なし。
+
+## 2026-06-29 投資レーダー レスポンシブ改善
+
+- ニュースヘッドラインとヒートマップのスマホ用720px/760pxルールを767pxへ統一し、iPad縦のヒートマップカテゴリを2列、iPhoneを1列へ調整。
+- 投資レーダーへ遷移する任意Playwright smokeを追加。4 viewportで横はみ出し・Streamlit例外なしを確認し、スクリーンショットを保存。
+- 関連UIテスト34件、Ruff、Black、Playwright 1件がpass。ニュース取得・更新・スコア・ランキングロジックは変更なし。

@@ -3873,3 +3873,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Assistant / loading / composerのスマホ用ブレークポイントを767pxへ統一。
 - iPad縦で固定composerがデスクトップ用左余白により右半分へ圧縮される問題を修正し、モデル30%・入力領域70%、入力82%・送信18%で全幅表示。
 - Assistantへ遷移するPlaywright 4 viewport smokeを追加し、横はみ出し・Streamlit例外なし、見出し・入力欄表示を確認。関連UIテスト72件、Ruff、Black、Playwrightがpass。Assistantの計画・確認・実行ロジックは変更なし。
+
+## 2026-06-29 通知基盤 Phase N1〜N4 設計
+
+- `04-10_Onepager_Notification_Platform.md` を追加し、独立 `smai-notification-gateway`、親側client、通知設定、SQLiteアプリ内履歴、通知センターの責務と段階導入を定義。
+- アプリ内履歴をntfy送信より先に保存し、外部送信失敗でSMAI本体を止めない境界を明文化。
+- ntfy既定OFF、topicの秘密情報扱い、severity threshold、quiet hours、`silent`非送信、明示テスト通知、network-free通常テストを必須条件にした。
+- Roadmap、Operations Guide、PROJECT_CONTEXTを同期。実装、API、UI、外部通信はまだ行っていない。

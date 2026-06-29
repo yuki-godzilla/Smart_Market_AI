@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-06-28
+Last updated: 2026-06-29
 
 ## Project Summary
 
@@ -25,6 +25,8 @@ The product direction is to help users compare symbols, inspect provider-backed 
 - SMAI Assistant now treats valid Gateway answers as `response_source=llm` and reserves `response_source=deterministic_fallback` for Gateway/provider/model/timeout/schema/empty-answer failure paths. Assistant turns preserve `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, `profile`, `timeout_sec`, `context_tokens_estimate`, `prompt_chars`, `response_chars`, `tool_execution_ms`, `llm_generation_ms`, `total_elapsed_ms`, conversation mode, and Gateway/provider diagnostic metadata. The UI keeps runtime metadata in a folded `技術情報を表示` block for analysis-style answers, but hides technical fallback metadata for normal chat / identity / capability turns. The header uses a centralized `AssistantRuntimeStatus` model for ready / checking / generating / research planned / research running / degraded / Gateway unavailable / provider unavailable / model missing states, keeps first display neutral as `LLM待機中`, and refreshes from pending events, cached diagnostics, or the latest answer response so success / fallback status stays aligned with the chat. New conversation clears stale runtime status and Gateway diagnostic cache.
 
 Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
+
+Notification Platform Phase N1-N4 is documented but not implemented. The planned boundary is an independent `smai-notification-gateway` for ntfy delivery plus a minimal parent-side client, user notification settings, and SQLite-backed in-app history. In-app history must be persisted before external delivery; ntfy is disabled by default, topic values are treated as secrets, and delivery failures must never stop the originating SMAI workflow. Normal checks will use fake transports and remain network-free. See `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md`.
 
 LAN内PWA風アクセスの初期slice is implemented. `scripts/run_lan_server.bat` starts the
 existing full Streamlit app on `0.0.0.0:8501` only when explicitly selected; normal startup,

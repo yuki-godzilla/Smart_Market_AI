@@ -2,6 +2,32 @@
 
 #### [BACK TO README](../README.md)
 
+## 通知基盤（設計済み・未実装）
+
+Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。現時点では設計のみであり、SMAI は通知を自動送信しない。
+
+予定する運用境界:
+
+- アプリ内通知履歴を先に保存し、その後に必要な場合だけ ntfy へ送信する。
+- ntfy 通知は既定 OFF。ユーザーが設定画面で有効化し、server URL と topic を設定した場合だけ使う。
+- `silent`、severity threshold 未満、quiet hours 中は ntfy へ送信しない。
+- ntfy 送信失敗は通知履歴と delivery result に残すが、SMAI 本体処理を止めない。
+- テスト通知は明示ボタンからのみ送信し、画面表示や Streamlit rerun では送信しない。
+- topic は実質的な秘密情報であるため、推測困難な値を使い、ログやスクリーンショットへ平文で残さない。
+- 通常の自動テストと CI は fake transport を使い、ntfy.sh へ接続しない。
+
+実装後の ntfy 初期設定手順:
+
+1. ntfy アプリを端末へ導入する。
+2. 推測困難な topic を作り、ntfy アプリ側で購読する。
+3. SMAI の通知設定で ntfy を有効にする。
+4. server URL は通常 `https://ntfy.sh`、セルフホスト時だけ管理対象 URL を指定する。
+5. topic、severity threshold、quiet hours を設定する。
+6. `テスト通知を送る` を1回実行し、アプリ内履歴と端末受信の両方を確認する。
+7. 失敗時は topic 自体をログへ貼らず、server URL、時刻、HTTP status、短縮されたエラーだけで調査する。
+
+詳細設計は `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md` を参照する。
+
 ## 2026-06-27 Myウォッチリスト MVP
 
 - `Myウォッチリスト` is available in the Streamlit side menu between `投資レーダー` and `SMAIアシスタント`.

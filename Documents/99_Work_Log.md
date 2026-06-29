@@ -3833,3 +3833,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Streamlit columns、カード、チャート、表、data editor、ダイアログ、Assistant の幅・折り返し・タッチターゲットを共通CSSで調整。投資判断・ランキング・予測・データ取得・AI/RAGロジックは変更なし。
 - CSS回帰テスト、任意実行のPlaywright Cockpit 4 viewport smoke、レスポンシブ確認ガイドと画面別チェックリストを追加。
 - 対象UIテスト90件、Ruff、Black、全体ローカルチェック1,896 passed / 2 skipped。Playwright実行直前にWindows Store Pythonのベース実行ファイルが参照不能となり、スクリーンショット取得は未完了。
+- 追確認で原因をvenv破損ではなく、sandboxからworkspace外のWindows Store Python実体を起動できない権限制約と特定。sandbox外ではPython 3.12.10 / Playwrightが正常に動作し、Cockpitの4 viewport smokeは1 passed。横はみ出し・Streamlit例外なしを確認し、4枚のスクリーンショットを保存。

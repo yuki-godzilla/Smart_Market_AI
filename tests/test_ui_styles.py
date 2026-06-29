@@ -124,6 +124,11 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".vega-embed {\n    width: 100%;" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-condition-card" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-weight-grid" in SMAI_GLOBAL_CSS
+    assert 'div[data-testid="stDialog"] {\n    position: fixed !important;\n    inset: 0 !important;' in SMAI_GLOBAL_CSS
+    assert "place-items: center !important;" in SMAI_GLOBAL_CSS
+    assert 'div[data-testid="stDialog"] div[role="dialog"] {' in SMAI_GLOBAL_CSS
+    assert "dialog[open]" in SMAI_GLOBAL_CSS
+    assert "dialog,\n[role=\"dialog\"],\n[data-testid=\"stDialog\"]" not in SMAI_GLOBAL_CSS
     assert "@media print" in SMAI_GLOBAL_CSS
     assert "break-inside: avoid;" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
@@ -247,3 +252,4 @@ def test_global_css_defines_ranking_deep_dive_cta_layout():
     assert "min-height: 3.95rem;" in SMAI_GLOBAL_CSS
     assert "rgba(14, 116, 144, 1)" in SMAI_GLOBAL_CSS
     assert "0 0 34px rgba(34, 211, 238, 0.22)" in SMAI_GLOBAL_CSS
+    assert ".smai-workflow-loading--blocking {\n    position: fixed;\n    z-index: 2000;\n    inset: 0;" in SMAI_GLOBAL_CSS

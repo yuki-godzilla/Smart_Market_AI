@@ -3940,3 +3940,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 通知センター、通知設定、ユーザー設定、アイコン変更、登録済み端末、ユーザー切替を`session_state`切替の専用viewへ分離。サイドメニューは追加していない。
 - 通知設定rendererをactive user対応にし、topic非再表示、保存とテスト送信の分離を維持。
 - UI contract testとresponsive Playwright smokeを更新。Ruffはpass。pytest / Mypy / Blackはlocal venvが削除済みWindowsApps Pythonを参照して起動できず未実施。起動済みStreamlit healthは`ok`を確認したが、in-app browser操作機能がこのsessionに公開されておらず新画面の実操作確認は未実施。
+## 2026-06-29 Responsive modal centering / モーダル全画面マスク調整
+
+- `ui/styles.py` で `stDialog` の共通スタイルを `role="dialog"` 全体から切り離し、全画面固定・中央配置・背景マスクに整理。`SMAI Assistant` の通常ポップアップには副作用を出さないようにした。
+- `ui/views/copilot.py` と `.smai-workflow-loading--blocking` のオーバーレイを `inset: 0` / `z-index: 2000` に統一し、PC・tablet でもサイドバーを含む全画面マスク上に中央表示されるよう修正。
+- `tests/ui/test_responsive_ranking_smoke.py` と `tests/ui/test_responsive_assistant_smoke.py` を現行のユーザー選択導線対応に更新し、ランキングのフィルターモーダルと Assistant ロードモーダルの中央表示を viewport ごとに確認できるようにした。
+- 実画面確認では `http://127.0.0.1:8502` で `Yuki` ユーザーを選択して遷移し、`docs/responsive/screenshots/ranking/*_filter_modal.png` と `docs/responsive/screenshots/assistant/*.png` を更新して全画面マスクと中央帯表示を確認した。

@@ -1667,11 +1667,11 @@ def copilot_loading_panel_html(
     return (
         """
         <style>
-        .smai-warmup-overlay{position:fixed;z-index:999;inset:3.75rem 0 0 21rem;display:grid;place-items:center;
+        .smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;
           padding:24px;background:rgba(2,8,23,.72);backdrop-filter:blur(4px);pointer-events:auto}
         section[data-testid="stSidebar"]{z-index:1002!important}
         .smai-warmup-inline{position:relative;margin:10px 0 18px}
-        .smai-warmup-panel{position:relative;overflow:hidden;width:min(760px,calc(100vw - 48px));max-height:calc(100vh - 100px);overflow-y:auto;margin:10px 0 18px;padding:18px;
+        .smai-warmup-panel{position:relative;overflow:hidden;width:min(760px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow-y:auto;margin:10px 0 18px;padding:18px;
           border:1px solid rgba(56,189,248,.34);border-radius:16px;
           background:linear-gradient(135deg,rgba(7,17,31,.97),rgba(13,42,57,.92));color:#e5edf7}
         .smai-warmup-panel:after{content:"";position:absolute;inset:-70% 35%;border:1px solid rgba(34,211,238,.18);
@@ -1704,7 +1704,7 @@ def copilot_loading_panel_html(
         @keyframes smaiPulse{0%,100%{opacity:.58;transform:scale(.9)}50%{opacity:1;transform:scale(1.06)}}
         @keyframes smaiRadar{to{transform:rotate(360deg)}}
         @keyframes smaiDots{0%{width:0}100%{width:24px}}
-        @media(max-width:768px){.smai-warmup-overlay{inset:3.75rem 0 0 0;padding:12px}.smai-warmup-panel{width:calc(100vw - 24px)}.smai-warmup-news-card{grid-template-columns:1fr}.smai-warmup-news-meta{grid-column:1}}
+        @media(max-width:768px){.smai-warmup-overlay{padding:12px}.smai-warmup-panel{width:calc(100vw - 24px)}.smai-warmup-news-card{grid-template-columns:1fr}.smai-warmup-news-meta{grid-column:1}}
         @media (prefers-reduced-motion:reduce){.smai-warmup-core,.smai-warmup-panel:after{animation:none}}
         </style>
         """

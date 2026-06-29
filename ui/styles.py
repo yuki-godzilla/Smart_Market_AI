@@ -4461,8 +4461,8 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-workflow-loading--blocking {
     position: fixed;
-    z-index: 999;
-    inset: 3.75rem 0 0 21rem;
+    z-index: 2000;
+    inset: 0;
     display: grid;
     place-items: center;
     padding: 1.5rem;
@@ -7178,11 +7178,38 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     -webkit-overflow-scrolling: touch;
 }
 
-dialog,
-[role="dialog"],
-[data-testid="stDialog"] {
+dialog[open] {
     max-width: min(44rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
+    overflow: auto;
+}
+
+div[data-testid="stDialog"] {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2000 !important;
+    display: grid !important;
+    place-items: center !important;
+    box-sizing: border-box;
+    padding: 1rem !important;
+    background: rgba(2, 8, 23, 0.76);
+    backdrop-filter: blur(6px);
+}
+
+div[data-testid="stDialog"] div[role="dialog"] {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    align-self: center !important;
+    justify-self: center !important;
+    width: min(44rem, calc(100vw - 2rem));
+    max-width: min(44rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    margin: 0 auto;
     overflow: auto;
 }
 

@@ -4,17 +4,21 @@ from dataclasses import dataclass
 from datetime import time
 from typing import Callable
 from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
+from backend.notifications.content_models import NotificationContent
 from backend.notifications.gateway_adapter import (
     GatewayNotificationSettings,
     NotificationGatewayAdapter,
 )
+from backend.notifications.history_repository import NotificationHistoryRepository
 from backend.notifications.notification_client import (
     NotificationClient,
     NotificationClientResult,
+    NotificationRequest,
     NotificationSeverity,
-    send_test_notification,
 )
+from backend.notifications.notification_service import NotificationService
 from backend.notifications.settings_repository import (
     NotificationSetting,
     NotificationSettingsError,
@@ -115,6 +119,7 @@ def send_saved_test_notification(
     client_factory: Callable[[GatewayNotificationSettings], NotificationClient] = (
         NotificationGatewayAdapter
     ),
+    history_repository: NotificationHistoryRepository | None = None,
 ) -> NotificationClientResult:
     gateway_setting = GatewayNotificationSettings(
         ntfy_enabled=setting.ntfy_enabled,
@@ -125,7 +130,34 @@ def send_saved_test_notification(
         quiet_hours_start=setting.quiet_hours_start,
         quiet_hours_end=setting.quiet_hours_end,
     )
-    return send_test_notification(client_factory(gateway_setting), user_id=setting.user_id)
+    request = NotificationRequest(
+        event_id=str(uuid4()),
+        user_id=setting.user_id,
+        event_type="test_notification",
+        category="SYSTEM",
+        severity="medium",
+        title="SMAI テスト通知",
+        message="SMAI の通知設定を確認するためのテスト通知です。",
+        source="notification_settings",
+        metadata={"test_notification": True},
+    )
+    client = client_factory(gateway_setting)
+    repository = history_repository or NotificationHistoryRepository()
+    _, result = NotificationService(repository).create(
+        request,
+        NotificationContent(
+            presentation_category="SYSTEM",
+            icon_key="bell",
+            headline="SMAI テスト通知",
+            summary="通知設定からテスト通知を実行しました。",
+            what_happened="アプリ内通知履歴を保存しました。",
+            next_check="通知センターとスマホ通知の受信状態を確認してください。",
+        ),
+        client=client,
+    )
+    if result is None:
+        raise NotificationSettingsError("Test notification could not be saved.")
+    return result
 
 
 def notification_result_message(result: NotificationClientResult) -> tuple[str, str]:

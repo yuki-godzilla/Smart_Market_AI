@@ -10,7 +10,7 @@ from typing import Iterator
 from backend.core.runtime_paths import USER_CONFIG_DIR_ENV, runtime_path_from_env
 from backend.notifications.notification_client import NotificationSeverity
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 NOTIFICATION_DB_FILENAME = "notifications.sqlite"
 
 
@@ -176,6 +176,81 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             quiet_hours_start TEXT,
             quiet_hours_end TEXT,
             updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_notifications (
+            event_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            technical_category TEXT NOT NULL,
+            presentation_category TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            title TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            symbol TEXT,
+            source TEXT,
+            action_url TEXT,
+            metadata_json TEXT NOT NULL,
+            content_version TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            state TEXT NOT NULL,
+            read_at TEXT,
+            archived_at TEXT
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notifications_user_created "
+        "ON app_notifications(user_id, created_at DESC)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS delivery_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            status TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            http_status INTEGER,
+            delivered_at TEXT,
+            sanitized_error TEXT,
+            FOREIGN KEY(event_id) REFERENCES app_notifications(event_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            mascot_key TEXT NOT NULL,
+            is_active INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO users
+        (user_id, display_name, mascot_key, is_active, created_at)
+        VALUES ('local_user', 'Yuki', 'smai', 1, ?)
+        """,
+        (datetime.now(UTC).isoformat(),),
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS trusted_devices (
+            device_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            device_name TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            is_trusted INTEGER NOT NULL,
+            last_ip TEXT,
+            last_user_agent TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(user_id)
         )
         """
     )

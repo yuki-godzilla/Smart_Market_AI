@@ -219,6 +219,7 @@ from ui.favorites import (
     update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
+from ui.notification_center import render_user_notification_area
 from ui.pwa import inject_pwa_head_metadata
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
@@ -1729,6 +1730,7 @@ def main() -> None:
     _apply_navigation_query_params()
 
     selected_page = render_sidemenu(runtime_settings_summary())
+    render_user_notification_area()
     reset_assistant_contexts()
     if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING}:
         render_app_header()

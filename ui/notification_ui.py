@@ -42,7 +42,8 @@ def render_notification_settings() -> None:
 
     with st.expander("通知設定", expanded=False):
         st.caption(
-            "ntfyスマホ通知は、テスト通知ボタンを押した場合だけ送信します。"
+            "スマホ通知（ntfy）はオプション機能です。ntfy通知をONにしてtopicを設定し、"
+            "テスト通知ボタンを押した場合だけ送信します。"
             "既存の分析やデータ更新から自動送信は行いません。"
         )
         if loaded.warning:
@@ -162,10 +163,14 @@ def render_notification_settings() -> None:
             except NotificationSettingsError:
                 st.error("通知設定を確認できないため、テスト通知を実行できませんでした。")
             else:
-                with st.spinner("テスト通知を確認しています…"):
-                    result = send_saved_test_notification(current)
-                level, message = notification_result_message(result)
-                getattr(st, level)(message)
+                try:
+                    with st.spinner("テスト通知を確認しています…"):
+                        result = send_saved_test_notification(current)
+                except NotificationSettingsError:
+                    st.error("テスト通知を実行できませんでした。")
+                else:
+                    level, message = notification_result_message(result)
+                    getattr(st, level)(message)
 
 
 def _time_value(value: str | None, fallback: time) -> time:

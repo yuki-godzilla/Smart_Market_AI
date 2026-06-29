@@ -3913,3 +3913,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 既存`設定 / データ情報`画面だけに通知設定を追加。topicはpassword入力で保存値を再表示せず、SQLiteは完全暗号化ではない旨を表示。
 - 設定保存、topic削除、テスト通知を別操作にし、外部送信コードは`テスト通知を送る`押下分岐内だけに配置。既存イベント、自動通知、Research / Ranking / Cockpit / My Radar / Forecastは未変更。
 - SQLite/service/UI契約とN1-N3-A回帰を含む対象pytest 40件、対象Mypy、全体local checks（pytest 1,934 passed / 8 skipped、Ruff、Black）がpass。通常テストはfake client/adapterのみで外部通信なし。browser実画面確認はbrowser実行機能が利用できず未実施。
+
+## 2026-06-29 通知基盤 Phase N4・Trusted Device
+
+- schema v2 migrationでN3設定を保持し、`app_notifications`、`delivery_results`、`users`、`trusted_devices`を追加。
+- 共通NotificationContent、in-app/ntfy renderer、履歴保存優先NotificationService、dedupe、filter、既読/archive、sanitized delivery保存を実装。
+- テスト通知だけをProducerとして履歴保存→任意ntfy→delivery保存へ接続。既存分析event、自動通知、schedulerは未接続。
+- 全画面共通の右上固定ユーザーpopoverへ未読/重要件数、通知カード、filter、遷移専用CTA、ユーザー切替、8種マスコット、登録端末管理を追加。サイドメニューは変更なし。
+- localStorageのrandom UUIDとSQLiteを関連付け、端末既定/今回だけの切替、端末名変更、解除を実装。IPは不使用で、認証ではない旨をUI表示。
+- 通知関連対象pytest 48件、対象Mypy、全体local checks（pytest 1,942 passed / 8 skipped、Ruff、Black）がpass。通常テストは一時SQLiteとfake clientのみ。browser実画面確認はbrowser実行機能が利用できず未実施。

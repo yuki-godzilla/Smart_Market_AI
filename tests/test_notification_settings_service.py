@@ -5,6 +5,7 @@ from datetime import time
 import pytest
 
 from backend.notifications.gateway_adapter import GatewayNotificationSettings
+from backend.notifications.history_repository import NotificationHistoryRepository
 from backend.notifications.notification_client import (
     NotificationClientResult,
     NotificationRequest,
@@ -168,7 +169,7 @@ def test_notification_result_messages_are_safe_japanese(
     assert "https://" not in message
 
 
-def test_test_notification_uses_fake_client_once() -> None:
+def test_test_notification_uses_fake_client_once(tmp_path) -> None:
     created_clients: list[FakeNotificationClient] = []
     received_settings: list[GatewayNotificationSettings] = []
 
@@ -192,6 +193,7 @@ def test_test_notification_uses_fake_client_once() -> None:
             ntfy_topic="secret-topic",
         ),
         client_factory=factory,
+        history_repository=NotificationHistoryRepository(str(tmp_path / "notifications.sqlite")),
     )
 
     assert result.status == "sent"

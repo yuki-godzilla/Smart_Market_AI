@@ -83,16 +83,17 @@ def trusted_device_bootstrap_html(
         id.className = "smai-user-id";
         id.textContent = userId ? ` / ${{userId}}` : "";
         button.append(bell, avatar, name, id);
-        button.style.position = "fixed";
-        button.style.top = "0.55rem";
-        button.style.right = "1rem";
-        button.style.zIndex = "100000";
+        button.style.setProperty("position", "fixed", "important");
+        button.style.setProperty("top", "4.75rem", "important");
+        button.style.setProperty("right", "1.25rem", "important");
+        button.style.setProperty("z-index", "2147483000", "important");
         const host = button.closest('[data-testid="stPopover"]');
         if (host) {{
-          host.style.position = "fixed";
-          host.style.top = "0.55rem";
-          host.style.right = "1rem";
-          host.style.zIndex = "100000";
+          host.style.setProperty("position", "fixed", "important");
+          host.style.setProperty("top", "4.75rem", "important");
+          host.style.setProperty("right", "1.25rem", "important");
+          host.style.setProperty("z-index", "2147483000", "important");
+          host.style.setProperty("width", "fit-content", "important");
         }}
       }}
     }}
@@ -100,7 +101,10 @@ def trusted_device_bootstrap_html(
       const style = window.parent.document.createElement("style");
       style.id = "smai-user-area-style";
       style.textContent = `
-        .smai-user-trigger {{ min-height: 48px; gap: .42rem; border-color: #22d3ee !important; }}
+        .smai-user-trigger {{ position: fixed !important; top: 4.75rem !important;
+          right: 1.25rem !important; z-index: 2147483000 !important;
+          min-height: 48px; gap: .42rem; border-color: #22d3ee !important;
+          background: #08182a !important; box-shadow: 0 8px 24px rgba(0,0,0,.35); }}
         .smai-user-avatar, .smai-user-silhouette {{ width: 38px; height: 38px; border-radius: 50%;
           object-fit: cover; flex: 0 0 38px; border: 1px solid #22d3ee; background: #10243a; }}
         .smai-user-silhouette::after {{ content: ""; display: block; width: 14px; height: 14px;

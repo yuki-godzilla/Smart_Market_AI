@@ -3947,6 +3947,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - localStorage UUID、自動ユーザー解決、登録端末UIを通常フローから外し、ユーザー切替はプロフィール選択画面へ戻す単純な導線へ変更。
 - 右上ユーザー入口をbutton自体のfixed配置で補強し、メニューをユーザー設定、通知設定、ユーザー切替の3項目に限定。
 - ユーザー設定へntfy通知先とアイコン変更を統合。通知設定はお気に入り、市場動向、投資ニュース、SMAI分析、システムのユーザー別checkboxとし、schema v5でSQLiteへ保存。
+- 右上ユーザーtagがStreamlit toolbar背面へ隠れる回帰に対し、toolbar直下`top: 4.75rem`、右端、最大z-index相当のfixed配置をbutton / popover host双方へ強制し、背景とshadowを追加。responsive smokeにviewport内位置とscroll後のY座標維持を追加。
 ## 2026-06-29 Responsive modal centering / モーダル全画面マスク調整
 
 - `ui/styles.py` で `stDialog` の共通スタイルを `role="dialog"` 全体から切り離し、全画面固定・中央配置・背景マスクに整理。`SMAI Assistant` の通常ポップアップには副作用を出さないようにした。

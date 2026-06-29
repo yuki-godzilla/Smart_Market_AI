@@ -9,8 +9,9 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     source = Path("ui/notification_center.py").read_text(encoding="utf-8")
     sidemenu = Path("ui/components/sidemenu.py").read_text(encoding="utf-8")
 
-    assert 'host.style.position = "fixed"' in html
-    assert 'button.style.position = "fixed"' in html
+    assert 'host.style.setProperty("position", "fixed", "important")' in html
+    assert 'button.style.setProperty("position", "fixed", "important")' in html
+    assert '"top", "4.75rem", "important"' in html
     assert "window.setInterval" in html
     assert "@media (max-width: 767px)" in html
     assert "smai-user-name" in html

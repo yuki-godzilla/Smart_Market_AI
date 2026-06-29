@@ -58,10 +58,13 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 user_area = page.get_by_role("button", name="SMAI_USER_AREA", exact=False)
                 user_area.wait_for(state="visible", timeout=30_000)
                 initial_box = user_area.bounding_box()
+                assert initial_box is not None
+                assert 60 <= initial_box["y"] <= 120
+                assert initial_box["x"] + initial_box["width"] <= width
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(250)
                 scrolled_box = user_area.bounding_box()
-                assert initial_box is not None and scrolled_box is not None
+                assert scrolled_box is not None
                 assert abs(initial_box["y"] - scrolled_box["y"]) <= 2
                 user_area.click()
                 assert page.get_by_role("button", name="ユーザー設定", exact=True).is_visible()

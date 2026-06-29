@@ -3896,3 +3896,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - fake bindingsのみのN3-Aテスト6件を追加。親通知テスト計14件、Ruff / Mypy / Blackがpass。実子gatewayはntfy disabledでnetwork-free smokeを行い、`disabled/channel_disabled`を確認。
 - 子packageはinstalled packageを優先し、monorepo標準起動では同一workspaceの`smai-notification-gateway/src`をfallback importする。子module自体が無ければ安全な`gateway_unavailable`へ戻る。
 - 設定永続化、Streamlit設定画面、テスト通知ボタン、既存イベント接続、自動通知はN3-B以降へ残した。
+
+## 2026-06-29 通知コンテンツ・通知センター仕様
+
+- 通知を「今日何を見るべきか」の入口と定義し、何が起きたか、重要な理由、SMAI上の変化、次の確認、CTAを持つ共通`NotificationContent`を設計。
+- 表示カテゴリをお気に入り、市場動向、投資ニュース、SMAI分析、システムに整理し、既存技術eventカテゴリとのmappingを明記。
+- お気に入り固定期間 / 追加以降レポート、アプリ内カード、ntfy短文、通知センターfilter、配色・accessibility、dedupe/cooldown/日次集約を仕様化。
+- `AIおすすめ`は`SMAI注目候補`へ置換し、追加以降騰落は推奨実績ではなく監視開始時点からの参考変化とした。登録時snapshot欠損は推定しない。
+- CTAは確認画面への遷移だけとし、AI調査、外部取得、レポート作成、注文を自動実行しない。
+- Onepager、UI Wording Policy、Manual UX Review Checklist、Functional Spec Issues、Roadmap、PROJECT_CONTEXTを同期。実装変更は行っていない。

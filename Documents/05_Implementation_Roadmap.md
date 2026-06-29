@@ -2509,6 +2509,16 @@ Subphases:
 4. N3-B: ntfy ON / OFF、server URL、秘匿 topic、severity threshold、quiet hours、Streamlit設定UI
 5. N4: SQLite 通知履歴、未読 / 既読 / archive、通知センター、簡易 filter
 
+通知コンテンツ / UIの実装条件:
+
+- 共通`NotificationContent`からアプリ内カードとntfy短文を別rendererで生成する。
+- 表示カテゴリはお気に入り、市場動向、投資ニュース、SMAI分析、システムとする。
+- 通知は何が起きたか、重要な理由、SMAI上の変化、次の確認、CTAを持つ。
+- `AIおすすめ`ではなく`SMAI注目候補`を使い、通知だけで売買判断を完結させない。
+- お気に入り追加以降は推奨実績ではなく監視開始時点からの参考変化とし、登録時snapshot欠損を推定しない。
+- CTAは確認画面への遷移に限定し、AI調査、外部取得、レポート作成、注文を自動実行しない。
+- 日次集約、dedupe、cooldown、quiet hours、thresholdにより通知疲れを防ぐ。
+
 非交渉条件:
 
 - アプリ内履歴を外部送信より先に保存する。

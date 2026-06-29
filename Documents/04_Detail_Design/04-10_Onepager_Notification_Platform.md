@@ -104,6 +104,37 @@ Smart_Market_AI/
 通知履歴は最低限、`event_id`、`user_id`、イベント本文、`status`、`created_at`、`read_at`、`archived_at` を保持する。
 状態は `unread | read | archived` とする。外部配信結果は履歴本体から分離し、1イベントに複数 channel の結果を追加できる形にする。
 
+### NotificationContent
+
+イベントの事実とチャネル別表示を分離するため、通知本文は共通コンテンツモデルから生成する。
+
+- `presentation_category: FAVORITE | MARKET_TREND | INVESTMENT_NEWS | SMAI_INSIGHT | SYSTEM`
+- `icon_key: str`
+- `headline: str`
+- `summary: str`
+- `what_happened: str`
+- `why_it_matters: str | None`
+- `smai_assessment: str | None`
+- `next_check: str | None`
+- `metrics: list[NotificationMetric]`
+- `cta: NotificationAction | None`
+- `content_version: str`
+
+`NotificationMetric` は `label`、`value`、任意の `previous_value`、`direction`、`as_of` を持つ。
+`NotificationAction` はユーザー向けlabelとアプリ内の安全な遷移先を持つ。CTAは画面遷移または確認導線に限定し、AI調査、外部取得、レポート作成、売買、注文を自動実行しない。
+
+既存の技術カテゴリはevent routingに使い、表示カテゴリは次のように対応させる。
+
+| 表示カテゴリ | 主な技術カテゴリ |
+| --- | --- |
+| `FAVORITE` | `MY_RADAR`、`AI_SCORE`、銘柄単位の`MARKET` |
+| `MARKET_TREND` | 市場・セクター・テーマ単位の`MARKET` |
+| `INVESTMENT_NEWS` | `NEWS` |
+| `SMAI_INSIGHT` | `AI_SCORE`、`MY_RADAR`、`RESEARCH` |
+| `SYSTEM` | `SYSTEM`、`DATA_REFRESH`、`LLM` |
+
+この分離により、実装済みevent enumを直ちに壊さず、通知センターの表示分類を追加できる。
+
 ## 5. ntfy channel
 
 送信先は `{server_url}/{topic}` とし、UTF-8 の本文を HTTP POST する。timeout の初期値は 10 秒とする。
@@ -208,3 +239,216 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - topic や秘密情報をログへ出さない。
 - 既存 Streamlit 画面と既存テストを壊さない。
 - README / 運用ガイドに安全な ntfy 設定と network-free テスト手順がある。
+
+## 11. 通知コンテンツの目的
+
+通知は単なる情報配信ではなく、SMAIが確認した材料を短く整理し、「今日何を見るべきか」を把握する入口とする。
+
+通知カードは原則として次の順で構成する。
+
+1. 何が起きたか
+2. なぜ確認したいか
+3. SMAI上の変化・評価材料
+4. 次に確認すること
+5. 安全なCTA
+
+通知だけで売買判断を完結させず、Cockpit、投資レーダー、AI調査、My Radarなどの確認画面へつなぐ。
+
+## 12. 表示カテゴリと通知候補
+
+### 12.1 My Favorite / お気に入り
+
+対象はユーザーがお気に入り登録した銘柄。
+
+日次候補:
+
+- 上昇・下落レポート
+- AI総合、上昇気配、下振れ警戒、AI予測の変化
+- ニュース・開示まとめ
+
+随時候補:
+
+- 急騰・急落
+- AI総合の大きな変化
+- 出来高急増
+- 決算・開示・重要ニュース
+
+初期実装では閾値、dedupe、cooldown、データ鮮度を必須とし、全候補を一括で自動有効化しない。
+
+### 12.2 Market Trend / 市場動向
+
+- 上昇・下落セクター
+- 上昇・下落テーマ
+- 国別比較
+- ETF比較
+
+値動きや順位は市場確認材料として示し、銘柄推奨には使わない。
+
+### 12.3 Investment News / 投資ニュース
+
+日次候補:
+
+- 今日の重要ニュース
+- 世界市場
+- AI・半導体
+- 金利・為替
+- 日銀・FOMCなどの主要イベント
+
+随時通知は重大ニュースに限定する。一般ニュース、公式開示、IR資料はsource種別と鮮度を区別する。
+
+### 12.4 SMAI Insight / SMAI分析
+
+- SMAI注目候補
+- ランキングの大きな変化
+- 新しい確認テーマ
+- My Radarの状態変化
+- AI分析完了
+- 中長期で確認したい候補
+
+`AIおすすめ銘柄`、`将来有望`のような断定・推奨表現は使わない。Ranking、AI総合、Forecast、Researchなど既存結果の変化を確認候補として通知し、通知生成によってスコアや順位を変更しない。
+
+### 12.5 System / システム
+
+- DB更新
+- AI調査完了
+- LLM起動状態
+- エラー
+- バックアップ
+
+初期設定はOFFを推奨する。ただしユーザー操作に対応する完了通知は、操作結果としてアプリ内へ表示できる。重大障害以外を`critical`にしない。
+
+## 13. お気に入り銘柄レポート
+
+### 13.1 固定期間
+
+- 今日
+- 1週間
+- 1か月
+- 3か月
+- 1年
+
+各期間は基準日、基準価格、現在価格、変化率、データ更新日時を揃える。期間データ不足時は推定値で埋めず、`未取得`または`比較期間不足`とする。
+
+### 13.2 お気に入り追加以降
+
+表示候補:
+
+- お気に入り追加日
+- 登録時株価
+- 現在株価
+- 監視開始時点からの変化率
+- AI総合の変化
+- 期間中の最大上昇・最大下落
+
+これは投資成績やSMAIの推奨実績ではなく、ユーザーが監視を始めてからの参考変化である。
+登録時株価を保存していない既存お気に入りについて、後から現在値や近似値で捏造しない。将来データが揃った項目だけを表示する。
+
+## 14. アプリ内通知カード
+
+基本表示:
+
+- 大きめのカテゴリicon
+- 通知タイトル
+- 銘柄名 / symbolまたは市場カテゴリ
+- 1〜2行の要約
+- 主要な変化値
+- SMAIの確認メモ
+- 次に見る項目
+- CTA
+
+例:
+
+```text
+📈 SMAI Market Report
+NVIDIA（NVDA）  +3.2%
+
+AI総合  76 -> 83
+半導体セクターの動きと関連ニュース3件を確認しました。
+
+次に見る: 上昇の背景が決算・需給・市場全体のどれか
+[銘柄コックピットを見る]
+```
+
+CTA候補:
+
+- `銘柄コックピットを見る`
+- `AI調査の画面を開く`
+- `ニュースを見る`
+- `My Radarで確認する`
+
+CTAは同一アプリ内の対象画面を開く。`AI調査の画面を開く`は調査開始ではなく、対象銘柄と確認案内を渡すだけとする。
+
+## 15. ntfy向けレンダリング
+
+ntfyは短いPush表示に限定し、詳細はアプリ内通知へ委ねる。
+
+```text
+Title: SMAI
+Body:
+📈 NVDA
+AI総合が 76 から 83 に変化しました
+次に見る: 半導体セクターと直近材料
+```
+
+要件:
+
+- titleは原則`SMAI`または`SMAI | 重要通知`
+- 本文は銘柄 / 市場、主要変化、次の確認を短く示す
+- topic、内部ID、provider raw data、debug情報を含めない
+- 将来のtap先は通知センターまたは対象画面とし、外部取得や売買操作を直接実行しない
+- OSの通知文字数制限に備え、詳細項目を優先順で省略できるrendererとする
+
+## 16. 通知センターの情報設計
+
+一覧ではなくカード表示を基本とする。
+
+カテゴリfilter:
+
+- すべて
+- お気に入り
+- 市場
+- ニュース
+- SMAI分析
+- システム
+
+状態・期間filter:
+
+- 未読
+- 重要のみ
+- 今日
+- 今週
+
+通知状態は`unread | read | archived`とし、将来候補としてpinを検討する。外部配信に失敗してもアプリ内カードは残す。
+
+## 17. 視覚・アクセシビリティ方針
+
+SMAIの既存ダーク金融ダッシュボードと整合する、抑制したネオン調カードを使う。
+
+| 用途 | 主なaccent |
+| --- | --- |
+| critical / risk | レッド |
+| high / important | ゴールド、オレンジ |
+| normal market / news | シアン、ブルー |
+| system | ブルーグレー、グレー |
+
+色だけで重要度を伝えず、icon、severity label、見出し、短い理由を併用する。文字contrast、スマートフォンのtap target、折り返し、画面全体の横overflowを確認する。点滅や強い常時animationは使わず、reduced-motion設定を尊重する。
+
+## 18. 通知疲れを防ぐルール
+
+- 日次通知は銘柄ごとの大量送信ではなく、可能な限りまとめる。
+- 同一event / symbol / materialはdedupe keyで重複抑制する。
+- 随時通知は閾値とcooldownを持ち、重大な変化だけを対象にする。
+- quiet hoursとseverity thresholdをすべての外部通知に適用する。
+- ユーザーがカテゴリ単位で無効化できる将来設定を見込む。
+- 通知生成時点の価格、score、source、as-ofを保持し、後から値が変わっても通知内容を再解釈しない。
+- データが古い、不足、矛盾している場合は強い通知を作らず、確認不足として扱う。
+
+## 19. チャネル別renderer
+
+共通の`NotificationContent`から、次のrendererを分ける。
+
+- `InAppNotificationRenderer`: card title、summary、metrics、assessment、next check、CTA
+- `NtfyNotificationRenderer`: 短いtitle/body、priority、tags、将来のtap action
+- 将来: Discord、Email、Telegram
+
+event producerはチャネル固有文字列を作らず、事実と安全な確認材料だけを渡す。renderer追加で投資分析ロジックやevent producerを変更しない構造にする。

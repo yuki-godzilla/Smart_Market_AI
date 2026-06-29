@@ -3856,3 +3856,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ニュースヘッドラインとヒートマップのスマホ用720px/760pxルールを767pxへ統一し、iPad縦のヒートマップカテゴリを2列、iPhoneを1列へ調整。
 - 投資レーダーへ遷移する任意Playwright smokeを追加。4 viewportで横はみ出し・Streamlit例外なしを確認し、スクリーンショットを保存。
 - 関連UIテスト34件、Ruff、Black、Playwright 1件がpass。ニュース取得・更新・スコア・ランキングロジックは変更なし。
+
+## 2026-06-29 Cockpitチャート幅の自動調整
+
+- 固定内部幅を持つ価格・予測AltairチャートのStreamlit描画を親コンテナ幅追従へ変更し、iPhone / iPad / PCで利用可能幅に自動縮尺。
+- メインチャート、予測フォーカス、凡例、軸、モデル表示ロジックは維持。対象pytest 3件、Ruff、Blackがpass。

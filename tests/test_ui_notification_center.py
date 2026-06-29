@@ -35,8 +35,8 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert "通知センター" not in menu_source
     assert "アイコン変更" not in menu_source
     assert "登録済み端末" not in menu_source
-    assert "render_notification_destination(user.user_id)" in source
     assert "render_notification_preferences(user.user_id)" in source
+    assert "render_notification_destination" not in source
 
 
 def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() -> None:
@@ -80,6 +80,11 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert "← SMAIに戻る" not in source
     assert '"通知設定を保存"' in notification_source
     assert '"キャンセル"' in notification_source
+    assert '"1. 通知の種類"' in notification_source
+    assert '"2. 通知方法"' in notification_source
+    assert '"3. 通知条件"' in notification_source
+    assert "app_enabled=app_enabled" in notification_source
+    assert "enabled_categories=selected_categories" in notification_source
     assert 'return "saved"' in notification_source
     assert 'return "cancelled"' in notification_source
     assert app_source.index("if not render_user_notification_area():") < app_source.index(

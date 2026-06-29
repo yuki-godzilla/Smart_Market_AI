@@ -48,7 +48,7 @@ Phase N4:
 - CTAは内部画面への遷移だけで、AI調査や注文などの処理を開始しない。
 - ブラウザごとのUUIDはlocalStorageへ保持し、SQLiteの`trusted_devices`と関連付ける。IPアドレスは識別に使わない。
 - 新しいbrowser sessionではプロフィール画像を選び、`このユーザーで開始`を押す。
-- 右上ユーザーメニューは`ユーザー設定`、`通知設定`、`ユーザー切替`の3項目。ユーザー設定に通知先とアイコン変更をまとめる。
+- 右上ユーザーメニューは`ユーザー設定`、`通知設定`、`ユーザー切替`の3項目。ユーザー設定はプロフィールとアイコン、通知設定は通知種類、アプリ内/ntfy通知先、重要度、通知しない時間帯をまとめる。
 - Trusted Deviceによる自動選択と登録端末管理は使用しない。`ユーザー切替`はプロフィール選択画面へ戻る。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
 - 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。

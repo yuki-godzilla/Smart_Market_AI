@@ -6,7 +6,6 @@ import streamlit as st
 
 from backend.research import ResearchDocumentError
 from ui.content.common_texts import user_facing_table_rows
-from ui.notification_ui import render_notification_settings
 from ui.rebalance_app import runtime_settings_summary, symbol_reference_rows
 from ui.research_state import (
     external_research_fetch_last_summary,
@@ -57,8 +56,6 @@ def render_settings_page() -> None:
     if settings["provider"] == "csv":
         st.write("CSVデータ")
         st.code(settings["csv_data_dir"], language=None)
-
-    render_notification_settings()
 
     last_fetch_summary = external_research_fetch_last_summary()
     if last_fetch_summary:

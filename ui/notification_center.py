@@ -12,10 +12,7 @@ from backend.notifications.trusted_devices import (
     SmaiUser,
     TrustedDeviceRepository,
 )
-from ui.notification_ui import (
-    render_notification_destination,
-    render_notification_preferences,
-)
+from ui.notification_ui import render_notification_preferences
 from ui.user_icon_assets import (
     load_user_icon_assets,
     resolve_user_icon,
@@ -483,6 +480,7 @@ def _render_user_area_view(
     )
     if view == "notification_settings":
         st.title("通知設定")
+        st.caption("受け取る通知、通知方法、通知条件をユーザーごとに設定します。")
         action = render_notification_preferences(user.user_id)
         if action in {"saved", "cancelled"}:
             st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
@@ -516,8 +514,6 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     if st.button("アイコンを変更", key="user_settings_open_icons"):
         st.session_state[USER_AREA_VIEW_KEY] = "icon_settings"
         st.rerun()
-    st.divider()
-    render_notification_destination(user.user_id)
 
 
 def _render_icon_settings(user: SmaiUser) -> None:

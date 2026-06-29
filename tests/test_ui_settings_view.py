@@ -56,14 +56,13 @@ def test_notification_ui_keeps_topic_secret_and_sends_only_in_button_branch():
     source = Path("ui/notification_ui.py").read_text(encoding="utf-8")
 
     assert 'type="password"' in source
-    assert "完全な暗号化秘匿ではありません" in source
+    assert "topicは平文で再表示しません" in source
     assert "if test_clicked:" in source
     assert source.index("if test_clicked:") < source.index(
         "result = send_saved_test_notification(current)"
     )
-    assert "render_notification_settings()" in Path("ui/views/settings.py").read_text(
-        encoding="utf-8"
-    )
+    settings_source = Path("ui/views/settings.py").read_text(encoding="utf-8")
+    assert "render_notification_settings" not in settings_source
 
 
 def test_notification_quiet_time_helper_uses_safe_fallback():

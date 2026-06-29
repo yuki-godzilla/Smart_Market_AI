@@ -55,6 +55,22 @@ def trusted_device_bootstrap_html(
   const userId = {user_json};
   const unread = {max(0, unread)};
   const decorateUserArea = Boolean(iconUrl || displayName || userId);
+  const positionUserMenu = () => {{
+    const bodies = window.parent.document.querySelectorAll('[data-testid="stPopoverBody"]');
+    const panels = bodies.length
+      ? bodies
+      : window.parent.document.querySelectorAll('[data-baseweb="popover"]');
+    for (const panel of panels) {{
+      if (!panel.innerText.includes("ユーザー切替")) continue;
+      panel.style.setProperty("position", "fixed", "important");
+      panel.style.setProperty("top", "8.4rem", "important");
+      panel.style.setProperty("right", "1.25rem", "important");
+      panel.style.setProperty("left", "auto", "important");
+      panel.style.setProperty("transform", "none", "important");
+      panel.style.setProperty("z-index", "2147482999", "important");
+      panel.style.setProperty("max-width", "min(22rem, calc(100vw - 2rem))", "important");
+    }}
+  }};
   const decorate = () => {{
     let found = false;
     for (const button of window.parent.document.querySelectorAll("button")) {{
@@ -89,6 +105,14 @@ def trusted_device_bootstrap_html(
         button.style.setProperty("top", "4.75rem", "important");
         button.style.setProperty("right", "1.25rem", "important");
         button.style.setProperty("z-index", "2147483000", "important");
+        if (button.dataset.smaiMenuBound !== "1") {{
+          button.dataset.smaiMenuBound = "1";
+          button.addEventListener("click", () => {{
+            window.setTimeout(positionUserMenu, 0);
+            window.setTimeout(positionUserMenu, 80);
+            window.setTimeout(positionUserMenu, 220);
+          }});
+        }}
         const host = button.closest('[data-testid="stPopover"]');
         if (host) {{
           host.style.setProperty("position", "fixed", "important");
@@ -160,6 +184,7 @@ def trusted_device_bootstrap_html(
       }});
     }}
     if (profileLinks.length) found = true;
+    positionUserMenu();
     return found;
   }};
   let attempts = 0;
@@ -437,9 +462,13 @@ def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
     st.markdown(f"**{user.display_name}**")
     st.caption(f"{user.user_id}　未読 {unread}件 / 重要 {important}件")
     links = (
-        ("ユーザー設定", "user_settings"),
-        ("通知設定", "notification_settings"),
-        ("ユーザー切替", "switch_user"),
+        (("ユーザー切替", "switch_user"),)
+        if user.is_system_user
+        else (
+            ("ユーザー設定", "user_settings"),
+            ("通知設定", "notification_settings"),
+            ("ユーザー切替", "switch_user"),
+        )
     )
     for label, view in links:
         if st.button(label, key=f"open_user_area_{view}", use_container_width=True):
@@ -452,11 +481,24 @@ def _render_user_area_view(
     user_repository: TrustedDeviceRepository,
     user: SmaiUser,
 ) -> None:
+    if user.is_system_user and view in {
+        "user_settings",
+        "notification_settings",
+        "icon_settings",
+    }:
+        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+        st.rerun()
     st.markdown(
         """
         <style>
         .block-container { max-width: 1120px; }
         .smai-user-view-title { margin-bottom: 1.25rem; }
+        div[data-testid="stHorizontalBlock"]:has(.smai-notification-settings-marker) {
+          justify-content: center;
+        }
+        div[data-testid="stColumn"]:has(.smai-notification-settings-marker) {
+          flex: 0 1 880px !important; max-width: 880px !important;
+        }
         @media (max-width: 767px) {
           .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
         }
@@ -465,12 +507,18 @@ def _render_user_area_view(
         unsafe_allow_html=True,
     )
     if view == "notification_settings":
-        st.title("通知設定")
-        st.caption("受け取る通知、通知方法、通知条件をユーザーごとに設定します。")
-        action = render_notification_preferences(user.user_id)
-        if action in {"saved", "cancelled"}:
-            st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
-            st.rerun()
+        _, notification_col, _ = st.columns([1, 5, 1])
+        with notification_col:
+            st.markdown(
+                '<span class="smai-notification-settings-marker"></span>',
+                unsafe_allow_html=True,
+            )
+            st.title("通知設定")
+            st.caption("受け取る通知、通知方法、通知条件をユーザーごとに設定します。")
+            action = render_notification_preferences(user.user_id)
+            if action in {"saved", "cancelled"}:
+                st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+                st.rerun()
     elif view == "user_settings":
         _render_user_settings(user_repository, user)
     elif view == "icon_settings":
@@ -490,24 +538,35 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     st.markdown(
         """
         <style>
-        .st-key-smai_user_settings_panel {
-          width: min(100%, 760px); margin-inline: auto;
+        div[data-testid="stHorizontalBlock"]:has(.smai-user-settings-marker) {
+          justify-content: center;
         }
-        .st-key-smai_user_settings_panel [data-testid="stImage"] img {
+        div[data-testid="stColumn"]:has(.smai-user-settings-marker) {
+          flex: 0 1 760px !important; max-width: 760px !important;
+        }
+        div[data-testid="stColumn"]:has(.smai-user-settings-marker) [data-testid="stImage"] img {
           width: 128px; height: 128px; object-fit: cover; border-radius: 16px;
           border: 1px solid #22d3ee;
         }
-        .st-key-smai_user_settings_panel div[data-testid="stButton"] > button {
+        div[data-testid="stColumn"]:has(.smai-user-settings-marker)
+          div[data-testid="stButton"] > button {
           width: min(100%, 220px);
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    with st.container(key="smai_user_settings_panel"):  # type: ignore[call-arg]
+    _, settings_col, _ = st.columns([1, 4, 1])
+    with settings_col:
+        st.markdown(
+            '<span class="smai-user-settings-marker"></span>',
+            unsafe_allow_html=True,
+        )
         st.title("ユーザー設定")
         st.caption("選択中ユーザーのプロフィールを編集します。")
-        icon_col, action_col = st.columns([1, 2], vertical_alignment="center")
+        icon_col, action_col = st.columns(
+            [0.22, 0.78], gap="small", vertical_alignment="center"
+        )
         current_icon = resolve_user_icon(user.icon_id)
         with icon_col:
             if current_icon.file_path is not None:
@@ -558,8 +617,7 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     st.markdown(
         """
         <style>
-        .st-key-smai_icon_grid { width: min(100%, 960px); margin-inline: auto; }
-        .st-key-smai_icon_grid [data-testid="stColumn"] { position: relative; }
+        div[data-testid="stColumn"]:has(.smai-icon-card) { position: relative; }
         .smai-icon-card { width: min(100%, 200px); margin: 0 auto; padding: .65rem;
           border: 2px solid #24415f; border-radius: 14px;
           background: #0a192b; transition: border-color .18s ease, box-shadow .18s ease; }
@@ -568,18 +626,18 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         .smai-icon-card img { width: 100%; aspect-ratio: 1; object-fit: cover;
           border-radius: 10px; display: block; }
         .smai-icon-label { margin-top: .45rem; text-align: center; font-weight: 700; }
-        .st-key-smai_icon_grid [data-testid="stButton"] {
+        div[data-testid="stColumn"]:has(.smai-icon-card) [data-testid="stButton"] {
           position: absolute; inset: 0; z-index: 2;
         }
-        .st-key-smai_icon_grid [data-testid="stButton"] > button {
+        div[data-testid="stColumn"]:has(.smai-icon-card) [data-testid="stButton"] > button {
           width: 100%; height: 100%; opacity: 0;
         }
-        .st-key-smai_icon_actions { width: min(100%, 440px); margin: 1.25rem auto 0; }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    with st.container(key="smai_icon_grid"):  # type: ignore[call-arg]
+    _, grid_col, _ = st.columns([1, 10, 1])
+    with grid_col:
         for row_start in range(0, len(assets), 4):
             columns = st.columns(4)
             for column, asset in zip(columns, assets[row_start : row_start + 4]):
@@ -601,8 +659,10 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
                     ):
                         st.session_state["smai_icon_candidate"] = asset.icon_id
                         st.rerun()
+    components.html(_icon_button_overlay_html(), height=0, width=0)
 
-    with st.container(key="smai_icon_actions"):  # type: ignore[call-arg]
+    _, actions_col, _ = st.columns([1, 2, 1])
+    with actions_col:
         save_col, cancel_col = st.columns(2)
         save_clicked = save_col.button("アイコンを保存", key="save_smai_user_icon", type="primary")
         cancel_clicked = cancel_col.button("キャンセル", key="cancel_smai_user_icon")
@@ -615,6 +675,43 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
             st.session_state.pop("smai_icon_candidate", None)
             st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
             st.rerun()
+
+
+def _icon_button_overlay_html() -> str:
+    return """
+<script>
+(() => {
+  const bind = () => {
+    const cards = window.parent.document.querySelectorAll(".smai-icon-card");
+    for (const card of cards) {
+      const column = card.closest('[data-testid="stColumn"]');
+      const button = column?.querySelector('[data-testid="stButton"] > button');
+      const buttonHost = button?.closest('[data-testid="stButton"]');
+      if (!column || !button || !buttonHost) continue;
+      column.style.position = "relative";
+      buttonHost.style.position = "absolute";
+      buttonHost.style.top = `${card.offsetTop}px`;
+      buttonHost.style.left = `${card.offsetLeft}px`;
+      buttonHost.style.width = `${card.offsetWidth}px`;
+      buttonHost.style.height = `${card.offsetHeight}px`;
+      buttonHost.style.zIndex = "3";
+      button.style.width = "100%";
+      button.style.height = "100%";
+      button.style.opacity = "0";
+      button.style.cursor = "pointer";
+      button.setAttribute("aria-label", card.innerText.trim() + "を選択");
+    }
+    return cards.length > 0;
+  };
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    attempts += 1;
+    if (bind() || attempts >= 40) window.clearInterval(timer);
+  }, 125);
+  bind();
+})();
+</script>
+"""
 
 
 def _query_value(key: str) -> str:

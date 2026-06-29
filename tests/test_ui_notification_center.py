@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ui.notification_center import trusted_device_bootstrap_html
+from ui.notification_center import _icon_button_overlay_html, trusted_device_bootstrap_html
 from ui.user_icon_assets import load_user_icon_assets, resolve_user_icon
 
 
@@ -12,6 +12,8 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert 'host.style.setProperty("position", "fixed", "important")' in html
     assert 'button.style.setProperty("position", "fixed", "important")' in html
     assert '"top", "4.75rem", "important"' in html
+    assert '"top", "8.4rem", "important"' in html
+    assert "positionUserMenu" in html
     assert "window.setInterval" in html
     assert "@media (max-width: 767px)" in html
     assert "smai-user-name" in html
@@ -32,11 +34,14 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
     assert '("ユーザー設定", "user_settings")' in menu_source
     assert '("通知設定", "notification_settings")' in menu_source
     assert '("ユーザー切替", "switch_user")' in menu_source
+    assert "if user.is_system_user" in menu_source
     assert "通知センター" not in menu_source
     assert "アイコン変更" not in menu_source
     assert "登録済み端末" not in menu_source
     assert "render_notification_preferences(user.user_id)" in source
     assert "render_notification_destination" not in source
+    assert "smai-notification-settings-marker" in source
+    assert "flex: 0 1 880px" in source
 
 
 def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() -> None:
@@ -52,6 +57,10 @@ def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() ->
     assert resolve_user_icon("missing").icon_id == "smai_navi_default"
     assert "🐱" not in source
     assert "🐶" not in source
+    overlay = _icon_button_overlay_html()
+    assert "smai-icon-card" in overlay
+    assert 'button.style.opacity = "0"' in overlay
+    assert 'button.style.cursor = "pointer"' in overlay
 
 
 def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
@@ -75,10 +84,13 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert "select_profile_" not in source
     assert "smai_icon_candidate" in source
     assert "select_smai_icon_" in source
-    assert "st-key-smai_icon_grid" in source
+    assert ":has(.smai-icon-card)" in source
+    assert 'st.container(key="' not in source
     assert "アイコンを保存" in source
     assert "キャンセル" in source
     assert "ユーザー設定を保存" in source
+    assert "flex: 0 1 760px" in source
+    assert "[0.22, 0.78]" in source
     assert 'USER_AREA_VIEW_KEY] = "user_settings"' in source
     assert "← SMAIに戻る" not in source
     assert '"通知設定を保存"' in notification_source

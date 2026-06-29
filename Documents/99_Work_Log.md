@@ -3880,3 +3880,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - アプリ内履歴をntfy送信より先に保存し、外部送信失敗でSMAI本体を止めない境界を明文化。
 - ntfy既定OFF、topicの秘密情報扱い、severity threshold、quiet hours、`silent`非送信、明示テスト通知、network-free通常テストを必須条件にした。
 - Roadmap、Operations Guide、PROJECT_CONTEXTを同期。実装、API、UI、外部通信はまだ行っていない。
+
+## 2026-06-29 通知基盤 Phase N2 親SMAI連携口
+
+- `backend/notifications/notification_client.py` に親側の軽量request/result、`NotificationClient` protocol、例外を遮断する `SafeNotificationClient` を追加。
+- `send_test_notification()` は明示呼び出し時だけ `SYSTEM` / `medium` のテストeventを生成し、timeout、client例外、不正event ID応答を安全な失敗結果へ変換する。
+- 親側は子gatewayの具象型をimportせず、既存イベント、Streamlit設定画面、起動処理、自動通知には未接続。
+- 親N2テスト7件、子N1回帰28件、対象Ruff / Mypy、Black helperがpass。外部通信は未実施。

@@ -183,6 +183,8 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - テスト通知関数
 - gateway 失敗を本体へ伝播させない contract
 
+実装状態: N1 / N2 実装済み。親側は `backend/notifications/notification_client.py` に独立した軽量 contract、`NotificationClient` protocol、`SafeNotificationClient`、明示呼び出し専用の `send_test_notification()` を持つ。既存イベント、Streamlit UI、起動処理には未接続。
+
 ### Phase N3: 通知設定
 
 - ntfy ON / OFF、server URL、topic、severity threshold、quiet hours

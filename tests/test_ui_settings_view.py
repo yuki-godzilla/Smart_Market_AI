@@ -1,3 +1,7 @@
+from datetime import time
+from pathlib import Path
+
+from ui.notification_ui import _time_value
 from ui.views.settings import (
     _external_fetch_source_rows,
     _external_fetch_summary_caption,
@@ -46,3 +50,22 @@ def test_external_fetch_summary_helpers_shape_source_rows():
             "error": "",
         }
     ]
+
+
+def test_notification_ui_keeps_topic_secret_and_sends_only_in_button_branch():
+    source = Path("ui/notification_ui.py").read_text(encoding="utf-8")
+
+    assert 'type="password"' in source
+    assert "完全な暗号化秘匿ではありません" in source
+    assert "if test_clicked:" in source
+    assert source.index("if test_clicked:") < source.index(
+        "result = send_saved_test_notification(current)"
+    )
+    assert "render_notification_settings()" in Path("ui/views/settings.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_notification_quiet_time_helper_uses_safe_fallback():
+    assert _time_value("22:30", time(0, 0)) == time(22, 30)
+    assert _time_value("broken", time(7, 0)) == time(7, 0)

@@ -2,9 +2,43 @@
 
 #### [BACK TO README](../README.md)
 
-## 通知基盤（N1/N2/N3-A実装済み・UI未接続）
+## 通知基盤（N1〜N3-B実装済み）
 
-Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。独立gateway、親SMAI側の薄いclient、親子contract adapter、明示テスト通知関数までは実装済み。adapterはinstalled packageを優先して子`notification_gateway`を遅延importし、monorepo開発時は同一workspaceの`src`へfallbackする。子moduleが存在しない場合は秘密値を含まない安全なfailed resultを返す。設定保存/UI、既存イベント接続、アプリ内履歴は未実装であり、SMAI はまだ通知を自動送信しない。
+Phase N1〜N4 で、アプリ内通知と ntfy Push を段階導入する。独立gateway、親client/adapter、SQLite通知設定、既存の`設定 / データ情報`画面に置く通知設定と明示テスト通知まで実装済み。SMAI は既存イベントから通知を自動送信せず、実ntfy送信が許可されるのはユーザーが`テスト通知を送る`を押した場合だけである。アプリ内履歴と通知センターはN4の未実装範囲。
+
+設定保存:
+
+- 既定保存先は`data/user/notifications.sqlite`
+- `SMAI_USER_CONFIG_DIR`指定時はそのdirectoryの`notifications.sqlite`
+- DBが無い場合は自動作成
+- `notification_meta.schema_version`でmigration versionを管理
+- ntfy既定OFF、server URL既定値は`https://ntfy.sh`
+- topic入力を空欄で保存した場合は既存値を維持
+- topic削除は`保存済みtopicを削除`だけで行い、同時にntfyをOFFにする
+- topicはSQLiteへ平文相当で保存され、完全な暗号化秘匿ではない
+- UIはtopicをpassword入力にし、保存値を平文再表示しない
+
+server URL:
+
+- `https`を許可
+- `http`は`localhost`、`127.0.0.1`、`::1`だけ許可
+- userinfo、query、fragmentを持つURLは拒否
+- 末尾slashは正規化
+
+Quiet hours:
+
+- 日跨ぎ設定を保存可能
+- 開始と終了が同じ場合はvalidation error
+
+テスト通知:
+
+1. `設定 / データ情報`の`通知設定`を開く。
+2. ntfyをONにしてserver URLとtopicを保存する。
+3. ntfyアプリ側で同じtopicを購読する。
+4. `テスト通知を送る`を1回押す。
+5. sent / disabled / filtered / failedの一般化された日本語結果を確認する。
+
+設定画面の初期表示、通常rerun、設定保存、topic削除では外部送信しない。通常テスト/CIはfake client/adapterだけを使い、実ntfyへ接続しない。
 
 予定する運用境界:
 

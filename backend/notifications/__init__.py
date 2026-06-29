@@ -12,6 +12,10 @@ from backend.notifications.notification_client import (
     SafeNotificationClient,
     send_test_notification,
 )
+from backend.notifications.settings_repository import (
+    NotificationSetting,
+    NotificationSettingsRepository,
+)
 
 __all__ = [
     "GatewayBindings",
@@ -20,6 +24,8 @@ __all__ = [
     "NotificationClientResult",
     "NotificationGatewayAdapter",
     "NotificationRequest",
+    "NotificationSetting",
+    "NotificationSettingsRepository",
     "SafeNotificationClient",
     "send_test_notification",
 ]

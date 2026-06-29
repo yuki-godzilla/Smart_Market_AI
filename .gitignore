@@ -40,6 +40,8 @@ data/marketdata/symbol_universe_manual_patch_report.json
 # Local work/test outputs
 data/user/favorites.json
 data/user/watchlist_snapshots.json
+data/user/notifications.sqlite
+data/user/notifications.sqlite-*
 outputs/work/pytest_tmp/
 outputs/work/pytest_*/
 outputs/work/*_smoke/

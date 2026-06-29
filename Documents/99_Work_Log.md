@@ -3905,3 +3905,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `AIおすすめ`は`SMAI注目候補`へ置換し、追加以降騰落は推奨実績ではなく監視開始時点からの参考変化とした。登録時snapshot欠損は推定しない。
 - CTAは確認画面への遷移だけとし、AI調査、外部取得、レポート作成、注文を自動実行しない。
 - Onepager、UI Wording Policy、Manual UX Review Checklist、Functional Spec Issues、Roadmap、PROJECT_CONTEXTを同期。実装変更は行っていない。
+
+## 2026-06-29 通知基盤 Phase N3-B 設定保存・テスト通知UI
+
+- `settings_repository.py`にschema version付き`notifications.sqlite`の自動作成、ユーザー別設定、transactional upsert、topic明示削除を追加。
+- `settings_service.py`に空topic入力時の既存値維持、https/loopback-http URL検証、末尾slash正規化、固定severity、同一開始終了quiet hours拒否、安全なstatus日本語化を追加。
+- 既存`設定 / データ情報`画面だけに通知設定を追加。topicはpassword入力で保存値を再表示せず、SQLiteは完全暗号化ではない旨を表示。
+- 設定保存、topic削除、テスト通知を別操作にし、外部送信コードは`テスト通知を送る`押下分岐内だけに配置。既存イベント、自動通知、Research / Ranking / Cockpit / My Radar / Forecastは未変更。
+- SQLite/service/UI契約とN1-N3-A回帰を含む対象pytest 40件、対象Mypy、全体local checks（pytest 1,934 passed / 8 skipped、Ruff、Black）がpass。通常テストはfake client/adapterのみで外部通信なし。browser実画面確認はbrowser実行機能が利用できず未実施。

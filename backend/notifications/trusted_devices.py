@@ -17,7 +17,9 @@ from backend.notifications.settings_repository import (
 class SmaiUser:
     user_id: str
     display_name: str
-    icon_id: str = "smai_default"
+    icon_id: str = "smai_navi_default"
+    is_system_user: bool = False
+    deletable: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,10 +48,11 @@ class TrustedDeviceRepository:
     def users(self) -> list[SmaiUser]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT user_id, display_name, mascot_key AS icon_id FROM users "
-                "WHERE is_active = 1 ORDER BY created_at"
+                "SELECT user_id, display_name, icon_asset_id AS icon_id, "
+                "is_system_user, deletable FROM users "
+                "WHERE is_active = 1 ORDER BY is_system_user DESC, created_at"
             ).fetchall()
-        return [SmaiUser(*row) for row in rows]
+        return [SmaiUser(row[0], row[1], row[2], bool(row[3]), bool(row[4])) for row in rows]
 
     def resolve(self, device_id: str) -> SmaiUser | None:
         normalized = normalize_device_id(device_id)
@@ -57,7 +60,8 @@ class TrustedDeviceRepository:
             return None
         with self._connect() as connection:
             row = connection.execute(
-                """SELECT u.user_id, u.display_name, u.mascot_key AS icon_id
+                """SELECT u.user_id, u.display_name, u.icon_asset_id AS icon_id,
+                u.is_system_user, u.deletable
                 FROM trusted_devices d JOIN users u ON u.user_id = d.user_id
                 WHERE d.device_id = ? AND d.is_trusted = 1 AND u.is_active = 1""",
                 (normalized,),
@@ -67,7 +71,7 @@ class TrustedDeviceRepository:
                     "UPDATE trusted_devices SET last_seen_at = ? WHERE device_id = ?",
                     (datetime.now(UTC).isoformat(), normalized),
                 )
-        return SmaiUser(*row) if row else None
+        return SmaiUser(row[0], row[1], row[2], bool(row[3]), bool(row[4])) if row else None
 
     def trust(self, device_id: str, user_id: str, device_name: str) -> TrustedDevice:
         normalized = normalize_device_id(device_id)
@@ -126,8 +130,18 @@ class TrustedDeviceRepository:
     def set_icon(self, user_id: str, icon_id: str) -> None:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE users SET mascot_key = ? WHERE user_id = ?",
+                "UPDATE users SET icon_asset_id = ? WHERE user_id = ?",
                 (icon_id[:64], user_id),
+            )
+
+    def set_display_name(self, user_id: str, display_name: str) -> None:
+        safe_name = display_name.strip()[:80]
+        if not safe_name:
+            raise ValueError("Display name is required.")
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE users SET display_name = ? WHERE user_id = ?",
+                (safe_name, user_id),
             )
 
     @contextmanager

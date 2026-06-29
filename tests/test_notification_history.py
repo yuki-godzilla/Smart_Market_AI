@@ -140,6 +140,7 @@ def test_service_saves_before_failed_delivery_and_sanitizes_result(tmp_path) -> 
             headline="test",
             summary="test",
             what_happened="test",
+            icon_asset_id="smai_navi_default",
         ),
         client=client,
     )
@@ -148,6 +149,9 @@ def test_service_saves_before_failed_delivery_and_sanitizes_result(tmp_path) -> 
     assert client.saved_before_send
     assert result is not None and result.status == "failed"
     assert repository.unread_count("yuki") == 1
+    saved_metadata = repository.list("yuki")[0].metadata
+    assert saved_metadata is not None
+    assert saved_metadata["icon_asset_id"] == "smai_navi_default"
 
 
 def test_service_keeps_history_when_client_raises(tmp_path) -> None:

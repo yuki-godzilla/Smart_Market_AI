@@ -47,3 +47,13 @@ def test_broken_manifest_uses_safe_local_fallback(tmp_path) -> None:
     source = user_icon_browser_source(resolved)
     if resolved.fallback_level == "placeholder":
         assert source is not None and source.startswith("data:image/webp;base64,")
+
+
+def test_builtin_manifest_registers_twelve_repository_assets() -> None:
+    assets = load_user_icon_assets()
+
+    assert len(assets) == 12
+    assert assets[0].asset_id == "smai_navi_default"
+    assert all(asset.file_path.is_file() for asset in assets)
+    assert {asset.category for asset in assets} == {"navi", "pet"}
+    assert resolve_user_icon("missing").icon_id == "smai_navi_default"

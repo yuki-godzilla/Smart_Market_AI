@@ -8,18 +8,25 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 USER_ICON_MANIFEST_PATH = PROJECT_ROOT / "ui/assets/user_icons/manifest.json"
-DEFAULT_ICON_ID = "smai_default"
+DEFAULT_ICON_ID = "smai_navi_default"
 PLACEHOLDER_PATH = PROJECT_ROOT / "ui/assets/mascot/smai-mascot-thumb.webp"
 
 
 @dataclass(frozen=True, slots=True)
 class UserIconAsset:
-    icon_id: str
+    asset_id: str
     display_name: str
     file_path: Path
     public_path: str | None
     category: str
+    role: str
+    background_color_hint: str
     is_builtin: bool
+
+    @property
+    def icon_id(self) -> str:
+        """Compatibility alias while persisted values move to icon_asset_id wording."""
+        return self.asset_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,7 +113,7 @@ def user_icon_browser_source(icon: ResolvedUserIcon) -> str | None:
 
 
 def _asset_from_mapping(raw: dict[str, Any]) -> UserIconAsset | None:
-    icon_id = str(raw.get("icon_id", "")).strip()
+    icon_id = str(raw.get("asset_id", raw.get("icon_id", ""))).strip()
     display_name = str(raw.get("display_name", "")).strip()
     raw_file_path = str(raw.get("file_path", "")).strip()
     if not icon_id or not display_name or not raw_file_path:
@@ -116,11 +123,13 @@ def _asset_from_mapping(raw: dict[str, Any]) -> UserIconAsset | None:
         return None
     public_path = raw.get("public_path")
     return UserIconAsset(
-        icon_id=icon_id,
+        asset_id=icon_id,
         display_name=display_name,
         file_path=file_path,
         public_path=str(public_path) if public_path else None,
         category=str(raw.get("category", "default")),
+        role=str(raw.get("role", "custom_user")),
+        background_color_hint=str(raw.get("background_color_hint", "cyan")),
         is_builtin=bool(raw.get("is_builtin", True)),
     )
 

@@ -3931,3 +3931,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 初回ユーザー選択を大きな正方形プロフィールカードへ変更し、右上は円形画像、desktop名前/ID、tablet ID省略、smartphone画像/通知中心へ変更。
 - icon変更UIはmanifestから候補を読み、現在値を強調してicon IDだけを保存。custom directoryは将来upload向けに予約。
 - 対象pytest 6件、対象Mypy、全体local checks（pytest 1,945 passed / 8 skipped、Ruff、Black）がpass。通常確認はnetwork-free。browser実画面確認はbrowser実行機能が利用できず未実施。
+
+## 2026-06-29 Phase N4 ユーザー導線UI回帰修正
+
+- schema v4で`default` / `SMAIデフォルト`をsystem userとして常設し、`smai_navi_default`固定、削除不可契約を追加。既存`local_user`も維持。
+- ユーザー選択を最大幅960pxの中央配置へ絞り、180〜220px相当のプロフィールカード、追加カード、中央のTrusted Device選択と開始ボタンへ整理。カード全体を選択操作にした。
+- 右上popoverから通知一覧、filter、設定form、端末管理を撤去し、未読/重要件数と6つのリンクだけを表示。
+- 通知センター、通知設定、ユーザー設定、アイコン変更、登録済み端末、ユーザー切替を`session_state`切替の専用viewへ分離。サイドメニューは追加していない。
+- 通知設定rendererをactive user対応にし、topic非再表示、保存とテスト送信の分離を維持。
+- UI contract testとresponsive Playwright smokeを更新。Ruffはpass。pytest / Mypy / Blackはlocal venvが削除済みWindowsApps Pythonを参照して起動できず未実施。起動済みStreamlit healthは`ok`を確認したが、in-app browser操作機能がこのsessionに公開されておらず新画面の実操作確認は未実施。

@@ -1725,12 +1725,13 @@ def main() -> None:
     )
     inject_pwa_head_metadata()
     render_global_styles()
+    if not render_user_notification_area():
+        return
     _start_symbol_background_refresh_worker_once()
     _start_news_background_refresh_worker_once()
     _apply_navigation_query_params()
 
     selected_page = render_sidemenu(runtime_settings_summary())
-    render_user_notification_area()
     reset_assistant_contexts()
     if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING}:
         render_app_header()

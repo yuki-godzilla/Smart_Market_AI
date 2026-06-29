@@ -30,13 +30,13 @@ SEVERITY_LABELS = {
 }
 
 
-def render_notification_settings() -> None:
-    """Render notification settings only on the existing settings page."""
+def render_notification_settings(user_id: str = DEFAULT_NOTIFICATION_USER_ID) -> None:
+    """Render notification settings for the requested local user."""
 
     repository = NotificationSettingsRepository()
     loaded = load_notification_setting_safe(
         repository,
-        user_id=DEFAULT_NOTIFICATION_USER_ID,
+        user_id=user_id,
     )
     setting = loaded.setting
 
@@ -127,7 +127,7 @@ def render_notification_settings() -> None:
             try:
                 save_notification_setting(
                     repository,
-                    user_id=DEFAULT_NOTIFICATION_USER_ID,
+                    user_id=user_id,
                     update=NotificationSettingUpdate(
                         app_enabled=app_enabled,
                         ntfy_enabled=ntfy_enabled,
@@ -150,7 +150,7 @@ def render_notification_settings() -> None:
             try:
                 clear_saved_topic(
                     repository,
-                    user_id=DEFAULT_NOTIFICATION_USER_ID,
+                    user_id=user_id,
                 )
             except NotificationSettingsError:
                 st.error("保存済みtopicを削除できませんでした。")
@@ -159,7 +159,7 @@ def render_notification_settings() -> None:
 
         if test_clicked:
             try:
-                current = repository.load(DEFAULT_NOTIFICATION_USER_ID)
+                current = repository.load(user_id)
             except NotificationSettingsError:
                 st.error("通知設定を確認できないため、テスト通知を実行できませんでした。")
             else:

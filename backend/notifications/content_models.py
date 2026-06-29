@@ -35,4 +35,7 @@ class NotificationContent:
     next_check: str | None = None
     metrics: tuple[NotificationMetric, ...] = ()
     cta: NotificationAction | None = None
+    icon_asset_id: str | None = None
+    thumbnail_asset_id: str | None = None
+    hero_asset_id: str | None = None
     content_version: str = "notification_content.v1"

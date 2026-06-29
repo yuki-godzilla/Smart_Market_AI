@@ -152,6 +152,7 @@ def send_saved_test_notification(
             summary="通知設定からテスト通知を実行しました。",
             what_happened="アプリ内通知履歴を保存しました。",
             next_check="通知センターとスマホ通知の受信状態を確認してください。",
+            icon_asset_id="smai_navi_default",
         ),
         client=client,
     )

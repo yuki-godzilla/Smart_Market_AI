@@ -21,6 +21,13 @@ class NotificationService:
         *,
         client: NotificationClient | None = None,
     ) -> tuple[AppNotification, NotificationClientResult | None]:
+        metadata = dict(request.metadata)
+        asset_references = {
+            "icon_asset_id": content.icon_asset_id,
+            "thumbnail_asset_id": content.thumbnail_asset_id,
+            "hero_asset_id": content.hero_asset_id,
+        }
+        metadata.update({key: value for key, value in asset_references.items() if value})
         item = AppNotification(
             event_id=request.event_id,
             user_id=request.user_id,
@@ -32,7 +39,7 @@ class NotificationService:
             symbol=request.symbol,
             source=request.source,
             action_url=request.action_url,
-            metadata=request.metadata,
+            metadata=metadata,
             content_version=content.content_version,
             created_at=request.created_at,
         )
@@ -65,4 +72,5 @@ def test_notification_content() -> NotificationContent:
         summary="アプリ内通知の保存を確認しました。",
         what_happened="通知設定からテスト通知を実行しました。",
         next_check="通知センターとスマホ通知の受信状態を確認してください。",
+        icon_asset_id="smai_navi_default",
     )

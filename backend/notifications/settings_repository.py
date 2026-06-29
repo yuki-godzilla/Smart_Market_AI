@@ -10,7 +10,7 @@ from typing import Iterator
 from backend.core.runtime_paths import USER_CONFIG_DIR_ENV, runtime_path_from_env
 from backend.notifications.notification_client import NotificationSeverity
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 NOTIFICATION_DB_FILENAME = "notifications.sqlite"
 
 
@@ -226,16 +226,55 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             user_id TEXT PRIMARY KEY,
             display_name TEXT NOT NULL,
             mascot_key TEXT NOT NULL,
+            icon_asset_id TEXT,
             is_active INTEGER NOT NULL,
             created_at TEXT NOT NULL
         )
         """
     )
+    user_columns = {
+        str(row["name"]) for row in connection.execute("PRAGMA table_info(users)").fetchall()
+    }
+    if "icon_asset_id" not in user_columns:
+        connection.execute("ALTER TABLE users ADD COLUMN icon_asset_id TEXT")
+    if "is_system_user" not in user_columns:
+        connection.execute("ALTER TABLE users ADD COLUMN is_system_user INTEGER NOT NULL DEFAULT 0")
+    if "deletable" not in user_columns:
+        connection.execute("ALTER TABLE users ADD COLUMN deletable INTEGER NOT NULL DEFAULT 1")
+    connection.execute(
+        """
+        UPDATE users
+        SET icon_asset_id = CASE
+            WHEN mascot_key = 'smai_default' THEN 'smai_navi_default'
+            ELSE mascot_key
+        END
+        WHERE icon_asset_id IS NULL OR icon_asset_id = ''
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO users
+        (user_id, display_name, mascot_key, icon_asset_id, is_active, created_at,
+         is_system_user, deletable)
+        VALUES ('default', 'SMAIデフォルト', 'smai_navi_default',
+                'smai_navi_default', 1, ?, 1, 0)
+        ON CONFLICT(user_id) DO UPDATE SET
+            display_name = excluded.display_name,
+            mascot_key = excluded.mascot_key,
+            icon_asset_id = excluded.icon_asset_id,
+            is_active = 1,
+            is_system_user = 1,
+            deletable = 0
+        """,
+        (datetime.now(UTC).isoformat(),),
+    )
     connection.execute(
         """
         INSERT OR IGNORE INTO users
-        (user_id, display_name, mascot_key, is_active, created_at)
-        VALUES ('local_user', 'Yuki', 'smai_default', 1, ?)
+        (user_id, display_name, mascot_key, icon_asset_id, is_active, created_at,
+         is_system_user, deletable)
+        VALUES ('local_user', 'Yuki', 'smai_navi_default', 'smai_navi_default',
+                1, ?, 0, 1)
         """,
         (datetime.now(UTC).isoformat(),),
     )

@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0\.."
 
 set "SMAI_FORCE=0"
@@ -17,13 +17,14 @@ echo The SMAI LAN server is managed separately and will not be stopped.
 echo ============================================================
 echo.
 
-if "%SMAI_FORCE%"=="0" (
-    set /p "SMAI_CONFIRM=Run symbol maintenance now? [y/N]: "
-    if /i not "%SMAI_CONFIRM%"=="y" if /i not "%SMAI_CONFIRM%"=="yes" (
-        echo [SMAI] Cancelled.
-        exit /b 0
-    )
-)
+if "%SMAI_FORCE%"=="1" goto :confirmed
+set /p "SMAI_CONFIRM=Run symbol maintenance now? [y/N]: "
+if /i "!SMAI_CONFIRM!"=="y" goto :confirmed
+if /i "!SMAI_CONFIRM!"=="yes" goto :confirmed
+echo [SMAI] Cancelled.
+exit /b 0
+
+:confirmed
 
 set "SMAI_ROOT=%CD%"
 set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"

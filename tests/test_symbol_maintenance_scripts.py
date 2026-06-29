@@ -24,7 +24,10 @@ def test_manual_script_warns_prompts_and_supports_force() -> None:
     script = _read("scripts/run_symbol_maintenance_manual.bat")
 
     assert 'if /i "%~1"=="/force"' in script
+    assert "EnableDelayedExpansion" in script
     assert "set /p" in script
+    assert 'if /i "!SMAI_CONFIRM!"=="y" goto :confirmed' in script
+    assert 'if /i "!SMAI_CONFIRM!"=="yes" goto :confirmed' in script
     assert "heavy maintenance operation" in script
     assert "external data retrieval" in script
     assert "symbol_universe.csv" in script

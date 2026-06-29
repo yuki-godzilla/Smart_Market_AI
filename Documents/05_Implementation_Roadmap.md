@@ -2519,6 +2519,7 @@ Subphases:
 - お気に入り追加以降は推奨実績ではなく監視開始時点からの参考変化とし、登録時snapshot欠損を推定しない。
 - CTAは確認画面への遷移に限定し、AI調査、外部取得、レポート作成、注文を自動実行しない。
 - 日次集約、dedupe、cooldown、quiet hours、thresholdにより通知疲れを防ぐ。
+- ユーザーiconはmanifest管理の高品質local Assetだけを使い、設定にはicon IDのみ保存する。N4では既存公式SMAI Assetをdefaultにし、新規画像の量産や外部画像参照は行わない。
 
 非交渉条件:
 

@@ -18,8 +18,8 @@ def test_trusted_device_bind_resolve_revoke_and_mascot(tmp_path) -> None:
     assert repository.list("local_user")[0].device_name == "Windows Chrome"
     repository.rename("local_user", device_id, "Desk PC")
     assert repository.list("local_user")[0].device_name == "Desk PC"
-    repository.set_mascot("local_user", "owl")
-    assert repository.users()[0].mascot_key == "owl"
+    repository.set_icon("local_user", "smai_default")
+    assert repository.users()[0].icon_id == "smai_default"
     repository.revoke("local_user", device_id)
     assert repository.resolve(device_id) is None
 

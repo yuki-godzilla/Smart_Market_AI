@@ -50,6 +50,9 @@ Phase N4:
 - 初回はユーザーを選択し、端末記憶を選んだ場合だけ次回から自動選択する。
 - 右上ユーザーメニューで今回だけ/端末既定を変更するユーザー切替、マスコット選択、端末名変更、端末解除ができる。
 - Trusted Deviceは認証機能ではない。端末を共有する場合はユーザー切替または端末解除を行う。
+- ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
+- 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。
+- 選択画像が無い場合はdefault、local placeholder、CSS silhouetteの順でfallbackし、外部画像URLは参照しない。
 
 予定する運用境界:
 

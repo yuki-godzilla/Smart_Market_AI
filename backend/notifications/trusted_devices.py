@@ -17,7 +17,7 @@ from backend.notifications.settings_repository import (
 class SmaiUser:
     user_id: str
     display_name: str
-    mascot_key: str = "smai"
+    icon_id: str = "smai_default"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +46,7 @@ class TrustedDeviceRepository:
     def users(self) -> list[SmaiUser]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT user_id, display_name, mascot_key FROM users "
+                "SELECT user_id, display_name, mascot_key AS icon_id FROM users "
                 "WHERE is_active = 1 ORDER BY created_at"
             ).fetchall()
         return [SmaiUser(*row) for row in rows]
@@ -57,7 +57,7 @@ class TrustedDeviceRepository:
             return None
         with self._connect() as connection:
             row = connection.execute(
-                """SELECT u.user_id, u.display_name, u.mascot_key
+                """SELECT u.user_id, u.display_name, u.mascot_key AS icon_id
                 FROM trusted_devices d JOIN users u ON u.user_id = d.user_id
                 WHERE d.device_id = ? AND d.is_trusted = 1 AND u.is_active = 1""",
                 (normalized,),
@@ -123,11 +123,11 @@ class TrustedDeviceRepository:
                 (safe_name, user_id, device_id),
             )
 
-    def set_mascot(self, user_id: str, mascot_key: str) -> None:
+    def set_icon(self, user_id: str, icon_id: str) -> None:
         with self._connect() as connection:
             connection.execute(
                 "UPDATE users SET mascot_key = ? WHERE user_id = ?",
-                (mascot_key[:32], user_id),
+                (icon_id[:64], user_id),
             )
 
     @contextmanager

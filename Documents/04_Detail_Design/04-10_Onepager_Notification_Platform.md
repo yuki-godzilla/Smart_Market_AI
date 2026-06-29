@@ -242,6 +242,17 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - 端末名変更、現在/他端末の解除、ユーザーごとのマスコット選択を提供する。
 - 端末記憶は認証ではなく表示ユーザー選択の自動化である。password省略や高度操作の認可には現時点で使わない。
 
+### User Icon Asset
+
+- プロフィール画像は絵文字や即席SVGで代用せず、`ui/assets/user_icons/manifest.json`で管理する。
+- ユーザー設定にはfile pathではなく`icon_id`だけを保存する。既存DBの`mascot_key`列は後方互換のicon ID保存列として扱う。
+- manifestの`enabled=true`かつlocal fileが実在するAssetだけを選択肢へ出す。
+- fallback順は、設定icon ID、`smai_default`、既存local placeholder、CSS silhouetteとする。
+- N4の初期built-inは既存の公式SMAI `ui/static/pwa/icon-192.png`だけとし、高品質画像の量産、外部URL、著作権不明画像、即席生成画像を追加しない。
+- 初回ユーザー選択では大きな正方形プロフィールカード、hover時のシアンaccent、崩れないaspect ratio、スマートフォン向けcard幅を使う。
+- 右上は32〜48pxの円形画像とし、desktopは名前/ID、tabletはID省略、smartphoneは通知件数と画像中心にする。
+- custom uploadは将来範囲とし、`ui/assets/user_icons/custom/`だけを予約する。
+
 ## 10. 受け入れ条件
 
 - アプリ内通知が外部送信より先に保存される。

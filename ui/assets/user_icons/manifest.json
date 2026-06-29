@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "icons": [
+    {
+      "icon_id": "smai_default",
+      "display_name": "SMAIデフォルト",
+      "file_path": "ui/static/pwa/icon-192.png",
+      "public_path": "/app/static/pwa/icon-192.png",
+      "category": "default",
+      "is_builtin": true,
+      "enabled": true
+    },
+    {
+      "icon_id": "smai_robot_cyan",
+      "display_name": "SMAIロボット・シアン",
+      "file_path": "ui/assets/user_icons/default/smai_robot_cyan.webp",
+      "category": "future",
+      "is_builtin": true,
+      "enabled": false
+    },
+    {
+      "icon_id": "smai_cat_neon",
+      "display_name": "SMAIネオンキャット",
+      "file_path": "ui/assets/user_icons/default/smai_cat_neon.webp",
+      "category": "future",
+      "is_builtin": true,
+      "enabled": false
+    },
+    {
+      "icon_id": "smai_owl_analyst",
+      "display_name": "SMAIアナリスト・オウル",
+      "file_path": "ui/assets/user_icons/default/smai_owl_analyst.webp",
+      "category": "future",
+      "is_builtin": true,
+      "enabled": false
+    }
+  ]
+}

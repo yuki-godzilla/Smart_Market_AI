@@ -3922,3 +3922,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 全画面共通の右上固定ユーザーpopoverへ未読/重要件数、通知カード、filter、遷移専用CTA、ユーザー切替、8種マスコット、登録端末管理を追加。サイドメニューは変更なし。
 - localStorageのrandom UUIDとSQLiteを関連付け、端末既定/今回だけの切替、端末名変更、解除を実装。IPは不使用で、認証ではない旨をUI表示。
 - 通知関連対象pytest 48件、対象Mypy、全体local checks（pytest 1,942 passed / 8 skipped、Ruff、Black）がpass。通常テストは一時SQLiteとfake clientのみ。browser実画面確認はbrowser実行機能が利用できず未実施。
+
+## 2026-06-29 N4 ユーザーicon Asset方針修正
+
+- 絵文字プロフィールを撤去し、`ui/assets/user_icons/manifest.json`と安全なloader/resolverを追加。enabledかつ実在するlocal Assetだけを表示する。
+- 初期built-inは既存公式SMAI PWA iconのみ。将来候補はdisabledで予約し、画像生成・外部画像・即席SVGは追加していない。
+- ユーザーDBにはicon IDだけを保存し、設定icon→default→既存local placeholder→CSS silhouetteのfallbackを実装。
+- 初回ユーザー選択を大きな正方形プロフィールカードへ変更し、右上は円形画像、desktop名前/ID、tablet ID省略、smartphone画像/通知中心へ変更。
+- icon変更UIはmanifestから候補を読み、現在値を強調してicon IDだけを保存。custom directoryは将来upload向けに予約。
+- 対象pytest 6件、対象Mypy、全体local checks（pytest 1,945 passed / 8 skipped、Ruff、Black）がpass。通常確認はnetwork-free。browser実画面確認はbrowser実行機能が利用できず未実施。

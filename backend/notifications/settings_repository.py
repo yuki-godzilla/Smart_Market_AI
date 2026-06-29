@@ -235,7 +235,7 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         """
         INSERT OR IGNORE INTO users
         (user_id, display_name, mascot_key, is_active, created_at)
-        VALUES ('local_user', 'Yuki', 'smai', 1, ?)
+        VALUES ('local_user', 'Yuki', 'smai_default', 1, ?)
         """,
         (datetime.now(UTC).isoformat(),),
     )

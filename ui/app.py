@@ -9991,6 +9991,11 @@ def _render_my_watchlist_page() -> None:
         "★を付けた銘柄をまとめて確認します。気になる銘柄を継続的に追うための一覧です。",
         "watchlist",
     )
+    if st.session_state.get("smai_current_user_id") == "default":
+        st.caption(
+            "SMAIデフォルトでは、お気に入りはこのセッション内だけ保持されます。"
+            "保存したい場合はカスタムユーザーを作成してください。"
+        )
     favorites = load_favorites()
     prune_snapshots_for_removed_favorites({favorite.symbol for favorite in favorites})
     if not favorites:

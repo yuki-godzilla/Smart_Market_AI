@@ -31,6 +31,8 @@ class CatalogNotificationProducer:
         client: NotificationClient | None = None,
         now: datetime | None = None,
     ) -> AppNotification | None:
+        if user_id == "default":
+            return None
         template = get_notification_template(template_id)
         setting = self.settings.load(user_id)
         if (

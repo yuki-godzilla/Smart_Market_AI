@@ -78,6 +78,8 @@ class NotificationSettingsRepository:
             raise NotificationSettingsError("Notification settings could not be loaded.") from exc
 
     def save(self, setting: NotificationSetting) -> NotificationSetting:
+        if setting.user_id == "default":
+            raise NotificationSettingsError("Notifications are unavailable for the default user.")
         updated_at = datetime.now(UTC)
         try:
             with self._connect() as connection:
@@ -132,6 +134,8 @@ class NotificationSettingsRepository:
         )
 
     def clear_topic(self, user_id: str) -> NotificationSetting:
+        if user_id == "default":
+            raise NotificationSettingsError("Notifications are unavailable for the default user.")
         current = self.load(user_id)
         return self.save(
             NotificationSetting(

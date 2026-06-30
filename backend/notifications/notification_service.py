@@ -21,6 +21,8 @@ class NotificationService:
         *,
         client: NotificationClient | None = None,
     ) -> tuple[AppNotification, NotificationClientResult | None]:
+        if request.user_id == "default":
+            raise NotificationSettingsError("Notifications are unavailable for the default user.")
         metadata = dict(request.metadata)
         asset_references = {
             "template_id": content.template_id,

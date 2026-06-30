@@ -41,6 +41,8 @@ class NotificationHistoryRepository:
         self.database_path = self._settings.database_path
 
     def save(self, item: AppNotification) -> bool:
+        if item.user_id == "default":
+            return False
         self._settings.load(item.user_id)
         try:
             with sqlite3.connect(self.database_path) as connection:
@@ -80,6 +82,8 @@ class NotificationHistoryRepository:
         important_only: bool = False,
         severity: str | None = None,
     ) -> list[AppNotification]:
+        if user_id == "default":
+            return []
         self._settings.load(user_id)
         clauses, params = ["user_id = ?"], [user_id]
         if state:

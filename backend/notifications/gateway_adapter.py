@@ -67,6 +67,13 @@ class NotificationGatewayAdapter:
         self._bindings_loader = bindings_loader or load_notification_gateway_bindings
 
     def send(self, request: NotificationRequest) -> NotificationClientResult:
+        if request.user_id == "default":
+            return NotificationClientResult(
+                event_id=request.event_id,
+                status="skipped",
+                success=False,
+                reason="default_user_notifications_disabled",
+            )
         try:
             bindings = self._bindings_loader()
         except (ImportError, ModuleNotFoundError):

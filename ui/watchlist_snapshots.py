@@ -11,6 +11,12 @@ from typing import Any, Mapping, Sequence
 
 from backend.core.data_contracts import Bar
 from ui.favorites import FavoriteStock, normalize_favorite_symbol
+from ui.user_data import (
+    is_default_session_user,
+    profile_data_path,
+    session_payload,
+    set_session_payload,
+)
 
 LOGGER = logging.getLogger(__name__)
 WATCHLIST_SNAPSHOTS_FILE_PATH = Path("data/user/watchlist_snapshots.json")
@@ -50,7 +56,11 @@ class WatchlistSnapshot:
 def load_watchlist_snapshots(
     path: Path | None = None,
 ) -> dict[str, WatchlistSnapshot]:
-    snapshots_path = path or WATCHLIST_SNAPSHOTS_FILE_PATH
+    if path is None and is_default_session_user():
+        return _snapshots_from_payload({"snapshots": session_payload("watchlist_snapshots", {})})
+    snapshots_path = (
+        path or profile_data_path("watchlist_snapshots.json") or WATCHLIST_SNAPSHOTS_FILE_PATH
+    )
     if not snapshots_path.exists():
         return {}
     try:
@@ -58,6 +68,10 @@ def load_watchlist_snapshots(
     except (OSError, json.JSONDecodeError) as exc:
         LOGGER.warning("Failed to load watchlist snapshots from %s: %s", snapshots_path, exc)
         return {}
+    return _snapshots_from_payload(payload)
+
+
+def _snapshots_from_payload(payload: object) -> dict[str, WatchlistSnapshot]:
     raw_snapshots = payload.get("snapshots", {}) if isinstance(payload, dict) else {}
     if not isinstance(raw_snapshots, dict):
         return {}
@@ -75,9 +89,7 @@ def save_watchlist_snapshots(
     snapshots: Mapping[str, WatchlistSnapshot],
     path: Path | None = None,
 ) -> None:
-    snapshots_path = path or WATCHLIST_SNAPSHOTS_FILE_PATH
     try:
-        snapshots_path.parent.mkdir(parents=True, exist_ok=True)
         normalized = {
             symbol: replace(snapshot, symbol=symbol)
             for raw_symbol, snapshot in snapshots.items()
@@ -90,12 +102,19 @@ def save_watchlist_snapshots(
                 for symbol, snapshot in sorted(normalized.items())
             },
         }
+        if path is None and is_default_session_user():
+            set_session_payload("watchlist_snapshots", payload["snapshots"])
+            return
+        snapshots_path = (
+            path or profile_data_path("watchlist_snapshots.json") or WATCHLIST_SNAPSHOTS_FILE_PATH
+        )
+        snapshots_path.parent.mkdir(parents=True, exist_ok=True)
         snapshots_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
     except OSError as exc:
-        LOGGER.warning("Failed to save watchlist snapshots to %s: %s", snapshots_path, exc)
+        LOGGER.warning("Failed to save watchlist snapshots: %s", exc)
 
 
 def get_watchlist_snapshot(

@@ -11,6 +11,13 @@ from typing import Any, Mapping, Sequence
 
 import streamlit as st
 
+from ui.user_data import (
+    is_default_session_user,
+    profile_data_path,
+    session_payload,
+    set_session_payload,
+)
+
 LOGGER = logging.getLogger(__name__)
 FAVORITES_FILE_PATH = Path("data/user/favorites.json")
 FAVORITE_REFRESH_STATUS_NEVER_CHECKED = "never_checked"
@@ -90,7 +97,9 @@ def normalize_favorite_symbol(symbol: str) -> str:
 
 
 def load_favorites(path: Path | None = None) -> list[FavoriteStock]:
-    favorites_path = path or FAVORITES_FILE_PATH
+    if path is None and is_default_session_user():
+        return _favorites_from_payload({"favorites": session_payload("favorites", [])})
+    favorites_path = path or profile_data_path("favorites.json") or FAVORITES_FILE_PATH
     if not favorites_path.exists():
         return []
     try:
@@ -98,6 +107,10 @@ def load_favorites(path: Path | None = None) -> list[FavoriteStock]:
     except (OSError, json.JSONDecodeError) as exc:
         LOGGER.warning("Failed to load favorites from %s: %s", favorites_path, exc)
         return []
+    return _favorites_from_payload(payload)
+
+
+def _favorites_from_payload(payload: object) -> list[FavoriteStock]:
     raw_favorites = payload.get("favorites", []) if isinstance(payload, dict) else []
     if not isinstance(raw_favorites, list):
         return []
@@ -115,9 +128,12 @@ def load_favorites(path: Path | None = None) -> list[FavoriteStock]:
 
 
 def save_favorites(favorites: list[FavoriteStock], path: Path | None = None) -> None:
-    favorites_path = path or FAVORITES_FILE_PATH
-    favorites_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"favorites": [_favorite_to_json_item(favorite) for favorite in favorites]}
+    if path is None and is_default_session_user():
+        set_session_payload("favorites", payload["favorites"])
+        return
+    favorites_path = path or profile_data_path("favorites.json") or FAVORITES_FILE_PATH
+    favorites_path.parent.mkdir(parents=True, exist_ok=True)
     favorites_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

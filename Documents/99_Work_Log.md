@@ -3974,3 +3974,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 開始用query parameterからユーザーを確定した直後の明示的な`st.rerun()`を撤去し、同じ実行内でアプリ画面の描画を続けるよう変更。query parameter整理と重複していた全画面再実行を1回削減した。
 - `このユーザーで開始`を押した瞬間にブラウザ側で全画面ローディングモーダルを表示し、必要な画面遷移中に操作可能と誤認しないようにした。次画面の読み込み完了時に自然に消える一時表示で、通常のアプリ操作は覆わない。
 - `tests/test_ui_notification_center.py` 4件と対象Ruffがpass。通常確認はnetwork-free。起動済みStreamlitのcache更新ファイルは既存変更として触れていない。
+
+## 2026-06-30 Phase U1 Local User Profiles
+
+- ランダムな内部IDを持つローカルユーザー作成と、表示名・manifest icon選択UIを追加。
+- favorites、Decision Trail、refresh metadata、watchlist snapshotを現在ユーザー別の
+  `data/user/profiles/<user_id>/`へ分離し、defaultはStreamlit session-onlyにした。
+- default通知をUI、設定、履歴、Producer、service、gateway、scheduler対象選択で無効化。
+- 旧共有favorites/snapshotを既存通常ユーザーへ上書きなしでcopyする一度限りmigrationを追加。
+- 対象テストと文書を追加。ローカルvenvは基底Python参照切れのため、検証結果はhandoffへ明記する。

@@ -77,6 +77,8 @@ def save_notification_setting(
     user_id: str,
     update: NotificationSettingUpdate,
 ) -> NotificationSetting:
+    if user_id == "default":
+        raise NotificationSettingValidationError("SMAIデフォルトでは通知を利用できません。")
     current = repository.load(user_id)
     server_url = normalize_ntfy_server_url(update.ntfy_server_url)
     threshold = validate_severity_threshold(update.severity_threshold)
@@ -127,6 +129,8 @@ def send_saved_test_notification(
     ),
     history_repository: NotificationHistoryRepository | None = None,
 ) -> NotificationClientResult:
+    if setting.user_id == "default":
+        raise NotificationSettingValidationError("SMAIデフォルトでは通知を利用できません。")
     gateway_setting = GatewayNotificationSettings(
         ntfy_enabled=setting.ntfy_enabled,
         ntfy_server_url=setting.ntfy_server_url,

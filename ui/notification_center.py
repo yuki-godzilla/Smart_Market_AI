@@ -19,7 +19,9 @@ from backend.notifications.trusted_devices import (
     SmaiUser,
     TrustedDeviceRepository,
 )
+from backend.users import UserRepository
 from ui.notification_ui import render_notification_preferences
+from ui.user_data import migrate_legacy_user_data
 from ui.user_icon_assets import (
     load_user_icon_assets,
     resolve_user_icon,
@@ -50,6 +52,7 @@ def trusted_device_bootstrap_html(
     display_name: str = "",
     user_id: str = "",
     unread: int = 0,
+    notifications_enabled: bool = True,
 ) -> str:
     icon_json = json.dumps(icon_public_path or "")
     display_json = json.dumps(display_name, ensure_ascii=True)
@@ -61,6 +64,7 @@ def trusted_device_bootstrap_html(
   const displayName = {display_json};
   const userId = {user_json};
   const unread = {max(0, unread)};
+  const notificationsEnabled = {str(notifications_enabled).lower()};
   const decorateUserArea = Boolean(iconUrl || displayName || userId);
   const positionUserMenu = () => {{
     const bodies = window.parent.document.querySelectorAll('[data-testid="stPopoverBody"]');
@@ -107,7 +111,8 @@ def trusted_device_bootstrap_html(
         const id = window.parent.document.createElement("span");
         id.className = "smai-user-id";
         id.textContent = userId ? ` / ${{userId}}` : "";
-        button.append(bell, avatar, name, id);
+        if (notificationsEnabled) button.append(bell);
+        button.append(avatar, name, id);
         button.style.setProperty("position", "fixed", "important");
         button.style.setProperty("top", "4.75rem", "important");
         button.style.setProperty("right", "1.25rem", "important");
@@ -256,6 +261,9 @@ def render_user_notification_area() -> bool:
         st.warning("ユーザー情報を読み込めませんでした。")
         return False
     users = devices.users()
+    migrate_legacy_user_data(
+        [candidate.user_id for candidate in users if not candidate.is_system_user]
+    )
     start_user_id = _query_value(START_PROFILE_QUERY_KEY)
     start_user = next((item for item in users if item.user_id == start_user_id), None)
     if start_user is not None:
@@ -269,14 +277,21 @@ def render_user_notification_area() -> bool:
         user = _select_user(users)
     if user is None:
         return False
-    repository = NotificationHistoryRepository()
-    try:
-        unread = repository.unread_count(user.user_id)
-        important = len(repository.list(user.user_id, state="unread", important_only=True))
-    except NotificationSettingsError:
-        unread, important = 0, 0
+    unread, important = 0, 0
+    if not user.is_system_user:
+        repository = NotificationHistoryRepository()
+        try:
+            unread = repository.unread_count(user.user_id)
+            important = len(repository.list(user.user_id, state="unread", important_only=True))
+        except NotificationSettingsError:
+            pass
     icon = resolve_user_icon(user.icon_id)
-    with st.popover(f"SMAI_USER_AREA 🔔 {unread} {user.display_name} / {user.user_id}"):
+    trigger = (
+        f"SMAI_USER_AREA 🔔 {unread} {user.display_name} / {user.user_id}"
+        if not user.is_system_user
+        else f"SMAI_USER_AREA {user.display_name} / {user.user_id}"
+    )
+    with st.popover(trigger):
         _render_user_menu(user, unread, important)
     components.html(
         trusted_device_bootstrap_html(
@@ -284,6 +299,7 @@ def render_user_notification_area() -> bool:
             display_name=user.display_name,
             user_id=user.user_id,
             unread=unread,
+            notifications_enabled=not user.is_system_user,
         ),
         height=0,
         width=0,
@@ -426,7 +442,7 @@ def _select_user(
             unsafe_allow_html=True,
         )
     if _query_value(ADD_PROFILE_QUERY_KEY) == "1":
-        st.info("ユーザー追加は次フェーズで対応予定です。")
+        _render_add_user_form()
 
     selected = next((item for item in users if item.user_id == selected_user_id), None)
     start_href = (
@@ -443,6 +459,46 @@ def _select_user(
     )
     session_user = st.session_state.get("smai_current_user_id")
     return next((user for user in users if user.user_id == session_user), None)
+
+
+def _render_add_user_form() -> None:
+    st.subheader("ユーザーを追加")
+    st.caption("この端末内で使うローカルプロフィールを作成します。ログイン認証ではありません。")
+    icons = load_user_icon_assets()
+    icon_ids = [asset.icon_id for asset in icons] or ["smai_navi_default"]
+    icon_labels = {asset.icon_id: asset.display_name for asset in icons}
+    with st.form("smai_add_user_form", clear_on_submit=False):
+        display_name = st.text_input(
+            "表示名",
+            max_chars=32,
+            placeholder="例: Haru",
+        )
+        icon_id = st.selectbox(
+            "アイコン",
+            icon_ids,
+            format_func=lambda value: icon_labels.get(value, "SMAIデフォルト"),
+        )
+        create_col, cancel_col = st.columns(2)
+        create = create_col.form_submit_button(
+            "作成して開始",
+            type="primary",
+            use_container_width=True,
+        )
+        cancel = cancel_col.form_submit_button("キャンセル", use_container_width=True)
+    if cancel:
+        _clear_query_value(ADD_PROFILE_QUERY_KEY)
+        st.rerun()
+    if not create:
+        return
+    try:
+        user = UserRepository().create_user(display_name, icon_id)
+    except (ValueError, RuntimeError, NotificationSettingsError) as exc:
+        st.error(str(exc))
+        return
+    st.session_state["smai_current_user_id"] = user.user_id
+    st.session_state.pop("smai_profile_candidate", None)
+    _clear_query_value(ADD_PROFILE_QUERY_KEY)
+    st.rerun()
 
 
 def _render_notification_center(repository: NotificationHistoryRepository, user: SmaiUser) -> None:

@@ -128,6 +128,8 @@ class TrustedDeviceRepository:
             )
 
     def set_icon(self, user_id: str, icon_id: str) -> None:
+        if user_id == "default":
+            raise ValueError("The default user cannot be edited.")
         with self._connect() as connection:
             connection.execute(
                 "UPDATE users SET icon_asset_id = ? WHERE user_id = ?",
@@ -135,6 +137,8 @@ class TrustedDeviceRepository:
             )
 
     def set_display_name(self, user_id: str, display_name: str) -> None:
+        if user_id == "default":
+            raise ValueError("The default user cannot be edited.")
         safe_name = display_name.strip()[:80]
         if not safe_name:
             raise ValueError("Display name is required.")

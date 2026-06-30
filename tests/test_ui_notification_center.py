@@ -75,6 +75,10 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert '[data-testid="stSidebar"]' in source
     assert "smai-profile-gate-title" in source
     assert "ユーザー追加" in source
+    assert 'data-selected="{selected_value}"' in source
+    assert 'aria-current="{selected_value}"' in source
+    assert '.smai-profile-card[data-selected="true"]' in source
+    assert 'card.dataset.selected = isSelected ? "true" : "false"' in source
     assert "SMAIデフォルト" in Path("backend/notifications/settings_repository.py").read_text(
         encoding="utf-8"
     )

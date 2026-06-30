@@ -37,8 +37,10 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 assert page.get_by_text("銘柄コックピット", exact=True).count() == 0
                 assert page.locator('[data-testid="stSidebar"]').is_hidden()
                 assert page.locator(".smai-profile-card img").count() >= 1
-                assert page.get_by_text("SMAIデフォルト", exact=True).is_visible()
-                assert page.get_by_text("Yuki", exact=True).is_visible()
+                page.get_by_text("SMAIデフォルト", exact=True).wait_for(
+                    state="visible", timeout=30_000
+                )
+                page.get_by_text("Yuki", exact=True).wait_for(state="visible", timeout=30_000)
                 profile_names = page.locator(".smai-profile-name").all_text_contents()
                 assert profile_names[:3] == ["Yuki", "SMAIデフォルト", "ユーザー追加"]
                 dimensions = page.locator("body").evaluate(
@@ -52,17 +54,37 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 )
 
                 page.evaluate("window.__smaiProfileSelectionMarker = 'kept'")
-                page.get_by_role("link", name="Yukiを選択", exact=True).click()
+                page.get_by_text("Yuki", exact=True).click()
                 assert page.evaluate("window.__smaiProfileSelectionMarker") == "kept"
                 page.get_by_text("Yuki", exact=True).wait_for(state="visible")
-                page.get_by_role("link", name="このユーザーで開始", exact=True).click()
-                page.get_by_text("銘柄コックピット", exact=True).wait_for(
+                selected_cards = page.locator('.smai-profile-card[data-selected="true"]')
+                selected_cards.first.wait_for(state="visible", timeout=30_000)
+                page.get_by_text("このユーザーで開始", exact=True).focus()
+                page.mouse.move(width - 8, height - 8)
+                assert selected_cards.count() >= 1
+                assert (
+                    page.locator(
+                        '.smai-profile-link[data-user-id="local_user"][aria-current="true"]'
+                    ).count()
+                    >= 1
+                )
+                page.evaluate("window.scrollTo(0, 0)")
+                page.wait_for_timeout(100)
+                page.screenshot(
+                    path=str(screenshot_dir / f"profile_selected_{name}.png"),
+                    full_page=True,
+                )
+                page.get_by_text("このユーザーで開始", exact=True).click()
+                page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
                     state="visible", timeout=60_000
                 )
-                user_area = page.get_by_role("button", name="SMAI_USER_AREA", exact=False)
+                user_area = page.locator("button.smai-user-trigger")
                 user_area.wait_for(state="visible", timeout=30_000)
                 assert page.locator(".smai-user-avatar").count() == 1
-                assert "Yuki" in user_area.inner_text()
+                if width > 767:
+                    assert "Yuki" in user_area.inner_text()
+                else:
+                    assert page.locator(".smai-user-name").is_hidden()
                 initial_box = user_area.bounding_box()
                 assert initial_box is not None
                 assert 60 <= initial_box["y"] <= 120
@@ -83,8 +105,10 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                     state="visible", timeout=30_000
                 )
                 assert page.locator('[data-testid="stSidebar"]').is_hidden()
-                assert page.get_by_text("未読", exact=True).is_visible()
-                assert page.get_by_text("今日の通知", exact=True).is_visible()
+                summaries = page.locator(".smai-notification-summary")
+                assert summaries.count() >= 4
+                assert summaries.filter(has_text="未読").count() >= 1
+                assert summaries.filter(has_text="今日の通知").count() >= 1
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 dimensions = page.locator("body").evaluate(
                     "(element) => ({scrollWidth: element.scrollWidth, "

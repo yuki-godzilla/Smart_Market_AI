@@ -181,8 +181,16 @@ def trusted_device_bootstrap_html(
         url.searchParams.set("{PROFILE_QUERY_KEY}", selectedId);
         url.searchParams.delete("{ADD_PROFILE_QUERY_KEY}");
         window.parent.history.replaceState({{}}, "", url.toString());
-        for (const card of window.parent.document.querySelectorAll(".smai-profile-card")) {{
-          card.classList.toggle("selected", card.closest("a") === link);
+        for (const candidateLink of profileLinks) {{
+          const isSelected = candidateLink.dataset.userId === selectedId;
+          candidateLink.setAttribute("aria-current", isSelected ? "true" : "false");
+        }}
+        for (const card of window.parent.document.querySelectorAll(
+          ".smai-profile-card[data-user-id]"
+        )) {{
+          const isSelected = card.dataset.userId === selectedId;
+          card.classList.toggle("selected", isSelected);
+          card.dataset.selected = isSelected ? "true" : "false";
         }}
         const start = window.parent.document.getElementById("smai-profile-start");
         if (start) {{
@@ -244,7 +252,8 @@ def trusted_device_bootstrap_html(
   let attempts = 0;
   const timer = window.setInterval(() => {{
     attempts += 1;
-    if (decorate() || attempts >= 40) window.clearInterval(timer);
+    decorate();
+    if (attempts >= 40) window.clearInterval(timer);
   }}, 125);
   decorate();
 }})();
@@ -349,11 +358,21 @@ def _select_user(
           box-shadow: 0 15px 35px rgba(0,0,0,.24);
           transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
         }
-        .smai-profile-card:hover, .smai-profile-card.selected,
+        .smai-profile-card:hover,
         div[data-testid="stColumn"]:has(button:hover) .smai-profile-card,
         div[data-testid="stColumn"]:has(button:hover) .smai-add-profile {
           transform: translateY(-4px); border-color: #22d3ee;
           box-shadow: 0 0 28px rgba(34,211,238,.28);
+        }
+        .smai-profile-card.selected,
+        .smai-profile-card[data-selected="true"],
+        .smai-profile-link[aria-current="true"] .smai-profile-card {
+          transform: translateY(-4px);
+          border-color: #22d3ee !important;
+          outline: 1px solid rgba(34,211,238,.9);
+          outline-offset: 3px;
+          box-shadow: 0 0 0 1px rgba(34,211,238,.36),
+            0 0 30px rgba(34,211,238,.38), 0 16px 38px rgba(0,0,0,.34) !important;
         }
         .smai-profile-card img {
           width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; display: block;
@@ -411,6 +430,7 @@ def _select_user(
     for index, candidate in enumerate(users):
         icon = resolve_user_icon(candidate.icon_id)
         selected_class = " selected" if candidate.user_id == selected_user_id else ""
+        selected_value = "true" if candidate.user_id == selected_user_id else "false"
         source = user_icon_browser_source(icon)
         with columns[index % column_count]:
             if source:
@@ -418,8 +438,11 @@ def _select_user(
                     f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
                     f'{html.escape(candidate.user_id)}" target="_self" '
                     f'data-user-id="{html.escape(candidate.user_id)}" '
+                    f'aria-current="{selected_value}" '
                     f'aria-label="{html.escape(candidate.display_name)}を選択">'
-                    f'<div class="smai-profile-card{selected_class}">'
+                    f'<div class="smai-profile-card{selected_class}" '
+                    f'data-user-id="{html.escape(candidate.user_id)}" '
+                    f'data-selected="{selected_value}">'
                     f'<img src="{html.escape(source)}" alt="">'
                     f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
                     "</div></a>",
@@ -427,7 +450,9 @@ def _select_user(
                 )
             else:
                 st.markdown(
-                    f'<div class="smai-profile-card{selected_class}">'
+                    f'<div class="smai-profile-card{selected_class}" '
+                    f'data-user-id="{html.escape(candidate.user_id)}" '
+                    f'data-selected="{selected_value}">'
                     '<div class="smai-add-profile" aria-label="ユーザーアイコン"></div>'
                     f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
                     "</div>",

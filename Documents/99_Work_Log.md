@@ -3994,3 +3994,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   Smartphone 375x812のユーザー作成、即時開始、cancel、default通知UI非表示、
   横overflowなし、Streamlit例外なしを確認。
 - N6は未着手。開始条件をactive-user Favorite Store確定とsystem default完全除外に固定。
+
+## 2026-07-01 プロフィール選択枠の固定表示
+
+- ユーザー選択カードへ`data-user-id`、`data-selected`、`aria-current`を追加し、
+  hover/focusではなく選択ユーザーIDを基準にシアン枠とglowを固定表示。
+- Streamlitがプロフィールlink/cardを分離して描画するDOMでも、card自身のuser IDから
+  選択状態を同期するようclient decoratorを修正。遅れて描画されるlinkにも再bindする。
+- iPhone 375x812、iPad 810x1080、PC 1366x768で、開始buttonへfocusを移し、
+  pointerをcard外へ移動しても選択枠が残ることをPlaywright smokeと画像で確認。

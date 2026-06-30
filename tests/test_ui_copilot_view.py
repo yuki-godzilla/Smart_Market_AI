@@ -75,6 +75,7 @@ def _click_button_label(app: AppTest, label: str) -> None:
 
 
 def _reset_copilot_session(app: AppTest) -> None:
+    app.session_state["smai_current_user_id"] = "local_user"
     app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
     app.session_state["smai_copilot_pending_request"] = None
     app.session_state["smai_copilot_pending_stream_turn_id"] = ""
@@ -153,7 +154,10 @@ def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready(
     assert 'data-testid="assistant-loading-modal"' in markup
     assert 'data-testid="assistant-loading-animation"' in markup
     assert 'section[data-testid="stSidebar"]' in markup
-    assert ".smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;" in markup
+    assert (
+        ".smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;"
+        in markup
+    )
     assert "max-height:calc(100dvh - 48px)" in markup
     assert 'alt="投資レーダー"' in markup
     assert "SMAIナビが市場の気配を確認中です" in markup

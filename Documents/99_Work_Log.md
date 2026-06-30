@@ -3983,3 +3983,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - default通知をUI、設定、履歴、Producer、service、gateway、scheduler対象選択で無効化。
 - 旧共有favorites/snapshotを既存通常ユーザーへ上書きなしでcopyする一度限りmigrationを追加。
 - 対象テストと文書を追加。ローカルvenvは基底Python参照切れのため、検証結果はhandoffへ明記する。
+
+## 2026-06-30 Phase U1-Verify
+
+- 公式Python 3.11.9をworkspace-local `.python311/`へ隔離導入し、壊れた旧venvを
+  `venv_SMAI_broken_20260630/`へ退避して`venv_SMAI`とruntime/dev依存を再構築。
+- default NotificationService/test send拒否と、current-user限定snapshot prune testを追加。
+- U1/favorite/snapshot/notification対象71件、Ruff、対象Mypy、Black 352 filesを確認。
+- 隔離user config + port 8503でPlaywright smokeを実行し、Desktop 1366x768と
+  Smartphone 375x812のユーザー作成、即時開始、cancel、default通知UI非表示、
+  横overflowなし、Streamlit例外なしを確認。
+- N6は未着手。開始条件をactive-user Favorite Store確定とsystem default完全除外に固定。

@@ -4,6 +4,7 @@
 
 # Python
 venv_*/
+.python311/
 __pycache__/
 *.pyc
 *.pyo
@@ -38,10 +39,15 @@ data/marketdata/manual_metadata_patches/metadata_gap_report*.json
 data/marketdata/symbol_universe_manual_patch_report.json
 
 # Local work/test outputs
+.tmp/
+tmp-python-*.exe
+python-install*.log
 data/user/favorites.json
 data/user/watchlist_snapshots.json
 data/user/notifications.sqlite
 data/user/notifications.sqlite-*
+data/user/profiles/
+data/user/migrations/
 outputs/work/pytest_tmp/
 outputs/work/pytest_*/
 outputs/work/*_smoke/

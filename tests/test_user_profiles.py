@@ -15,11 +15,21 @@ from backend.notifications.history_repository import (
     NotificationHistoryRepository,
 )
 from backend.notifications.notification_client import NotificationRequest
+from backend.notifications.notification_service import (
+    NotificationService,
+)
+from backend.notifications.notification_service import (
+    test_notification_content as notification_test_content,
+)
 from backend.notifications.producer import CatalogNotificationProducer
 from backend.notifications.settings_repository import (
     NotificationSetting,
     NotificationSettingsError,
     NotificationSettingsRepository,
+)
+from backend.notifications.settings_service import (
+    NotificationSettingValidationError,
+    send_saved_test_notification,
 )
 from backend.users import UserRepository
 from ui import favorites, user_data, watchlist_snapshots
@@ -70,7 +80,9 @@ def test_favorites_and_snapshots_are_scoped_by_active_user(tmp_path, monkeypatch
 
     state["smai_current_user_id"] = "user_a"
     assert [item.symbol for item in favorites.load_favorites()] == ["7203.T"]
-    assert watchlist_snapshots.get_watchlist_snapshot("7203.T").price == 100.0
+    snapshot = watchlist_snapshots.get_watchlist_snapshot("7203.T")
+    assert snapshot is not None
+    assert snapshot.price == 100.0
 
 
 def test_default_favorites_are_session_only(tmp_path, monkeypatch) -> None:
@@ -152,6 +164,24 @@ def test_default_notification_producer_and_gateway_are_disabled(tmp_path) -> Non
     assert result.reason == "default_user_notifications_disabled"
 
 
+def test_default_notification_service_and_test_send_are_rejected(tmp_path) -> None:
+    request = NotificationRequest(
+        user_id="default",
+        event_type="test",
+        category="SYSTEM",
+        severity="medium",
+        title="test",
+        message="test",
+    )
+    service = NotificationService(
+        NotificationHistoryRepository(str(tmp_path / "notifications.sqlite"))
+    )
+    with pytest.raises(NotificationSettingsError):
+        service.create(request, notification_test_content())
+    with pytest.raises(NotificationSettingValidationError):
+        send_saved_test_notification(NotificationSetting(user_id="default"))
+
+
 def test_default_user_area_does_not_append_bell() -> None:
     html = trusted_device_bootstrap_html(
         display_name="SMAIデフォルト",
@@ -160,3 +190,22 @@ def test_default_user_area_does_not_append_bell() -> None:
     )
     assert "const notificationsEnabled = false" in html
     assert "if (notificationsEnabled) button.append(bell)" in html
+
+
+def test_snapshot_prune_only_changes_current_user(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(user_data, "PROFILE_ROOT", tmp_path / "profiles")
+    state: dict[str, object] = {"smai_current_user_id": "user_a"}
+    monkeypatch.setattr(user_data.st, "session_state", state)
+    watchlist_snapshots.save_watchlist_snapshots(
+        {
+            "7203.T": WatchlistSnapshot(symbol="7203.T"),
+            "AAPL": WatchlistSnapshot(symbol="AAPL"),
+        }
+    )
+    state["smai_current_user_id"] = "user_b"
+    watchlist_snapshots.save_watchlist_snapshots({"NVDA": WatchlistSnapshot(symbol="NVDA")})
+
+    state["smai_current_user_id"] = "user_a"
+    assert watchlist_snapshots.prune_snapshots_for_removed_favorites({"7203.T"}) == 1
+    state["smai_current_user_id"] = "user_b"
+    assert set(watchlist_snapshots.load_watchlist_snapshots()) == {"NVDA"}

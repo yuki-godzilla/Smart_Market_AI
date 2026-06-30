@@ -51,7 +51,7 @@ def migrate_legacy_user_data(user_ids: list[str]) -> None:
     marker = MIGRATION_ROOT / "user_profile_favorites_v1.done"
     if marker.exists():
         return
-    target_user = "local_user" if "local_user" in user_ids else next(iter(user_ids), None)
+    target_user = "local_user" if "local_user" in user_ids else (user_ids[0] if user_ids else None)
     if not target_user:
         return
     pairs = (

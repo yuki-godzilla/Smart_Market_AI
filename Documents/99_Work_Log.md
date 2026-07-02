@@ -4086,3 +4086,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   `銘柄コックピット`を初期表示する。明示URLのプロフィール/ページ指定は維持。
 - safeな銘柄、Ranking条件、provider復元と、外部取得・ランキング自動実行を行わない境界は維持。
 - Last Session単体回帰とRanking 4 viewport Playwright smokeで確認。
+
+## 2026-07-03 Ranking History UI改善
+
+- 履歴一覧を2列/1列レスポンシブカードへ刷新し、通常履歴の交互配色、ピン留めアクセント、
+  metadata/条件チップ、上位3銘柄タグを追加。
+- 履歴詳細に保存時条件/基準サマリー、注目候補上位5件、選択指標の上位10件棒グラフ、
+  上昇気配×下振れ警戒マップ、表示順に連動する深掘り導線を追加。
+- 保存時基準を初期値とする表示専用sortを追加。欠損指標は候補から除外し、snapshot/index、
+  ranking算出、Research/LLM、現在値取得は変更しない。
+- UI helper/style回帰、全pytest、Ruff、Mypy、Black helper、Ranking 4 viewport smokeを確認。

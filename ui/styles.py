@@ -7387,6 +7387,162 @@ div[data-testid="stDialog"] div[role="dialog"] {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
+
+.smai-ranking-history-card {
+    min-height: 18rem;
+    margin: 0 0 0.55rem;
+    padding: 1rem;
+    border: 1px solid rgba(96, 165, 250, 0.26);
+    border-left: 4px solid #22d3ee;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(12, 28, 48, 0.98), rgba(8, 20, 36, 0.98));
+    box-shadow: 0 12px 28px rgba(1, 8, 20, 0.2);
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-history-card--alt {
+    background: linear-gradient(145deg, rgba(14, 35, 61, 0.98), rgba(9, 25, 45, 0.98));
+    border-left-color: #60a5fa;
+}
+
+.smai-ranking-history-card--pinned {
+    border-color: rgba(250, 204, 21, 0.42);
+    border-left-color: #facc15;
+    background: linear-gradient(145deg, rgba(32, 35, 52, 0.98), rgba(10, 25, 43, 0.98));
+}
+
+.smai-ranking-history-card-header,
+.smai-ranking-history-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.smai-ranking-history-card-header time,
+.smai-ranking-history-card-label {
+    color: #aab8c8;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.smai-ranking-history-card-title strong {
+    color: #f8fbff;
+    font-size: 1.08rem;
+}
+
+.smai-ranking-history-badge,
+.smai-ranking-history-chip,
+.smai-ranking-history-symbol-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid rgba(96, 165, 250, 0.34);
+    border-radius: 999px;
+    color: #d8f3ff;
+    background: rgba(30, 64, 108, 0.5);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.smai-ranking-history-badge--pinned {
+    border-color: rgba(250, 204, 21, 0.42);
+    color: #fef3c7;
+    background: rgba(113, 63, 18, 0.34);
+}
+
+.smai-ranking-history-chip--condition {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(8, 78, 99, 0.28);
+}
+
+.smai-ranking-history-chip-row,
+.smai-ranking-history-symbol-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.45rem 0 0.8rem;
+}
+
+.smai-ranking-history-symbol-tag {
+    color: #eaf1fb;
+    background: rgba(17, 31, 53, 0.92);
+}
+
+.smai-ranking-history-detail-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin: 1rem 0;
+}
+
+.smai-ranking-history-summary-card,
+.smai-ranking-history-metric-card {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid rgba(70, 91, 120, 0.8);
+    border-radius: 14px;
+    background: rgba(11, 26, 45, 0.94);
+}
+
+.smai-ranking-history-summary-card strong,
+.smai-ranking-history-metric-card > strong {
+    display: block;
+    margin: 0.3rem 0;
+    color: #f8fbff;
+}
+
+.smai-ranking-history-summary-card p,
+.smai-ranking-history-metric-card p,
+.smai-ranking-history-metric-card small {
+    color: #b4c2d3;
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-history-metric-card {
+    min-height: 13.5rem;
+}
+
+.smai-ranking-history-rank {
+    display: block;
+    color: #67e8f9;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.smai-ranking-history-metrics {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0.7rem 0;
+    color: #c8d4e3;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 1024px) {
+    .smai-ranking-history-detail-summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767px) {
+    .smai-ranking-history-card {
+        min-height: 0;
+        padding: 0.85rem;
+    }
+
+    .smai-ranking-history-card-header,
+    .smai-ranking-history-card-title {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .smai-ranking-history-metric-card {
+        min-height: 0;
+    }
+}
 </style>
 """
 

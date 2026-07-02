@@ -71,6 +71,28 @@ def test_ranking_responsive_viewports() -> None:
                 if sidebar_close.count() and sidebar_close.is_visible():
                     sidebar_close.click()
                 page.wait_for_timeout(3_000)
+                page.get_by_role("button", name="📚 ランキング履歴", exact=True).click()
+                page.wait_for_timeout(1_500)
+                assert page.get_by_text("ランキング履歴", exact=True).count() > 0
+                assert (
+                    page.locator(".smai-ranking-history-card").count() > 0
+                    or page.get_by_text(
+                        "保存済みのランキング履歴はありません。",
+                        exact=False,
+                    ).count()
+                    > 0
+                )
+                detail_buttons = page.get_by_role("button", name="詳細を見る", exact=True)
+                if detail_buttons.count():
+                    detail_buttons.first.click()
+                    page.wait_for_timeout(1_500)
+                    assert page.get_by_text("ランキング履歴詳細", exact=True).count() > 0
+                    assert page.locator('[data-testid="stException"], .stException').count() == 0
+                    page.get_by_role("button", name="ランキング画面へ戻る", exact=True).click()
+                    page.wait_for_timeout(1_500)
+                else:
+                    page.get_by_role("button", name="← ランキングへ戻る", exact=True).click()
+                    page.wait_for_timeout(1_500)
                 page.get_by_role("button", name="国・市場を選ぶ", exact=True).click()
                 _assert_modal_centered(page, width, height)
 

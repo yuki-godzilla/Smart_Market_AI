@@ -259,3 +259,10 @@ def test_global_css_defines_ranking_deep_dive_cta_layout():
         ".smai-workflow-loading--blocking {\n    position: fixed;\n    z-index: 2000;\n    inset: 0;"
         in SMAI_GLOBAL_CSS
     )
+
+
+def test_global_css_defines_ranking_history_cards_and_detail_layout():
+    assert ".smai-ranking-history-card--alt" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-history-card--pinned" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-history-detail-summary" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-history-metric-card" in SMAI_GLOBAL_CSS

@@ -972,3 +972,22 @@ Assistant loading UI / auto transition の実Streamlit smoke:
 - `ResearchBrief` の定量評価では、取得できた PER / PBR / ROE / 売上高 / 営業利益 / 純利益 / EPS / 配当 / 時価総額などを source type と confidence 付きの小カードで表示する。取得できない主要指標は missing metrics として警告パネルに明示する。
 - `ResearchBrief` の確認不足は、`未確認の定量指標` のような内部表現をそのまま見せず、`まだ確認できていない数値` として表示する。これは悪材料ではなく、公式資料で追加確認する項目であることを併記する。
 - `ResearchBrief` の confidence は情報源の信頼度であり、投資判断の正しさではない。公式IR / TDnet / EDINET / 企業IRは high、Yahoo Finance / provider profile / news は medium、キーワード抽出のみは low として説明する。Research Score は調査メモの後ろに表示し、ランキング順位は既定では変更しない。
+## スマホ / PWA の前回状態復元
+
+Streamlit の WebSocket session が iOS / Safari / PWA 側で破棄されても、SMAI は
+`data/user_state/last_session.json` から軽量な前回状態を復元します。
+
+- 復元順序は URL query parameter、Last Session Snapshot、通常のユーザー選択です。
+- 保存対象は最後のユーザー、主要画面、Cockpit 銘柄、Ranking の主要条件、
+  Cockpit / Ranking のデータ取得元です。
+- DataFrame、画像、ニュース本文、Research本文、LLM応答は保存しません。
+- 値が変わった場合だけ atomic write し、破損JSON、存在しないユーザー、
+  読み書き失敗時は通常起動へフォールバックします。
+- 復元だけでは価格取得、ランキング作成、AI調査更新、ニュース取得を実行しません。
+- `.streamlit/config.toml` の `disconnectedSessionTTL=300` は5分以内の再接続を助ける設定で、
+  OSがWebViewやWebSocket sessionを破棄した場合の保証ではありません。永続復元が根本対策です。
+
+手動確認では、ユーザー、Cockpit、銘柄を選択してPWAを閉じ、5分以内と5分超の両方で
+再表示します。LAN URLとTailscale URLを別々に確認し、必要に応じて
+`last_session.json` を一時的に破損させてもユーザー選択画面または通常画面が起動することを
+確認します。

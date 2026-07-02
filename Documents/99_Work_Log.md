@@ -4046,3 +4046,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - RY、D、UL、TROW、BMY、REYNの実universe検索、完全一致順位、
   フィルター外救済、候補統合、ランキングhandoffを自動テストへ追加。
 - 対象pytest 365件、全pytest（1997 passed / 10 skipped）、Ruff、Blackを確認。
+## 2026-07-02 スマホ / PWA Last Session Snapshot
+
+- `ui/last_session.py` に16KB上限、許可リスト検証、atomic write、変更時のみ保存する
+  Last Session Snapshotを追加。
+- 新規Streamlit sessionでURL明示値を優先し、最後の有効ユーザー、主要画面、Cockpit銘柄、
+  Ranking主要条件、MarketData取得元を復元。破損JSON、存在しないユーザー、I/O失敗は通常起動へ
+  フォールバック。
+- 復元時は価格取得、ランキング作成、Research / News外部取得を実行せず、成功時だけ小さなtoastを表示。
+- `disconnectedSessionTTL=300` は維持し、短時間再接続の補助と位置づけた。根本対策は永続スナップショット。
+- network-free単体・UI回帰テスト、Ruff、Mypy、project Black helperを実行。実機iPhone/iPad/PWA、
+  5分超、Tailscale確認は手動確認として継続。

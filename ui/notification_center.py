@@ -4,6 +4,7 @@ import html
 import json
 import os
 from datetime import UTC, datetime
+from typing import Any, MutableMapping, cast
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -20,6 +21,7 @@ from backend.notifications.trusted_devices import (
     TrustedDeviceRepository,
 )
 from backend.users import UserRepository
+from ui.last_session import restore_last_session
 from ui.notification_ui import render_notification_preferences
 from ui.user_data import migrate_legacy_user_data
 from ui.user_icon_assets import (
@@ -273,6 +275,11 @@ def render_user_notification_area() -> bool:
     users = devices.users()
     migrate_legacy_user_data(
         [candidate.user_id for candidate in users if not candidate.is_system_user]
+    )
+    restore_last_session(
+        cast(MutableMapping[str, Any], st.session_state),
+        valid_user_ids={candidate.user_id for candidate in users},
+        query_params=getattr(st, "query_params", None),
     )
     start_user_id = _query_value(START_PROFILE_QUERY_KEY)
     start_user = next((item for item in users if item.user_id == start_user_id), None)

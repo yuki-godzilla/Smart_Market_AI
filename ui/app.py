@@ -219,6 +219,7 @@ from ui.favorites import (
     update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
+from ui.last_session import RESTORE_NOTICE_KEY, save_last_session_if_changed
 from ui.notification_center import render_user_notification_area
 from ui.pwa import inject_pwa_head_metadata
 from ui.ranking import (
@@ -1730,8 +1731,21 @@ def main() -> None:
     _start_symbol_background_refresh_worker_once()
     _start_news_background_refresh_worker_once()
     _apply_navigation_query_params()
+    restored_symbol = str(st.session_state.get("market_data_ranking_handoff_symbol", ""))
+    current_candidate = str(st.session_state.get("market_data_symbol_candidate", ""))
+    if restored_symbol and current_candidate == restored_symbol:
+        st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(restored_symbol)
 
     selected_page = render_sidemenu(runtime_settings_summary())
+    restore_notice = st.session_state.pop(RESTORE_NOTICE_KEY, None)
+    if isinstance(restore_notice, dict):
+        restored_parts = [
+            SIDEMENU_PAGE_LABELS.get(str(restore_notice.get("active_page", "")), ""),
+            str(restore_notice.get("selected_symbol", "")),
+        ]
+        detail = " / ".join(part for part in restored_parts if part)
+        message = "前回の状態を復元しました"
+        st.toast(f"{message}: {detail}" if detail else message)
     reset_assistant_contexts()
     if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING}:
         render_app_header()
@@ -1754,6 +1768,10 @@ def main() -> None:
             page_key=selected_page,
             page_label=SIDEMENU_PAGE_LABELS.get(selected_page, "SMAI"),
         )
+    selected_symbol = (
+        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
+    )
+    save_last_session_if_changed(st.session_state, selected_symbol=selected_symbol)
 
 
 def _apply_navigation_query_params() -> None:

@@ -4096,3 +4096,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 保存時基準を初期値とする表示専用sortを追加。欠損指標は候補から除外し、snapshot/index、
   ranking算出、Research/LLM、現在値取得は変更しない。
 - UI helper/style回帰、全pytest、Ruff、Mypy、Black helper、Ranking 4 viewport smokeを確認。
+
+## 2026-07-03 Ranking再入場時の作成画面復帰
+
+- サイドメニュー、Assistant、URL導線などランキング外から`銘柄ランキング`へ入る場合は、
+  履歴subviewをリセットしてランキング作成画面を表示するよう修正。
+- Ranking内の履歴一覧・詳細間のrerunではsubviewを維持する。

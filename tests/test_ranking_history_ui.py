@@ -13,6 +13,7 @@ from ui.ranking_history import (
     history_initial_sort_key,
     history_signal_map_rows,
     history_sort_options,
+    prepare_ranking_history_view_for_page,
     ranking_history_card_view,
     ranking_history_condition_chips,
     ranking_history_sections,
@@ -198,3 +199,27 @@ def test_restore_filters_uses_allowlist_and_clears_results(monkeypatch):
     assert session_state["market_data_ranking_per_enabled"] is True
     assert "market_data_ranking_rows" not in session_state
     assert result.ignored_keys == ("unknown_filter",)
+
+
+def test_entering_ranking_from_another_page_resets_history_subview(monkeypatch):
+    session_state = {
+        "ranking_history_last_rendered_page": "cockpit",
+        "ranking_view_mode": "history_detail",
+        "selected_ranking_history_id": "rh_20260703T000000Z_aaaaaaaa",
+    }
+    monkeypatch.setattr("ui.ranking_history.st.session_state", session_state)
+
+    assert prepare_ranking_history_view_for_page("ranking") is True
+    assert session_state["ranking_view_mode"] == "live"
+    assert "selected_ranking_history_id" not in session_state
+
+
+def test_ranking_internal_rerun_keeps_history_subview(monkeypatch):
+    session_state = {
+        "ranking_history_last_rendered_page": "ranking",
+        "ranking_view_mode": "history_list",
+    }
+    monkeypatch.setattr("ui.ranking_history.st.session_state", session_state)
+
+    assert prepare_ranking_history_view_for_page("ranking") is False
+    assert session_state["ranking_view_mode"] == "history_list"

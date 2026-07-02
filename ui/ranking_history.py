@@ -32,6 +32,7 @@ RANKING_HISTORY_VIEW_KEY = "ranking_view_mode"
 RANKING_HISTORY_SELECTED_KEY = "selected_ranking_history_id"
 RANKING_HISTORY_USER_KEY = "ranking_history_view_user_id"
 RANKING_HISTORY_NOTICE_KEY = "ranking_history_restore_notice"
+RANKING_HISTORY_LAST_PAGE_KEY = "ranking_history_last_rendered_page"
 HISTORY_NOTICE = (
     "このランキングは保存時点の結果です。現在の株価・スコアとは異なる場合があります。"
     "現在の情報は銘柄コックピットで確認してください。"
@@ -172,6 +173,16 @@ def synchronize_ranking_history_user(user_id: str) -> None:
         st.session_state[RANKING_HISTORY_USER_KEY] = user_id
         st.session_state.pop(RANKING_HISTORY_SELECTED_KEY, None)
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
+
+
+def prepare_ranking_history_view_for_page(selected_page: str) -> bool:
+    previous_page = str(st.session_state.get(RANKING_HISTORY_LAST_PAGE_KEY, ""))
+    entered_ranking = selected_page == "ranking" and previous_page != "ranking"
+    if entered_ranking:
+        st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
+        st.session_state.pop(RANKING_HISTORY_SELECTED_KEY, None)
+    st.session_state[RANKING_HISTORY_LAST_PAGE_KEY] = selected_page
+    return entered_ranking
 
 
 def render_ranking_history_list(user_id: str) -> None:

@@ -306,6 +306,7 @@ from ui.ranking_history import (
     RANKING_HISTORY_NOTICE_KEY,
     RANKING_HISTORY_VIEW_KEY,
     build_ranking_history_save_request,
+    prepare_ranking_history_view_for_page,
     render_ranking_history_detail,
     render_ranking_history_list,
     save_ranking_history_for_current_user,
@@ -1748,6 +1749,7 @@ def main() -> None:
         st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(restored_symbol)
 
     selected_page = render_sidemenu(runtime_settings_summary())
+    prepare_ranking_history_view_for_page(selected_page)
     restore_notice = st.session_state.pop(RESTORE_NOTICE_KEY, None)
     if isinstance(restore_notice, dict):
         restored_parts = [

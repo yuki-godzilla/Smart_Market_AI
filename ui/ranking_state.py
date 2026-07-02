@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any, Mapping
+
 import streamlit as st
 
 from ui.ranking import (
@@ -28,6 +31,12 @@ from ui.state import (
     MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY,
     RANKING_FILTER_DIALOG_STATE_KEY,
 )
+
+
+@dataclass(frozen=True)
+class RankingFilterRestoreResult:
+    restored_keys: tuple[str, ...]
+    ignored_keys: tuple[str, ...]
 
 
 def ranking_filter_value(key: str, default: str) -> str:
@@ -70,6 +79,31 @@ def persist_ranking_filter_state() -> dict[str, str]:
     filters = current_ranking_filter_state()
     st.session_state[MARKET_DATA_RANKING_FILTERS_STATE_KEY] = filters
     return filters
+
+
+def restore_ranking_filters(filters: Mapping[str, Any]) -> RankingFilterRestoreResult:
+    defaults = {**RANKING_FILTER_DEFAULTS, **RANKING_METRIC_FILTER_DEFAULTS}
+    restored: list[str] = []
+    ignored: list[str] = []
+    normalized: dict[str, str] = {}
+    for key, value in filters.items():
+        if key not in defaults:
+            ignored.append(key)
+            continue
+        default = defaults[key]
+        if isinstance(default, bool):
+            resolved: Any = value if isinstance(value, bool) else str(value).lower() == "true"
+            normalized[key] = str(bool(resolved))
+        else:
+            resolved = str(value) if value is not None else str(default)
+            normalized[key] = resolved
+        st.session_state[key] = resolved
+        restored.append(key)
+    st.session_state[MARKET_DATA_RANKING_FILTERS_STATE_KEY] = normalized
+    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY, None)
+    return RankingFilterRestoreResult(tuple(restored), tuple(ignored))
 
 
 def ranking_filter_summary() -> str:

@@ -302,8 +302,19 @@ from ui.ranking_filter_chips import (
 from ui.ranking_filter_chips import (
     exploration_filter_chip_labels as ranking_exploration_filter_chip_labels,
 )
+from ui.ranking_history import (
+    RANKING_HISTORY_NOTICE_KEY,
+    RANKING_HISTORY_VIEW_KEY,
+    build_ranking_history_save_request,
+    render_ranking_history_detail,
+    render_ranking_history_list,
+    save_ranking_history_for_current_user,
+    synchronize_ranking_history_user,
+)
 from ui.ranking_state import (
+    current_ranking_filter_state,
     ensure_ranking_selection_widget_state,
+    ranking_filter_summary,
     sync_ranking_selection_state,
 )
 from ui.ranking_state import (
@@ -5550,6 +5561,7 @@ def _render_ranking_result_table(
     ranking_source: str,
     weight_preset: str,
     ranking_purpose: str,
+    mode: Literal["live", "history"] = "live",
 ) -> None:
     if not display_rows:
         st.info(EMPTY_STATE_MESSAGES["ranking_rows"])
@@ -5560,6 +5572,8 @@ def _render_ranking_result_table(
         "カードやグラフで気になる候補を絞ったあと、詳細を確認するためのテーブルです。"
         "行をクリックすると、銘柄データや確認ポイントを確認できます。"
     )
+    if mode == "history":
+        st.caption("お気に入り操作は現在のプロフィール状態に反映されます。")
     show_detail_columns = st.checkbox(
         "詳細列を表示する",
         value=False,
@@ -5621,6 +5635,8 @@ def _render_ranking_result_table(
         st.rerun()
         return
     selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
+    if mode == "history":
+        return
     _render_ranking_selected_detail_memo(
         display_rows,
         selected_symbol,
@@ -8353,11 +8369,48 @@ def _render_market_data_cockpit() -> None:
 
 
 def _render_market_data_ranking() -> None:
+    ranking_history_user_id = str(st.session_state.get("smai_current_user_id") or "default")
+    synchronize_ranking_history_user(ranking_history_user_id)
+    ranking_view_mode = str(st.session_state.get(RANKING_HISTORY_VIEW_KEY, "live"))
+    if ranking_view_mode not in {"live", "history_list", "history_detail"}:
+        ranking_view_mode = "live"
+        st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
+    if ranking_view_mode == "history_list":
+        render_ranking_history_list(ranking_history_user_id)
+        return
+    if ranking_view_mode == "history_detail":
+        render_ranking_history_detail(
+            ranking_history_user_id,
+            render_result_table=lambda rows, source, preset: _render_ranking_result_table(
+                rows,
+                ranking_source=source,
+                weight_preset=preset,
+                ranking_purpose=RANKING_PURPOSE_MULTI_FACTOR,
+                mode="history",
+            ),
+            open_current_symbol=lambda symbol: _select_ranking_symbol_for_cockpit(
+                symbol,
+                default_market_data_provider(),
+            ),
+        )
+        return
     render_page_title(
         "銘柄ランキング",
         "条件で絞り込み、深掘り候補をランキングします。売買推奨ではありません。",
         "ranking",
     )
+    _, history_button_col = st.columns([4, 1.25])
+    with history_button_col:
+        if st.button(
+            "📚 ランキング履歴",
+            key="open_ranking_history",
+            use_container_width=True,
+        ):
+            st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_list"
+            st.rerun()
+    restore_notice = st.session_state.pop(RANKING_HISTORY_NOTICE_KEY, None)
+    if restore_notice:
+        st.info(str(restore_notice))
     _register_ranking_setup_assistant_context()
     symbol_options = symbol_universe_rows()
     purpose = "all"
@@ -8742,6 +8795,51 @@ def _render_market_data_ranking() -> None:
         st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
             "%Y-%m-%d %H:%M"
         )
+        if rows:
+            try:
+                history_ranked_rows = apply_ranking_weight_preset(
+                    cast(list[dict[str, str]], rows),
+                    policy_preset,
+                    _symbol_universe_rows_by_symbol(),
+                )
+                history_display_rows = investment_score_display_rows(history_ranked_rows)
+                history_request = build_ranking_history_save_request(
+                    rows=history_display_rows,
+                    filters=current_ranking_filter_state(),
+                    provider=provider,
+                    data_as_of=end_date,
+                    start=start_date,
+                    end=end_date,
+                    ranking_type=ranking_policy,
+                    weight_preset=policy_preset,
+                    product_type=product_type,
+                    target_label=ranking_product_type_label(product_type),
+                    condition_summary=ranking_filter_summary(),
+                    candidate_count=len(filtered_symbol_rows),
+                    ranking_logic_version=RANKING_BUILD_CACHE_VERSION,
+                )
+                st.session_state["ranking_history_last_save_result"] = (
+                    save_ranking_history_for_current_user(
+                        ranking_history_user_id,
+                        history_request,
+                    ).model_dump()
+                )
+            except Exception:
+                st.session_state["ranking_history_last_save_result"] = {
+                    "status": "failed",
+                    "message": "ランキング結果は表示できますが、履歴保存に失敗しました。",
+                }
+
+    history_save_result = st.session_state.pop("ranking_history_last_save_result", None)
+    if isinstance(history_save_result, dict):
+        history_status = str(history_save_result.get("status", ""))
+        history_message = str(history_save_result.get("message", ""))
+        if history_status == "saved":
+            st.success(f"✅ {history_message}")
+        elif history_status == "failed":
+            st.warning(history_message)
+        else:
+            st.info(history_message)
 
     _render_ranking_criteria_guide()
 

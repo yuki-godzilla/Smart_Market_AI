@@ -4057,3 +4057,24 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `disconnectedSessionTTL=300` は維持し、短時間再接続の補助と位置づけた。根本対策は永続スナップショット。
 - network-free単体・UI回帰テスト、Ruff、Mypy、project Black helperを実行。実機iPhone/iPad/PWA、
   5分超、Tailscale確認は手動確認として継続。
+
+## 2026-07-03 ランキング履歴 実装前調査・設計
+
+- ランキング作成、結果表示、ユーザープロフィール、favorites / Myウォッチリスト保存、
+  画面遷移、レスポンシブ、関連テストの現状を調査。
+- ランキング履歴の要件、UI遷移、ユーザー別index/snapshot保存、段階実装計画、
+  コード影響調査の5文書を`docs/`配下へ追加。
+- 保存トリガーを明示的な`ランキング作成`成功時に限定し、永続signatureで短時間重複を防ぐ方針、
+  defaultユーザーを永続化しない方針、通常30件とピン留め保護を明文化。
+- 本実装、既存ランキング挙動変更、データ変更、commit / pushは実施していない。
+
+## 2026-07-03 ランキング履歴 MVP
+
+- `backend/ranking_history` にversioned contract、ユーザー別repository、serviceを追加。
+  indexはUTF-8 JSON、snapshotはJSON.GZでatomic保存し、user-scoped lockを使用。
+- 明示的な`ランキング作成`成功時だけ保存し、同一signatureの5分以内重複を抑止。
+  通常履歴30件を保持し、ピン留めはprune対象外。defaultプロフィールは保存しない。
+- Ranking内に履歴一覧・詳細subview、検索/簡易filter、pin/unpin、確認付き削除、
+  現在の銘柄確認、条件復元を追加。履歴表示では保存済みrowを使い、現在の
+  Research / LLM enrichmentやDecision Report生成を実行しない。
+- repository/service/UI helperテストと既存Ranking/Profile/Favorites回帰を追加・確認。

@@ -4024,3 +4024,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   session_state概算を確認可能にした。明示操作時だけサイズ・設定を診断ログへ保存する。
 - 静的な画面別delivery診断レポートと6環境の実機確認手順を追加。
 - 投資スコア、予測、Ranking、Research、外部ニュースリンクの挙動は変更していない。
+
+## 2026-07-02 CI回帰修正
+
+- `scripts/analyze_ui_delivery.py`がMypyで二重module名として検出される問題を、
+  `scripts/__init__.py`追加で解消。
+- Streamlit `SessionStateProxy`を診断用の通常dictへ明示変換し、型境界を修正。
+- Assistantシナリオsmokeの旧base64 asset helper参照をstatic asset file URIへ更新。
+- CI相当のRuff、Black、Mypyと関連pytestを再確認。

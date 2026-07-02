@@ -12,7 +12,7 @@ This is a deterministic source/static-asset baseline. Runtime render time, rerun
 | 銘柄コックピット | 895,103 | 0 | 0 | 6 | 149 | 37 |
 | Watchlist | 856,046 | 0 | 0 | 6 | 149 | 37 |
 | 投資レーダー | 73,944 | 0 | 0 | 0 | 4 | 1 |
-| SMAIアシスタント | 227,770 | 0 | 0 | 0 | 82 | 2 |
+| SMAIアシスタント | 227,748 | 0 | 0 | 0 | 82 | 2 |
 
 ## Interpretation
 

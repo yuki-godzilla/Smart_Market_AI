@@ -114,9 +114,10 @@ def _streamlit_client_address() -> str | None:
 
 
 def render_connection_status() -> None:
+    session_snapshot = {str(key): st.session_state[key] for key in st.session_state.keys()}
     diagnostic = build_connection_diagnostic(
         client_address=_streamlit_client_address(),
-        session_state=st.session_state,
+        session_state=session_snapshot,
     )
     st.caption(
         "接続状態と画面セッションの概算です。投資データや入力内容そのものはログへ保存しません。"

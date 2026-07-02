@@ -21,7 +21,7 @@ from backend.assistant import (  # noqa: E402
     detect_assistant_intent,
     route_assistant_conversation_mode,
 )
-from ui.components.mascot import MASCOT_TITLE_ASSETS, _asset_data_uri  # noqa: E402
+from ui.components.mascot import MASCOT_TITLE_ASSETS, STATIC_ASSET_DIR  # noqa: E402
 from ui.views.copilot import copilot_loading_panel_html  # noqa: E402
 
 FIXTURE_PATH = REPO_ROOT / "tests/fixtures/assistant_scenarios.json"
@@ -119,7 +119,9 @@ def _document(scenarios: list[dict[str, object]]) -> str:
             source="cache",
             stale=False,
         ),
-        radar_asset_uri=_asset_data_uri(MASCOT_TITLE_ASSETS["investment_radar"]),
+        radar_asset_uri=(
+            STATIC_ASSET_DIR / "mascot" / MASCOT_TITLE_ASSETS["investment_radar"]
+        ).as_uri(),
     )
     loading = f"""
       <div data-state="warming">{loading_panel}</div>

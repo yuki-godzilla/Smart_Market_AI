@@ -17,6 +17,7 @@ call :log "[SMAI] Scheduled LAN server startup"
 call :log "[SMAI] Root: %SMAI_ROOT%"
 call :log "[SMAI] Performance profile: %SMAI_PERFORMANCE_PROFILE%"
 call :log "[SMAI] Assistant Gateway autostart: %SMAI_ASSISTANT_GATEWAY_AUTOSTART%"
+call :log "[SMAI] Streamlit config: static serving=enabled, websocket compression=enabled, disconnected TTL=300s, ping interval=30s"
 
 if not exist "%SMAI_PYTHON%" (
     call :log "[ERROR] Python virtual environment was not found: %SMAI_PYTHON%"
@@ -45,6 +46,9 @@ if "%SMAI_LAN_IP%"=="" set "SMAI_LAN_IP=localhost"
 
 call :log "[SMAI] Local URL: http://localhost:8501"
 call :log "[SMAI] LAN URL: http://%SMAI_LAN_IP%:8501"
+set "SMAI_TAILSCALE_IP="
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-Command tailscale -ErrorAction SilentlyContinue; if($command){tailscale ip -4 2^>$null | Select-Object -First 1}" 2^>nul`) do set "SMAI_TAILSCALE_IP=%%I"
+if not "%SMAI_TAILSCALE_IP%"=="" call :log "[SMAI] Tailscale URL: http://%SMAI_TAILSCALE_IP%:8501"
 call :log "[SMAI] Listening on 0.0.0.0:8501 (bind address; do not open 0.0.0.0 in a browser)"
 call :log "[SMAI] Starting Streamlit..."
 

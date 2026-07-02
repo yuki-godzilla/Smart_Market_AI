@@ -3,11 +3,14 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 USER_ICON_MANIFEST_PATH = PROJECT_ROOT / "ui/assets/user_icons/manifest.json"
+USER_ICON_STATIC_ROOT = PROJECT_ROOT / "ui/static/assets/user_icons"
+USER_ICON_PUBLIC_ROOT = "/app/static/assets/user_icons"
 DEFAULT_ICON_ID = "smai_navi_default"
 PLACEHOLDER_PATH = PROJECT_ROOT / "ui/assets/mascot/smai-mascot-thumb.webp"
 
@@ -38,6 +41,7 @@ class ResolvedUserIcon:
     fallback_level: str
 
 
+@lru_cache(maxsize=8)
 def load_user_icon_assets(
     manifest_path: Path | None = None,
 ) -> tuple[UserIconAsset, ...]:
@@ -135,6 +139,15 @@ def _asset_from_mapping(raw: dict[str, Any]) -> UserIconAsset | None:
 
 
 def _resolved(asset: UserIconAsset, fallback_level: str) -> ResolvedUserIcon:
+    optimized_path = USER_ICON_STATIC_ROOT / f"{asset.icon_id}-256.webp"
+    if optimized_path.is_file():
+        return ResolvedUserIcon(
+            icon_id=asset.icon_id,
+            display_name=asset.display_name,
+            file_path=optimized_path,
+            public_path=f"{USER_ICON_PUBLIC_ROOT}/{asset.icon_id}-256.webp",
+            fallback_level=fallback_level,
+        )
     return ResolvedUserIcon(
         icon_id=asset.icon_id,
         display_name=asset.display_name,

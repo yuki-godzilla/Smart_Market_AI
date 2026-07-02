@@ -17,6 +17,8 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert "--server.address 0.0.0.0" in script
     assert "--server.headless true" in script
     assert "--browser.serverAddress %SMAI_LAN_IP%" in script
+    assert "tailscale ip -4" in script
+    assert "websocket compression=enabled" in script
     assert "run_symbol_universe_import_all.bat" not in script
     assert "pause" not in script.lower()
     assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script

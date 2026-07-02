@@ -44,6 +44,7 @@ CATEGORY_LABELS = {
 }
 USER_AREA_VIEW_KEY = "smai_user_area_view"
 USER_AREA_HOME = "main"
+ICON_PAGE_SIZE = 8
 
 
 def trusted_device_bootstrap_html(
@@ -867,6 +868,8 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     valid_icon_ids = {asset.icon_id for asset in assets}
     candidate = str(st.session_state.get("smai_icon_candidate", user.icon_id))
     selected_icon = candidate if candidate in valid_icon_ids else user.icon_id
+    visible_count = int(st.session_state.get("smai_icon_visible_count", ICON_PAGE_SIZE))
+    visible_assets = assets[: max(ICON_PAGE_SIZE, visible_count)]
     st.markdown(
         """
         <style>
@@ -891,9 +894,9 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
     )
     _, grid_col, _ = st.columns([1, 10, 1])
     with grid_col:
-        for row_start in range(0, len(assets), 4):
+        for row_start in range(0, len(visible_assets), 4):
             columns = st.columns(4)
-            for column, asset in zip(columns, assets[row_start : row_start + 4]):
+            for column, asset in zip(columns, visible_assets[row_start : row_start + 4]):
                 with column:
                     source = user_icon_browser_source(resolve_user_icon(asset.icon_id))
                     if source is None:
@@ -912,6 +915,14 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
                     ):
                         st.session_state["smai_icon_candidate"] = asset.icon_id
                         st.rerun()
+        if len(visible_assets) < len(assets):
+            if st.button(
+                f"もっと見る（残り {len(assets) - len(visible_assets)} 件）",
+                key="show_more_smai_icons",
+                use_container_width=True,
+            ):
+                st.session_state["smai_icon_visible_count"] = visible_count + ICON_PAGE_SIZE
+                st.rerun()
     components.html(_icon_button_overlay_html(), height=0, width=0)
 
     _, actions_col, _ = st.columns([1, 2, 1])
@@ -920,12 +931,19 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         save_clicked = save_col.button("アイコンを保存", key="save_smai_user_icon", type="primary")
         cancel_clicked = cancel_col.button("キャンセル", key="cancel_smai_user_icon")
         if save_clicked:
-            repository.set_icon(user.user_id, selected_icon)
+            try:
+                with st.spinner("アイコンを保存しています…"):
+                    repository.set_icon(user.user_id, selected_icon)
+            except (OSError, ValueError, RuntimeError, NotificationSettingsError) as exc:
+                st.error(f"アイコンを保存できませんでした。現在の設定を維持します: {exc}")
+                return
             st.session_state.pop("smai_icon_candidate", None)
+            st.session_state.pop("smai_icon_visible_count", None)
             st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
             st.rerun()
         if cancel_clicked:
             st.session_state.pop("smai_icon_candidate", None)
+            st.session_state.pop("smai_icon_visible_count", None)
             st.session_state[USER_AREA_VIEW_KEY] = "user_settings"
             st.rerun()
 

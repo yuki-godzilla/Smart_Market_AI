@@ -7,6 +7,8 @@ def test_lan_server_passes_detected_ip_to_streamlit_browser_address() -> None:
     assert "--server.address 0.0.0.0" in script
     assert "--browser.serverAddress %SMAI_LAN_IP%" in script
     assert "http://%SMAI_LAN_IP%:8501" in script
+    assert "tailscale ip -4" in script
+    assert "WebSocket compression: enabled" in script
 
 
 def test_lan_server_uses_localhost_when_lan_ip_detection_fails() -> None:

@@ -22,6 +22,9 @@ if "%SMAI_LAN_IP%"=="" (
 
 echo [SMAI] Starting LAN server...
 echo [SMAI] Listening on all network interfaces: 0.0.0.0:8501
+echo [SMAI] Static serving: enabled
+echo [SMAI] WebSocket compression: enabled
+echo [SMAI] Disconnected session TTL: 300 seconds
 echo.
 echo [SMAI] From this PC, open:
 echo        http://localhost:8501
@@ -33,6 +36,12 @@ if "%SMAI_LAN_IP_FOUND%"=="1" (
     echo [SMAI] LAN IPv4 address could not be detected automatically.
     echo [SMAI] Streamlit URL display will fall back to http://localhost:8501
     echo [SMAI] Run ipconfig to find the Desktop PC IPv4 address for mobile access.
+)
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-Command tailscale -ErrorAction SilentlyContinue; if($command){tailscale ip -4 2^>$null | Select-Object -First 1}" 2^>nul`) do set "SMAI_TAILSCALE_IP=%%I"
+if not "%SMAI_TAILSCALE_IP%"=="" (
+    echo.
+    echo [SMAI] From a trusted Tailscale device, open:
+    echo        http://%SMAI_TAILSCALE_IP%:8501
 )
 echo.
 echo [SMAI] If the mobile URL does not open, check:

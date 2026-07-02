@@ -36,6 +36,10 @@ def test_streamlit_static_serving_is_enabled() -> None:
     config = Path(".streamlit/config.toml").read_text(encoding="utf-8")
 
     assert "enableStaticServing = true" in config
+    assert "enableWebsocketCompression = true" in config
+    assert "disconnectedSessionTTL = 300" in config
+    assert "websocketPingInterval = 30" in config
+    assert "gatherUsageStats = false" in config
 
 
 def test_pwa_icons_exist_with_expected_square_dimensions() -> None:

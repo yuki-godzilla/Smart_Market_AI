@@ -1,3 +1,10 @@
 [server]
+address = "0.0.0.0"
+port = 8501
 enableStaticServing = true
+enableWebsocketCompression = true
+disconnectedSessionTTL = 300
+websocketPingInterval = 30
 
+[browser]
+gatherUsageStats = false

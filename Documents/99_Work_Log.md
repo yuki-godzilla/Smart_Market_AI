@@ -4003,3 +4003,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   選択状態を同期するようclient decoratorを修正。遅れて描画されるlinkにも再bindする。
 - iPhone 375x812、iPad 810x1080、PC 1366x768で、開始buttonへfocusを移し、
   pointerをcard外へ移動しても選択枠が残ることをPlaywright smokeと画像で確認。
+
+## 2026-07-02 外部接続・ユーザーアイコン安定化
+
+- 1254px PNG 12枚（合計約22MB）がアイコン画面HTMLへbase64埋め込みされる経路を特定。
+- 256px Retina向けWebPを生成し、`/app/static/assets/user_icons/` 配信へ切り替えた。
+- アイコン候補を8件ずつ段階表示し、保存失敗時は現設定を維持して画面内エラーを表示する。
+- StreamlitのWebSocket圧縮、30秒ping、300秒切断セッション保持を共通設定に追加。
+- LAN起動BATに設定状態と、取得可能な場合のTailscale URL表示を追加。
+- 資産調査・生成スクリプトと最適化レポート、原因・実機確認手順の文書を追加。
+- 対象pytest 29件とRuffを通過。Tailscale/iPhone/iPad/PWA実機確認は未実施。

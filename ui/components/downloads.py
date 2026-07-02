@@ -39,6 +39,8 @@ def download_contract(
 
 
 def csv_download_contract(*, data: bytes, file_name: str) -> CsvDownloadContract:
+    if not isinstance(data, bytes):
+        raise TypeError("CSV download data must be bytes")
     return download_contract(
         data=data,
         file_name=file_name,
@@ -94,12 +96,12 @@ def _render_download(
     if contract is None or not contract["data"]:
         st.warning(empty_message)
         return
-    st.download_button(
-        label,
-        **contract,
-        key=key,
-        use_container_width=use_container_width,
-    )
+    options: dict[str, Any] = dict(contract)
+    if key is not None:
+        options["key"] = key
+    if use_container_width:
+        options["use_container_width"] = True
+    st.download_button(label, **options)
 
 
 def _render_csv_download_button_body(
@@ -109,7 +111,7 @@ def _render_csv_download_button_body(
     file_name: str,
     empty_message: str = "CSVに出力できるデータがありません。",
     key: str | None = None,
-    use_container_width: bool = True,
+    use_container_width: bool = False,
 ) -> None:
     _render_download(
         label=label,

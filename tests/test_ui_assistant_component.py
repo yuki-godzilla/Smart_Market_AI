@@ -52,7 +52,8 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert '<a class="smai-floating-assistant-chip"' not in markup
     assert "smai_assistant_question=" not in markup
     assert 'target="_blank"' not in markup
-    assert "data:image/webp;base64," in markup
+    assert "/app/static/assets/mascot/smai-mascot-thumb.webp" in markup
+    assert "base64" not in markup
 
 
 def test_floating_assistant_html_keeps_panel_closed_by_default():

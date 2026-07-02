@@ -195,6 +195,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "news"
+    app.session_state["smai_current_user_id"] = "default"
 
     app.run()
 
@@ -236,12 +237,23 @@ def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
     monkeypatch.setattr(
+        favorites,
+        "profile_data_path",
+        lambda filename, **_: tmp_path / filename,
+    )
+    monkeypatch.setattr(
         watchlist_snapshots,
         "WATCHLIST_SNAPSHOTS_FILE_PATH",
         tmp_path / "watchlist_snapshots.json",
     )
+    monkeypatch.setattr(
+        watchlist_snapshots,
+        "profile_data_path",
+        lambda filename, **_: tmp_path / filename,
+    )
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "watchlist"
+    app.session_state["smai_current_user_id"] = "local_user"
 
     app.run()
 
@@ -252,9 +264,19 @@ def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monk
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
     monkeypatch.setattr(
+        favorites,
+        "profile_data_path",
+        lambda filename, **_: tmp_path / filename,
+    )
+    monkeypatch.setattr(
         watchlist_snapshots,
         "WATCHLIST_SNAPSHOTS_FILE_PATH",
         tmp_path / "watchlist_snapshots.json",
+    )
+    monkeypatch.setattr(
+        watchlist_snapshots,
+        "profile_data_path",
+        lambda filename, **_: tmp_path / filename,
     )
     favorites.add_favorite(
         "5932.T",
@@ -268,6 +290,7 @@ def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monk
     )
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "watchlist"
+    app.session_state["smai_current_user_id"] = "local_user"
 
     app.run()
 

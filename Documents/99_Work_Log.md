@@ -4031,4 +4031,6 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   `scripts/__init__.py`追加で解消。
 - Streamlit `SessionStateProxy`を診断用の通常dictへ明示変換し、型境界を修正。
 - Assistantシナリオsmokeの旧base64 asset helper参照をstatic asset file URIへ更新。
-- CI相当のRuff、Black、Mypyと関連pytestを再確認。
+- static画像移行後もbase64を期待していたAssistantテスト、CSV download contractの
+  後方互換、プロフィール分離後のNews/Watchlist AppTest初期条件を修正。
+- CI相当のRuff、Black、Mypyと全pytest（1987 passed / 10 skipped）を再確認。

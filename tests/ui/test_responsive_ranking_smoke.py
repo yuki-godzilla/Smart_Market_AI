@@ -82,12 +82,35 @@ def test_ranking_responsive_viewports() -> None:
                     ).count()
                     > 0
                 )
-                detail_buttons = page.get_by_role("button", name="詳細を見る", exact=True)
-                if detail_buttons.count():
-                    detail_buttons.first.click()
+                cards = page.locator(".smai-ranking-history-card")
+                for card_index in range(cards.count()):
+                    card_shape = cards.nth(card_index).evaluate(
+                        "(element) => ({"
+                        "tag: element.tagName, "
+                        "children: element.children.length, "
+                        "scrollWidth: element.scrollWidth, "
+                        "clientWidth: element.clientWidth"
+                        "})"
+                    )
+                    assert card_shape["tag"] == "A"
+                    assert card_shape["children"] == 5
+                    assert card_shape["scrollWidth"] <= card_shape["clientWidth"] + 2
+                    assert (
+                        cards.nth(card_index).locator(".smai-ranking-history-card-action").count()
+                        == 1
+                    )
+                detail_links = page.get_by_role(
+                    "link",
+                    name="ランキング履歴の詳細を見る",
+                    exact=True,
+                )
+                if detail_links.count():
+                    detail_links.first.click()
                     page.wait_for_timeout(1_500)
                     assert page.get_by_text("ランキング履歴詳細", exact=True).count() > 0
                     assert page.locator('[data-testid="stException"], .stException').count() == 0
+                    assert page.locator(".smai-ranking-condition-card").count() == 2
+                    assert 1 <= page.locator(".smai-metric-card").count() <= 5
                     page.get_by_role("button", name="ランキング画面へ戻る", exact=True).click()
                     page.wait_for_timeout(1_500)
                 else:

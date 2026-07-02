@@ -7389,15 +7389,37 @@ div[data-testid="stDialog"] div[role="dialog"] {
 }
 
 .smai-ranking-history-card {
-    min-height: 18rem;
-    margin: 0 0 0.55rem;
-    padding: 1rem;
+    display: grid;
+    grid-template-columns:
+        minmax(0, 0.8fr)
+        minmax(0, 1.3fr)
+        minmax(0, 1.65fr)
+        minmax(0, 1.05fr)
+        minmax(6.5rem, 0.7fr);
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 0.65rem;
+    padding: 0.9rem 1rem;
     border: 1px solid rgba(96, 165, 250, 0.26);
     border-left: 4px solid #22d3ee;
-    border-radius: 16px;
+    border-radius: 12px;
     background: linear-gradient(145deg, rgba(12, 28, 48, 0.98), rgba(8, 20, 36, 0.98));
-    box-shadow: 0 12px 28px rgba(1, 8, 20, 0.2);
+    box-shadow: 0 8px 22px rgba(1, 8, 20, 0.18);
+    color: #e5edf7;
+    text-decoration: none !important;
     overflow-wrap: anywhere;
+    transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+a.smai-ranking-history-card:hover,
+a.smai-ranking-history-card:focus-visible {
+    border-color: rgba(34, 211, 238, 0.72);
+    background: linear-gradient(145deg, rgba(18, 43, 72, 0.99), rgba(10, 28, 49, 0.99));
+    color: #f8fbff;
+    outline: none;
+    transform: translateY(-1px);
 }
 
 .smai-ranking-history-card--alt {
@@ -7409,6 +7431,57 @@ div[data-testid="stDialog"] div[role="dialog"] {
     border-color: rgba(250, 204, 21, 0.42);
     border-left-color: #facc15;
     background: linear-gradient(145deg, rgba(32, 35, 52, 0.98), rgba(10, 25, 43, 0.98));
+}
+
+.smai-ranking-history-list-primary,
+.smai-ranking-history-list-meta,
+.smai-ranking-history-list-conditions,
+.smai-ranking-history-list-symbols {
+    min-width: 0;
+}
+
+.smai-ranking-history-list-primary {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.smai-ranking-history-list-primary time {
+    color: #aab8c8;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.smai-ranking-history-list-primary > strong {
+    color: #f8fbff;
+    font-size: 1rem;
+}
+
+.smai-ranking-history-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.smai-ranking-history-card-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.65rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(34, 211, 238, 0.55);
+    border-radius: 9px;
+    color: #e9fbff;
+    background: rgba(8, 78, 99, 0.4);
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+a.smai-ranking-history-card:hover .smai-ranking-history-card-action,
+a.smai-ranking-history-card:focus-visible .smai-ranking-history-card-action {
+    border-color: #67e8f9;
+    background: rgba(14, 116, 144, 0.58);
 }
 
 .smai-ranking-history-card-header,
@@ -7522,6 +7595,19 @@ div[data-testid="stDialog"] div[role="dialog"] {
 }
 
 @media (max-width: 1024px) {
+    .smai-ranking-history-card {
+        grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .smai-ranking-history-list-symbols {
+        grid-column: 1 / 2;
+    }
+
+    .smai-ranking-history-card-action {
+        grid-column: 2;
+        grid-row: auto;
+    }
+
     .smai-ranking-history-detail-summary {
         grid-template-columns: 1fr;
     }
@@ -7529,8 +7615,15 @@ div[data-testid="stDialog"] div[role="dialog"] {
 
 @media (max-width: 767px) {
     .smai-ranking-history-card {
-        min-height: 0;
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
         padding: 0.85rem;
+    }
+
+    .smai-ranking-history-list-symbols,
+    .smai-ranking-history-card-action {
+        grid-column: auto;
+        grid-row: auto;
     }
 
     .smai-ranking-history-card-header,
@@ -7539,9 +7632,6 @@ div[data-testid="stDialog"] div[role="dialog"] {
         flex-direction: column;
     }
 
-    .smai-ranking-history-metric-card {
-        min-height: 0;
-    }
 }
 </style>
 """

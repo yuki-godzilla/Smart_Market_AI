@@ -305,6 +305,7 @@ from ui.ranking_filter_chips import (
 from ui.ranking_history import (
     RANKING_HISTORY_NOTICE_KEY,
     RANKING_HISTORY_VIEW_KEY,
+    apply_ranking_history_open_query,
     build_ranking_history_save_request,
     prepare_ranking_history_view_for_page,
     render_ranking_history_detail,
@@ -8373,6 +8374,7 @@ def _render_market_data_cockpit() -> None:
 def _render_market_data_ranking() -> None:
     ranking_history_user_id = str(st.session_state.get("smai_current_user_id") or "default")
     synchronize_ranking_history_user(ranking_history_user_id)
+    apply_ranking_history_open_query(ranking_history_user_id)
     ranking_view_mode = str(st.session_state.get(RANKING_HISTORY_VIEW_KEY, "live"))
     if ranking_view_mode not in {"live", "history_list", "history_detail"}:
         ranking_view_mode = "live"

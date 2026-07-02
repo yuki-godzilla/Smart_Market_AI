@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
 from backend.ranking_history.models import (
     RankingHistoryIndexItem,
@@ -8,12 +9,14 @@ from backend.ranking_history.models import (
     RankingHistoryTarget,
 )
 from ui.ranking_history import (
+    apply_ranking_history_open_query,
     filter_ranking_history_items,
     history_bar_chart_rows,
     history_initial_sort_key,
     history_signal_map_rows,
     history_sort_options,
     prepare_ranking_history_view_for_page,
+    ranking_history_card_html,
     ranking_history_card_view,
     ranking_history_condition_chips,
     ranking_history_sections,
@@ -131,6 +134,27 @@ def test_card_view_applies_alternating_and_pinned_styles_with_tags():
     assert pinned.style_class == "smai-ranking-history-card--pinned"
     assert alternate.top_symbol_tags == ("#1 AAPL", "#2 MSFT")
     assert "Yahoo" in alternate.metadata_chips
+    card_html = ranking_history_card_html(alternate)
+    assert card_html.startswith('<a class="smai-ranking-history-card')
+    assert "smai_start_profile=u_abcdefgh" in card_html
+    assert "詳細を見る" in card_html
+    assert "<div" not in card_html
+
+
+def test_card_query_opens_owned_history_detail(monkeypatch):
+    session_state: dict[str, object] = {}
+    query_params = {"smai_ranking_history": "rh_20260703T000000Z_aaaaaaaa"}
+    monkeypatch.setattr("ui.ranking_history.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_history.st.query_params", query_params)
+    monkeypatch.setattr(
+        "ui.ranking_history.RankingHistoryService.get_ranking_history",
+        lambda _self, _user_id, _run_id: SimpleNamespace(snapshot=object()),
+    )
+
+    assert apply_ranking_history_open_query("u_abcdefgh") is True
+    assert session_state["ranking_view_mode"] == "history_detail"
+    assert session_state["selected_ranking_history_id"] == "rh_20260703T000000Z_aaaaaaaa"
+    assert "smai_ranking_history" not in query_params
 
 
 def test_condition_chips_prioritize_policy_product_and_market():

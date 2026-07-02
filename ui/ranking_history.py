@@ -20,19 +20,28 @@ from backend.ranking_history.models import (
     RankingHistoryTarget,
 )
 from backend.ranking_history.service import RankingHistoryService
+from ui.components.mascot import render_page_title
 from ui.ranking import (
     ranking_policy_description,
     ranking_policy_label,
     ranking_purpose_weight_summary,
 )
 from ui.ranking_state import restore_ranking_filters
-from ui.styles import CHART_COLORS, THEME_COLORS, style_altair_chart
+from ui.styles import (
+    CHART_COLORS,
+    THEME_COLORS,
+    render_dashboard_header,
+    render_metric_card,
+    render_section_heading,
+    style_altair_chart,
+)
 
 RANKING_HISTORY_VIEW_KEY = "ranking_view_mode"
 RANKING_HISTORY_SELECTED_KEY = "selected_ranking_history_id"
 RANKING_HISTORY_USER_KEY = "ranking_history_view_user_id"
 RANKING_HISTORY_NOTICE_KEY = "ranking_history_restore_notice"
 RANKING_HISTORY_LAST_PAGE_KEY = "ranking_history_last_rendered_page"
+RANKING_HISTORY_OPEN_QUERY_KEY = "smai_ranking_history"
 HISTORY_NOTICE = (
     "このランキングは保存時点の結果です。現在の株価・スコアとは異なる場合があります。"
     "現在の情報は銘柄コックピットで確認してください。"
@@ -91,6 +100,7 @@ class RankingHistorySortOption:
 @dataclass(frozen=True)
 class RankingHistoryCardView:
     run_id: str
+    user_id: str
     style_class: str
     created_at: str
     target_label: str
@@ -186,7 +196,11 @@ def prepare_ranking_history_view_for_page(selected_page: str) -> bool:
 
 
 def render_ranking_history_list(user_id: str) -> None:
-    st.title("ランキング履歴")
+    render_page_title(
+        "ランキング履歴",
+        "保存したランキング条件と上位候補を見比べます。",
+        "ranking",
+    )
     if st.button("← ランキングへ戻る", use_container_width=False):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
         st.rerun()
@@ -246,7 +260,11 @@ def render_ranking_history_detail(
             st.rerun()
         return
     snapshot = result.snapshot
-    st.title("ランキング履歴詳細")
+    render_page_title(
+        "ランキング履歴詳細",
+        "保存時点の条件・スコア・候補を確認します。",
+        "ranking",
+    )
     back_col, live_col = st.columns(2)
     if back_col.button("← 履歴一覧へ戻る", use_container_width=True):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_list"
@@ -254,16 +272,21 @@ def render_ranking_history_detail(
     if live_col.button("ランキング画面へ戻る", use_container_width=True):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
         st.rerun()
-    st.subheader(
-        f"{'📌 ピン留め中' if snapshot.is_pinned else '未ピン留め'}｜{snapshot.target_label}"
-    )
-    st.caption(
-        f"種別: {snapshot.ranking_type} / 作成日時: {snapshot.created_at:%Y/%m/%d %H:%M} / "
-        f"データ取得日: {snapshot.data_as_of} / provider: {snapshot.provider}"
+    render_dashboard_header(
+        f"{'📌 ' if snapshot.is_pinned else ''}{snapshot.target_label} / "
+        f"{ranking_policy_label(snapshot.ranking_type)}",
+        "保存時点のランキング結果です。現在の情報とは分けて確認してください。",
+        chips=(
+            ("作成日時", snapshot.created_at.strftime("%Y/%m/%d %H:%M")),
+            ("データ取得日", str(snapshot.data_as_of)),
+            ("取得元", _provider_label(snapshot.provider)),
+            ("候補", f"{snapshot.candidate_count}件"),
+            ("保存", f"{snapshot.saved_row_count}件"),
+        ),
     )
     st.caption(
         f"取得期間: {snapshot.period.start} 〜 {snapshot.period.end} / "
-        f"候補: {snapshot.candidate_count}件 / 保存: {snapshot.saved_row_count}件"
+        f"{'ピン留め中' if snapshot.is_pinned else '未ピン留め'}"
     )
     restore_col, pin_col, delete_col = st.columns(3)
     if restore_col.button("この条件で再ランキング", use_container_width=True):
@@ -332,7 +355,7 @@ def render_ranking_history_detail(
     _render_history_bar_chart(sorted_rows, selected_sort)
     _render_history_signal_map(sorted_rows)
 
-    st.markdown("#### ランキング結果を深掘り")
+    render_section_heading("ランキング結果を深掘り")
     st.caption(
         "気になる銘柄を1つ選び、銘柄コックピットで現在の価格・予測・スコア理由を確認します。"
     )
@@ -355,7 +378,7 @@ def render_ranking_history_detail(
             args=(symbol,),
             use_container_width=True,
         )
-    st.markdown("#### 詳細テーブル")
+    render_section_heading("詳細テーブル")
     st.caption("以下は保存時点の結果です。テーブル内の操作では現在データを再取得しません。")
     render_result_table(
         history_display_rows(sorted_rows),
@@ -404,6 +427,25 @@ def filter_ranking_history_items(
     return filtered
 
 
+def apply_ranking_history_open_query(user_id: str) -> bool:
+    params = getattr(st, "query_params", None)
+    if params is None:
+        return False
+    raw = params.get(RANKING_HISTORY_OPEN_QUERY_KEY)
+    run_id = str(raw[0] if isinstance(raw, list) and raw else raw or "")
+    if not run_id:
+        return False
+    try:
+        del params[RANKING_HISTORY_OPEN_QUERY_KEY]
+    except (KeyError, TypeError):
+        pass
+    if RankingHistoryService().get_ranking_history(user_id, run_id).snapshot is not None:
+        st.session_state[RANKING_HISTORY_SELECTED_KEY] = run_id
+        st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_detail"
+        return True
+    return False
+
+
 def ranking_history_card_view(
     item: RankingHistoryIndexItem,
     *,
@@ -426,6 +468,7 @@ def ranking_history_card_view(
     )
     return RankingHistoryCardView(
         run_id=item.run_id,
+        user_id=item.user_id,
         style_class=style,
         created_at=item.created_at.strftime("%Y/%m/%d %H:%M"),
         target_label=item.target_label,
@@ -607,24 +650,13 @@ def _render_history_section(
     if not items:
         st.caption(empty_message)
         return
-    columns = st.columns(2)
     for index, item in enumerate(items):
         snapshot = service.get_ranking_history(user_id, item.run_id).snapshot
         card = ranking_history_card_view(item, snapshot=snapshot, index=index)
-        with columns[index % 2]:
-            st.markdown(_ranking_history_card_html(card), unsafe_allow_html=True)
-            if st.button(
-                "詳細を見る",
-                key=f"ranking_history_open_{item.run_id}",
-                disabled=not card.snapshot_available,
-                use_container_width=True,
-            ):
-                st.session_state[RANKING_HISTORY_SELECTED_KEY] = item.run_id
-                st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_detail"
-                st.rerun()
+        st.markdown(ranking_history_card_html(card), unsafe_allow_html=True)
 
 
-def _ranking_history_card_html(card: RankingHistoryCardView) -> str:
+def ranking_history_card_html(card: RankingHistoryCardView) -> str:
     metadata = "".join(
         f'<span class="smai-ranking-history-chip">{html.escape(chip)}</span>'
         for chip in card.metadata_chips
@@ -645,21 +677,37 @@ def _ranking_history_card_html(card: RankingHistoryCardView) -> str:
         else ""
     )
     classes = f"smai-ranking-history-card {card.style_class}".strip()
+    wrapper_tag = "a" if card.snapshot_available else "article"
+    link_attributes = (
+        f' href="?smai_start_profile={html.escape(card.user_id)}'
+        f'&smai_page=ranking&{RANKING_HISTORY_OPEN_QUERY_KEY}={html.escape(card.run_id)}"'
+        ' target="_self" aria-label="ランキング履歴の詳細を見る"'
+        if card.snapshot_available
+        else ' aria-disabled="true"'
+    )
     return (
-        f'<article class="{classes}">'
-        '<div class="smai-ranking-history-card-header">'
-        f"<time>{html.escape(card.created_at)}</time>{pin}"
-        "</div>"
-        '<div class="smai-ranking-history-card-title">'
+        f'<{wrapper_tag} class="{classes}"{link_attributes}>'
+        '<span class="smai-ranking-history-list-primary">'
+        f"<time>{html.escape(card.created_at)}</time>"
         f"<strong>{html.escape(card.target_label)}</strong>"
-        f'<span class="smai-ranking-history-badge">{html.escape(card.ranking_label)}</span>'
-        "</div>"
-        f'<div class="smai-ranking-history-chip-row">{metadata}</div>'
-        '<div class="smai-ranking-history-card-label">保存時の条件</div>'
-        f'<div class="smai-ranking-history-chip-row">{conditions}</div>'
-        '<div class="smai-ranking-history-card-label">上位銘柄</div>'
-        f'<div class="smai-ranking-history-symbol-row">{symbols or "未取得"}</div>'
-        "</article>"
+        f'<span class="smai-ranking-history-card-badges">'
+        f'<span class="smai-ranking-history-badge">{html.escape(card.ranking_label)}</span>{pin}'
+        "</span>"
+        "</span>"
+        '<span class="smai-ranking-history-list-meta">'
+        '<span class="smai-ranking-history-card-label">保存情報</span>'
+        f'<span class="smai-ranking-history-chip-row">{metadata}</span>'
+        "</span>"
+        '<span class="smai-ranking-history-list-conditions">'
+        '<span class="smai-ranking-history-card-label">保存時の条件</span>'
+        f'<span class="smai-ranking-history-chip-row">{conditions}</span>'
+        "</span>"
+        '<span class="smai-ranking-history-card-action">詳細を見る <span>→</span></span>'
+        '<span class="smai-ranking-history-list-symbols">'
+        '<span class="smai-ranking-history-card-label">上位銘柄</span>'
+        f'<span class="smai-ranking-history-symbol-row">{symbols or "未取得"}</span>'
+        "</span>"
+        f"</{wrapper_tag}>"
     )
 
 
@@ -682,27 +730,31 @@ def _render_history_detail_summary(snapshot: RankingHistorySnapshot) -> None:
     )
     policy = ranking_policy_label(snapshot.ranking_type)
     description = ranking_policy_description(snapshot.ranking_type)["short_summary"]
-    st.markdown(
-        '<section class="smai-ranking-history-detail-summary">'
-        '<article class="smai-ranking-history-summary-card">'
-        '<div class="smai-ranking-history-card-label">保存時のランキング候補</div>'
-        f"<strong>候補 {snapshot.candidate_count}件 / 保存 {snapshot.saved_row_count}件</strong>"
-        "<p>ここで絞った候補だけを、保存時のランキング基準で並べています。</p>"
-        f'<div class="smai-ranking-history-chip-row">{chip_html}</div>'
-        "</article>"
-        '<article class="smai-ranking-history-summary-card">'
-        '<div class="smai-ranking-history-card-label">保存時のランキング基準</div>'
-        f"<strong>{html.escape(policy)}</strong>"
-        f"<p>{html.escape(description)}</p>"
-        f'<div class="smai-ranking-history-chip-row">{weight_html}</div>'
-        "</article>"
-        "</section>",
-        unsafe_allow_html=True,
-    )
+    left, right = st.columns(2)
+    with left:
+        st.markdown(
+            '<section class="smai-section-card smai-ranking-condition-card">'
+            '<div class="smai-card-label">保存時のランキング候補</div>'
+            f"<strong>候補 {snapshot.candidate_count}件 / 保存 {snapshot.saved_row_count}件</strong>"
+            "<p>ここで絞った候補だけを、保存時のランキング基準で並べています。</p>"
+            f'<div class="smai-ranking-history-chip-row">{chip_html}</div>'
+            "</section>",
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            '<section class="smai-section-card smai-ranking-condition-card">'
+            '<div class="smai-card-label">保存時のランキング基準</div>'
+            f"<strong>{html.escape(policy)}</strong>"
+            f"<p>{html.escape(description)}</p>"
+            f'<div class="smai-ranking-history-chip-row">{weight_html}</div>'
+            "</section>",
+            unsafe_allow_html=True,
+        )
 
 
 def _render_history_candidate_cards(rows: list[RankingHistoryResultRow]) -> None:
-    st.markdown("#### 注目候補")
+    render_section_heading("注目候補")
     if not rows:
         st.info("表示できる保存候補がありません。")
         return
@@ -710,25 +762,21 @@ def _render_history_candidate_cards(rows: list[RankingHistoryResultRow]) -> None
     for index, row in enumerate(rows[:5], start=1):
         with columns[index - 1]:
             memo = row.smai_memo or row.ranking_reason or row.confirmation_point or ""
-            metrics = [
-                ("総合", row.total_score),
-                ("上昇気配", row.upside_signal_score),
-                ("下振れ警戒", row.downside_signal_score),
-            ]
-            metric_html = "".join(
-                f"<span>{html.escape(label)} <strong>{value:.1f}</strong></span>"
-                for label, value in metrics
+            badges = tuple(
+                f"{label} {value:.1f}"
+                for label, value in (
+                    ("上昇気配", row.upside_signal_score),
+                    ("下振れ警戒", row.downside_signal_score),
+                )
                 if value is not None
             )
-            st.markdown(
-                '<article class="smai-ranking-history-metric-card">'
-                f'<span class="smai-ranking-history-rank">#{index}</span>'
-                f"<strong>{html.escape(row.symbol)}</strong>"
-                f"<small>{html.escape(row.name or '銘柄名未取得')}</small>"
-                f'<div class="smai-ranking-history-metrics">{metric_html}</div>'
-                f"<p>{html.escape(memo)}</p>"
-                "</article>",
-                unsafe_allow_html=True,
+            render_metric_card(
+                f"#{index} {row.symbol}",
+                f"総合 {row.total_score:.1f}" if row.total_score is not None else "総合 N/A",
+                caption=f"{row.name or '銘柄名未取得'} / {memo}".strip(" /"),
+                badges=badges,
+                tone="score",
+                emphasis="spotlight" if index == 1 else "normal",
             )
 
 
@@ -736,7 +784,7 @@ def _render_history_bar_chart(
     rows: list[RankingHistoryResultRow],
     option: RankingHistorySortOption,
 ) -> None:
-    st.markdown(f"#### 上位10件: {option.label}")
+    render_section_heading(f"上位10件: {option.label}")
     chart_rows = history_bar_chart_rows(rows, option)
     if not chart_rows:
         st.info(f"{option.label}をグラフ化できる保存データがありません。")
@@ -762,7 +810,7 @@ def _render_history_bar_chart(
 
 
 def _render_history_signal_map(rows: list[RankingHistoryResultRow]) -> None:
-    st.markdown("#### 上昇気配 × 下振れ警戒マップ")
+    render_section_heading("上昇気配 × 下振れ警戒マップ")
     chart_rows = history_signal_map_rows(rows)
     if not chart_rows:
         st.info("保存データに上昇気配・下振れ警戒の情報がないため、マップを表示できません。")

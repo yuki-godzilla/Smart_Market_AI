@@ -4089,13 +4089,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## 2026-07-03 Ranking History UI改善
 
-- 履歴一覧を2列/1列レスポンシブカードへ刷新し、通常履歴の交互配色、ピン留めアクセント、
-  metadata/条件チップ、上位3銘柄タグを追加。
+- 履歴一覧を全幅の横長行カードへ刷新し、カード全体クリック、埋め込み詳細CTA、
+  通常履歴の二色交互配色、ピン留めアクセント、metadata/条件チップ、上位3銘柄タグを追加。
 - 履歴詳細に保存時条件/基準サマリー、注目候補上位5件、選択指標の上位10件棒グラフ、
-  上昇気配×下振れ警戒マップ、表示順に連動する深掘り導線を追加。
+  上昇気配×下振れ警戒マップ、表示順に連動する深掘り導線を追加。独自カードを減らし、
+  通常ランキングの共有title/dashboard/condition/metric/sectionスタイルへ統一。
 - 保存時基準を初期値とする表示専用sortを追加。欠損指標は候補から除外し、snapshot/index、
   ranking算出、Research/LLM、現在値取得は変更しない。
-- UI helper/style回帰、全pytest、Ruff、Mypy、Black helper、Ranking 4 viewport smokeを確認。
+- DOMのカード単一性、子要素数、overflowもPlaywrightで検証し、画像・実寸でも表示を確認。
+  UI helper/style回帰、全pytest、Ruff、Mypy、Black helper、Ranking 4 viewport smokeを確認。
 
 ## 2026-07-03 Ranking再入場時の作成画面復帰
 

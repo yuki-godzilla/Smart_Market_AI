@@ -77,6 +77,8 @@ def restore_last_session(
     valid_user_ids: set[str],
     query_params: Mapping[str, Any] | None = None,
     path: Path = DEFAULT_LAST_SESSION_PATH,
+    restore_selected_user: bool = True,
+    restore_active_page: bool = True,
 ) -> dict[str, Any] | None:
     """Restore lightweight values once per Streamlit session.
 
@@ -94,7 +96,8 @@ def restore_last_session(
     restored: dict[str, Any] = {}
     user_id = str(snapshot.get("selected_user_id") or "")
     if (
-        not _has_query_value(params, "smai_start_profile", "smai_profile")
+        restore_selected_user
+        and not _has_query_value(params, "smai_start_profile", "smai_profile")
         and "smai_current_user_id" not in session_state
         and user_id in valid_user_ids
     ):
@@ -103,7 +106,8 @@ def restore_last_session(
 
     active_page = str(snapshot.get("active_page") or "")
     if (
-        not _has_query_value(params, "smai_page")
+        restore_active_page
+        and not _has_query_value(params, "smai_page")
         and "sidemenu_page" not in session_state
         and active_page in ALLOWED_PAGES
     ):

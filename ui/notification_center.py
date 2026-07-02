@@ -280,6 +280,8 @@ def render_user_notification_area() -> bool:
         cast(MutableMapping[str, Any], st.session_state),
         valid_user_ids={candidate.user_id for candidate in users},
         query_params=getattr(st, "query_params", None),
+        restore_selected_user=False,
+        restore_active_page=False,
     )
     start_user_id = _query_value(START_PROFILE_QUERY_KEY)
     start_user = next((item for item in users if item.user_id == start_user_id), None)
@@ -291,6 +293,8 @@ def render_user_notification_area() -> bool:
     session_user_id = st.session_state.get("smai_current_user_id")
     user = next((item for item in users if item.user_id == session_user_id), None)
     if user is None:
+        if not _query_value("smai_page"):
+            st.session_state.pop("sidemenu_page", None)
         user = _select_user(users)
     if user is None:
         return False

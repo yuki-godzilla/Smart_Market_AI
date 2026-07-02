@@ -91,6 +91,26 @@ def test_restore_url_values_win_and_missing_user_safely_falls_back(tmp_path: Pat
     assert "market_data_symbol_candidate" not in state
 
 
+def test_restore_can_preserve_user_selection_as_startup_gate(tmp_path: Path) -> None:
+    path = tmp_path / "last_session.json"
+    assert save_last_session(_snapshot(), path)
+    state: dict[str, object] = {}
+
+    restored = restore_last_session(
+        state,
+        valid_user_ids={"u_12345678"},
+        path=path,
+        restore_selected_user=False,
+        restore_active_page=False,
+    )
+
+    assert "smai_current_user_id" not in state
+    assert "sidemenu_page" not in state
+    assert restored == {
+        "selected_symbol": "7203.T",
+    }
+
+
 def test_snapshot_does_not_serialize_large_or_unknown_session_values() -> None:
     state = {
         "smai_current_user_id": "u_12345678",

@@ -991,7 +991,11 @@ Assistant loading UI / auto transition の実Streamlit smoke:
 Streamlit の WebSocket session が iOS / Safari / PWA 側で破棄されても、SMAI は
 `data/user_state/last_session.json` から軽量な前回状態を復元します。
 
-- 復元順序は URL query parameter、Last Session Snapshot、通常のユーザー選択です。
+- 通常起動では最初にユーザー選択を表示し、選択後はサイドメニュー先頭の
+  `銘柄コックピット` を開きます。前回ユーザーや前回ページへ自動遷移しません。
+- 明示的なプロフィール/ページ URL query parameter は通常起動より優先します。
+- Last Session Snapshot の安全な銘柄、Ranking主要条件、データ取得元は、
+  ユーザー選択や初期ページを飛ばさない範囲で復元します。
 - 保存対象は最後のユーザー、主要画面、Cockpit 銘柄、Ranking の主要条件、
   Cockpit / Ranking のデータ取得元です。
 - DataFrame、画像、ニュース本文、Research本文、LLM応答は保存しません。

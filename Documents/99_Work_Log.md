@@ -4078,3 +4078,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   現在の銘柄確認、条件復元を追加。履歴表示では保存済みrowを使い、現在の
   Research / LLM enrichmentやDecision Report生成を実行しない。
 - repository/service/UI helperテストと既存Ranking/Profile/Favorites回帰を追加・確認。
+
+## 2026-07-03 初期ユーザー選択・Cockpit起動修正
+
+- Last Session Snapshotから前回ユーザーと前回ページを通常起動時に自動復元しないよう変更。
+- 新規Streamlit sessionではユーザー選択画面を必ず先に表示し、選択後はサイドメニュー先頭の
+  `銘柄コックピット`を初期表示する。明示URLのプロフィール/ページ指定は維持。
+- safeな銘柄、Ranking条件、provider復元と、外部取得・ランキング自動実行を行わない境界は維持。
+- Last Session単体回帰とRanking 4 viewport Playwright smokeで確認。

@@ -1,5 +1,19 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups pre-implementation design
+
+- Investigated Myウォッチリスト rendering, favorites/profile storage, card paths,
+  user switching, atomic-write examples, responsive checks, and local D&D capability.
+- Added requirements, UI, storage, implementation-plan, and code-investigation documents.
+- Kept implementation out of scope. Recommended a select-based MVP with always-expanded
+  groups and computed `未分類`; D&D remains a later isolated spike.
+- Confirmed Streamlit 1.38.0 has `dialog`/`fragment` but no native sortable/draggable API,
+  and `streamlit-sortables` is not installed.
+- Verification: 56 targeted favorites/profile/snapshot/watchlist tests passed using a
+  workspace-local pytest temp directory; targeted Ruff passed; the project Black helper
+  passed all 369 Python files. The first pytest attempt was environment-blocked by the
+  default Windows temp-directory permissions and was rerun successfully.
+
 #### [BACK TO README](../README.md)
 
 ## Purpose / 目的

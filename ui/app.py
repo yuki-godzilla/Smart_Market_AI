@@ -7826,53 +7826,80 @@ def cockpit_keyword_filtered_symbol_rows(
     rows: list[dict[str, str]],
     query: str,
 ) -> list[dict[str, str]]:
-    normalized_query = query.strip().lower()
+    normalized_query = _normalized_cockpit_search_text(query)
     if not normalized_query:
         return rows
-    return [row for row in rows if normalized_query in _cockpit_symbol_keyword_text(row)]
+    matched_rows = [
+        row for row in rows if cockpit_symbol_search_rank(row, normalized_query) is not None
+    ]
 
+    def sort_key(row: Mapping[str, object]) -> tuple[int, str]:
+        rank = cockpit_symbol_search_rank(row, normalized_query)
+        return (rank if rank is not None else 99, str(row.get("symbol", "")).upper())
 
-def _cockpit_symbol_keyword_text(row: Mapping[str, object]) -> str:
-    fields = (
-        "symbol",
-        "name",
-        "aliases",
-        "alias",
-        "theme",
-        "sector",
-        "industry",
-        "tags",
-        "smai_theme_tags",
-        "sector_gics",
-        "industry_gics",
-        "subindustry_gics",
-        "tse_33_industry",
-        "topix_17",
-        "asset_type",
-        "index_family",
-        "benchmark_index",
-        "market",
-        "currency",
+    return sorted(
+        matched_rows,
+        key=sort_key,
     )
+
+
+def _normalized_cockpit_search_text(value: object) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def _cockpit_search_field_text(row: Mapping[str, object], *fields: str) -> str:
     values: list[str] = []
     for field in fields:
         value = row.get(field)
         if isinstance(value, list | tuple | set):
             values.extend(str(item) for item in value)
         elif value is not None:
-            text = str(value)
-            values.append(text)
-            if field == "theme":
-                values.append(RANKING_INVESTMENT_THEME_LABELS.get(text, ""))
-            elif field == "sector":
-                values.append(RANKING_OFFICIAL_SECTOR_LABELS.get(text, ""))
-            elif field == "asset_type":
-                values.append(RANKING_MVP_PRODUCT_TYPE_LABELS.get(text, ""))
-            elif field == "index_family":
-                values.append(RANKING_INDEX_FAMILY_LABELS.get(text, ""))
-            elif field == "currency":
-                values.append(RANKING_CURRENCY_LABELS.get(text, ""))
-    return " ".join(values).lower()
+            values.append(str(value))
+    return _normalized_cockpit_search_text(" ".join(values))
+
+
+def cockpit_symbol_search_rank(
+    row: Mapping[str, object],
+    query: str,
+) -> int | None:
+    """Return the user-facing Cockpit search rank; lower values are better."""
+
+    normalized_query = _normalized_cockpit_search_text(query)
+    if not normalized_query:
+        return 0
+    symbol = _cockpit_search_field_text(row, "symbol")
+    aliases = _cockpit_search_field_text(row, "aliases", "alias")
+    name = _cockpit_search_field_text(row, "name")
+    sector = _cockpit_search_field_text(
+        row,
+        "sector",
+        "industry",
+        "sector_gics",
+        "industry_gics",
+        "subindustry_gics",
+        "tse_33_industry",
+        "topix_17",
+    )
+    theme = _cockpit_search_field_text(row, "theme")
+    sector = _normalized_cockpit_search_text(
+        f"{sector} {RANKING_OFFICIAL_SECTOR_LABELS.get(str(row.get('sector', '')), '')}"
+    )
+    theme = _normalized_cockpit_search_text(
+        f"{theme} {RANKING_INVESTMENT_THEME_LABELS.get(str(row.get('theme', '')), '')}"
+    )
+    tags = _cockpit_search_field_text(row, "tags", "smai_theme_tags")
+    ranked_matches = (
+        symbol == normalized_query,
+        symbol.startswith(normalized_query),
+        aliases.startswith(normalized_query),
+        name.startswith(normalized_query),
+        normalized_query in aliases,
+        normalized_query in name,
+        normalized_query in sector,
+        normalized_query in theme,
+        normalized_query in tags,
+    )
+    return next((rank for rank, matched in enumerate(ranked_matches) if matched), None)
 
 
 def _cockpit_filter_value(key: str, default: str) -> str:
@@ -7900,22 +7927,54 @@ def _current_or_default_symbol_labels(symbol_options: list[dict[str, str]]) -> l
 
 
 def merged_symbol_candidate_rows(
-    reference_rows: list[dict[str, str]],
-    live_rows: list[dict[str, str]],
+    *candidate_groups: list[dict[str, str]],
+    query: str = "",
 ) -> list[dict[str, str]]:
-    """Merge representative and live-search symbol candidates without duplicates."""
+    """Merge all Cockpit candidate sources, deduplicate, and apply search ranking."""
 
     merged: list[dict[str, str]] = []
     seen: set[str] = set()
-    for row in [*reference_rows, *live_rows]:
+    for row in (row for group in candidate_groups for row in group):
         symbol = row.get("symbol", "").strip()
         name = row.get("name", "").strip() or symbol
         normalized_symbol = symbol.upper()
         if not normalized_symbol or normalized_symbol in seen:
             continue
         seen.add(normalized_symbol)
-        merged.append({"symbol": symbol, "name": name})
-    return merged
+        merged.append({**row, "symbol": symbol, "name": name})
+    if not query.strip():
+        return merged
+
+    def sort_key(row: Mapping[str, object]) -> tuple[int, str]:
+        rank = cockpit_symbol_search_rank(row, query)
+        return (rank if rank is not None else 99, str(row.get("symbol", "")).upper())
+
+    return sorted(
+        merged,
+        key=sort_key,
+    )
+
+
+def symbol_universe_rows_for_symbols(
+    rows: list[dict[str, str]],
+    symbols: Iterable[str],
+) -> list[dict[str, str]]:
+    """Resolve symbols against the full universe while preserving requested order."""
+
+    rows_by_symbol = {
+        row.get("symbol", "").strip().upper(): row for row in rows if row.get("symbol", "").strip()
+    }
+    resolved: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        row = rows_by_symbol.get(normalized_symbol)
+        if row is not None:
+            resolved.append(row)
+    return resolved
 
 
 def favorite_prioritized_symbol_candidate_labels(
@@ -7923,18 +7982,39 @@ def favorite_prioritized_symbol_candidate_labels(
     favorite_symbols: set[str],
     *,
     favorites_only: bool = False,
+    query: str = "",
+    required_symbols: Collection[str] = (),
 ) -> list[str]:
-    labels = symbol_candidate_labels(rows)
     normalized_favorites = {
         normalize_favorite_symbol(symbol) for symbol in favorite_symbols if symbol.strip()
     }
+    normalized_required = {
+        normalize_favorite_symbol(symbol) for symbol in required_symbols if symbol.strip()
+    }
     if favorites_only:
-        labels = [
-            label
-            for label in labels
-            if normalize_favorite_symbol(_symbol_from_candidate(label) or "")
-            in normalized_favorites
+        rows = [
+            row
+            for row in rows
+            if normalize_favorite_symbol(row.get("symbol", ""))
+            in normalized_favorites | normalized_required
         ]
+    if query.strip():
+
+        def sort_key(row: Mapping[str, object]) -> tuple[int, bool, str]:
+            rank = cockpit_symbol_search_rank(row, query)
+            symbol = row.get("symbol", "")
+            return (
+                rank if rank is not None else 99,
+                normalize_favorite_symbol(symbol) not in normalized_favorites,
+                symbol.upper(),
+            )
+
+        rows = sorted(
+            rows,
+            key=sort_key,
+        )
+        return symbol_candidate_labels(rows)
+    labels = symbol_candidate_labels(rows)
     return sorted(
         labels,
         key=lambda label: (
@@ -8005,10 +8085,27 @@ def _render_market_data_cockpit() -> None:
         filtered_symbol_options,
         symbol_query,
     )
+    normalized_query = symbol_query.strip().upper()
+    exact_symbol_rows = (
+        symbol_universe_rows_for_symbols(symbol_options, [normalized_query])
+        if normalized_query
+        else []
+    )
+    ranking_handoff_symbol = str(st.session_state.get("market_data_ranking_handoff_symbol", ""))
+    current_selected_symbol = (
+        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
+    )
+    preserved_symbol_rows = symbol_universe_rows_for_symbols(
+        symbol_options,
+        [ranking_handoff_symbol, current_selected_symbol],
+    )
     live_symbol_options = yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
     candidate_rows = merged_symbol_candidate_rows(
         local_candidate_rows,
+        exact_symbol_rows,
+        preserved_symbol_rows,
         live_symbol_options,
+        query=symbol_query,
     )
     favorite_symbols = {favorite.symbol for favorite in load_favorites()}
     favorite_option_labels = favorite_prioritized_symbol_candidate_labels(
@@ -8022,6 +8119,12 @@ def _render_market_data_cockpit() -> None:
             candidate_rows,
             favorite_symbols,
             favorites_only=favorites_only,
+            query=symbol_query,
+            required_symbols=[
+                ranking_handoff_symbol,
+                current_selected_symbol,
+                normalized_query,
+            ],
         )
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
@@ -9938,6 +10041,7 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
     st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = provider
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
+    st.session_state["market_data_ranking_handoff_symbol"] = symbol.strip().upper()
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
     _clear_ranking_deep_dive_state()

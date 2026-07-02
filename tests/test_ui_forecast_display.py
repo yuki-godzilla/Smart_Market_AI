@@ -1270,6 +1270,78 @@ def test_merged_symbol_candidate_rows_deduplicates_representative_first():
     ]
 
 
+def test_cockpit_search_exact_symbol_ranks_above_partial_matches():
+    rows = [
+        {"symbol": "RYAAY", "name": "Ryanair"},
+        {"symbol": "RY", "name": "Royal Bank of Canada"},
+        {"symbol": "ARRY", "name": "Array Technologies", "aliases": "RY"},
+    ]
+
+    assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "RY")] == [
+        "RY",
+        "RYAAY",
+        "ARRY",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("symbol", "expected_name"),
+    [
+        ("RY", "Royal Bank of Canada"),
+        ("TD", "Toronto-Dominion Bank"),
+        ("CM", "Canadian Imperial Bank of Commerce"),
+        ("BMO", "Bank of Montreal"),
+        ("D", "Dominion Energy"),
+        ("PNW", "Pinnacle West Capital"),
+        ("PEG", "Public Service Enterprise Group"),
+        ("DUK", "Duke Energy"),
+        ("ED", "Consolidated Edison"),
+        ("UL", "Unilever"),
+        ("BTI", "British American Tobacco"),
+        ("TROW", "T. Rowe Price"),
+        ("BMY", "Bristol-Myers Squibb"),
+        ("REYN", "Reynolds Consumer Products"),
+    ],
+)
+def test_cockpit_search_finds_exact_symbols_in_full_universe(symbol, expected_name):
+    rows = symbol_universe_rows()
+
+    matches = cockpit_keyword_filtered_symbol_rows(rows, symbol)
+
+    assert matches[0]["symbol"] == symbol
+    assert expected_name in matches[0]["name"]
+
+
+def test_merged_cockpit_candidates_include_rescued_ranking_and_selected_symbols():
+    filtered = [{"symbol": "7203.T", "name": "Toyota Motor"}]
+    rescued = [{"symbol": "RY", "name": "Royal Bank of Canada"}]
+    ranking = [{"symbol": "UL", "name": "Unilever"}]
+    selected = [{"symbol": "D", "name": "Dominion Energy"}]
+
+    rows = merged_symbol_candidate_rows(
+        filtered,
+        rescued,
+        ranking,
+        selected,
+        query="RY",
+    )
+
+    assert [row["symbol"] for row in rows] == ["RY", "7203.T", "D", "UL"]
+
+
+def test_symbol_universe_rows_for_symbols_rescues_outside_filter_and_keeps_order():
+    universe = [
+        {"symbol": "7203.T", "name": "Toyota Motor"},
+        {"symbol": "RY", "name": "Royal Bank of Canada"},
+        {"symbol": "D", "name": "Dominion Energy"},
+    ]
+
+    assert app_module.symbol_universe_rows_for_symbols(
+        universe,
+        ["D", "RY", "D"],
+    ) == [universe[2], universe[1]]
+
+
 def test_symbol_candidate_labels_filter_by_symbol_or_name():
     rows = [
         {"symbol": "9983.T", "name": "Fast Retailing"},
@@ -1459,6 +1531,28 @@ def test_favorite_prioritized_symbol_candidate_labels_can_show_only_favorites():
         rows,
         {"7203.t"},
     ) == ["7203.T - Toyota", "AAPL - Apple", "MSFT - Microsoft"]
+
+
+def test_exact_symbol_precedes_favorite_and_required_survives_favorites_filter():
+    rows = [
+        {"symbol": "RYAAY", "name": "Ryanair"},
+        {"symbol": "RY", "name": "Royal Bank of Canada"},
+        {"symbol": "7203.T", "name": "Toyota"},
+    ]
+
+    assert app_module.favorite_prioritized_symbol_candidate_labels(
+        rows,
+        {"RYAAY"},
+        query="RY",
+    )[
+        :2
+    ] == ["RY - Royal Bank of Canada", "RYAAY - Ryanair"]
+    assert app_module.favorite_prioritized_symbol_candidate_labels(
+        rows,
+        {"7203.T"},
+        favorites_only=True,
+        required_symbols={"RY"},
+    ) == ["7203.T - Toyota", "RY - Royal Bank of Canada"]
 
 
 def test_cockpit_filter_summary_chips_show_default_state():
@@ -4652,6 +4746,7 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
     assert session_state["sidemenu_page"] == "cockpit"
     assert session_state["market_data_provider_live_first"] == "yahoo"
     assert session_state["market_data_symbol_candidate"] == "7203.T - Toyota Motor"
+    assert session_state["market_data_ranking_handoff_symbol"] == "7203.T"
     assert session_state["market_data_period_preset"] == MARKET_DATA_PERIOD_CUSTOM
     assert session_state["market_data_start"] == date(2026, 5, 17)
     assert session_state["market_data_end"] == date(2026, 5, 24)

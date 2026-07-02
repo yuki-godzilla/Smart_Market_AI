@@ -4034,3 +4034,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - static画像移行後もbase64を期待していたAssistantテスト、CSV download contractの
   後方互換、プロフィール分離後のNews/Watchlist AppTest初期条件を修正。
 - CI相当のRuff、Black、Mypyと全pytest（1987 passed / 10 skipped）を再確認。
+
+## 2026-07-02 Cockpit 銘柄検索・ランキング遷移 Hotfix
+
+- Cockpit の銘柄検索を、symbol完全一致、symbol前方一致、alias、銘柄名、
+  sector、theme、tagの優先順位で並べる共通検索rankへ変更。
+- フィルター済み候補に加え、全銘柄universeの完全一致、ランキング遷移銘柄、
+  現在選択中銘柄を重複除去して候補へ統合。お気に入りのみの条件でも必須銘柄を維持。
+- RankingからCockpitへ渡したsymbolを専用session stateへ保持し、
+  国・市場などのフィルター外でも選択銘柄が別銘柄へ戻らないよう修正。
+- RY、D、UL、TROW、BMY、REYNの実universe検索、完全一致順位、
+  フィルター外救済、候補統合、ランキングhandoffを自動テストへ追加。
+- 対象pytest 365件、全pytest（1997 passed / 10 skipped）、Ruff、Blackを確認。

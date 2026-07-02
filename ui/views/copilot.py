@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import html
 import json
 import os
@@ -90,11 +89,17 @@ from ui.components.assistant import (
 )
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
+from ui.components.downloads import (
+    render_markdown_copy,
+    render_markdown_download,
+    render_markdown_preview,
+    render_zip_download,
+)
 from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
     MASCOT_THUMB_ASSET,
     MASCOT_TITLE_ASSETS,
-    _asset_data_uri,
+    _asset_static_url,
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
@@ -1382,6 +1387,7 @@ def render_copilot_workspace_page() -> None:
     if _render_decision_report_draft_action(_copilot_history()):
         st.rerun()
     _render_pending_decision_report_draft_preview()
+    _render_latest_turn_export_actions(_copilot_history())
     st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, None)
     suggestions_placeholder = st.empty()
     with suggestions_placeholder.container():
@@ -1529,7 +1535,7 @@ def _render_copilot_loading_panel(
 
 def _investment_radar_loading_asset_uri() -> str:
     try:
-        return _asset_data_uri(MASCOT_TITLE_ASSETS["investment_radar"])
+        return _asset_static_url(MASCOT_TITLE_ASSETS["investment_radar"])
     except (OSError, ValueError):
         return ""
 
@@ -2811,8 +2817,8 @@ def _render_pending_decision_report_draft_preview() -> None:
                 _archive_pending_decision_report_draft(draft, context=context)
                 st.rerun()
         with markdown_col:
-            st.download_button(
-                "Markdown保存",
+            render_markdown_download(
+                label="レポートMarkdownをダウンロード",
                 data=markdown,
                 file_name=_memo_filename(
                     {
@@ -2822,9 +2828,7 @@ def _render_pending_decision_report_draft_preview() -> None:
                         ),
                     }
                 ),
-                mime="text/markdown",
                 key=f"smai_copilot_report_draft_download_{draft.get('turn_id', '')}",
-                use_container_width=True,
             )
         with zip_col:
             if context is not None:
@@ -2834,8 +2838,8 @@ def _render_pending_decision_report_draft_preview() -> None:
                     markdown_filename="report.md",
                     zip_filename="assistant_decision_report.zip",
                 )
-                st.download_button(
-                    "ZIP保存",
+                render_zip_download(
+                    label="レポート一式ZIPをダウンロード",
                     data=assistant_decision_report_zip_download(markdown, zip_manifest),
                     file_name=_memo_filename(
                         {
@@ -2846,9 +2850,7 @@ def _render_pending_decision_report_draft_preview() -> None:
                         },
                         extension="zip",
                     ),
-                    mime="application/zip",
                     key=f"smai_copilot_report_draft_zip_{draft.get('turn_id', '')}",
-                    use_container_width=True,
                 )
             else:
                 st.button(
@@ -4340,7 +4342,7 @@ def _chat_header_html(
         f"smai-copilot-statusbar--{runtime_status.severity} "
         f"smai-copilot-statusbar-state--{runtime_status.state}"
     )
-    navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
+    navi_image = _asset_static_url(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
         '<div class="smai-copilot-header-identity">'
@@ -4376,7 +4378,7 @@ def _user_bubble_html(*, context_label: str, question: str) -> str:
 
 
 def _assistant_bubble_html(*, answer: str, detail_html: str, is_pending: bool = False) -> str:
-    image = _asset_data_uri(MASCOT_THUMB_ASSET)
+    image = _asset_static_url(MASCOT_THUMB_ASSET)
     card_class = "smai-copilot-message-card smai-copilot-message-card--assistant"
     if is_pending:
         card_class += " smai-copilot-message-card--pending"
@@ -5416,27 +5418,10 @@ def _response_meta_html(turn: dict[str, str]) -> str:
 
 
 def _assistant_action_links_html(turn: dict[str, str]) -> str:
-    actions = _actions_for_turn(turn)
-    plain_text = copilot_turn_plain_text(turn)
-    markdown = copilot_turn_markdown(turn)
-    action_links = "".join(
-        _download_action_link_html(
-            label=label,
-            data=plain_text if kind == "copy" else markdown,
-            file_name=(
-                _memo_filename(turn, extension="txt") if kind == "copy" else _memo_filename(turn)
-            ),
-            mime="text/plain" if kind == "copy" else "text/markdown",
-        )
-        for label, kind in actions
-    )
-    if not action_links:
-        return ""
-    return (
-        '<div class="smai-copilot-actions-row smai-copilot-actions-row--inside">'
-        f"{action_links}"
-        "</div>"
-    )
+    # Export controls are Streamlit widgets rendered outside the HTML bubble.
+    # Keeping generated content out of data: links avoids PWA external-viewer
+    # navigation and prevents long answers from inflating chat HTML.
+    return ""
 
 
 def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
@@ -5449,15 +5434,31 @@ def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _download_action_link_html(*, label: str, data: str, file_name: str, mime: str) -> str:
-    encoded = base64.b64encode(data.encode("utf-8")).decode("ascii")
-    return (
-        '<a class="smai-copilot-action-link" '
-        f'href="data:{html.escape(mime)};charset=utf-8;base64,{encoded}" '
-        f'download="{html.escape(file_name)}">'
-        f"{html.escape(label)}"
-        "</a>"
-    )
+def _render_latest_turn_export_actions(history: list[dict[str, str]]) -> None:
+    completed = [
+        turn
+        for turn in history
+        if str(turn.get("status", "")).strip() not in {"pending", "tool_plan"}
+        and str(turn.get("answer", "")).strip()
+    ]
+    if not completed:
+        return
+    turn = completed[-1]
+    turn_id = str(turn.get("turn_id", "")) or "latest"
+    markdown = copilot_turn_markdown(turn)
+    with st.expander("最新回答のコピー・保存", expanded=False):
+        preview_tab, copy_tab, download_tab = st.tabs(["プレビュー", "コピー", "ダウンロード"])
+        with preview_tab:
+            render_markdown_preview(markdown)
+        with copy_tab:
+            render_markdown_copy(copilot_turn_plain_text(turn))
+        with download_tab:
+            render_markdown_download(
+                label="回答Markdownをダウンロード",
+                data=markdown,
+                file_name=_memo_filename(turn),
+                key=f"smai_copilot_markdown_download_{turn_id}",
+            )
 
 
 def copilot_turn_plain_text(turn: dict[str, str]) -> str:

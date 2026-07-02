@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from ui.components.mascot import (
     APP_LOGO_ASSET,
-    BRAND_ASSET_DIR,
-    MASCOT_ASSET_DIR,
     MASCOT_CUTOUT_ASSET,
     MASCOT_LOADING_ASSET,
     MASCOT_REFERENCE_ASSET,
@@ -11,6 +9,7 @@ from ui.components.mascot import (
     MASCOT_VARIANT_ASSETS,
     MASCOT_VARIANT_DEFAULTS,
     MASCOT_WATCHLIST_TITLE_ASSET,
+    STATIC_ASSET_DIR,
     app_header_html,
     copilot_presence_panel_html,
     mascot_loading_html,
@@ -21,12 +20,13 @@ from ui.components.mascot import (
 )
 
 
-def test_mascot_panel_html_embeds_lightweight_webp_and_variant_copy():
+def test_mascot_panel_html_uses_lightweight_static_webp_and_variant_copy():
     markup = mascot_panel_html("ranking", layout="compact")
 
     assert 'class="smai-mascot smai-mascot--compact"' in markup
     assert 'data-variant="ranking"' in markup
-    assert "data:image/webp;base64," in markup
+    assert 'src="/app/static/assets/mascot/' in markup
+    assert "base64" not in markup
     assert MASCOT_VARIANT_DEFAULTS["ranking"]["title"] in markup
     assert "売買推奨" not in MASCOT_VARIANT_DEFAULTS["ranking"]["message"]
 
@@ -46,7 +46,7 @@ def test_mascot_panel_html_escapes_custom_copy():
     assert "smai-mascot--sidebar" in markup
 
 
-def test_app_header_html_embeds_small_mascot_and_escapes_message():
+def test_app_header_html_uses_static_assets_and_escapes_message():
     markup = app_header_html("Smart <Market>", message="SMAI <ナビ>")
 
     assert 'class="smai-app-header"' in markup
@@ -55,13 +55,14 @@ def test_app_header_html_embeds_small_mascot_and_escapes_message():
     assert 'alt="Smart &lt;Market&gt;"' in markup
     assert "SMAI &lt;ナビ&gt;" in markup
     assert 'class="smai-app-mascot"' in markup
-    assert "data:image/png;base64," in markup
-    assert "data:image/webp;base64," in markup
+    assert "/app/static/assets/brand/smai-logo-640.webp" in markup
+    assert "/app/static/assets/mascot/smai-mascot-thumb.webp" in markup
+    assert "base64" not in markup
 
 
 def test_brand_logo_asset_exists_for_app_header():
-    assert APP_LOGO_ASSET == "smai-logo.png"
-    assert (BRAND_ASSET_DIR / APP_LOGO_ASSET).is_file()
+    assert APP_LOGO_ASSET == "smai-logo-640.webp"
+    assert (STATIC_ASSET_DIR / "brand" / APP_LOGO_ASSET).is_file()
 
 
 def test_mascot_loading_html_uses_animation_classes():
@@ -116,7 +117,7 @@ def test_page_title_html_uses_screen_specific_mascot_asset_and_escapes_copy():
     assert "銘柄&lt;ランキング&gt;" in markup
     assert "比較 &lt;候補&gt; を整理します。" in markup
     assert "smai-page-title-image" in markup
-    assert "data:image/webp;base64," in markup
+    assert "/app/static/assets/mascot/smai-title-ranking.webp" in markup
 
 
 def test_page_title_html_can_include_top_right_accessory():
@@ -144,11 +145,11 @@ def test_page_title_html_supports_watchlist_and_unknown_fallback():
     )
 
     assert MASCOT_TITLE_ASSETS["watchlist"] == MASCOT_WATCHLIST_TITLE_ASSET
-    assert MASCOT_WATCHLIST_TITLE_ASSET == "smai-title-watchlist-transparent.png"
+    assert MASCOT_WATCHLIST_TITLE_ASSET == "smai-title-watchlist-640.webp"
     assert 'data-mascot="watchlist"' in watchlist_markup
-    assert "data:image/png;base64," in watchlist_markup
+    assert "/app/static/assets/mascot/smai-title-watchlist-640.webp" in watchlist_markup
     assert 'data-mascot="unknown"' in fallback_markup
-    assert "data:image/webp;base64," in fallback_markup
+    assert "/app/static/assets/mascot/smai-title-investment-radar.webp" in fallback_markup
 
 
 def test_cockpit_page_title_uses_copilot_presence_panel():
@@ -167,8 +168,8 @@ def test_cockpit_page_title_uses_copilot_presence_panel():
     assert "smai-copilot-panel" in markup
     assert "smai-page-title-art" in markup
     assert "smai-page-title-image" in markup
-    assert "data:image/webp;base64," in markup
-    assert "data:image/png;base64," in markup
+    assert "/app/static/assets/mascot/smai-title-cockpit.webp" in markup
+    assert "/app/static/assets/mascot/smai-mascot-cutout-384.webp" in markup
 
 
 def test_copilot_presence_panel_html_uses_cutout_and_escapes_copy():
@@ -184,7 +185,7 @@ def test_copilot_presence_panel_html_uses_cutout_and_escapes_copy():
     assert "確認 &lt;script&gt; を整理します。" in markup
     assert "smai-copilot-status-dot" in markup
     assert "smai-copilot-image" in markup
-    assert "data:image/png;base64," in markup
+    assert "/app/static/assets/mascot/smai-mascot-cutout-384.webp" in markup
 
 
 def test_smai_insight_html_connects_comment_area_to_copilot_context():
@@ -198,7 +199,7 @@ def test_smai_insight_html_connects_comment_area_to_copilot_context():
     assert 'data-tone="caution"' in markup
     assert "SMAI &lt;Insight&gt;" in markup
     assert "短期 &lt;確認&gt; は慎重に見ます。" in markup
-    assert "data:image/png;base64," in markup
+    assert "/app/static/assets/mascot/smai-mascot-cutout-384.webp" in markup
 
 
 def test_mascot_expression_assets_exist_for_situation_variants():
@@ -207,7 +208,7 @@ def test_mascot_expression_assets_exist_for_situation_variants():
     assert MASCOT_VARIANT_ASSETS["report"] == "smai-mascot-report.webp"
     assert MASCOT_LOADING_ASSET == "smai-mascot-loading.webp"
     assert MASCOT_REFERENCE_ASSET == "smai-mascot-reference.webp"
-    assert MASCOT_CUTOUT_ASSET == "smai-mascot-cutout.png"
+    assert MASCOT_CUTOUT_ASSET == "smai-mascot-cutout-384.webp"
 
     for filename in {
         MASCOT_CUTOUT_ASSET,
@@ -216,12 +217,12 @@ def test_mascot_expression_assets_exist_for_situation_variants():
         *MASCOT_VARIANT_ASSETS.values(),
         *(asset for asset in MASCOT_TITLE_ASSETS.values() if asset != MASCOT_WATCHLIST_TITLE_ASSET),
     }:
-        assert (MASCOT_ASSET_DIR / filename).is_file()
+        assert (STATIC_ASSET_DIR / "mascot" / filename).is_file()
 
 
-def test_copilot_cutout_asset_is_rgba_png():
-    data = (MASCOT_ASSET_DIR / MASCOT_CUTOUT_ASSET).read_bytes()
+def test_copilot_cutout_asset_is_transparent_webp():
+    from PIL import Image
 
-    assert data.startswith(b"\x89PNG\r\n\x1a\n")
-    assert data[12:16] == b"IHDR"
-    assert data[25] == 6
+    with Image.open(STATIC_ASSET_DIR / "mascot" / MASCOT_CUTOUT_ASSET) as image:
+        assert image.format == "WEBP"
+        assert image.mode == "RGBA"

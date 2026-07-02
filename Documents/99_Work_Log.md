@@ -4013,3 +4013,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - LAN起動BATに設定状態と、取得可能な場合のTailscale URL表示を追加。
 - 資産調査・生成スクリプトと最適化レポート、原因・実機確認手順の文書を追加。
 - 対象pytest 29件とRuffを通過。Tailscale/iPhone/iPad/PWA実機確認は未実施。
+
+## 2026-07-02 外部接続/PWA安定化 残課題対応
+
+- Assistant回答内の`data:` URI保存リンクを廃止し、SMAI内プレビュー、コピー欄、
+  fragment-scoped Markdownダウンロードへ変更。Decision Report ZIPはダウンロード専用を維持。
+- Watchlistタイトル、SMAIロゴ、Cockpitマスコット、Assistantアイコンを軽量WebP化し、
+  共通マスコット画像を`/app/static/assets/`配信へ移行。元画像は保持。
+- 設定画面に外部接続診断を追加し、接続種別、Streamlit通信設定、最適化画像量、
+  session_state概算を確認可能にした。明示操作時だけサイズ・設定を診断ログへ保存する。
+- 静的な画面別delivery診断レポートと6環境の実機確認手順を追加。
+- 投資スコア、予測、Ranking、Research、外部ニュースリンクの挙動は変更していない。

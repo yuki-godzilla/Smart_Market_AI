@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import html
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
@@ -25,16 +24,17 @@ TitleMascot = Literal["cockpit", "ranking", "investment_radar", "rebalance", "wa
 CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
 ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
+STATIC_ASSET_DIR = Path(__file__).resolve().parents[1] / "static/assets"
 BRAND_ASSET_DIR = ASSET_DIR / "brand"
 MASCOT_ASSET_DIR = ASSET_DIR / "mascot"
-APP_LOGO_ASSET = "smai-logo.png"
+APP_LOGO_ASSET = "smai-logo-640.webp"
 MASCOT_REFERENCE_ASSET = "smai-mascot-reference.webp"
-MASCOT_CUTOUT_ASSET = "smai-mascot-cutout.png"
-MASCOT_NAVI_CHAT_ASSET = "smai-navi-chat-cutout.png"
+MASCOT_CUTOUT_ASSET = "smai-mascot-cutout-384.webp"
+MASCOT_NAVI_CHAT_ASSET = "smai-navi-chat-cutout-384.webp"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
 MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
-MASCOT_WATCHLIST_TITLE_ASSET = "smai-title-watchlist-transparent.png"
+MASCOT_WATCHLIST_TITLE_ASSET = "smai-title-watchlist-640.webp"
 MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
     "cockpit": "smai-title-cockpit.webp",
     "ranking": "smai-title-ranking.webp",
@@ -95,13 +95,11 @@ APP_HEADER_MESSAGE = "SMAIナビが、候補探しと確認ポイントの整理
 
 
 @lru_cache(maxsize=32)
-def _asset_data_uri(filename: str, asset_dir: Path = MASCOT_ASSET_DIR) -> str:
-    path = asset_dir / filename
-    data = path.read_bytes()
-    encoded = base64.b64encode(data).decode("ascii")
-    suffix = path.suffix.lower()
-    mime = "image/webp" if suffix == ".webp" else "image/png"
-    return f"data:{mime};base64,{encoded}"
+def _asset_static_url(filename: str, asset_group: str = "mascot") -> str:
+    path = STATIC_ASSET_DIR / asset_group / filename
+    if path.is_file():
+        return f"/app/static/assets/{asset_group}/{filename}"
+    raise FileNotFoundError(f"Static UI asset is missing: {path}")
 
 
 def mascot_panel_html(
@@ -117,7 +115,7 @@ def mascot_panel_html(
     display_message = message if message is not None else defaults["message"]
     display_tone = tone if tone is not None else defaults["tone"]
     image_asset = MASCOT_THUMB_ASSET if layout == "sidebar" else MASCOT_VARIANT_ASSETS[variant]
-    image = _asset_data_uri(image_asset)
+    image = _asset_static_url(image_asset)
     return (
         f'<aside class="smai-mascot smai-mascot--{layout}" '
         f'data-variant="{html.escape(variant)}" data-tone="{html.escape(display_tone)}">'
@@ -136,7 +134,7 @@ def copilot_presence_panel_html(
     message: str = "価格・予測・根拠を横で整理します。",
     state: CopilotState = "ready",
 ) -> str:
-    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    image = _asset_static_url(MASCOT_CUTOUT_ASSET)
     return (
         f'<aside class="smai-copilot-panel" data-state="{html.escape(state)}">'
         '<div class="smai-copilot-figure" aria-hidden="true">'
@@ -161,7 +159,7 @@ def smai_insight_html(
     title: str = "SMAI Insight",
     tone: MascotTone = "forecast",
 ) -> str:
-    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    image = _asset_static_url(MASCOT_CUTOUT_ASSET)
     return (
         f'<aside class="smai-insight" data-tone="{html.escape(tone)}">'
         '<div class="smai-insight-avatar" aria-hidden="true">'
@@ -180,8 +178,8 @@ def app_header_html(
     *,
     message: str = APP_HEADER_MESSAGE,
 ) -> str:
-    image = _asset_data_uri(MASCOT_THUMB_ASSET)
-    logo = _asset_data_uri(APP_LOGO_ASSET, BRAND_ASSET_DIR)
+    image = _asset_static_url(MASCOT_THUMB_ASSET)
+    logo = _asset_static_url(APP_LOGO_ASSET, "brand")
     return (
         '<header class="smai-app-header">'
         '<div class="smai-app-header-copy">'
@@ -207,9 +205,9 @@ def render_app_header(
 def _title_asset_data_uri(mascot: str) -> str:
     mascot_key = cast(TitleMascot, mascot) if mascot in MASCOT_TITLE_ASSETS else "investment_radar"
     asset_name = MASCOT_TITLE_ASSETS[mascot_key]
-    if not (MASCOT_ASSET_DIR / asset_name).is_file():
+    if not (STATIC_ASSET_DIR / "mascot" / asset_name).is_file():
         asset_name = MASCOT_TITLE_ASSETS["investment_radar"]
-    return _asset_data_uri(asset_name)
+    return _asset_static_url(asset_name)
 
 
 def page_title_html(
@@ -278,7 +276,7 @@ def mascot_loading_html(
     display_title = title if title is not None else defaults["title"]
     display_message = message if message is not None else defaults["message"]
     display_tone = tone if tone is not None else defaults["tone"]
-    image = _asset_data_uri(MASCOT_LOADING_ASSET)
+    image = _asset_static_url(MASCOT_LOADING_ASSET)
     return (
         f'<aside class="smai-mascot smai-mascot--loading" '
         f'data-variant="{html.escape(variant)}" data-tone="{html.escape(display_tone)}">'
@@ -323,7 +321,7 @@ def workflow_loading_html(
 ) -> str:
     normalized_progress = max(0.0, min(1.0, progress))
     progress_percent = round(normalized_progress * 100)
-    image = _asset_data_uri(MASCOT_LOADING_ASSET)
+    image = _asset_static_url(MASCOT_LOADING_ASSET)
     headline_cards = "".join(
         (
             '<article class="smai-workflow-loading-news-card">'

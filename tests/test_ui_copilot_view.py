@@ -624,7 +624,7 @@ def test_copilot_answer_detail_html_uses_intent_specific_formats():
     assert "固定カードにしない" not in free_chat
     assert "SMAI通常回答 / deterministic / free_chat" not in free_chat
     assert "技術情報を表示" not in free_chat
-    assert "コピー" in free_chat
+    assert "data:" not in free_chat
 
 
 def test_fallback_free_chat_answer_handles_wellbeing_greeting():
@@ -658,7 +658,8 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
     assert "smai-copilot-assistant-avatar" in markup
     assert "smai-copilot-assistant-avatar-image--reply" in markup
     assert "技術情報を表示" in markup
-    assert "data:image/webp;base64," in markup
+    assert "/app/static/assets/mascot/smai-mascot-thumb.webp" in markup
+    assert "base64" not in markup
     assert "この銘柄の確認点は？" in markup
     assert "価格と材料を分けて確認します。" in markup
 
@@ -990,8 +991,7 @@ def test_copilot_actions_and_exports_are_sanitized_by_intent():
     plain_text = copilot_turn_plain_text(micro_turn)
     markdown = copilot_turn_markdown(stock_turn)
 
-    assert "コピー" in micro_actions
-    assert "Markdownで保存" not in micro_actions
+    assert micro_actions == ""
     assert "Decision Reportに追加" not in micro_actions
     assert "Provider raw fields" not in plain_text
     assert "debug logs" not in plain_text
@@ -1022,7 +1022,8 @@ def test_copilot_header_uses_smai_navi_chat_icon():
     markup = _chat_header_html(history_count=0)
 
     assert "smai-copilot-header-icon" in markup
-    assert "data:image/png;base64," in markup
+    assert "/app/static/assets/mascot/smai-navi-chat-cutout-384.webp" in markup
+    assert "base64" not in markup
     assert "SMAIアシスタント" in markup
     assert "SMAIナビ" in markup
 
@@ -1346,6 +1347,7 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
 
     app.text_input[0].set_value("確認点を整理して")
     _click_button_label(app, "送信")
+    app.run()
 
     assert not app.exception
     assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) >= 1
@@ -1361,7 +1363,10 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert "予測だけ確認" not in button_labels
     assert "ニュースだけ再確認" not in button_labels
     assert "Decision Report下書きへ" not in button_labels
-    assert "smai-copilot-actions-row--inside" in page_text
+    assert "data:text/" not in page_text
+    assert any(
+        str(getattr(element, "label", "")) == "最新回答のコピー・保存" for element in app.expander
+    )
 
 
 def test_copilot_page_new_conversation_clears_stale_runtime_status(monkeypatch):

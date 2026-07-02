@@ -5,6 +5,7 @@ from datetime import date
 import streamlit as st
 
 from backend.research import ResearchDocumentError
+from ui.components.connection_status import render_connection_status
 from ui.content.common_texts import user_facing_table_rows
 from ui.rebalance_app import runtime_settings_summary, symbol_reference_rows
 from ui.research_state import (
@@ -56,6 +57,9 @@ def render_settings_page() -> None:
     if settings["provider"] == "csv":
         st.write("CSVデータ")
         st.code(settings["csv_data_dir"], language=None)
+
+    with st.expander("外部接続診断", expanded=False):
+        render_connection_status()
 
     last_fetch_summary = external_research_fetch_last_summary()
     if last_fetch_summary:

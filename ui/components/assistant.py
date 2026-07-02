@@ -21,7 +21,7 @@ from backend.reporting import (
     build_decision_report_context,
     build_report_section,
 )
-from ui.components.mascot import MASCOT_THUMB_ASSET, _asset_data_uri
+from ui.components.mascot import MASCOT_THUMB_ASSET, _asset_static_url
 
 ASSISTANT_CONTEXTS_STATE_KEY = "smai_assistant_contexts"
 ASSISTANT_CONTEXT_ORDER_STATE_KEY = "smai_assistant_context_order"
@@ -93,7 +93,7 @@ def floating_assistant_html(
     open_panel: bool = False,
     sibling_contexts: Sequence[SmaiAssistantContext] = (),
 ) -> str:
-    image = _asset_data_uri(MASCOT_THUMB_ASSET)
+    image = _asset_static_url(MASCOT_THUMB_ASSET)
     open_checked = " checked" if open_panel else ""
     visual_key = _assistant_visual_key(context)
     trigger_label = _assistant_trigger_label(context)

@@ -266,3 +266,5 @@ def test_global_css_defines_ranking_history_cards_and_detail_layout():
     assert ".smai-ranking-history-card--pinned" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-history-detail-summary" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-history-metric-card" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-history-nav-anchor--primary" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-history-nav-anchor--secondary" in SMAI_GLOBAL_CSS

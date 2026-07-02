@@ -4104,3 +4104,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - サイドメニュー、Assistant、URL導線などランキング外から`銘柄ランキング`へ入る場合は、
   履歴subviewをリセットしてランキング作成画面を表示するよう修正。
 - Ranking内の履歴一覧・詳細間のrerunではsubviewを維持する。
+
+## 2026-07-03 Ranking History 遷移ボタン・マップ表示改善
+
+- 履歴一覧・ランキング画面への遷移ボタンを、役割に応じた枠線／塗り分けで目立たせた。
+- 上昇気配×下振れ警戒マップはカラーバーを維持し、常時表示の銘柄ラベルだけをホバーツールチップへ移した。
+- 対象テスト、Ruff、mypy、Black helper、Ranking 4 viewport smoke、および実画面で表示を確認した。

@@ -7422,6 +7422,64 @@ a.smai-ranking-history-card:focus-visible {
     transform: translateY(-1px);
 }
 
+.smai-ranking-history-nav-anchor {
+    display: block;
+    height: 0;
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor)
+    + [data-testid="element-container"] div[data-testid="stButton"] button {
+    min-height: 3rem;
+    border-radius: 10px;
+    font-weight: 850 !important;
+    letter-spacing: 0.01em;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor--primary)
+    + [data-testid="element-container"] div[data-testid="stButton"] button {
+    border-color: rgba(103, 232, 249, 0.82) !important;
+    background:
+        linear-gradient(135deg, rgba(8, 145, 178, 0.98), rgba(20, 184, 166, 0.94))
+        !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 10px 24px rgba(8, 145, 178, 0.26),
+        0 0 20px rgba(34, 211, 238, 0.12);
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor--primary)
+    + [data-testid="element-container"] div[data-testid="stButton"] button * {
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor--secondary)
+    + [data-testid="element-container"] div[data-testid="stButton"] button {
+    border-color: rgba(34, 211, 238, 0.62) !important;
+    background:
+        linear-gradient(180deg, rgba(8, 78, 99, 0.38), rgba(15, 31, 52, 0.88))
+        !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 8px 20px rgba(2, 12, 27, 0.22);
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor--secondary)
+    + [data-testid="element-container"] div[data-testid="stButton"] button * {
+    color: #a5f3fc !important;
+    font-weight: 850 !important;
+}
+
+[data-testid="element-container"]:has(.smai-ranking-history-nav-anchor)
+    + [data-testid="element-container"] div[data-testid="stButton"] button:hover {
+    border-color: #cffafe !important;
+    box-shadow:
+        0 0 0 2px rgba(103, 232, 249, 0.2),
+        0 14px 30px rgba(8, 145, 178, 0.3);
+    transform: translateY(-1px);
+}
+
 .smai-ranking-history-card--alt {
     background: linear-gradient(145deg, rgba(14, 35, 61, 0.98), rgba(9, 25, 45, 0.98));
     border-left-color: #60a5fa;

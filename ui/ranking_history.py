@@ -29,7 +29,6 @@ from ui.ranking import (
 from ui.ranking_state import restore_ranking_filters
 from ui.styles import (
     CHART_COLORS,
-    THEME_COLORS,
     render_dashboard_header,
     render_metric_card,
     render_section_heading,
@@ -201,6 +200,10 @@ def render_ranking_history_list(user_id: str) -> None:
         "保存したランキング条件と上位候補を見比べます。",
         "ranking",
     )
+    st.markdown(
+        '<span class="smai-ranking-history-nav-anchor smai-ranking-history-nav-anchor--primary"></span>',
+        unsafe_allow_html=True,
+    )
     if st.button("← ランキングへ戻る", use_container_width=False):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
         st.rerun()
@@ -256,6 +259,11 @@ def render_ranking_history_detail(
     if result.snapshot is None:
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_list"
         render_ranking_history_error_notice(result.error or "履歴が見つかりません。")
+        st.markdown(
+            '<span class="smai-ranking-history-nav-anchor '
+            'smai-ranking-history-nav-anchor--secondary"></span>',
+            unsafe_allow_html=True,
+        )
         if st.button("履歴一覧へ戻る"):
             st.rerun()
         return
@@ -266,9 +274,19 @@ def render_ranking_history_detail(
         "ranking",
     )
     back_col, live_col = st.columns(2)
+    back_col.markdown(
+        '<span class="smai-ranking-history-nav-anchor '
+        'smai-ranking-history-nav-anchor--secondary"></span>',
+        unsafe_allow_html=True,
+    )
     if back_col.button("← 履歴一覧へ戻る", use_container_width=True):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "history_list"
         st.rerun()
+    live_col.markdown(
+        '<span class="smai-ranking-history-nav-anchor '
+        'smai-ranking-history-nav-anchor--primary"></span>',
+        unsafe_allow_html=True,
+    )
     if live_col.button("ランキング画面へ戻る", use_container_width=True):
         st.session_state[RANKING_HISTORY_VIEW_KEY] = "live"
         st.rerun()
@@ -611,6 +629,38 @@ def history_signal_map_rows(
     ]
 
 
+def history_signal_map_chart(
+    rows: list[RankingHistoryResultRow],
+) -> alt.Chart | None:
+    chart_rows = history_signal_map_rows(rows)
+    if not chart_rows:
+        return None
+    frame = pd.DataFrame(chart_rows)
+    return (
+        alt.Chart(frame)
+        .mark_circle(size=100, opacity=0.82)
+        .encode(
+            x=alt.X("upside:Q", title="上昇気配"),
+            y=alt.Y("downside:Q", title="下振れ警戒"),
+            color=alt.Color(
+                "downside:Q",
+                title="下振れ警戒",
+                scale=alt.Scale(
+                    domain=[0, 100],
+                    range=["#34d399", "#f87171"],
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("symbol:N", title="銘柄コード"),
+                alt.Tooltip("name:N", title="銘柄名"),
+                alt.Tooltip("upside:Q", title="上昇気配", format=".1f"),
+                alt.Tooltip("downside:Q", title="下振れ警戒", format=".1f"),
+            ],
+        )
+        .properties(height=360)
+    )
+
+
 def snapshot_display_rows(snapshot: RankingHistorySnapshot) -> list[dict[str, str]]:
     return [dict(row.display) for row in snapshot.result_rows]
 
@@ -811,38 +861,12 @@ def _render_history_bar_chart(
 
 def _render_history_signal_map(rows: list[RankingHistoryResultRow]) -> None:
     render_section_heading("上昇気配 × 下振れ警戒マップ")
-    chart_rows = history_signal_map_rows(rows)
-    if not chart_rows:
+    chart = history_signal_map_chart(rows)
+    if chart is None:
         st.info("保存データに上昇気配・下振れ警戒の情報がないため、マップを表示できません。")
         return
-    frame = pd.DataFrame(chart_rows)
-    chart = (
-        alt.Chart(frame)
-        .mark_circle(size=100, opacity=0.82)
-        .encode(
-            x=alt.X("upside:Q", title="上昇気配"),
-            y=alt.Y("downside:Q", title="下振れ警戒"),
-            color=alt.Color(
-                "downside:Q",
-                title="下振れ警戒",
-                scale=alt.Scale(
-                    domain=[0, 100],
-                    range=[THEME_COLORS["signal_buy"], THEME_COLORS["signal_sell"]],
-                ),
-            ),
-            tooltip=[
-                alt.Tooltip("symbol:N", title="銘柄コード"),
-                alt.Tooltip("name:N", title="銘柄名"),
-                alt.Tooltip("upside:Q", title="上昇気配", format=".1f"),
-                alt.Tooltip("downside:Q", title="下振れ警戒", format=".1f"),
-            ],
-        )
-        .properties(height=360)
-    )
-    labels = chart.mark_text(align="left", dx=7, dy=-7, color=THEME_COLORS["text_primary"]).encode(
-        text="symbol:N"
-    )
-    st.altair_chart(style_altair_chart(chart + labels), use_container_width=True)
+    st.caption("銘柄コードと保存時の値は、各点にカーソルを合わせて確認できます。")
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
 def _history_symbol_option_label(row: RankingHistoryResultRow, rank: int) -> str:

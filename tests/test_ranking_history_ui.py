@@ -13,6 +13,7 @@ from ui.ranking_history import (
     filter_ranking_history_items,
     history_bar_chart_rows,
     history_initial_sort_key,
+    history_signal_map_chart,
     history_signal_map_rows,
     history_sort_options,
     prepare_ranking_history_view_for_page,
@@ -203,6 +204,19 @@ def test_chart_rows_use_top_ten_and_signal_map_skips_missing_values():
     assert [row["symbol"] for row in history_signal_map_rows(sorted_rows)] == [
         "BBB",
         "AAA",
+    ]
+    chart = history_signal_map_chart(sorted_rows)
+    assert chart is not None
+    spec = chart.to_dict()
+    assert spec["mark"]["type"] == "circle"
+    assert spec["encoding"]["color"]["field"] == "downside"
+    assert spec["encoding"]["color"]["title"] == "下振れ警戒"
+    assert "text" not in spec["encoding"]
+    assert [item["field"] for item in spec["encoding"]["tooltip"]] == [
+        "symbol",
+        "name",
+        "upside",
+        "downside",
     ]
 
 

@@ -107,12 +107,12 @@ def test_my_radar_responsive_viewports() -> None:
                         "(element) => getComputedStyle(element).backgroundColor"
                     )
                     component = component_frame.content_frame
-                    assert component.get_by_role(
-                        "button", name=re.compile(r".+を上へ")
-                    ).first.is_visible()
-                    assert component.get_by_role(
+                    up_action = component.get_by_role("button", name=re.compile(r".+を上へ")).first
+                    up_action.wait_for(state="visible", timeout=30_000)
+                    down_action = component.get_by_role(
                         "button", name=re.compile(r".+を下へ")
-                    ).first.is_visible()
+                    ).first
+                    down_action.wait_for(state="visible", timeout=30_000)
                     edit_group = component.get_by_role("button", name=re.compile(r".+を編集")).first
                     assert edit_group.is_visible()
                     edit_group.click()

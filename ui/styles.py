@@ -5772,6 +5772,36 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     display: none;
 }
 
+.smai-watchlist-group-panel-marker {
+    display: none;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker) {
+    --watchlist-group-rgb: 100, 116, 139;
+    margin: 0.9rem 0 0.7rem;
+    padding: 0 0.85rem 0.8rem;
+    border: 1px solid rgba(var(--watchlist-group-rgb), 0.42);
+    border-left: 5px solid rgb(var(--watchlist-group-rgb));
+    border-radius: 15px;
+    background:
+        linear-gradient(135deg, rgba(var(--watchlist-group-rgb), 0.16), rgba(7, 13, 25, 0.52));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-cyan) { --watchlist-group-rgb: 34, 211, 238; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-blue) { --watchlist-group-rgb: 96, 165, 250; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-purple) { --watchlist-group-rgb: 167, 139, 250; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-green) { --watchlist-group-rgb: 52, 211, 153; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-amber) { --watchlist-group-rgb: 251, 191, 36; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-orange) { --watchlist-group-rgb: 251, 146, 60; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-rose) { --watchlist-group-rgb: 251, 113, 133; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker--tone-slate) { --watchlist-group-rgb: 148, 163, 184; }
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.smai-watchlist-group-panel-marker)
+    [class*="st-key-watchlist_group_tone_"] div[data-testid="stButton"] button {
+    margin-top: 0.7rem;
+}
+
 [class*="st-key-watchlist_group_tone_"] div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker)
     + div[data-testid="stButton"] button,

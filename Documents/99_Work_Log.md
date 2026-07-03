@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-04 Watchlist Groups full-panel tone
+
+- Wrapped each normal-screen group in a tone-aware bordered container covering the clickable
+  header, description, cards, and card actions.
+- Kept card-specific status accents intact and used `slate` for the system `未分類` group.
+- Added coverage for all eight configured panel tones.
+- Added color swatches to tone choices in both group creation and existing-group editing.
+- Verification passed: 22 targeted UI/style tests, Ruff, targeted Mypy, project Black helper,
+  and the four-viewport responsive browser smoke.
+
 ## 2026-07-03 Watchlist Groups normal-screen header controls
 
 - Removed the normal-screen `＋ グループを作成` action and per-group `閉じる` /

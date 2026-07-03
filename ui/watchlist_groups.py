@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from backend.watchlist_groups import (
     WATCHLIST_GROUP_TONES,
+    GroupedWatchlistSection,
     WatchlistGroup,
     WatchlistGroupsRepository,
     WatchlistGroupsService,
@@ -46,6 +47,20 @@ TONE_LABELS = {
     "rose": "ローズ",
     "slate": "スレート",
 }
+TONE_SWATCHES = {
+    "cyan": "🟦",
+    "blue": "🔷",
+    "purple": "🟪",
+    "green": "🟩",
+    "amber": "🟨",
+    "orange": "🟧",
+    "rose": "🟥",
+    "slate": "⬜",
+}
+
+
+def tone_option_label(tone: str) -> str:
+    return f"{TONE_SWATCHES[tone]}  {TONE_LABELS[tone]}"
 
 
 class _CurrentUserRepository:
@@ -167,7 +182,7 @@ def _render_editor_add_group(draft: WatchlistGroupsState) -> None:
                 "トーン",
                 list(WATCHLIST_GROUP_TONES),
                 index=list(WATCHLIST_GROUP_TONES).index(default_tone),
-                format_func=lambda value: TONE_LABELS[value],
+                format_func=tone_option_label,
                 key="watchlist_groups_editor_add_tone",
             )
             add = st.form_submit_button("追加", type="primary", use_container_width=True)
@@ -274,7 +289,7 @@ def _render_inline_group_settings(
                 "トーン",
                 list(WATCHLIST_GROUP_TONES),
                 index=list(WATCHLIST_GROUP_TONES).index(group.tone),
-                format_func=lambda value: TONE_LABELS[value],
+                format_func=tone_option_label,
                 key=f"watchlist_groups_editor_tone_{group_id}",
             )
             update = st.form_submit_button("変更をdraftへ反映", use_container_width=True)
@@ -333,41 +348,68 @@ def render_grouped_watchlist(
         is_collapsed = bool(collapsed.get(section_key, False))
         symbols = [str(item.get("symbol") or "") for item in section.items]
         safe_tone = section.tone if section.tone in WATCHLIST_GROUP_TONES else "slate"
-        st.markdown(
-            '<span class="smai-watchlist-group-header-marker '
-            f'smai-watchlist-group-header-marker--tone-{safe_tone}"></span>',
-            unsafe_allow_html=True,
-        )
-        icon = "▶" if is_collapsed else "▼"
-        if st.button(
-            f"{icon} {section.name}　·　{len(section.items)}件",
-            key=f"watchlist_group_tone_{safe_tone}_toggle_{section_key}",
-            use_container_width=True,
-            help="クリックしてグループを展開／折りたたみ",
-        ):
-            collapsed[section_key] = not is_collapsed
-            st.rerun()
-        description = section.description or (
-            "まだグループに配置していないお気に入り銘柄です。" if section.is_system else ""
-        )
-        if description:
-            st.caption(description)
-        if is_collapsed:
-            representative = ", ".join(symbols[:3]) or "なし"
-            st.caption(f"上位: {representative}")
-            continue
-        if not section.items:
-            st.caption(
-                "すべての銘柄がグループに配置されています。"
-                if section.is_system
-                else "このグループに配置された銘柄はありません。"
+        with st.container(border=True):
+            st.markdown(
+                '<span class="smai-watchlist-group-panel-marker '
+                f'smai-watchlist-group-panel-marker--tone-{safe_tone}"></span>',
+                unsafe_allow_html=True,
             )
-            continue
-        for start in range(0, len(section.items), 3):
-            columns = st.columns(3)
-            for column, row in zip(columns, section.items[start : start + 3]):
-                with column:
-                    render_card(row)
+            _render_grouped_watchlist_section(
+                section,
+                section_key=section_key,
+                safe_tone=safe_tone,
+                is_collapsed=is_collapsed,
+                collapsed=collapsed,
+                symbols=symbols,
+                render_card=render_card,
+            )
+
+
+def _render_grouped_watchlist_section(
+    section: GroupedWatchlistSection,
+    *,
+    section_key: str,
+    safe_tone: str,
+    is_collapsed: bool,
+    collapsed: dict[str, object],
+    symbols: list[str],
+    render_card: Callable[[Mapping[str, str]], None],
+) -> None:
+    st.markdown(
+        '<span class="smai-watchlist-group-header-marker '
+        f'smai-watchlist-group-header-marker--tone-{safe_tone}"></span>',
+        unsafe_allow_html=True,
+    )
+    icon = "▶" if is_collapsed else "▼"
+    if st.button(
+        f"{icon} {section.name}　·　{len(section.items)}件",
+        key=f"watchlist_group_tone_{safe_tone}_toggle_{section_key}",
+        use_container_width=True,
+        help="クリックしてグループを展開／折りたたみ",
+    ):
+        collapsed[section_key] = not is_collapsed
+        st.rerun()
+    description = section.description or (
+        "まだグループに配置していないお気に入り銘柄です。" if section.is_system else ""
+    )
+    if description:
+        st.caption(description)
+    if is_collapsed:
+        representative = ", ".join(symbols[:3]) or "なし"
+        st.caption(f"上位: {representative}")
+        return
+    if not section.items:
+        st.caption(
+            "すべての銘柄がグループに配置されています。"
+            if section.is_system
+            else "このグループに配置された銘柄はありません。"
+        )
+        return
+    for start in range(0, len(section.items), 3):
+        columns = st.columns(3)
+        for column, row in zip(columns, section.items[start : start + 3]):
+            with column:
+                render_card(row)
 
 
 def draft_add_group(

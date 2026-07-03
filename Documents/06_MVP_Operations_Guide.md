@@ -167,8 +167,9 @@ Phase N4:
   lower per-group editing stack, or duplicated expander list.
   On the normal screen, the top-level `グループを編集` action is the only group mutation entry
   point. Clicking a tone-colored group header expands/collapses it; separate create, close, and
-  per-group edit buttons are not rendered. Tone classes use explicit gradients on those clickable
-  headers and per-container backgrounds inside the editor component. On touch devices, draggable
+  per-group edit buttons are not rendered. The configured tone covers the complete normal-screen
+  group panel (header, description, cards, and actions), while card-specific status accents remain
+  unchanged. Tone classes also use per-container backgrounds inside the editor component. On touch devices, draggable
   chips suppress page pan and text selection during a drag; surrounding group/drop-zone space
   remains available for normal scrolling.
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.

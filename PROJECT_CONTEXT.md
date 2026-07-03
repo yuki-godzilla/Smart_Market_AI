@@ -119,7 +119,8 @@ draft without remounting on no-op payloads. Each custom group container owns tou
 group's settings inline only on demand, with no shared selector toolbar or lower editing stack.
 The normal screen exposes only the top-level editor action; each tone-colored group header
 is itself the expand/collapse control, with no separate create, close, or per-group edit buttons.
-Explicit tone gradients apply to the clickable normal-screen headers and editor drop zones. Touch chips
+Each normal-screen group is wrapped in a tone-colored panel covering its header, description,
+cards, and actions. Explicit tone gradients also apply to editor drop zones. Touch chips
 suppress page swipe while dragging, while surrounding board space remains scrollable. Favorite
 removal keeps placement for possible restoration when the symbol is favorited again.
 

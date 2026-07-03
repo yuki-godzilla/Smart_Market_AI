@@ -5,6 +5,7 @@ from ui import user_data, watchlist_groups
 from ui.styles import SMAI_GLOBAL_CSS
 from ui.watchlist_groups import (
     TONE_LABELS,
+    TONE_SWATCHES,
     apply_sortable_payload,
     build_sortable_watchlist_containers,
     compact_watchlist_card_html,
@@ -71,6 +72,10 @@ def test_compact_card_omits_missing_metrics_and_escapes_values():
 
 def test_tone_candidates_preview_and_action_styles_are_available():
     assert set(TONE_LABELS) == set(WATCHLIST_GROUP_TONES)
+    assert set(TONE_SWATCHES) == set(WATCHLIST_GROUP_TONES)
+    for tone in WATCHLIST_GROUP_TONES:
+        assert TONE_SWATCHES[tone] in watchlist_groups.tone_option_label(tone)
+        assert TONE_LABELS[tone] in watchlist_groups.tone_option_label(tone)
     assert "smai-watchlist-group-section--tone-purple" in group_preview_html(
         "半導体・AI",
         "成長候補",
@@ -142,8 +147,14 @@ def test_normal_group_renderer_has_no_current_confirmation_or_move_select():
     assert "移動先" not in source
     assert "watchlist_group_edit_" not in source
     assert '"▼ 閉じる"' not in source
-    assert "smai-watchlist-group-header-marker" in source
-    assert "render_card(row)" in source
+    assert "smai-watchlist-group-panel-marker--tone-" in source
+
+
+def test_normal_group_panel_styles_cover_every_configured_tone():
+    for tone in WATCHLIST_GROUP_TONES:
+        assert f"smai-watchlist-group-panel-marker--tone-{tone}" in SMAI_GLOBAL_CSS
+    assert "linear-gradient" in SMAI_GLOBAL_CSS
+    assert "border-left: 5px" in SMAI_GLOBAL_CSS
 
 
 def test_editor_handles_group_controls_from_each_sortable_container():

@@ -230,7 +230,7 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
         containers,
         multi_containers=True,
         direction="horizontal",
-        custom_style=WATCHLIST_SORTABLE_STYLE,
+        custom_style=sortable_watchlist_style(draft),
         key="watchlist_groups_dnd_board",
     )
     updated = apply_sortable_payload(
@@ -482,6 +482,7 @@ WATCHLIST_SORTABLE_STYLE = """
   min-width: 0; margin: 0 0 8px; padding: 6px;
   border: 1px solid rgba(100,149,190,.45); border-radius: 10px;
   background: rgba(7,18,34,.88);
+  overscroll-behavior: contain;
 }
 .sortable-container-header {
   margin: 0 0 5px; padding: 2px 4px; color: #eafcff;
@@ -494,6 +495,8 @@ WATCHLIST_SORTABLE_STYLE = """
   background: rgba(8,57,79,.82); color: #f8fdff;
   font-size: 12px; line-height: 1.25; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; cursor: grab;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .sortable-item::before { content: "⋮⋮ "; color: #7dd3fc; }
 @media (max-width: 767px) {
@@ -502,6 +505,30 @@ WATCHLIST_SORTABLE_STYLE = """
   .sortable-item { width: 100%; }
 }
 """
+
+SORTABLE_TONE_STYLES = {
+    "cyan": ("rgba(8, 67, 86, .88)", "#22d3ee"),
+    "blue": ("rgba(18, 48, 94, .88)", "#60a5fa"),
+    "purple": ("rgba(55, 37, 100, .88)", "#a78bfa"),
+    "green": ("rgba(18, 69, 57, .88)", "#34d399"),
+    "amber": ("rgba(87, 60, 13, .88)", "#fbbf24"),
+    "orange": ("rgba(93, 45, 16, .88)", "#fb923c"),
+    "rose": ("rgba(91, 31, 48, .88)", "#fb7185"),
+    "slate": ("rgba(43, 53, 70, .88)", "#94a3b8"),
+}
+
+
+def sortable_watchlist_style(draft: WatchlistGroupsState) -> str:
+    tones = [group.tone for group in sorted(draft.groups, key=lambda item: item.order)]
+    tones.append("slate")
+    tone_rules = []
+    for index, tone in enumerate(tones, start=1):
+        background, border = SORTABLE_TONE_STYLES[tone]
+        tone_rules.append(
+            f".sortable-container:nth-child({index}) "
+            f"{{ background: {background}; border-color: {border}; }}"
+        )
+    return WATCHLIST_SORTABLE_STYLE + "\n" + "\n".join(tone_rules)
 
 
 def build_sortable_watchlist_containers(
@@ -512,7 +539,9 @@ def build_sortable_watchlist_containers(
     item_symbols: dict[str, str] = {}
     header_groups: dict[str, str | None] = {}
     for section in build_grouped_watchlist(rows, draft):
-        header = f"{section.name}　{len(section.items)}件"
+        # Header text must stay stable across moves. Dynamic counts caused the component's
+        # next payload to reference stale headers, so only the first move was accepted.
+        header = section.name
         header_groups[header] = section.group_id
         items: list[str] = []
         for row in section.items:

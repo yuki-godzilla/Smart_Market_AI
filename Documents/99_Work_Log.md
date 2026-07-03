@@ -1,5 +1,18 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups consecutive D&D and touch fix
+
+- Fixed consecutive moves being dropped after the first move. Dynamic count-bearing component
+  headers changed after every move and made the next payload look unknown; headers are now stable.
+- Strengthened all eight normal group gradients and added matching per-container editor
+  backgrounds so selected tones are visibly reflected.
+- Improved iPhone/iPad dragging by disabling page pan and text selection only on draggable chips,
+  keeping surrounding drop-zone space available for normal scrolling.
+- Added sequential-move, tone-style, and touch-style regression coverage plus computed-style
+  checks in the four-viewport responsive smoke.
+- Verification passed: 78 targeted/relevant tests, full Ruff, targeted Mypy, the Black helper
+  for all 377 Python files, and the four-viewport responsive smoke.
+
 ## 2026-07-03 Watchlist Groups D&D editor board
 
 - Added pinned `streamlit-sortables==0.3.1` and replaced visible per-symbol destination selects

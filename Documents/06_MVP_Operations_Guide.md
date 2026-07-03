@@ -157,6 +157,10 @@ Phase N4:
   discards it. Chips show only symbol/name; dragging across groups changes placement and
   dragging within a group changes `order`. The component is provided by pinned
   `streamlit-sortables==0.3.1` (Apache-2.0).
+- D&D container headers remain stable across count changes so consecutive moves are accepted.
+  Tone classes use explicit gradients in normal sections and per-container backgrounds inside
+  the editor component. On touch devices, draggable chips suppress page pan and text selection
+  during a drag; surrounding group/drop-zone space remains available for normal scrolling.
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.
 
 ## 2026-06-26 Symbol Metadata Operations Update

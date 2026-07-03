@@ -5692,34 +5692,50 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
 .smai-watchlist-group-section--tone-cyan {
     --watchlist-group-accent: #22D3EE;
     --watchlist-group-rgb: 34, 211, 238;
+    background: linear-gradient(135deg, rgba(8, 67, 86, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(34, 211, 238, 0.62);
 }
 .smai-watchlist-group-section--tone-blue {
     --watchlist-group-accent: #60A5FA;
     --watchlist-group-rgb: 96, 165, 250;
+    background: linear-gradient(135deg, rgba(18, 48, 94, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(96, 165, 250, 0.62);
 }
 .smai-watchlist-group-section--tone-purple {
     --watchlist-group-accent: #A78BFA;
     --watchlist-group-rgb: 167, 139, 250;
+    background: linear-gradient(135deg, rgba(55, 37, 100, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(167, 139, 250, 0.62);
 }
 .smai-watchlist-group-section--tone-green {
     --watchlist-group-accent: #34D399;
     --watchlist-group-rgb: 52, 211, 153;
+    background: linear-gradient(135deg, rgba(18, 69, 57, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(52, 211, 153, 0.62);
 }
 .smai-watchlist-group-section--tone-amber {
     --watchlist-group-accent: #FBBF24;
     --watchlist-group-rgb: 251, 191, 36;
+    background: linear-gradient(135deg, rgba(87, 60, 13, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(251, 191, 36, 0.62);
 }
 .smai-watchlist-group-section--tone-orange {
     --watchlist-group-accent: #FB923C;
     --watchlist-group-rgb: 251, 146, 60;
+    background: linear-gradient(135deg, rgba(93, 45, 16, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(251, 146, 60, 0.62);
 }
 .smai-watchlist-group-section--tone-rose {
     --watchlist-group-accent: #FB7185;
     --watchlist-group-rgb: 251, 113, 133;
+    background: linear-gradient(135deg, rgba(91, 31, 48, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(251, 113, 133, 0.62);
 }
 .smai-watchlist-group-section--tone-slate {
     --watchlist-group-accent: #94A3B8;
     --watchlist-group-rgb: 148, 163, 184;
+    background: linear-gradient(135deg, rgba(43, 53, 70, 0.72), rgba(7, 13, 25, 0.9));
+    border-color: rgba(148, 163, 184, 0.56);
 }
 
 .smai-watchlist-group-header {

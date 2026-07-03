@@ -69,7 +69,16 @@ def test_my_radar_responsive_viewports() -> None:
                     state="visible",
                     timeout=30_000,
                 )
-                dialog.get_by_role("button", name="キャンセル").click()
+                if name == "pc_1366":
+                    dialog.locator("input").first.fill("Tone smoke")
+                    tone_preview = dialog.locator(".smai-watchlist-group-section--tone-cyan").first
+                    tone_preview.wait_for(state="visible", timeout=30_000)
+                    assert "linear-gradient" in tone_preview.evaluate(
+                        "(element) => getComputedStyle(element).backgroundImage"
+                    )
+                    dialog.get_by_role("button", name="作成する").click()
+                else:
+                    dialog.get_by_role("button", name="キャンセル").click()
                 dialog.wait_for(state="detached", timeout=30_000)
                 page.get_by_role("button", name="グループを編集", exact=True).click()
                 editor = page.get_by_role("dialog")
@@ -78,7 +87,16 @@ def test_my_radar_responsive_viewports() -> None:
                     state="visible",
                     timeout=30_000,
                 )
-                editor.locator("iframe").wait_for(state="visible", timeout=30_000)
+                component_frame = editor.locator("iframe")
+                component_frame.wait_for(state="visible", timeout=30_000)
+                if name == "pc_1366":
+                    sortable_container = component_frame.content_frame.locator(
+                        ".sortable-container"
+                    ).first
+                    sortable_container.wait_for(state="visible", timeout=30_000)
+                    assert "rgba" in sortable_container.evaluate(
+                        "(element) => getComputedStyle(element).backgroundColor"
+                    )
                 assert editor.locator("label").filter(has_text="移動先").count() == 0
                 editor.get_by_role("button", name="キャンセル").click()
                 editor.wait_for(state="detached", timeout=30_000)

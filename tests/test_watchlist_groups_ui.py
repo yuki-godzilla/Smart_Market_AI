@@ -14,6 +14,7 @@ from ui.watchlist_groups import (
     draft_update_group,
     group_preview_html,
     group_section_header_html,
+    sortable_watchlist_style,
 )
 
 
@@ -171,6 +172,50 @@ def test_sortable_payload_moves_and_orders_symbols_in_draft():
     assert updated.placements["AAPL"].order == 20
 
 
+def test_two_consecutive_sortable_moves_keep_stable_group_headers():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    draft = draft_add_group(draft, "米国株", None, "blue")
+    rows = [
+        {"symbol": "AAPL", "name": "Apple"},
+        {"symbol": "7974.T", "name": "Nintendo"},
+    ]
+    containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
+    first_payload = [
+        {"header": "日本株", "items": ["7974.T | Nintendo"]},
+        {"header": "米国株", "items": []},
+        {"header": "未分類", "items": ["AAPL | Apple"]},
+    ]
+    first = apply_sortable_payload(
+        draft,
+        first_payload,
+        item_symbols=item_symbols,
+        header_groups=header_groups,
+    )
+    second_containers, second_symbols, second_headers = build_sortable_watchlist_containers(
+        rows,
+        first,
+    )
+    assert [container["header"] for container in second_containers] == [
+        "日本株",
+        "米国株",
+        "未分類",
+    ]
+    second_payload = [
+        {"header": "日本株", "items": ["7974.T | Nintendo"]},
+        {"header": "米国株", "items": ["AAPL | Apple"]},
+        {"header": "未分類", "items": []},
+    ]
+    second = apply_sortable_payload(
+        first,
+        second_payload,
+        item_symbols=second_symbols,
+        header_groups=second_headers,
+    )
+    assert second.placements["7974.T"].group_id == draft.groups[0].group_id
+    assert second.placements["AAPL"].group_id == draft.groups[1].group_id
+
+
 def test_sortable_payload_rejects_unknown_group_and_ignores_duplicate_unknown_symbol():
     draft = watchlist_groups.empty_watchlist_groups_state()
     draft = draft_add_group(draft, "日本株", None, "cyan")
@@ -202,3 +247,17 @@ def test_sortable_payload_rejects_unknown_group_and_ignores_duplicate_unknown_sy
         header_groups=header_groups,
     )
     assert updated.placements["AAPL"].group_id == draft.groups[0].group_id
+
+
+def test_sortable_style_applies_tones_and_touch_drag_without_page_swipe():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    draft = draft_add_group(draft, "米国株", None, "rose")
+
+    style = sortable_watchlist_style(draft)
+
+    assert "touch-action: none" in style
+    assert "overscroll-behavior: contain" in style
+    assert "rgba(8, 67, 86, .88)" in style
+    assert "rgba(91, 31, 48, .88)" in style
+    assert "rgba(43, 53, 70, .88)" in style

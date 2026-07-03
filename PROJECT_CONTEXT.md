@@ -108,8 +108,11 @@ existing full-information favorite cards, allows each section to be collapsed in
 computes a final slate `未分類` section while retaining the existing `すべて` card/table view.
 A large dedicated editor keeps group/placement changes in a session draft until
 `保存して閉じる`; it handles group add/edit/delete, preset tones, and touch-safe destination
-selects without placing controls in normal cards. Favorite removal keeps placement for possible
-restoration when the symbol is favorited again. D&D remains deferred behind the editor boundary.
+controls without placing them in normal cards. The editor uses the Apache-2.0
+`streamlit-sortables` component as a multi-container chip board: symbol/name chips can move
+between groups/`未分類` and reorder within a group, while validated results update only the
+session draft until save. Favorite removal keeps placement for possible restoration when the
+symbol is favorited again.
 
 Phase 32-E2 compact polish is implemented. My Radar uses a five-count summary with reasons inside an expander; update options are collapsed while the two explicit actions remain side by side; filter/sort and card/table controls stay display-only. Cards show a compact missing-note state until Decision Trail content exists, then reveal the full decision fields. Favorites schema, Radar priority, local-first refresh, and explicit AI調査 / Decision Report behavior are unchanged.
 

@@ -150,10 +150,10 @@ MVPでは、お気に入り解除後もplacementを残す。
 標準のsortable/draggable APIはない。`streamlit-sortables`等の外部componentも
 現在の依存に含まれない。
 
-よってMVPではD&Dを採用しない。Phase 5で外部componentの保守性、ライセンス、
-タッチ操作、iframe/component境界、onedir EXE同梱、イベント重複、
-Playwright再現性を小さなspikeで確認する。採用後もselect fallbackを残し、
-編集モード中だけD&Dを有効にする。
+専用編集dialogでは`streamlit-sortables==0.3.1`によるmulti-container D&Dを採用する。
+通常画面にはD&Dを出さず、移動結果は検証後にsession draftへ反映する。
+onedir EXE同梱はrequirements経由でcomponent frontend assetsを収集する前提とし、
+build smokeを継続確認項目とする。
 
 ## 9. 受入条件
 

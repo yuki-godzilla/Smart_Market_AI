@@ -78,6 +78,8 @@ def test_my_radar_responsive_viewports() -> None:
                     state="visible",
                     timeout=30_000,
                 )
+                editor.locator("iframe").wait_for(state="visible", timeout=30_000)
+                assert editor.locator("label").filter(has_text="移動先").count() == 0
                 editor.get_by_role("button", name="キャンセル").click()
                 editor.wait_for(state="detached", timeout=30_000)
 

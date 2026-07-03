@@ -114,17 +114,14 @@ compact rendererは専用編集dialogだけで使う。
 ウォッチリストグループを編集
 グループ追加 / グループ設定 / 未分類
 
-Nintendo / 7974.T
-現在: 日本個別株
-移動先 [日本個別株 ▼]
+[⋮⋮ 7974.T | Nintendo] → drag to group
 
 [保存して閉じる] [キャンセル]
 ```
 
 - dialogを開いた時点のgroups/placementsを`watchlist_groups_edit_draft`へdeep copyする。
-- select keyはuser IDとnormalized symbolを含める。
-- 選択肢のvalueは表示名でなく`group_id`、未分類は専用sentinelを使う。
-- group追加・編集・削除とselect移動はdraftだけを更新する。
+- component出力はgroup headerとordered symbol配列からなる。
+- group追加・編集・削除とD&D移動はdraftだけを更新する。
 - `保存して閉じる`でstate全体をatomic保存し、`キャンセル`でdraftを破棄する。
 - 通常カードには配置selectを表示しない。
 
@@ -134,8 +131,8 @@ Nintendo / 7974.T
 - カード全体をdrag対象にせず、明示的なhandleとキーボード代替を持つ。
 - drop先を枠線と背景で表示し、成功後にtoastと現在groupを更新する。
 - タッチ端末は検証に合格するまでD&Dを無効化する。
-- select＋保存は端末を問わず残す。
-- component障害時はグループ表示を維持し、selectへfallbackする。
+- visibleな配置selectは廃止し、symbol/name chipをmulti-container間で移動する。
+- component障害時も通常Myウォッチリスト表示と永続stateを壊さない。
 
 ## 10. 空状態
 

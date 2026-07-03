@@ -5,6 +5,8 @@ from ui import user_data, watchlist_groups
 from ui.styles import SMAI_GLOBAL_CSS
 from ui.watchlist_groups import (
     TONE_LABELS,
+    apply_sortable_payload,
+    build_sortable_watchlist_containers,
     compact_watchlist_card_html,
     draft_add_group,
     draft_delete_group,
@@ -60,8 +62,9 @@ def test_compact_card_omits_missing_metrics_and_escapes_values():
 
     assert "&lt;Nintendo&gt;" in markup
     assert "AI総合" not in markup
-    assert "上昇気配" in markup
-    assert "⋮⋮" in markup
+    assert "上昇気配" not in markup
+    assert "下振れ警戒" not in markup
+    assert "7974.T" in markup
 
 
 def test_tone_candidates_preview_and_action_styles_are_available():
@@ -118,3 +121,84 @@ def test_normal_group_renderer_has_no_current_confirmation_or_move_select():
     assert "現在確認" not in source
     assert "移動先" not in source
     assert "render_card(row)" in source
+
+
+def test_sortable_containers_are_chip_only_and_keep_empty_and_unclassified_last():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    containers, item_symbols, header_groups = build_sortable_watchlist_containers(
+        [{"symbol": "AAPL", "name": "Apple", "ai_score": "99"}],
+        draft,
+    )
+
+    assert len(containers) == 2
+    assert containers[0]["items"] == []
+    assert str(containers[-1]["header"]).startswith("未分類")
+    assert containers[-1]["items"] == ["AAPL | Apple"]
+    assert item_symbols == {"AAPL | Apple": "AAPL"}
+    assert header_groups[str(containers[-1]["header"])] is None
+    assert "99" not in str(containers)
+
+
+def test_sortable_payload_moves_and_orders_symbols_in_draft():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    group = draft.groups[0]
+    rows = [
+        {"symbol": "AAPL", "name": "Apple"},
+        {"symbol": "7974.T", "name": "Nintendo"},
+    ]
+    containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
+    group_header = str(containers[0]["header"])
+    uncategorized_header = str(containers[-1]["header"])
+    payload = [
+        {
+            "header": group_header,
+            "items": ["7974.T | Nintendo", "AAPL | Apple"],
+        },
+        {"header": uncategorized_header, "items": []},
+    ]
+
+    updated = apply_sortable_payload(
+        draft,
+        payload,
+        item_symbols=item_symbols,
+        header_groups=header_groups,
+    )
+
+    assert updated.placements["7974.T"].group_id == group.group_id
+    assert updated.placements["7974.T"].order == 10
+    assert updated.placements["AAPL"].order == 20
+
+
+def test_sortable_payload_rejects_unknown_group_and_ignores_duplicate_unknown_symbol():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    containers, item_symbols, header_groups = build_sortable_watchlist_containers(
+        [{"symbol": "AAPL", "name": "Apple"}],
+        draft,
+    )
+    invalid = [{"header": "unknown", "items": ["AAPL | Apple"]}]
+    assert (
+        apply_sortable_payload(
+            draft,
+            invalid,
+            item_symbols=item_symbols,
+            header_groups=header_groups,
+        )
+        == draft
+    )
+
+    group_header = str(containers[0]["header"])
+    uncategorized_header = str(containers[-1]["header"])
+    duplicate = [
+        {"header": group_header, "items": ["AAPL | Apple", "UNKNOWN"]},
+        {"header": uncategorized_header, "items": ["AAPL | Apple"]},
+    ]
+    updated = apply_sortable_payload(
+        draft,
+        duplicate,
+        item_symbols=item_symbols,
+        header_groups=header_groups,
+    )
+    assert updated.placements["AAPL"].group_id == draft.groups[0].group_id

@@ -152,9 +152,11 @@ Phase N4:
   representative symbols visible. The Cockpit CTA uses the existing
   `Cockpit画面で確認` wording.
 - `グループを編集` opens a large dedicated editor. Group add/name/description/tone/delete and
-  symbol destination selects update `watchlist_groups_edit_draft` only; `保存して閉じる`
-  atomically persists the complete validated state, while `キャンセル` discards it. D&D
-  remains a later editor-only enhancement.
+  a multi-container D&D chip board update `watchlist_groups_edit_draft` only;
+  `保存して閉じる` atomically persists the complete validated state, while `キャンセル`
+  discards it. Chips show only symbol/name; dragging across groups changes placement and
+  dragging within a group changes `order`. The component is provided by pinned
+  `streamlit-sortables==0.3.1` (Apache-2.0).
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.
 
 ## 2026-06-26 Symbol Metadata Operations Update

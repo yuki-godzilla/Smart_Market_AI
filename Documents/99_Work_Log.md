@@ -1,5 +1,17 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups D&D editor board
+
+- Added pinned `streamlit-sortables==0.3.1` and replaced visible per-symbol destination selects
+  with a multi-container D&D board inside the dedicated editor.
+- Reduced editor symbols to compact symbol/name chips, retained empty groups and final
+  `未分類` as drop zones, and mapped cross-group moves plus in-group order into the session draft.
+- Added strict payload adaptation: unknown groups preserve the existing draft, unknown symbols
+  are ignored, duplicates are applied once, and persistence still occurs only on save.
+- Verification passed: 76 targeted/relevant tests, full Ruff, targeted Mypy, the Black helper
+  for all 377 Python files, and the four-viewport responsive smoke with the component iframe
+  visible and no user-facing placement-select label.
+
 ## 2026-07-03 Watchlist Groups UI polish and draft editor
 
 - Restored the existing full-information favorite card renderer in normal grouped view and

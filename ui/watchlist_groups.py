@@ -7,6 +7,7 @@ from typing import Callable, Mapping
 
 import streamlit as st
 from pydantic import ValidationError
+from streamlit_sortables import sort_items
 
 from backend.watchlist_groups import (
     WATCHLIST_GROUP_TONES,
@@ -160,11 +161,7 @@ def render_watchlist_groups_editor(
     if not isinstance(draft, WatchlistGroupsState):
         draft = service.list_groups(user_id).model_copy(deep=True)
         st.session_state[EDITOR_DRAFT_KEY] = draft
-    st.caption(
-        "グループの追加・編集と銘柄配置をまとめて変更します。"
-        "移動先メニューで変更し、最後に「保存して閉じる」を押してください。"
-    )
-    st.info("ドラッグ＆ドロップは後続対応です。現在は確実に操作できる移動先メニューを使います。")
+    st.caption("銘柄チップをドラッグしてグループへ移動できます。")
     _render_editor_add_group(draft)
     draft = _editor_draft()
     _render_editor_groups(draft)
@@ -224,50 +221,26 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     if not isinstance(rows, list):
         rows = []
     sections = build_grouped_watchlist(rows, draft)
-    options = [(UNCLASSIFIED_VALUE, "未分類")] + [
-        (group.group_id, group.name) for group in sorted(draft.groups, key=lambda item: item.order)
-    ]
-    values = [value for value, _ in options]
-    labels = dict(options)
     for section in sections:
-        st.markdown(
-            group_section_header_html(
-                section.name,
-                section.description,
-                section.tone,
-                len(section.items),
-                section.is_system,
-            ),
-            unsafe_allow_html=True,
-        )
         if not section.is_system:
             _render_editor_group_settings(draft, str(section.group_id))
             draft = _editor_draft()
-        if not section.items:
-            st.caption(
-                "すべての銘柄がグループに配置されています。"
-                if section.is_system
-                else "このグループに配置された銘柄はありません。"
-            )
-        for row in section.items:
-            symbol = str(row.get("symbol") or "")
-            st.markdown(editor_watchlist_card_html(row, section.name), unsafe_allow_html=True)
-            current = draft.placements.get(symbol)
-            selected_value = current.group_id if current else UNCLASSIFIED_VALUE
-            selected = st.selectbox(
-                f"{symbol} の移動先",
-                values,
-                index=values.index(selected_value) if selected_value in values else 0,
-                format_func=lambda value: labels[value],
-                key=f"watchlist_groups_editor_move_{symbol}",
-            )
-            if selected != selected_value:
-                st.session_state[EDITOR_DRAFT_KEY] = draft_move_symbol(
-                    draft,
-                    symbol,
-                    None if selected == UNCLASSIFIED_VALUE else selected,
-                )
-                st.rerun()
+    containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
+    sorted_containers = sort_items(
+        containers,
+        multi_containers=True,
+        direction="horizontal",
+        custom_style=WATCHLIST_SORTABLE_STYLE,
+        key="watchlist_groups_dnd_board",
+    )
+    updated = apply_sortable_payload(
+        draft,
+        sorted_containers,
+        item_symbols=item_symbols,
+        header_groups=header_groups,
+    )
+    if updated != draft:
+        st.session_state[EDITOR_DRAFT_KEY] = updated
 
 
 def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) -> None:
@@ -503,34 +476,98 @@ def group_section_header_html(
     )
 
 
-def editor_watchlist_card_html(row: Mapping[str, str], current_group: str) -> str:
-    name = html.escape(str(row.get("name") or row.get("symbol") or "未取得"))
-    symbol = html.escape(str(row.get("symbol") or "未取得"))
-    scores = [
-        (
-            f"AI総合 {html.escape(str(row.get('ai_score')))}"
-            if row.get("ai_score") not in {None, "", "未取得"}
-            else ""
-        ),
-        (
-            f"上昇気配 {html.escape(str(row.get('upside')))}"
-            if row.get("upside") not in {None, "", "未取得"}
-            else ""
-        ),
-    ]
-    score_text = " / ".join(item for item in scores if item) or "主要スコア未取得"
-    return (
-        '<article class="smai-watchlist-editor-card">'
-        f'<span class="smai-watchlist-drag-handle" aria-hidden="true">⋮⋮</span>'
-        f"<div><strong>{symbol} {name}</strong>"
-        f"<small>現在: {html.escape(current_group)}</small>"
-        f"<span>{score_text}</span></div></article>"
-    )
+WATCHLIST_SORTABLE_STYLE = """
+.sortable-component { gap: 8px; }
+.sortable-container {
+  min-width: 0; margin: 0 0 8px; padding: 6px;
+  border: 1px solid rgba(100,149,190,.45); border-radius: 10px;
+  background: rgba(7,18,34,.88);
+}
+.sortable-container-header {
+  margin: 0 0 5px; padding: 2px 4px; color: #eafcff;
+  font-size: 13px; font-weight: 800;
+}
+.sortable-container-body { min-height: 42px; display: flex; flex-wrap: wrap; gap: 5px; }
+.sortable-item {
+  max-width: 100%; min-height: 34px; margin: 0; padding: 6px 9px;
+  border: 1px solid rgba(34,211,238,.5); border-radius: 999px;
+  background: rgba(8,57,79,.82); color: #f8fdff;
+  font-size: 12px; line-height: 1.25; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; cursor: grab;
+}
+.sortable-item::before { content: "⋮⋮ "; color: #7dd3fc; }
+@media (max-width: 767px) {
+  .sortable-component { display: block !important; }
+  .sortable-container { width: 100% !important; }
+  .sortable-item { width: 100%; }
+}
+"""
+
+
+def build_sortable_watchlist_containers(
+    rows: list[Mapping[str, str]],
+    draft: WatchlistGroupsState,
+) -> tuple[list[dict[str, object]], dict[str, str], dict[str, str | None]]:
+    containers: list[dict[str, object]] = []
+    item_symbols: dict[str, str] = {}
+    header_groups: dict[str, str | None] = {}
+    for section in build_grouped_watchlist(rows, draft):
+        header = f"{section.name}　{len(section.items)}件"
+        header_groups[header] = section.group_id
+        items: list[str] = []
+        for row in section.items:
+            symbol = str(row.get("symbol") or "").strip().upper()
+            name = str(row.get("name") or symbol).strip()
+            label = f"{symbol} | {name[:34]}"
+            item_symbols[label] = symbol
+            items.append(label)
+        containers.append({"header": header, "items": items})
+    return containers, item_symbols, header_groups
+
+
+def apply_sortable_payload(
+    draft: WatchlistGroupsState,
+    payload: object,
+    *,
+    item_symbols: Mapping[str, str],
+    header_groups: Mapping[str, str | None],
+) -> WatchlistGroupsState:
+    if not isinstance(payload, list):
+        return draft
+    placements = dict(draft.placements)
+    seen: set[str] = set()
+    now = datetime.now(UTC)
+    for container in payload:
+        if not isinstance(container, Mapping):
+            return draft
+        header = str(container.get("header") or "")
+        if header not in header_groups:
+            return draft
+        items = container.get("items")
+        if not isinstance(items, list):
+            return draft
+        group_id = header_groups[header]
+        for index, label_value in enumerate(items):
+            symbol = item_symbols.get(str(label_value))
+            if not symbol or symbol in seen:
+                continue
+            seen.add(symbol)
+            if group_id is None:
+                placements.pop(symbol, None)
+            else:
+                placements[symbol] = WatchlistPlacement(
+                    group_id=group_id,
+                    order=(index + 1) * 10,
+                    updated_at=now,
+                )
+    return draft.model_copy(update={"placements": placements, "updated_at": now})
 
 
 def compact_watchlist_card_html(row: Mapping[str, str]) -> str:
-    """Backward-compatible alias for the editor-only compact card."""
-    return editor_watchlist_card_html(row, "未分類")
+    """Legacy helper retained for tests; editor now uses sortable text chips."""
+    symbol = html.escape(str(row.get("symbol") or "未取得"))
+    name = html.escape(str(row.get("name") or symbol))
+    return f'<span class="smai-watchlist-editor-chip">{symbol} | {name}</span>'
 
 
 def group_preview_html(name: str, description: str, tone: str) -> str:

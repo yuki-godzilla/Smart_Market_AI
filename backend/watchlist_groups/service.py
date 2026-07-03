@@ -72,6 +72,10 @@ def build_grouped_watchlist(
         )
         for group in groups
     ]
+    for section_index, section in enumerate(sections):
+        section_items = list(section.items)
+        section_items.sort(key=lambda item: _placement_order(state, item))
+        sections[section_index] = section.model_copy(update={"items": tuple(section_items)})
     sections.append(
         GroupedWatchlistSection(
             group_id=None,
@@ -261,3 +265,8 @@ def _favorite_symbol(favorite: Any) -> str:
     else:
         value = getattr(favorite, "symbol", "")
     return normalize_watchlist_symbol(str(value))
+
+
+def _placement_order(state: WatchlistGroupsState, favorite: Any) -> int:
+    placement = state.placements.get(_favorite_symbol(favorite))
+    return placement.order if placement is not None else 10**9

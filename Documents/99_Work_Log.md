@@ -1,5 +1,19 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups UI polish and draft editor
+
+- Restored the existing full-information favorite card renderer in normal grouped view and
+  removed normal-card placement selects and the ambiguous `現在確認` CTA.
+- Added session-scoped section collapse with visible count, description, and representative
+  symbols in collapsed headers.
+- Replaced per-card editing with a large dedicated group editor. Group CRUD, tones, deletion,
+  and destination selects update a complete session draft; only `保存して閉じる` persists it,
+  while cancellation discards it.
+- Kept D&D deferred and isolated the destination-select editor boundary for a later component.
+- Verification passed: 73 targeted/relevant tests, full Ruff, targeted Mypy, the Black helper
+  for all 377 Python files, and the four-viewport responsive Playwright smoke including both
+  create and dedicated editor dialogs.
+
 ## 2026-07-03 Watchlist Groups MVP
 
 - Added versioned, atomic, user-scoped Watchlist Groups storage and a session-only default-user

@@ -10221,7 +10221,7 @@ def _render_my_watchlist_page() -> None:
             "SMAIデフォルトでは、お気に入りはこのセッション内だけ保持されます。"
             "保存したい場合はカスタムユーザーを作成してください。"
         )
-    group_view_mode, group_editing, groups_state = render_watchlist_group_toolbar()
+    group_view_mode, groups_state = render_watchlist_group_toolbar()
     favorites = load_favorites()
     prune_snapshots_for_removed_favorites({favorite.symbol for favorite in favorites})
     if not favorites:
@@ -10345,9 +10345,7 @@ def _render_my_watchlist_page() -> None:
         render_grouped_watchlist(
             filtered_enriched,
             groups_state,
-            editing=group_editing,
-            on_open=_open_watchlist_group_symbol,
-            on_remove=_remove_watchlist_group_symbol,
+            render_card=_render_favorite_card,
         )
     else:
         display_mode = _render_segmented_or_radio(
@@ -10364,17 +10362,6 @@ def _render_my_watchlist_page() -> None:
                 for column, payload in zip(cols, filtered_enriched[row_start : row_start + 3]):
                     with column:
                         _render_favorite_card(payload)
-
-
-def _open_watchlist_group_symbol(symbol: str) -> None:
-    _select_favorite_symbol_for_cockpit(symbol, "cockpit")
-    st.rerun()
-
-
-def _remove_watchlist_group_symbol(symbol: str) -> None:
-    remove_favorite(symbol)
-    st.toast("Myウォッチリストから解除しました。")
-    st.rerun()
 
 
 def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:

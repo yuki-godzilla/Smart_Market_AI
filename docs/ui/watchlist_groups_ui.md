@@ -2,7 +2,7 @@
 
 ## 1. 設計原則
 
-- グループは閉じたフォルダではなく、常時見えるセクションとする。
+- グループはフォルダではなく画面内sectionとし、情報量調整のため開閉可能とする。
 - 通常閲覧と配置編集を明確に分け、誤操作を避ける。
 - D&Dが使えなくても全操作を完了できる。
 - 現行の詳細dialog、Cockpit、判断メモ、解除を維持する。
@@ -53,8 +53,8 @@ Myウォッチリスト
 
 ## 4. コンパクトカード
 
-現行`_favorite_display_payload`をview modelとして再利用し、
-現行`_favorite_card_html`とは別のcompact rendererを追加する。
+通常表示は現行`_favorite_display_payload`と`_favorite_card_html`を再利用し、
+compact rendererは専用編集dialogだけで使う。
 
 表示:
 
@@ -108,24 +108,25 @@ Myウォッチリスト
 - 未分類に編集・削除入口を表示しない。
 - 成功後に対象groupのdialog/draft keyを全て消す。
 
-## 8. 配置編集モード
+## 8. 専用グループ編集dialog
 
 ```text
-配置編集モード
-銘柄ごとに移動先を選び、「保存」で確定してください。
-[編集を終了]
+ウォッチリストグループを編集
+グループ追加 / グループ設定 / 未分類
 
 Nintendo / 7974.T
 現在: 日本個別株
-移動先 [日本個別株 ▼] [保存]
+移動先 [日本個別株 ▼]
+
+[保存して閉じる] [キャンセル]
 ```
 
-- `watchlist_groups_edit_mode`はsession stateに保持する。
+- dialogを開いた時点のgroups/placementsを`watchlist_groups_edit_draft`へdeep copyする。
 - select keyはuser IDとnormalized symbolを含める。
 - 選択肢のvalueは表示名でなく`group_id`、未分類は専用sentinelを使う。
-- 保存成功時だけ現在表示を更新し、二重保存を避ける。
-- `編集を終了`で未保存draftを破棄する旨を必要に応じて案内する。
-- 通常カードの解除操作は編集モード中に隠すか、配置操作から離す。
+- group追加・編集・削除とselect移動はdraftだけを更新する。
+- `保存して閉じる`でstate全体をatomic保存し、`キャンセル`でdraftを破棄する。
+- 通常カードには配置selectを表示しない。
 
 ## 9. D&D導入時のUI
 

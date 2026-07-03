@@ -92,6 +92,13 @@ class WatchlistGroupsService:
     def list_groups(self, user_id: str) -> WatchlistGroupsState:
         return self.repository.load(user_id)
 
+    def save_state(self, user_id: str, state: WatchlistGroupsState) -> None:
+        """Persist a fully validated editor draft in one atomic repository write."""
+        self.repository.save(
+            user_id,
+            WatchlistGroupsState.model_validate(state.model_dump(mode="python")),
+        )
+
     def create_group(
         self,
         user_id: str,

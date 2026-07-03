@@ -113,3 +113,16 @@ def test_removed_favorite_placement_can_restore_when_favorite_returns(tmp_path):
     assert build_grouped_watchlist([], state)[0].items == ()
     restored = build_grouped_watchlist([{"symbol": "AAPL"}], state)
     assert restored[0].items[0]["symbol"] == "AAPL"
+
+
+def test_editor_draft_is_persisted_only_when_save_state_is_called(tmp_path):
+    service = WatchlistGroupsService(WatchlistGroupsRepository(tmp_path))
+    original = service.list_groups("user_a")
+    group = service.create_group("user_a", "保存前")
+    persisted = service.list_groups("user_a")
+    draft = persisted.model_copy(update={"groups": ()})
+
+    assert service.list_groups("user_a").groups[0].group_id == group.group_id
+    service.save_state("user_a", draft)
+    assert service.list_groups("user_a").groups == ()
+    assert original.groups == ()

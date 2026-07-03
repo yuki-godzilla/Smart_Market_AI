@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import secrets
 from datetime import UTC, datetime
 from typing import Callable, Mapping
 
@@ -9,12 +10,15 @@ from pydantic import ValidationError
 
 from backend.watchlist_groups import (
     WATCHLIST_GROUP_TONES,
+    WatchlistGroup,
     WatchlistGroupsRepository,
     WatchlistGroupsService,
     WatchlistGroupsState,
+    WatchlistPlacement,
     assign_default_tone,
     build_grouped_watchlist,
 )
+from backend.watchlist_groups.models import WatchlistGroupTone, validate_group_name
 from ui.user_data import (
     current_user_id,
     is_default_session_user,
@@ -23,8 +27,10 @@ from ui.user_data import (
 )
 
 VIEW_MODE_KEY = "watchlist_groups_view_mode"
-EDIT_MODE_KEY = "watchlist_groups_edit_mode"
-DELETE_PENDING_KEY = "watchlist_groups_delete_pending"
+EDITOR_OPEN_KEY = "watchlist_groups_editor_open"
+EDITOR_DRAFT_KEY = "watchlist_groups_edit_draft"
+EDITOR_FOCUS_KEY = "watchlist_groups_editor_focus"
+COLLAPSED_KEY = "watchlist_groups_collapsed"
 UNCLASSIFIED_VALUE = "__unclassified__"
 TONE_LABELS = {
     "cyan": "シアン",
@@ -64,13 +70,13 @@ def current_watchlist_groups_service() -> tuple[WatchlistGroupsService, str]:
     return WatchlistGroupsService(_CurrentUserRepository()), current_user_id() or "default"
 
 
-def render_watchlist_group_toolbar() -> tuple[str, bool, WatchlistGroupsState]:
+def render_watchlist_group_toolbar() -> tuple[str, WatchlistGroupsState]:
     service, user_id = current_watchlist_groups_service()
     state = service.list_groups(user_id)
     st.markdown(
         '<div class="smai-watchlist-groups-toolbar">'
         "<strong>ウォッチリストグループ</strong>"
-        "<span>お気に入り銘柄を、テーマ・市場・検討状況ごとに整理できます。</span>"
+        "<span>通常画面は確認用です。グループ分けは専用編集画面でまとめて変更できます。</span>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -84,28 +90,19 @@ def render_watchlist_group_toolbar() -> tuple[str, bool, WatchlistGroupsState]:
         ):
             render_group_create_dialog(service, user_id, state)
     with edit_col:
-        editing = bool(st.session_state.get(EDIT_MODE_KEY, False))
-        marker = "secondary" if editing else "edit"
-        st.markdown(
-            f'<span class="smai-watchlist-action-{marker}"></span>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<span class="smai-watchlist-action-edit"></span>', unsafe_allow_html=True)
         if st.button(
-            "編集を終了" if editing else "配置を編集",
-            key="watchlist_groups_toggle_edit",
+            "グループを編集",
+            key="watchlist_groups_open_editor",
             use_container_width=True,
         ):
-            st.session_state[EDIT_MODE_KEY] = not editing
+            open_watchlist_groups_editor(state)
             st.rerun()
     with mode_col:
-        view_mode = st.selectbox(
-            "表示",
-            ["グループ別", "すべて"],
-            key=VIEW_MODE_KEY,
-        )
-    if st.session_state.get(DELETE_PENDING_KEY):
-        render_group_delete_confirm(service, user_id, state)
-    return view_mode, bool(st.session_state.get(EDIT_MODE_KEY, False)), state
+        view_mode = st.selectbox("表示", ["グループ別", "すべて"], key=VIEW_MODE_KEY)
+    if st.session_state.get(EDITOR_OPEN_KEY):
+        render_watchlist_groups_editor(service, user_id)
+    return view_mode, state
 
 
 @st.dialog("グループを作成")
@@ -125,160 +122,113 @@ def render_group_create_dialog(
             format_func=lambda value: TONE_LABELS[value],
         )
         st.markdown(
-            group_preview_html(name or "新しいグループ", description, tone), unsafe_allow_html=True
-        )
-        create_col, cancel_col = st.columns(2)
-        create = create_col.form_submit_button(
-            "作成する",
-            type="primary",
-            use_container_width=True,
-        )
-        cancel = cancel_col.form_submit_button("キャンセル", use_container_width=True)
-    if cancel:
-        st.rerun()
-    if not create:
-        return
-    try:
-        service.create_group(user_id, name, description, tone)
-    except (ValueError, RuntimeError) as exc:
-        st.error(str(exc))
-        return
-    st.toast("グループを作成しました。")
-    st.rerun()
-
-
-@st.dialog("グループ編集")
-def render_group_edit_dialog(
-    service: WatchlistGroupsService,
-    user_id: str,
-    group_id: str,
-) -> None:
-    state = service.list_groups(user_id)
-    group = next((item for item in state.groups if item.group_id == group_id), None)
-    if group is None:
-        st.error("グループが見つかりません。")
-        return
-    with st.form(f"watchlist_group_edit_form_{group_id}"):
-        name = st.text_input("グループ名", value=group.name, max_chars=32)
-        description = st.text_area(
-            "説明（任意）",
-            value=group.description or "",
-            max_chars=200,
-            height=80,
-        )
-        tone = st.selectbox(
-            "トーン",
-            list(WATCHLIST_GROUP_TONES),
-            index=list(WATCHLIST_GROUP_TONES).index(group.tone),
-            format_func=lambda value: TONE_LABELS[value],
-        )
-        st.markdown(group_preview_html(name, description, tone), unsafe_allow_html=True)
-        save_col, cancel_col = st.columns(2)
-        save = save_col.form_submit_button(
-            "保存する",
-            type="primary",
-            use_container_width=True,
-        )
-        cancel = cancel_col.form_submit_button("キャンセル", use_container_width=True)
-    order_up, order_down = st.columns(2)
-    if order_up.button("↑ 上へ", key=f"watchlist_group_up_{group_id}", use_container_width=True):
-        service.move_group(user_id, group_id, -1)
-        st.rerun()
-    if order_down.button(
-        "↓ 下へ",
-        key=f"watchlist_group_down_{group_id}",
-        use_container_width=True,
-    ):
-        service.move_group(user_id, group_id, 1)
-        st.rerun()
-    st.markdown('<span class="smai-watchlist-action-danger"></span>', unsafe_allow_html=True)
-    if st.button(
-        "削除する",
-        key=f"watchlist_group_delete_request_{group_id}",
-        use_container_width=True,
-    ):
-        st.session_state[DELETE_PENDING_KEY] = group_id
-        st.rerun()
-    if cancel:
-        st.rerun()
-    if not save:
-        return
-    try:
-        service.update_group(
-            user_id,
-            group_id,
-            name=name,
-            description=description,
-            tone=tone,
-        )
-    except ValueError as exc:
-        st.error(str(exc))
-        return
-    st.toast("グループを更新しました。")
-    st.rerun()
-
-
-@st.dialog("グループを削除")
-def render_group_delete_confirm(
-    service: WatchlistGroupsService,
-    user_id: str,
-    state: WatchlistGroupsState,
-) -> None:
-    group_id = str(st.session_state.get(DELETE_PENDING_KEY) or "")
-    group = next((item for item in state.groups if item.group_id == group_id), None)
-    if group is None:
-        st.session_state.pop(DELETE_PENDING_KEY, None)
-        st.warning("対象のグループは既にありません。")
-        return
-    count = sum(1 for placement in state.placements.values() if placement.group_id == group_id)
-    st.warning(
-        f"「{group.name}」を削除します。中の銘柄 {count}件はお気に入りから削除されず、"
-        "「未分類」に移動します。"
-    )
-    delete_col, cancel_col = st.columns(2)
-    with delete_col:
-        st.markdown('<span class="smai-watchlist-action-danger"></span>', unsafe_allow_html=True)
-        delete = st.button(
-            "削除する",
-            key=f"watchlist_group_delete_confirm_{group_id}",
-            use_container_width=True,
-        )
-    cancel = cancel_col.button(
-        "キャンセル",
-        key=f"watchlist_group_delete_cancel_{group_id}",
-        use_container_width=True,
-    )
-    if cancel:
-        st.session_state.pop(DELETE_PENDING_KEY, None)
-        st.rerun()
-    if delete:
-        service.delete_group(user_id, group_id)
-        st.session_state.pop(DELETE_PENDING_KEY, None)
-        st.toast("グループを削除しました。銘柄は未分類に移動しました。")
-        st.rerun()
-
-
-def render_grouped_watchlist(
-    rows: list[Mapping[str, str]],
-    state: WatchlistGroupsState,
-    *,
-    editing: bool,
-    on_open: Callable[[str], None],
-    on_remove: Callable[[str], None],
-) -> None:
-    service, user_id = current_watchlist_groups_service()
-    sections = build_grouped_watchlist(rows, state)
-    group_options = [(UNCLASSIFIED_VALUE, "未分類")] + [
-        (group.group_id, group.name) for group in sorted(state.groups, key=lambda item: item.order)
-    ]
-    option_values = [value for value, _ in group_options]
-    option_labels = dict(group_options)
-    if editing:
-        st.markdown(
-            '<div class="smai-watchlist-edit-mode-banner"><strong>配置編集モード中です</strong>'
-            "<span>銘柄カードの移動先を選択して保存してください。</span></div>",
+            group_preview_html(name or "新しいグループ", description, tone),
             unsafe_allow_html=True,
         )
+        create_col, cancel_col = st.columns(2)
+        create = create_col.form_submit_button("作成する", type="primary", use_container_width=True)
+        cancel = cancel_col.form_submit_button("キャンセル", use_container_width=True)
+    if cancel:
+        st.rerun()
+    if create:
+        try:
+            service.create_group(user_id, name, description, tone)
+        except (ValueError, RuntimeError) as exc:
+            st.error(str(exc))
+            return
+        st.toast("グループを作成しました。")
+        st.rerun()
+
+
+def open_watchlist_groups_editor(
+    state: WatchlistGroupsState,
+    *,
+    focus_group_id: str | None = None,
+) -> None:
+    st.session_state[EDITOR_DRAFT_KEY] = state.model_copy(deep=True)
+    st.session_state[EDITOR_OPEN_KEY] = True
+    st.session_state[EDITOR_FOCUS_KEY] = focus_group_id
+
+
+@st.dialog("ウォッチリストグループを編集", width="large")
+def render_watchlist_groups_editor(
+    service: WatchlistGroupsService,
+    user_id: str,
+) -> None:
+    st.markdown('<span class="smai-watchlist-editor-marker"></span>', unsafe_allow_html=True)
+    draft = st.session_state.get(EDITOR_DRAFT_KEY)
+    if not isinstance(draft, WatchlistGroupsState):
+        draft = service.list_groups(user_id).model_copy(deep=True)
+        st.session_state[EDITOR_DRAFT_KEY] = draft
+    st.caption(
+        "グループの追加・編集と銘柄配置をまとめて変更します。"
+        "移動先メニューで変更し、最後に「保存して閉じる」を押してください。"
+    )
+    st.info("ドラッグ＆ドロップは後続対応です。現在は確実に操作できる移動先メニューを使います。")
+    _render_editor_add_group(draft)
+    draft = _editor_draft()
+    _render_editor_groups(draft)
+    save_col, cancel_col = st.columns(2)
+    with save_col:
+        st.markdown('<span class="smai-watchlist-action-save"></span>', unsafe_allow_html=True)
+        save = st.button(
+            "保存して閉じる",
+            key="watchlist_groups_editor_save",
+            use_container_width=True,
+        )
+    with cancel_col:
+        st.markdown(
+            '<span class="smai-watchlist-action-secondary"></span>',
+            unsafe_allow_html=True,
+        )
+        cancel = st.button(
+            "キャンセル",
+            key="watchlist_groups_editor_cancel",
+            use_container_width=True,
+        )
+    if cancel:
+        _close_editor()
+        st.rerun()
+    if save:
+        service.save_state(user_id, _editor_draft())
+        _close_editor()
+        st.toast("ウォッチリストグループを保存しました。")
+        st.rerun()
+
+
+def _render_editor_add_group(draft: WatchlistGroupsState) -> None:
+    with st.expander("＋ グループ追加"):
+        with st.form("watchlist_groups_editor_add_form", clear_on_submit=True):
+            name = st.text_input("新しいグループ名", max_chars=32)
+            description = st.text_input("説明（任意）", max_chars=200)
+            default_tone = assign_default_tone(draft)
+            tone = st.selectbox(
+                "トーン",
+                list(WATCHLIST_GROUP_TONES),
+                index=list(WATCHLIST_GROUP_TONES).index(default_tone),
+                format_func=lambda value: TONE_LABELS[value],
+                key="watchlist_groups_editor_add_tone",
+            )
+            add = st.form_submit_button("追加", type="primary", use_container_width=True)
+        if add:
+            try:
+                st.session_state[EDITOR_DRAFT_KEY] = draft_add_group(draft, name, description, tone)
+            except (ValueError, RuntimeError) as exc:
+                st.error(str(exc))
+                return
+            st.rerun()
+
+
+def _render_editor_groups(draft: WatchlistGroupsState) -> None:
+    rows = st.session_state.get("watchlist_groups_editor_rows", [])
+    if not isinstance(rows, list):
+        rows = []
+    sections = build_grouped_watchlist(rows, draft)
+    options = [(UNCLASSIFIED_VALUE, "未分類")] + [
+        (group.group_id, group.name) for group in sorted(draft.groups, key=lambda item: item.order)
+    ]
+    values = [value for value, _ in options]
+    labels = dict(options)
     for section in sections:
         st.markdown(
             group_section_header_html(
@@ -291,66 +241,234 @@ def render_grouped_watchlist(
             unsafe_allow_html=True,
         )
         if not section.is_system:
-            st.markdown('<span class="smai-watchlist-action-edit"></span>', unsafe_allow_html=True)
-            if st.button(
-                "グループ編集",
-                key=f"watchlist_group_edit_{section.group_id}",
-            ):
-                render_group_edit_dialog(service, user_id, str(section.group_id))
+            _render_editor_group_settings(draft, str(section.group_id))
+            draft = _editor_draft()
         if not section.items:
-            message = (
+            st.caption(
                 "すべての銘柄がグループに配置されています。"
                 if section.is_system
-                else "まだ銘柄はありません。配置を編集して銘柄を移動できます。"
+                else "このグループに配置された銘柄はありません。"
             )
-            st.caption(message)
+        for row in section.items:
+            symbol = str(row.get("symbol") or "")
+            st.markdown(editor_watchlist_card_html(row, section.name), unsafe_allow_html=True)
+            current = draft.placements.get(symbol)
+            selected_value = current.group_id if current else UNCLASSIFIED_VALUE
+            selected = st.selectbox(
+                f"{symbol} の移動先",
+                values,
+                index=values.index(selected_value) if selected_value in values else 0,
+                format_func=lambda value: labels[value],
+                key=f"watchlist_groups_editor_move_{symbol}",
+            )
+            if selected != selected_value:
+                st.session_state[EDITOR_DRAFT_KEY] = draft_move_symbol(
+                    draft,
+                    symbol,
+                    None if selected == UNCLASSIFIED_VALUE else selected,
+                )
+                st.rerun()
+
+
+def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) -> None:
+    group = next(item for item in draft.groups if item.group_id == group_id)
+    with st.expander(
+        f"{group.name} を編集",
+        expanded=st.session_state.get(EDITOR_FOCUS_KEY) == group_id,
+    ):
+        with st.form(f"watchlist_groups_editor_group_{group_id}"):
+            name = st.text_input(
+                "グループ名",
+                value=group.name,
+                max_chars=32,
+                key=f"watchlist_groups_editor_name_{group_id}",
+            )
+            description = st.text_input(
+                "説明",
+                value=group.description or "",
+                max_chars=200,
+                key=f"watchlist_groups_editor_description_{group_id}",
+            )
+            tone = st.selectbox(
+                "トーン",
+                list(WATCHLIST_GROUP_TONES),
+                index=list(WATCHLIST_GROUP_TONES).index(group.tone),
+                format_func=lambda value: TONE_LABELS[value],
+                key=f"watchlist_groups_editor_tone_{group_id}",
+            )
+            update = st.form_submit_button("変更をdraftへ反映", use_container_width=True)
+        if update:
+            try:
+                st.session_state[EDITOR_DRAFT_KEY] = draft_update_group(
+                    draft, group_id, name, description, tone
+                )
+            except ValueError as exc:
+                st.error(str(exc))
+                return
+            st.rerun()
+        confirm = st.checkbox(
+            "削除を確認しました。中の銘柄はお気に入りから削除されず、未分類へ移動します。",
+            key=f"watchlist_groups_editor_delete_confirm_{group_id}",
+        )
+        st.markdown('<span class="smai-watchlist-action-danger"></span>', unsafe_allow_html=True)
+        if st.button(
+            "このグループを削除",
+            key=f"watchlist_groups_editor_delete_{group_id}",
+            disabled=not confirm,
+            use_container_width=True,
+        ):
+            st.session_state[EDITOR_DRAFT_KEY] = draft_delete_group(draft, group_id)
+            st.rerun()
+
+
+def render_grouped_watchlist(
+    rows: list[Mapping[str, str]],
+    state: WatchlistGroupsState,
+    *,
+    render_card: Callable[[Mapping[str, str]], None],
+) -> None:
+    st.session_state["watchlist_groups_editor_rows"] = rows
+    collapsed = st.session_state.setdefault(COLLAPSED_KEY, {})
+    if not isinstance(collapsed, dict):
+        collapsed = {}
+        st.session_state[COLLAPSED_KEY] = collapsed
+    for section in build_grouped_watchlist(rows, state):
+        section_key = section.group_id or UNCLASSIFIED_VALUE
+        is_collapsed = bool(collapsed.get(section_key, False))
+        symbols = [str(item.get("symbol") or "") for item in section.items]
+        st.markdown(
+            group_section_header_html(
+                section.name,
+                section.description,
+                section.tone,
+                len(section.items),
+                section.is_system,
+                collapsed=is_collapsed,
+                representative_symbols=symbols[:3],
+            ),
+            unsafe_allow_html=True,
+        )
+        toggle_col, edit_col = st.columns([1.2, 1])
+        if toggle_col.button(
+            "▶ 展開する" if is_collapsed else "▼ 閉じる",
+            key=f"watchlist_group_toggle_{section_key}",
+            use_container_width=True,
+        ):
+            collapsed[section_key] = not is_collapsed
+            st.rerun()
+        if not section.is_system and edit_col.button(
+            "グループを編集",
+            key=f"watchlist_group_edit_{section_key}",
+            use_container_width=True,
+        ):
+            open_watchlist_groups_editor(state, focus_group_id=str(section.group_id))
+            st.rerun()
+        if is_collapsed:
+            continue
+        if not section.items:
+            st.caption(
+                "すべての銘柄がグループに配置されています。"
+                if section.is_system
+                else "このグループに配置された銘柄はありません。"
+            )
             continue
         for start in range(0, len(section.items), 3):
             columns = st.columns(3)
             for column, row in zip(columns, section.items[start : start + 3]):
-                symbol = str(row.get("symbol") or "")
                 with column:
-                    st.markdown(compact_watchlist_card_html(row), unsafe_allow_html=True)
-                    if editing:
-                        current = state.placements.get(symbol)
-                        selected_value = current.group_id if current else UNCLASSIFIED_VALUE
-                        selected = st.selectbox(
-                            "移動先",
-                            option_values,
-                            index=option_values.index(selected_value),
-                            format_func=lambda value: option_labels[value],
-                            key=f"watchlist_group_move_{user_id}_{symbol}",
-                        )
-                        st.markdown(
-                            '<span class="smai-watchlist-action-save"></span>',
-                            unsafe_allow_html=True,
-                        )
-                        if st.button(
-                            "移動を保存",
-                            key=f"watchlist_group_move_save_{user_id}_{symbol}",
-                            use_container_width=True,
-                        ):
-                            service.move_symbol(
-                                user_id,
-                                symbol,
-                                None if selected == UNCLASSIFIED_VALUE else selected,
-                            )
-                            st.toast("配置を更新しました。")
-                            st.rerun()
-                    else:
-                        open_col, remove_col = st.columns([1.35, 0.85])
-                        if open_col.button(
-                            "現在確認",
-                            key=f"watchlist_group_open_{symbol}",
-                            use_container_width=True,
-                        ):
-                            on_open(symbol)
-                        if remove_col.button(
-                            "☆ 解除",
-                            key=f"watchlist_group_remove_{symbol}",
-                            use_container_width=True,
-                        ):
-                            on_remove(symbol)
+                    render_card(row)
+
+
+def draft_add_group(
+    draft: WatchlistGroupsState,
+    name: str,
+    description: str | None,
+    tone: WatchlistGroupTone,
+) -> WatchlistGroupsState:
+    if len(draft.groups) >= 20:
+        raise ValueError("ウォッチリストグループは20件まで作成できます。")
+    clean_name = validate_group_name(name)
+    if any(group.name == clean_name for group in draft.groups):
+        raise ValueError("同じ名前のグループは作成できません。")
+    now = datetime.now(UTC)
+    group = WatchlistGroup(
+        group_id=f"wg_{secrets.token_hex(6)}",
+        name=clean_name,
+        description=description,
+        tone=tone,
+        order=max((item.order for item in draft.groups), default=0) + 10,
+        created_at=now,
+        updated_at=now,
+    )
+    return draft.model_copy(update={"groups": (*draft.groups, group), "updated_at": now})
+
+
+def draft_update_group(
+    draft: WatchlistGroupsState,
+    group_id: str,
+    name: str,
+    description: str | None,
+    tone: WatchlistGroupTone,
+) -> WatchlistGroupsState:
+    clean_name = validate_group_name(name)
+    if any(group.name == clean_name and group.group_id != group_id for group in draft.groups):
+        raise ValueError("同じ名前のグループは作成できません。")
+    now = datetime.now(UTC)
+    groups = tuple(
+        (
+            group.model_copy(
+                update={
+                    "name": clean_name,
+                    "description": description,
+                    "tone": tone,
+                    "updated_at": now,
+                }
+            )
+            if group.group_id == group_id
+            else group
+        )
+        for group in draft.groups
+    )
+    if not any(group.group_id == group_id for group in draft.groups):
+        raise ValueError("グループが見つかりません。")
+    return WatchlistGroupsState(updated_at=now, groups=groups, placements=draft.placements)
+
+
+def draft_delete_group(
+    draft: WatchlistGroupsState,
+    group_id: str,
+) -> WatchlistGroupsState:
+    now = datetime.now(UTC)
+    return WatchlistGroupsState(
+        updated_at=now,
+        groups=tuple(group for group in draft.groups if group.group_id != group_id),
+        placements={
+            symbol: placement
+            for symbol, placement in draft.placements.items()
+            if placement.group_id != group_id
+        },
+    )
+
+
+def draft_move_symbol(
+    draft: WatchlistGroupsState,
+    symbol: str,
+    group_id: str | None,
+) -> WatchlistGroupsState:
+    placements = dict(draft.placements)
+    now = datetime.now(UTC)
+    if group_id is None:
+        placements.pop(symbol, None)
+    else:
+        if not any(group.group_id == group_id for group in draft.groups):
+            raise ValueError("グループが見つかりません。")
+        previous = placements.get(symbol)
+        placements[symbol] = WatchlistPlacement(
+            group_id=group_id,
+            order=previous.order if previous else 10,
+            updated_at=now,
+        )
+    return draft.model_copy(update={"placements": placements, "updated_at": now})
 
 
 def group_section_header_html(
@@ -359,55 +477,86 @@ def group_section_header_html(
     tone: str,
     count: int,
     is_system: bool,
+    *,
+    collapsed: bool = False,
+    representative_symbols: list[str] | None = None,
 ) -> str:
     safe_tone = tone if tone in WATCHLIST_GROUP_TONES else "slate"
     description_text = description or (
         "まだグループに配置していないお気に入り銘柄です。" if is_system else ""
     )
+    representative = ""
+    if collapsed:
+        symbols = ", ".join(representative_symbols or []) or "なし"
+        representative = (
+            f'<div class="smai-watchlist-group-representative">上位: {html.escape(symbols)}</div>'
+        )
+    icon = "▶" if collapsed else "▼"
     return (
         f'<section class="smai-watchlist-group-section '
         f'smai-watchlist-group-section--tone-{safe_tone}">'
         '<div class="smai-watchlist-group-header">'
-        f"<strong>{html.escape(name)}</strong>"
+        f"<strong>{icon} {html.escape(name)}</strong>"
         f'<span class="smai-watchlist-group-count-badge">{count}件</span>'
         "</div>"
-        f"<p>{html.escape(description_text)}</p>"
-        "</section>"
+        f"<p>{html.escape(description_text)}</p>{representative}</section>"
+    )
+
+
+def editor_watchlist_card_html(row: Mapping[str, str], current_group: str) -> str:
+    name = html.escape(str(row.get("name") or row.get("symbol") or "未取得"))
+    symbol = html.escape(str(row.get("symbol") or "未取得"))
+    scores = [
+        (
+            f"AI総合 {html.escape(str(row.get('ai_score')))}"
+            if row.get("ai_score") not in {None, "", "未取得"}
+            else ""
+        ),
+        (
+            f"上昇気配 {html.escape(str(row.get('upside')))}"
+            if row.get("upside") not in {None, "", "未取得"}
+            else ""
+        ),
+    ]
+    score_text = " / ".join(item for item in scores if item) or "主要スコア未取得"
+    return (
+        '<article class="smai-watchlist-editor-card">'
+        f'<span class="smai-watchlist-drag-handle" aria-hidden="true">⋮⋮</span>'
+        f"<div><strong>{symbol} {name}</strong>"
+        f"<small>現在: {html.escape(current_group)}</small>"
+        f"<span>{score_text}</span></div></article>"
     )
 
 
 def compact_watchlist_card_html(row: Mapping[str, str]) -> str:
-    name = html.escape(str(row.get("name") or row.get("symbol") or "未取得"))
-    symbol = html.escape(str(row.get("symbol") or "未取得"))
-    metrics = [
-        ("AI総合", row.get("ai_score")),
-        ("上昇気配", row.get("upside")),
-        ("下振れ警戒", row.get("downside")),
-    ]
-    metric_html = "".join(
-        f"<span>{label} <strong>{html.escape(str(value))}</strong></span>"
-        for label, value in metrics
-        if value and str(value) != "未取得"
-    )
-    if not metric_html:
-        metric_html = "<span>評価データは未取得です</span>"
-    return (
-        '<article class="smai-watchlist-compact-card">'
-        f'<h4>{name}</h4><div class="smai-watchlist-compact-symbol">{symbol}</div>'
-        f'<div class="smai-watchlist-compact-metrics">{metric_html}</div>'
-        "</article>"
-    )
+    """Backward-compatible alias for the editor-only compact card."""
+    return editor_watchlist_card_html(row, "未分類")
 
 
 def group_preview_html(name: str, description: str, tone: str) -> str:
     return group_section_header_html(name, description or None, tone, 0, False)
 
 
+def _editor_draft() -> WatchlistGroupsState:
+    draft = st.session_state.get(EDITOR_DRAFT_KEY)
+    if not isinstance(draft, WatchlistGroupsState):
+        raise RuntimeError("編集内容を読み込めません。")
+    return draft
+
+
+def _close_editor() -> None:
+    st.session_state.pop(EDITOR_DRAFT_KEY, None)
+    st.session_state.pop(EDITOR_OPEN_KEY, None)
+    st.session_state.pop(EDITOR_FOCUS_KEY, None)
+
+
 def clear_watchlist_group_transient_state() -> None:
     for key in tuple(st.session_state):
         if str(key).startswith("watchlist_group_") or key in {
-            EDIT_MODE_KEY,
-            DELETE_PENDING_KEY,
+            EDITOR_OPEN_KEY,
+            EDITOR_DRAFT_KEY,
+            EDITOR_FOCUS_KEY,
+            COLLAPSED_KEY,
         }:
             st.session_state.pop(key, None)
 

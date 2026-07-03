@@ -143,9 +143,18 @@ Phase N4:
   tones (`cyan`, `blue`, `purple`, `green`, `amber`, `orange`, `rose`, `slate`). Creation
   chooses an unused tone first and then the least-used tone; creation/edit dialogs can override
   it. Deleting a group removes only its placements, so its favorite symbols return to `未分類`.
-- `配置を編集` exposes a touch-safe destination select and `移動を保存` per symbol. Removing
-  a favorite hides it without deleting placement, allowing a later re-favorite to restore the
-  previous group. D&D is not enabled in this MVP.
+- The dedicated editor exposes a touch-safe destination select per symbol. Removing a favorite
+  hides it without deleting placement, allowing a later re-favorite to restore the previous
+  group. D&D is not enabled in this MVP.
+- Watchlist Groups UI polish restores the original full-information Myウォッチリスト cards
+  inside normal group sections and removes placement selects from those cards. Sections can be
+  opened/closed in session; a closed header keeps its name, count, description, and up to three
+  representative symbols visible. The Cockpit CTA uses the existing
+  `Cockpit画面で確認` wording.
+- `グループを編集` opens a large dedicated editor. Group add/name/description/tone/delete and
+  symbol destination selects update `watchlist_groups_edit_draft` only; `保存して閉じる`
+  atomically persists the complete validated state, while `キャンセル` discards it. D&D
+  remains a later editor-only enhancement.
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.
 
 ## 2026-06-26 Symbol Metadata Operations Update

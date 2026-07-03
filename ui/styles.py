@@ -5799,6 +5799,55 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     color: #EDE9FE;
 }
 
+div[data-testid="stDialog"] div[role="dialog"]:has(.smai-watchlist-editor-marker) {
+    width: min(72rem, calc(100vw - 2rem)) !important;
+    max-width: min(72rem, calc(100vw - 2rem)) !important;
+}
+
+.smai-watchlist-group-representative {
+    margin-top: 0.35rem;
+    color: #9FB2C7;
+    font-size: 0.82rem;
+}
+
+.smai-watchlist-editor-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin: 0.45rem 0 0.25rem;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid rgba(100, 149, 190, 0.36);
+    border-radius: 10px;
+    background: rgba(7, 18, 34, 0.9);
+}
+
+.smai-watchlist-editor-card > div {
+    display: grid;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.smai-watchlist-editor-card strong {
+    color: #F8FDFF;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-editor-card small {
+    color: #8CDFF0;
+}
+
+.smai-watchlist-editor-card span {
+    color: #B9C8DA;
+    font-size: 0.82rem;
+}
+
+.smai-watchlist-drag-handle {
+    color: #7DD3FC !important;
+    cursor: grab;
+    font-size: 1rem !important;
+    letter-spacing: -0.2rem;
+}
+
 .smai-watchlist-action-primary + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-primary)
     + div[data-testid="stButton"] button,

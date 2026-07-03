@@ -30,6 +30,7 @@ def test_my_radar_responsive_viewports() -> None:
             for name, width, height in VIEWPORTS:
                 page = browser.new_page(viewport={"width": width, "height": height})
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
+                page.wait_for_timeout(3_000)
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
                     page.get_by_text("SMAIデフォルト", exact=True).click()
                     page.get_by_text("このユーザーで開始", exact=True).click()
@@ -63,10 +64,22 @@ def test_my_radar_responsive_viewports() -> None:
                 dialog.wait_for(state="visible", timeout=30_000)
                 dialog.locator("input").first.wait_for(state="visible", timeout=30_000)
                 assert dialog.locator("input").count() >= 1
-                assert dialog.locator("textarea").is_visible()
-                assert dialog.locator('[data-testid="stSelectbox"]').count() == 1
+                dialog.locator("textarea").wait_for(state="visible", timeout=30_000)
+                dialog.locator('[data-testid="stSelectbox"]').wait_for(
+                    state="visible",
+                    timeout=30_000,
+                )
                 dialog.get_by_role("button", name="キャンセル").click()
                 dialog.wait_for(state="detached", timeout=30_000)
+                page.get_by_role("button", name="グループを編集", exact=True).click()
+                editor = page.get_by_role("dialog")
+                editor.wait_for(state="visible", timeout=30_000)
+                editor.get_by_role("button", name="保存して閉じる").wait_for(
+                    state="visible",
+                    timeout=30_000,
+                )
+                editor.get_by_role("button", name="キャンセル").click()
+                editor.wait_for(state="detached", timeout=30_000)
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

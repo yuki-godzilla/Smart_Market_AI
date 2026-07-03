@@ -5768,6 +5768,83 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     font-weight: 700;
 }
 
+.smai-watchlist-group-header-marker {
+    display: none;
+}
+
+[class*="st-key-watchlist_group_tone_"] div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
+    --watchlist-group-rgb: 100, 116, 139;
+    min-height: 3.65rem;
+    margin-top: 0.85rem;
+    padding: 0.75rem 1rem;
+    justify-content: flex-start;
+    border: 1px solid rgba(var(--watchlist-group-rgb), 0.58);
+    border-left: 5px solid rgb(var(--watchlist-group-rgb));
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(var(--watchlist-group-rgb), 0.28), rgba(7, 13, 25, 0.9));
+    color: #F8FDFF;
+    font-size: 1.02rem;
+    font-weight: 800;
+    text-align: left;
+}
+
+[class*="st-key-watchlist_group_tone_"] div[data-testid="stButton"] button:hover,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker)
+    + div[data-testid="stButton"] button:hover,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button:hover {
+    border-color: rgba(var(--watchlist-group-rgb), 0.92);
+    background:
+        linear-gradient(135deg, rgba(var(--watchlist-group-rgb), 0.4), rgba(7, 13, 25, 0.88));
+    transform: none;
+}
+
+[class*="st-key-watchlist_group_tone_cyan_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-cyan)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-cyan)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 34, 211, 238; }
+[class*="st-key-watchlist_group_tone_blue_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-blue)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-blue)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 96, 165, 250; }
+[class*="st-key-watchlist_group_tone_purple_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-purple)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-purple)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 167, 139, 250; }
+[class*="st-key-watchlist_group_tone_green_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-green)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-green)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 52, 211, 153; }
+[class*="st-key-watchlist_group_tone_amber_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-amber)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-amber)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 251, 191, 36; }
+[class*="st-key-watchlist_group_tone_orange_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-orange)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-orange)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 251, 146, 60; }
+[class*="st-key-watchlist_group_tone_rose_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-rose)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-rose)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 251, 113, 133; }
+[class*="st-key-watchlist_group_tone_slate_"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-group-header-marker--tone-slate)
+    + div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-group-header-marker--tone-slate)
+    + div[data-testid="stElementContainer"] button { --watchlist-group-rgb: 148, 163, 184; }
+
 .smai-watchlist-compact-card {
     min-height: 8.7rem;
     margin: 0.25rem 0 0.5rem;

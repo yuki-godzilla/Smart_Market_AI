@@ -140,21 +140,22 @@ def test_normal_group_renderer_has_no_current_confirmation_or_move_select():
 
     assert "現在確認" not in source
     assert "移動先" not in source
+    assert "watchlist_group_edit_" not in source
+    assert '"▼ 閉じる"' not in source
+    assert "smai-watchlist-group-header-marker" in source
     assert "render_card(row)" in source
 
 
-def test_editor_places_group_controls_before_board_without_lower_settings_stack():
+def test_editor_handles_group_controls_from_each_sortable_container():
     source = __import__("inspect").getsource(watchlist_groups._render_editor_groups)
-    toolbar_source = __import__("inspect").getsource(watchlist_groups._render_group_board_toolbar)
+    action_source = __import__("inspect").getsource(watchlist_groups._apply_group_board_action)
 
     assert "_render_editor_group_settings" not in source
-    assert source.index("_render_group_board_toolbar") < source.index("sort_items")
-    assert source.count("_render_group_board_toolbar") == 1
-    assert '"操作するグループ"' in toolbar_source
-    assert '"↑"' in toolbar_source
-    assert '"↓"' in toolbar_source
-    assert '"編集"' in toolbar_source
-    assert "_render_inline_group_settings" in toolbar_source
+    assert "_render_group_board_toolbar" not in source
+    assert "watchlist_sortable" in source
+    assert '"up"' in action_source
+    assert '"down"' in action_source
+    assert '"edit"' in action_source
 
 
 def test_sortable_containers_are_chip_only_and_keep_empty_and_unclassified_last():

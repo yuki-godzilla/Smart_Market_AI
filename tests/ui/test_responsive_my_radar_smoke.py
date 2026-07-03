@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -57,29 +58,25 @@ def test_my_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("Myウォッチリスト", exact=True).count() > 0
                 assert page.get_by_text("ウォッチリストグループ", exact=True).count() > 0
-                assert page.get_by_role("button", name="＋ グループを作成").is_visible()
+                assert page.get_by_role("button", name="＋ グループを作成").count() == 0
                 assert page.get_by_role("button").count() > 0
-                page.get_by_role("button", name="＋ グループを作成").click()
-                dialog = page.get_by_role("dialog")
-                dialog.wait_for(state="visible", timeout=30_000)
-                dialog.locator("input").first.wait_for(state="visible", timeout=30_000)
-                assert dialog.locator("input").count() >= 1
-                dialog.locator("textarea").wait_for(state="visible", timeout=30_000)
-                dialog.locator('[data-testid="stSelectbox"]').wait_for(
-                    state="visible",
-                    timeout=30_000,
-                )
                 if name == "pc_1366":
-                    dialog.locator("input").first.fill("Tone smoke")
-                    tone_preview = dialog.locator(".smai-watchlist-group-section--tone-cyan").first
-                    tone_preview.wait_for(state="visible", timeout=30_000)
-                    assert "linear-gradient" in tone_preview.evaluate(
-                        "(element) => getComputedStyle(element).backgroundImage"
+                    assert (
+                        page.get_by_role("button", name="グループを編集", exact=True).count() == 1
                     )
-                    dialog.get_by_role("button", name="作成する").click()
-                else:
-                    dialog.get_by_role("button", name="キャンセル").click()
-                dialog.wait_for(state="detached", timeout=30_000)
+                    existing_header = page.get_by_role(
+                        "button", name=re.compile(r"^[▶▼].*\d+件$")
+                    ).first
+                    if existing_header.count():
+                        assert "linear-gradient" in existing_header.evaluate(
+                            "(element) => getComputedStyle(element).backgroundImage"
+                        )
+                        assert (
+                            existing_header.evaluate(
+                                "(element) => getComputedStyle(element).borderLeftWidth"
+                            )
+                            == "5px"
+                        )
                 page.get_by_role("button", name="グループを編集", exact=True).click()
                 editor = page.get_by_role("dialog")
                 editor.wait_for(state="visible", timeout=30_000)
@@ -87,6 +84,18 @@ def test_my_radar_responsive_viewports() -> None:
                     state="visible",
                     timeout=30_000,
                 )
+                if (
+                    name == "pc_1366"
+                    and page.locator(".smai-watchlist-group-header-marker").count() == 0
+                ):
+                    editor.locator('[data-testid="stExpander"] summary').first.click()
+                    add_name = editor.locator("input").first
+                    add_name.wait_for(state="visible", timeout=30_000)
+                    add_name.fill("Tone smoke")
+                    editor.get_by_role("button", name="追加", exact=True).click()
+                    editor.get_by_role("button", name="保存して閉じる").wait_for(
+                        state="visible", timeout=30_000
+                    )
                 component_frame = editor.locator("iframe")
                 component_frame.wait_for(state="visible", timeout=30_000)
                 if name == "pc_1366":
@@ -97,9 +106,14 @@ def test_my_radar_responsive_viewports() -> None:
                     assert "rgba" in sortable_container.evaluate(
                         "(element) => getComputedStyle(element).backgroundColor"
                     )
-                    assert editor.get_by_role("button", name="↑").is_visible()
-                    assert editor.get_by_role("button", name="↓").is_visible()
-                    edit_group = editor.get_by_role("button", name="編集", exact=True)
+                    component = component_frame.content_frame
+                    assert component.get_by_role(
+                        "button", name=re.compile(r".+を上へ")
+                    ).first.is_visible()
+                    assert component.get_by_role(
+                        "button", name=re.compile(r".+を下へ")
+                    ).first.is_visible()
+                    edit_group = component.get_by_role("button", name=re.compile(r".+を編集")).first
                     assert edit_group.is_visible()
                     edit_group.click()
                     editor.get_by_text("D&D boardのグループ設定", exact=True).wait_for(

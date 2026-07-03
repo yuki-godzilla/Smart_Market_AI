@@ -13,6 +13,5 @@ numpy==2.0.1
 scikit-learn==1.5.2
 streamlit==1.38.0
 streamlit-aggrid==1.2.1.post2
-streamlit-sortables==0.3.1
 altair==5.5.0
 yfinance==1.2.2

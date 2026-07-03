@@ -7,7 +7,6 @@ from typing import Callable, Mapping
 
 import streamlit as st
 from pydantic import ValidationError
-from streamlit_sortables import sort_items
 
 from backend.watchlist_groups import (
     WATCHLIST_GROUP_TONES,
@@ -20,6 +19,7 @@ from backend.watchlist_groups import (
     build_grouped_watchlist,
 )
 from backend.watchlist_groups.models import WatchlistGroupTone, validate_group_name
+from ui.components.watchlist_sortable import watchlist_sortable
 from ui.user_data import (
     current_user_id,
     is_default_session_user,
@@ -84,15 +84,7 @@ def render_watchlist_group_toolbar() -> tuple[str, WatchlistGroupsState]:
         "</div>",
         unsafe_allow_html=True,
     )
-    create_col, edit_col, mode_col = st.columns([1.25, 1.1, 1.2])
-    with create_col:
-        st.markdown('<span class="smai-watchlist-action-primary"></span>', unsafe_allow_html=True)
-        if st.button(
-            "＋ グループを作成",
-            key="watchlist_groups_create",
-            use_container_width=True,
-        ):
-            render_group_create_dialog(service, user_id, state)
+    edit_col, mode_col = st.columns([1.35, 1.2])
     with edit_col:
         st.markdown('<span class="smai-watchlist-action-edit"></span>', unsafe_allow_html=True)
         if st.button(
@@ -107,41 +99,6 @@ def render_watchlist_group_toolbar() -> tuple[str, WatchlistGroupsState]:
     if st.session_state.get(EDITOR_OPEN_KEY):
         render_watchlist_groups_editor(service, user_id)
     return view_mode, state
-
-
-@st.dialog("グループを作成")
-def render_group_create_dialog(
-    service: WatchlistGroupsService,
-    user_id: str,
-    state: WatchlistGroupsState,
-) -> None:
-    default_tone = assign_default_tone(state)
-    with st.form("watchlist_group_create_form"):
-        name = st.text_input("グループ名", max_chars=32)
-        description = st.text_area("説明（任意）", max_chars=200, height=80)
-        tone = st.selectbox(
-            "トーン",
-            list(WATCHLIST_GROUP_TONES),
-            index=list(WATCHLIST_GROUP_TONES).index(default_tone),
-            format_func=lambda value: TONE_LABELS[value],
-        )
-        st.markdown(
-            group_preview_html(name or "新しいグループ", description, tone),
-            unsafe_allow_html=True,
-        )
-        create_col, cancel_col = st.columns(2)
-        create = create_col.form_submit_button("作成する", type="primary", use_container_width=True)
-        cancel = cancel_col.form_submit_button("キャンセル", use_container_width=True)
-    if cancel:
-        st.rerun()
-    if create:
-        try:
-            service.create_group(user_id, name, description, tone)
-        except (ValueError, RuntimeError) as exc:
-            st.error(str(exc))
-            return
-        st.toast("グループを作成しました。")
-        st.rerun()
 
 
 def open_watchlist_groups_editor(
@@ -230,19 +187,20 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     rows = st.session_state.get("watchlist_groups_editor_rows", [])
     if not isinstance(rows, list):
         rows = []
-    _render_group_board_toolbar(draft)
+    _render_open_group_settings(draft)
     draft = _editor_draft()
     containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
-    sorted_containers = sort_items(
+    result = watchlist_sortable(
         containers,
-        multi_containers=True,
-        direction="horizontal",
         custom_style=sortable_watchlist_style(draft),
         key=f"watchlist_groups_dnd_board_{st.session_state.get(EDITOR_DND_REVISION_KEY, 0)}",
     )
+    if result.get("type") == "action":
+        _apply_group_board_action(draft, result)
+        return
     updated = apply_sortable_payload(
         draft,
-        sorted_containers,
+        result.get("containers"),
         item_symbols=item_symbols,
         header_groups=header_groups,
     )
@@ -254,62 +212,36 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
         st.rerun()
 
 
-def _render_group_board_toolbar(draft: WatchlistGroupsState) -> None:
-    ordered_groups = list(sorted(draft.groups, key=lambda item: item.order))
-    if not ordered_groups:
-        st.caption("グループを追加すると、ここで名前・トーン・表示順を編集できます。")
+def _apply_group_board_action(
+    draft: WatchlistGroupsState,
+    result: Mapping[str, object],
+) -> None:
+    group_id = str(result.get("groupId") or "")
+    if not any(group.group_id == group_id for group in draft.groups):
         return
-    group_ids = [group.group_id for group in ordered_groups]
-    current = st.session_state.get(EDITOR_SELECTED_GROUP_KEY)
-    if current not in group_ids:
-        current = group_ids[0]
-        st.session_state[EDITOR_SELECTED_GROUP_KEY] = current
-    group_names = {group.group_id: group.name for group in ordered_groups}
-    selector_col, up_col, down_col, edit_col = st.columns([4.2, 0.8, 0.8, 1.1])
-    with selector_col:
-        group_id = st.selectbox(
-            "操作するグループ",
-            group_ids,
-            index=group_ids.index(str(current)),
-            format_func=lambda value: group_names[value],
-            key="watchlist_groups_editor_group_selector",
-            label_visibility="collapsed",
-        )
-    group = next(item for item in draft.groups if item.group_id == group_id)
-    group_index = next(
-        index for index, item in enumerate(ordered_groups) if item.group_id == group_id
-    )
-    if up_col.button(
-        "↑",
-        key=f"watchlist_groups_editor_up_{group_id}",
-        help="このグループを上へ移動",
-        disabled=group_index == 0,
-        use_container_width=True,
-    ):
-        st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, -1)
+    action = str(result.get("action") or "")
+    if action in {"up", "down"}:
+        direction = -1 if action == "up" else 1
+        st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, direction)
         _remount_dnd_board()
         st.rerun()
-    if down_col.button(
-        "↓",
-        key=f"watchlist_groups_editor_down_{group_id}",
-        help="このグループを下へ移動",
-        disabled=group_index == len(ordered_groups) - 1,
-        use_container_width=True,
-    ):
-        st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, 1)
+    if action == "edit":
+        st.session_state[EDITOR_SELECTED_GROUP_KEY] = group_id
+        st.session_state[EDITOR_SETTINGS_OPEN_KEY] = True
         _remount_dnd_board()
         st.rerun()
-    if edit_col.button(
-        "編集",
-        key=f"watchlist_groups_editor_edit_{group_id}",
-        use_container_width=True,
-    ):
-        st.session_state[EDITOR_SETTINGS_OPEN_KEY] = not bool(
-            st.session_state.get(EDITOR_SETTINGS_OPEN_KEY, False)
-        )
-        st.rerun()
-    if st.session_state.get(EDITOR_SETTINGS_OPEN_KEY):
-        _render_inline_group_settings(draft, group, group_index)
+
+
+def _render_open_group_settings(draft: WatchlistGroupsState) -> None:
+    if not st.session_state.get(EDITOR_SETTINGS_OPEN_KEY):
+        return
+    group_id = str(st.session_state.get(EDITOR_SELECTED_GROUP_KEY) or "")
+    ordered_groups = list(sorted(draft.groups, key=lambda item: item.order))
+    group = next((item for item in ordered_groups if item.group_id == group_id), None)
+    if group is None:
+        st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
+        return
+    _render_inline_group_settings(draft, group, ordered_groups.index(group))
 
 
 def _render_inline_group_settings(
@@ -400,34 +332,29 @@ def render_grouped_watchlist(
         section_key = section.group_id or UNCLASSIFIED_VALUE
         is_collapsed = bool(collapsed.get(section_key, False))
         symbols = [str(item.get("symbol") or "") for item in section.items]
+        safe_tone = section.tone if section.tone in WATCHLIST_GROUP_TONES else "slate"
         st.markdown(
-            group_section_header_html(
-                section.name,
-                section.description,
-                section.tone,
-                len(section.items),
-                section.is_system,
-                collapsed=is_collapsed,
-                representative_symbols=symbols[:3],
-            ),
+            '<span class="smai-watchlist-group-header-marker '
+            f'smai-watchlist-group-header-marker--tone-{safe_tone}"></span>',
             unsafe_allow_html=True,
         )
-        toggle_col, edit_col = st.columns([1.2, 1])
-        if toggle_col.button(
-            "▶ 展開する" if is_collapsed else "▼ 閉じる",
-            key=f"watchlist_group_toggle_{section_key}",
+        icon = "▶" if is_collapsed else "▼"
+        if st.button(
+            f"{icon} {section.name}　·　{len(section.items)}件",
+            key=f"watchlist_group_tone_{safe_tone}_toggle_{section_key}",
             use_container_width=True,
+            help="クリックしてグループを展開／折りたたみ",
         ):
             collapsed[section_key] = not is_collapsed
             st.rerun()
-        if not section.is_system and edit_col.button(
-            "グループを編集",
-            key=f"watchlist_group_edit_{section_key}",
-            use_container_width=True,
-        ):
-            open_watchlist_groups_editor(state, focus_group_id=str(section.group_id))
-            st.rerun()
+        description = section.description or (
+            "まだグループに配置していないお気に入り銘柄です。" if section.is_system else ""
+        )
+        if description:
+            st.caption(description)
         if is_collapsed:
+            representative = ", ".join(symbols[:3]) or "なし"
+            st.caption(f"上位: {representative}")
             continue
         if not section.items:
             st.caption(
@@ -600,8 +527,26 @@ WATCHLIST_SORTABLE_STYLE = """
   overscroll-behavior: contain;
 }
 .sortable-container-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin: 0 0 5px; padding: 2px 4px; color: #eafcff;
   font-size: 13px; font-weight: 800;
+}
+.group-actions { display: inline-flex; gap: 6px; flex: 0 0 auto; }
+.group-actions button {
+  min-width: 38px; min-height: 34px; padding: 4px 10px;
+  border: 1px solid rgba(126, 167, 211, .55); border-radius: 8px;
+  background: rgba(12, 29, 53, .94); color: #f8fdff; font-weight: 800;
+  cursor: pointer; touch-action: manipulation;
+}
+.group-actions button:last-child { min-width: 66px; }
+.group-actions button:hover:not(:disabled) {
+  border-color: #22d3ee; background: rgba(13, 62, 83, .95);
+}
+.group-actions button:disabled { opacity: .32; cursor: default; }
+@media (max-width: 560px) {
+  .sortable-container-header { align-items: flex-start; flex-direction: column; }
+  .group-actions { width: 100%; }
+  .group-actions button { flex: 1 1 0; }
 }
 .sortable-container-body { min-height: 42px; display: flex; flex-wrap: wrap; gap: 5px; }
 .sortable-item {
@@ -665,7 +610,15 @@ def build_sortable_watchlist_containers(
             label = f"{symbol} | {name[:34]}"
             item_symbols[label] = symbol
             items.append(label)
-        containers.append({"header": header, "items": items})
+        containers.append(
+            {
+                "header": header,
+                "items": items,
+                "groupId": section.group_id,
+                "system": section.is_system,
+                "tone": section.tone,
+            }
+        )
     return containers, item_symbols, header_groups
 
 

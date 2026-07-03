@@ -156,17 +156,21 @@ Phase N4:
   `保存して閉じる` atomically persists the complete validated state, while `キャンセル`
   discards it. Chips show only symbol/name; dragging across groups changes placement and
   dragging within a group changes `order`. The component is provided by pinned
-  `streamlit-sortables==0.3.1` (Apache-2.0).
+  project-owned `ui/components/watchlist_sortable` component. Its D&D implementation follows
+  the earlier Apache-2.0 sortable component approach, while adding SMAI-specific group actions.
 - D&D container headers remain stable across count changes so consecutive moves are accepted.
   No-op component payloads leave the draft untouched; an actual move increments the board
   revision and remounts from the latest draft, allowing repeated moves in one editor session.
-  Group display order uses the `↑` / `↓` controls in the compact toolbar immediately above the
-  D&D board and remains draft-only until `保存して閉じる`.
-  The same toolbar selects a group and opens its settings inline with `編集` only when needed.
-  There is no lower per-group editing stack or duplicated expander list.
-  Tone classes use explicit gradients in normal sections and per-container backgrounds inside
-  the editor component. On touch devices, draggable chips suppress page pan and text selection
-  during a drag; surrounding group/drop-zone space remains available for normal scrolling.
+  Every custom group container has its own `↑` / `↓` / `編集` controls in the D&D header;
+  `未分類` has no mutation controls. Order changes remain draft-only until `保存して閉じる`,
+  and `編集` opens only that group's inline settings. There is no shared selector toolbar,
+  lower per-group editing stack, or duplicated expander list.
+  On the normal screen, the top-level `グループを編集` action is the only group mutation entry
+  point. Clicking a tone-colored group header expands/collapses it; separate create, close, and
+  per-group edit buttons are not rendered. Tone classes use explicit gradients on those clickable
+  headers and per-container backgrounds inside the editor component. On touch devices, draggable
+  chips suppress page pan and text selection during a drag; surrounding group/drop-zone space
+  remains available for normal scrolling.
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.
 
 ## 2026-06-26 Symbol Metadata Operations Update

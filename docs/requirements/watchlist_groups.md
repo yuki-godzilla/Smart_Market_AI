@@ -150,7 +150,8 @@ MVPでは、お気に入り解除後もplacementを残す。
 標準のsortable/draggable APIはない。`streamlit-sortables`等の外部componentも
 現在の依存に含まれない。
 
-専用編集dialogでは`streamlit-sortables==0.3.1`によるmulti-container D&Dを採用する。
+専用編集dialogではproject-owned `ui/components/watchlist_sortable` による
+multi-container D&Dを採用し、各custom group header内に順序・編集操作を配置する。
 通常画面にはD&Dを出さず、移動結果は検証後にsession draftへ反映する。
 onedir EXE同梱はrequirements経由でcomponent frontend assetsを収集する前提とし、
 build smokeを継続確認項目とする。

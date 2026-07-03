@@ -1,5 +1,19 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups normal-screen header controls
+
+- Removed the normal-screen `＋ グループを作成` action and per-group `閉じる` /
+  `グループを編集` button row; all mutations now enter through the top-level editor.
+- Made each full-width group header the expand/collapse button while retaining its item count,
+  description, and collapsed representative symbols.
+- Applied the configured tone directly to each clickable header background and left border.
+- Replaced the shared editor toolbar with a project-owned D&D component that renders `↑` / `↓` /
+  `編集` inside every custom group header, excluding `未分類`.
+- Component actions return typed events to the Streamlit draft, preserving save/cancel semantics,
+  repeated D&D moves, touch activation, and responsive action sizing.
+- Verification passed: 70 targeted/relevant tests, Ruff, targeted Mypy, project Black helper,
+  frontend production build, and the four-viewport responsive browser smoke.
+
 ## 2026-07-03 Watchlist Groups unified board toolbar
 
 - Removed the duplicated per-group settings expander stack above the D&D board.

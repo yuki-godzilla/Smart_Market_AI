@@ -160,8 +160,10 @@ Phase N4:
 - D&D container headers remain stable across count changes so consecutive moves are accepted.
   No-op component payloads leave the draft untouched; an actual move increments the board
   revision and remounts from the latest draft, allowing repeated moves in one editor session.
-  Group display order uses `上へ` / `下へ` controls in each group editor and remains draft-only
-  until `保存して閉じる`.
+  Group display order uses the `↑` / `↓` controls in the compact toolbar immediately above the
+  D&D board and remains draft-only until `保存して閉じる`.
+  The same toolbar selects a group and opens its settings inline with `編集` only when needed.
+  There is no lower per-group editing stack or duplicated expander list.
   Tone classes use explicit gradients in normal sections and per-container backgrounds inside
   the editor component. On touch devices, draggable chips suppress page pan and text selection
   during a drag; surrounding group/drop-zone space remains available for normal scrolling.

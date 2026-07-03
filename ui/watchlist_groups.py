@@ -32,6 +32,8 @@ EDITOR_OPEN_KEY = "watchlist_groups_editor_open"
 EDITOR_DRAFT_KEY = "watchlist_groups_edit_draft"
 EDITOR_FOCUS_KEY = "watchlist_groups_editor_focus"
 EDITOR_DND_REVISION_KEY = "watchlist_groups_dnd_revision"
+EDITOR_SELECTED_GROUP_KEY = "watchlist_groups_editor_selected_group"
+EDITOR_SETTINGS_OPEN_KEY = "watchlist_groups_editor_settings_open"
 COLLAPSED_KEY = "watchlist_groups_collapsed"
 UNCLASSIFIED_VALUE = "__unclassified__"
 TONE_LABELS = {
@@ -150,7 +152,10 @@ def open_watchlist_groups_editor(
     st.session_state[EDITOR_DRAFT_KEY] = state.model_copy(deep=True)
     st.session_state[EDITOR_OPEN_KEY] = True
     st.session_state[EDITOR_FOCUS_KEY] = focus_group_id
+    st.session_state[EDITOR_SELECTED_GROUP_KEY] = focus_group_id
     st.session_state[EDITOR_DND_REVISION_KEY] = 0
+    st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
+    st.session_state.pop("watchlist_groups_editor_group_selector", None)
 
 
 @st.dialog("ウォッチリストグループを編集", width="large")
@@ -211,7 +216,10 @@ def _render_editor_add_group(draft: WatchlistGroupsState) -> None:
             add = st.form_submit_button("追加", type="primary", use_container_width=True)
         if add:
             try:
-                st.session_state[EDITOR_DRAFT_KEY] = draft_add_group(draft, name, description, tone)
+                updated = draft_add_group(draft, name, description, tone)
+                st.session_state[EDITOR_DRAFT_KEY] = updated
+                st.session_state[EDITOR_SELECTED_GROUP_KEY] = updated.groups[-1].group_id
+                st.session_state.pop("watchlist_groups_editor_group_selector", None)
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
                 return
@@ -222,11 +230,8 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     rows = st.session_state.get("watchlist_groups_editor_rows", [])
     if not isinstance(rows, list):
         rows = []
-    sections = build_grouped_watchlist(rows, draft)
-    for section in sections:
-        if not section.is_system:
-            _render_editor_group_settings(draft, str(section.group_id))
-            draft = _editor_draft()
+    _render_group_board_toolbar(draft)
+    draft = _editor_draft()
     containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
     sorted_containers = sort_items(
         containers,
@@ -249,12 +254,77 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
         st.rerun()
 
 
-def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) -> None:
+def _render_group_board_toolbar(draft: WatchlistGroupsState) -> None:
+    ordered_groups = list(sorted(draft.groups, key=lambda item: item.order))
+    if not ordered_groups:
+        st.caption("グループを追加すると、ここで名前・トーン・表示順を編集できます。")
+        return
+    group_ids = [group.group_id for group in ordered_groups]
+    current = st.session_state.get(EDITOR_SELECTED_GROUP_KEY)
+    if current not in group_ids:
+        current = group_ids[0]
+        st.session_state[EDITOR_SELECTED_GROUP_KEY] = current
+    group_names = {group.group_id: group.name for group in ordered_groups}
+    selector_col, up_col, down_col, edit_col = st.columns([4.2, 0.8, 0.8, 1.1])
+    with selector_col:
+        group_id = st.selectbox(
+            "操作するグループ",
+            group_ids,
+            index=group_ids.index(str(current)),
+            format_func=lambda value: group_names[value],
+            key="watchlist_groups_editor_group_selector",
+            label_visibility="collapsed",
+        )
     group = next(item for item in draft.groups if item.group_id == group_id)
-    with st.expander(
-        f"{group.name} を編集",
-        expanded=st.session_state.get(EDITOR_FOCUS_KEY) == group_id,
+    group_index = next(
+        index for index, item in enumerate(ordered_groups) if item.group_id == group_id
+    )
+    if up_col.button(
+        "↑",
+        key=f"watchlist_groups_editor_up_{group_id}",
+        help="このグループを上へ移動",
+        disabled=group_index == 0,
+        use_container_width=True,
     ):
+        st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, -1)
+        _remount_dnd_board()
+        st.rerun()
+    if down_col.button(
+        "↓",
+        key=f"watchlist_groups_editor_down_{group_id}",
+        help="このグループを下へ移動",
+        disabled=group_index == len(ordered_groups) - 1,
+        use_container_width=True,
+    ):
+        st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, 1)
+        _remount_dnd_board()
+        st.rerun()
+    if edit_col.button(
+        "編集",
+        key=f"watchlist_groups_editor_edit_{group_id}",
+        use_container_width=True,
+    ):
+        st.session_state[EDITOR_SETTINGS_OPEN_KEY] = not bool(
+            st.session_state.get(EDITOR_SETTINGS_OPEN_KEY, False)
+        )
+        st.rerun()
+    if st.session_state.get(EDITOR_SETTINGS_OPEN_KEY):
+        _render_inline_group_settings(draft, group, group_index)
+
+
+def _render_inline_group_settings(
+    draft: WatchlistGroupsState,
+    group: WatchlistGroup,
+    group_index: int,
+) -> None:
+    group_id = group.group_id
+    with st.container(border=True):
+        st.markdown(
+            f'<div class="smai-watchlist-selected-group-title">'
+            f"<strong>{html.escape(group.name)}</strong>"
+            "<span>D&D boardのグループ設定</span></div>",
+            unsafe_allow_html=True,
+        )
         with st.form(f"watchlist_groups_editor_group_{group_id}"):
             name = st.text_input(
                 "グループ名",
@@ -284,33 +354,7 @@ def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) ->
             except ValueError as exc:
                 st.error(str(exc))
                 return
-            st.rerun()
-        ordered_groups = list(sorted(draft.groups, key=lambda item: item.order))
-        group_index = next(
-            index for index, item in enumerate(ordered_groups) if item.group_id == group_id
-        )
-        order_up, order_down = st.columns(2)
-        if order_up.button(
-            "↑ 上へ",
-            key=f"watchlist_groups_editor_up_{group_id}",
-            disabled=group_index == 0,
-            use_container_width=True,
-        ):
-            st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, -1)
-            st.session_state[EDITOR_DND_REVISION_KEY] = (
-                int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
-            )
-            st.rerun()
-        if order_down.button(
-            "↓ 下へ",
-            key=f"watchlist_groups_editor_down_{group_id}",
-            disabled=group_index == len(ordered_groups) - 1,
-            use_container_width=True,
-        ):
-            st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, 1)
-            st.session_state[EDITOR_DND_REVISION_KEY] = (
-                int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
-            )
+            st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
             st.rerun()
         confirm = st.checkbox(
             "削除を確認しました。中の銘柄はお気に入りから削除されず、未分類へ移動します。",
@@ -323,8 +367,22 @@ def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) ->
             disabled=not confirm,
             use_container_width=True,
         ):
-            st.session_state[EDITOR_DRAFT_KEY] = draft_delete_group(draft, group_id)
+            updated = draft_delete_group(draft, group_id)
+            st.session_state[EDITOR_DRAFT_KEY] = updated
+            remaining = list(sorted(updated.groups, key=lambda item: item.order))
+            st.session_state[EDITOR_SELECTED_GROUP_KEY] = (
+                remaining[min(group_index, len(remaining) - 1)].group_id if remaining else None
+            )
+            st.session_state.pop("watchlist_groups_editor_group_selector", None)
+            st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
+            _remount_dnd_board()
             st.rerun()
+
+
+def _remount_dnd_board() -> None:
+    st.session_state[EDITOR_DND_REVISION_KEY] = (
+        int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
+    )
 
 
 def render_grouped_watchlist(
@@ -676,7 +734,9 @@ def _close_editor() -> None:
     st.session_state.pop(EDITOR_DRAFT_KEY, None)
     st.session_state.pop(EDITOR_OPEN_KEY, None)
     st.session_state.pop(EDITOR_FOCUS_KEY, None)
+    st.session_state.pop(EDITOR_SELECTED_GROUP_KEY, None)
     st.session_state.pop(EDITOR_DND_REVISION_KEY, None)
+    st.session_state.pop(EDITOR_SETTINGS_OPEN_KEY, None)
 
 
 def clear_watchlist_group_transient_state() -> None:
@@ -685,7 +745,9 @@ def clear_watchlist_group_transient_state() -> None:
             EDITOR_OPEN_KEY,
             EDITOR_DRAFT_KEY,
             EDITOR_FOCUS_KEY,
+            EDITOR_SELECTED_GROUP_KEY,
             EDITOR_DND_REVISION_KEY,
+            EDITOR_SETTINGS_OPEN_KEY,
             COLLAPSED_KEY,
         }:
             st.session_state.pop(key, None)

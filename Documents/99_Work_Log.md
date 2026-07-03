@@ -1,5 +1,16 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups unified board toolbar
+
+- Removed the duplicated per-group settings expander stack above the D&D board.
+- Added one compact selected-group / `↑` / `↓` / `編集` toolbar immediately above the D&D board.
+- Group settings now open inline from the toolbar only when requested; the lower persistent
+  individual-group editing element is gone.
+- Synchronized selection with normal-screen group focus, newly added groups, and the nearest
+  remaining group after deletion.
+- Verification passed: 70 targeted/relevant tests, Ruff, targeted Mypy, the project Black helper,
+  and the four-viewport responsive smoke.
+
 ## 2026-07-03 Watchlist Groups repeated D&D remount and group order
 
 - Made no-op sortable payloads preserve the exact draft instead of changing timestamps.

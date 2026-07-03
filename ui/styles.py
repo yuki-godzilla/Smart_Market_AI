@@ -5864,6 +5864,23 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.smai-watchlist-editor-marker
     letter-spacing: -0.2rem;
 }
 
+.smai-watchlist-selected-group-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+}
+
+.smai-watchlist-selected-group-title strong {
+    color: #F8FDFF;
+}
+
+.smai-watchlist-selected-group-title span {
+    color: #9FB2C7;
+    font-size: 0.78rem;
+}
+
 .smai-watchlist-action-primary + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-primary)
     + div[data-testid="stButton"] button,

@@ -100,6 +100,15 @@ Phase 32-C2 Myウォッチリスト UI Polish is implemented. The shared favorit
 
 Phase 32-D / 32-E Myウォッチリスト completion is implemented. Favorites now carry backward-compatible Decision Trail fields for Watch理由, 判断状態, 判断メモ, 次の確認, 最終メモ更新, and future trail entries; Myウォッチリスト cards/tables show these fields, expose one-symbol-at-a-time editing, and pass watchlist context plus explicit next-action hints when opening Cockpit / AI調査 / レポート. The card header now prioritizes company name over symbol. My Radar adds display-only priority, summary categories, candidate lists, and filter/sort controls without changing Ranking / AI総合 / Research Score, provider fetch behavior, or the saved favorite order. Investment Radar related-symbol rows for `本文に出た銘柄` and `SMAI推測候補` now render as compact horizontal chips with the existing favorite toggle aligned to the matching symbol.
 
+Watchlist Groups MVP is implemented as a presentation layer separate from favorites. Custom
+profiles persist versioned group definitions and one-symbol/one-group placements at
+`data/user/profiles/<user_id>/watchlist_groups.json` with atomic replacement; the default
+system user remains session-only. Myウォッチリスト defaults to always-expanded grouped
+sections, computes a final slate `未分類` section, retains the existing `すべて` card/table
+view, and supports group name/description/preset tone CRUD, automatic tone distribution,
+up/down group order, and touch-safe select-plus-save placement editing. Favorite removal keeps
+placement for possible restoration when the symbol is favorited again. D&D remains deferred.
+
 Phase 32-E2 compact polish is implemented. My Radar uses a five-count summary with reasons inside an expander; update options are collapsed while the two explicit actions remain side by side; filter/sort and card/table controls stay display-only. Cards show a compact missing-note state until Decision Trail content exists, then reveal the full decision fields. Favorites schema, Radar priority, local-first refresh, and explicit AI調査 / Decision Report behavior are unchanged.
 
 Phase 32-F daily watchlist UX is implemented. Display filters use stable internal values with count-aware chip labels; cards add restrained state accents and 1-day / 5-day / 1-month movement markers from optional local change fields, with safe missing/NaN handling and a compact data-update-needed message. On the first watchlist render per session, at most three missing/failed/stale/attention symbols outside a six-hour TTL are registered with the existing symbol DB daemon target queue. The queue remains local-cache-first and non-blocking; live price/provider fetch, AI調査, external news refresh, and Decision Report generation are not auto-run.

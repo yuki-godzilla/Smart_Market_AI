@@ -432,6 +432,7 @@ from ui.views.rebalance import (
     risk_breach_message,
 )
 from ui.views.settings import render_settings_page
+from ui.watchlist_groups import render_grouped_watchlist, render_watchlist_group_toolbar
 from ui.watchlist_snapshots import (
     WatchlistSnapshot,
     build_watchlist_snapshot_for_symbol,
@@ -10220,6 +10221,7 @@ def _render_my_watchlist_page() -> None:
             "SMAIデフォルトでは、お気に入りはこのセッション内だけ保持されます。"
             "保存したい場合はカスタムユーザーを作成してください。"
         )
+    group_view_mode, group_editing, groups_state = render_watchlist_group_toolbar()
     favorites = load_favorites()
     prune_snapshots_for_removed_favorites({favorite.symbol for favorite in favorites})
     if not favorites:
@@ -10339,20 +10341,40 @@ def _render_my_watchlist_page() -> None:
     _render_watchlist_refresh_summary()
 
     filtered_enriched = _favorite_filter_and_sort_rows(enriched)
-    display_mode = _render_segmented_or_radio(
-        "表示形式",
-        ["カード表示", "テーブル表示"],
-        default="カード表示",
-        key="market_data_watchlist_display_mode",
-    )
-    if display_mode == "テーブル表示":
-        _render_favorite_table(filtered_enriched)
+    if group_view_mode == "グループ別":
+        render_grouped_watchlist(
+            filtered_enriched,
+            groups_state,
+            editing=group_editing,
+            on_open=_open_watchlist_group_symbol,
+            on_remove=_remove_watchlist_group_symbol,
+        )
     else:
-        for row_start in range(0, len(filtered_enriched), 3):
-            cols = st.columns(3)
-            for column, payload in zip(cols, filtered_enriched[row_start : row_start + 3]):
-                with column:
-                    _render_favorite_card(payload)
+        display_mode = _render_segmented_or_radio(
+            "表示形式",
+            ["カード表示", "テーブル表示"],
+            default="カード表示",
+            key="market_data_watchlist_display_mode",
+        )
+        if display_mode == "テーブル表示":
+            _render_favorite_table(filtered_enriched)
+        else:
+            for row_start in range(0, len(filtered_enriched), 3):
+                cols = st.columns(3)
+                for column, payload in zip(cols, filtered_enriched[row_start : row_start + 3]):
+                    with column:
+                        _render_favorite_card(payload)
+
+
+def _open_watchlist_group_symbol(symbol: str) -> None:
+    _select_favorite_symbol_for_cockpit(symbol, "cockpit")
+    st.rerun()
+
+
+def _remove_watchlist_group_symbol(symbol: str) -> None:
+    remove_favorite(symbol)
+    st.toast("Myウォッチリストから解除しました。")
+    st.rerun()
 
 
 def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:

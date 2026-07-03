@@ -95,7 +95,7 @@ select fallback必須とする。
 
 ## 9. Phase 7: 将来拡張
 
-- group説明・accent・icon
+- group icon・自由色入力
 - placement手動順
 - group/銘柄D&D
 - collapse（既定は常時展開を維持）

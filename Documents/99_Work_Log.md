@@ -1,5 +1,20 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups MVP
+
+- Added versioned, atomic, user-scoped Watchlist Groups storage and a session-only default-user
+  adapter, keeping favorites and placements separate.
+- Added group CRUD for name, optional description, eight preset tones, automatic tone
+  distribution, up/down order, placement moves, and delete-to-`未分類` behavior.
+- Added the default always-expanded grouped Myウォッチリスト view, compact cards,
+  select-plus-save placement editing, tone styling, and the existing `すべて` fallback.
+- Kept D&D deferred; select remains the supported desktop/mobile placement operation.
+- Verification passed: 77 targeted tests, full Ruff, targeted Mypy, and the Black helper for
+  all 377 Python files. Full pytest reached 2,048 passed / 10 skipped with one workspace-temp
+  assumption failure; that existing outside-workspace asset test passed separately with the
+  normal OS temp directory. The responsive Playwright smoke passed at 375×812, 810×1080,
+  1080×810, and 1366×768, including create-dialog controls and page overflow checks.
+
 ## 2026-07-03 Watchlist Groups pre-implementation design
 
 - Investigated Myウォッチリスト rendering, favorites/profile storage, card paths,

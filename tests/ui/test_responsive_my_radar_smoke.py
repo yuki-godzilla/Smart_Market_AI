@@ -30,6 +30,13 @@ def test_my_radar_responsive_viewports() -> None:
             for name, width, height in VIEWPORTS:
                 page = browser.new_page(viewport={"width": width, "height": height})
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
+                if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
+                    page.get_by_text("SMAIデフォルト", exact=True).click()
+                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
+                        state="visible",
+                        timeout=60_000,
+                    )
                 sidebar_control = page.locator('[data-testid="stSidebarCollapsedControl"] button')
                 if sidebar_control.count() and sidebar_control.is_visible():
                     sidebar_control.click()
@@ -48,7 +55,18 @@ def test_my_radar_responsive_viewports() -> None:
                 assert body_width["scrollWidth"] <= body_width["clientWidth"] + 2
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("Myウォッチリスト", exact=True).count() > 0
+                assert page.get_by_text("ウォッチリストグループ", exact=True).count() > 0
+                assert page.get_by_role("button", name="＋ グループを作成").is_visible()
                 assert page.get_by_role("button").count() > 0
+                page.get_by_role("button", name="＋ グループを作成").click()
+                dialog = page.get_by_role("dialog")
+                dialog.wait_for(state="visible", timeout=30_000)
+                dialog.locator("input").first.wait_for(state="visible", timeout=30_000)
+                assert dialog.locator("input").count() >= 1
+                assert dialog.locator("textarea").is_visible()
+                assert dialog.locator('[data-testid="stSelectbox"]').count() == 1
+                dialog.get_by_role("button", name="キャンセル").click()
+                dialog.wait_for(state="detached", timeout=30_000)
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

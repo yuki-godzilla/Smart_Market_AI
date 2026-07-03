@@ -5656,6 +5656,210 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     padding: 0.9rem;
 }
 
+.smai-watchlist-groups-toolbar {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: 0.35rem 0 0.8rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 14px;
+    background: rgba(8, 26, 46, 0.72);
+}
+
+.smai-watchlist-groups-toolbar strong {
+    color: #E6FAFF;
+}
+
+.smai-watchlist-groups-toolbar span {
+    color: #B8C8DB;
+    font-size: 0.9rem;
+}
+
+.smai-watchlist-group-section {
+    --watchlist-group-accent: #64748B;
+    --watchlist-group-rgb: 100, 116, 139;
+    margin: 1rem 0 0.55rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(var(--watchlist-group-rgb), 0.48);
+    border-left: 5px solid var(--watchlist-group-accent);
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(var(--watchlist-group-rgb), 0.14), rgba(7, 13, 25, 0.78));
+}
+
+.smai-watchlist-group-section--tone-cyan {
+    --watchlist-group-accent: #22D3EE;
+    --watchlist-group-rgb: 34, 211, 238;
+}
+.smai-watchlist-group-section--tone-blue {
+    --watchlist-group-accent: #60A5FA;
+    --watchlist-group-rgb: 96, 165, 250;
+}
+.smai-watchlist-group-section--tone-purple {
+    --watchlist-group-accent: #A78BFA;
+    --watchlist-group-rgb: 167, 139, 250;
+}
+.smai-watchlist-group-section--tone-green {
+    --watchlist-group-accent: #34D399;
+    --watchlist-group-rgb: 52, 211, 153;
+}
+.smai-watchlist-group-section--tone-amber {
+    --watchlist-group-accent: #FBBF24;
+    --watchlist-group-rgb: 251, 191, 36;
+}
+.smai-watchlist-group-section--tone-orange {
+    --watchlist-group-accent: #FB923C;
+    --watchlist-group-rgb: 251, 146, 60;
+}
+.smai-watchlist-group-section--tone-rose {
+    --watchlist-group-accent: #FB7185;
+    --watchlist-group-rgb: 251, 113, 133;
+}
+.smai-watchlist-group-section--tone-slate {
+    --watchlist-group-accent: #94A3B8;
+    --watchlist-group-rgb: 148, 163, 184;
+}
+
+.smai-watchlist-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    justify-content: space-between;
+}
+
+.smai-watchlist-group-header strong {
+    color: #F8FDFF;
+    font-size: 1.05rem;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-group-section p {
+    margin: 0.35rem 0 0;
+    color: #C2D2E3;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-group-count-badge {
+    flex: 0 0 auto;
+    padding: 0.16rem 0.55rem;
+    border: 1px solid rgba(var(--watchlist-group-rgb), 0.7);
+    border-radius: 999px;
+    background: rgba(var(--watchlist-group-rgb), 0.18);
+    color: #F8FDFF;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.smai-watchlist-compact-card {
+    min-height: 8.7rem;
+    margin: 0.25rem 0 0.5rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(100, 149, 190, 0.34);
+    border-radius: 12px;
+    background: rgba(7, 18, 34, 0.88);
+}
+
+.smai-watchlist-compact-card h4 {
+    margin: 0;
+    color: #F8FDFF;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-compact-symbol {
+    margin-top: 0.15rem;
+    color: #8CDFF0;
+    font-size: 0.83rem;
+    font-weight: 700;
+}
+
+.smai-watchlist-compact-metrics {
+    display: flex;
+    gap: 0.4rem 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    color: #B9C8DA;
+    font-size: 0.82rem;
+}
+
+.smai-watchlist-compact-metrics strong {
+    color: #F1F5F9;
+}
+
+.smai-watchlist-edit-mode-banner {
+    display: flex;
+    gap: 0.35rem 0.8rem;
+    flex-wrap: wrap;
+    margin: 0.8rem 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(167, 139, 250, 0.62);
+    border-radius: 12px;
+    background: rgba(91, 33, 182, 0.16);
+    color: #EDE9FE;
+}
+
+.smai-watchlist-action-primary + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-primary)
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-primary)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-action-primary)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-primary) + div[data-testid="stFormSubmitButton"] button {
+    border-color: #22D3EE !important;
+    background: linear-gradient(135deg, #0891B2, #2563EB) !important;
+    color: #FFFFFF !important;
+}
+
+.smai-watchlist-action-edit + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-edit)
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-edit)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-action-edit)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
+    border-color: #8B5CF6 !important;
+    background: linear-gradient(135deg, #4C1D95, #1D4ED8) !important;
+    color: #FFFFFF !important;
+}
+
+.smai-watchlist-action-save + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-save)
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-save)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-action-save)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
+    border-color: #34D399 !important;
+    background: linear-gradient(135deg, #047857, #0891B2) !important;
+    color: #FFFFFF !important;
+}
+
+.smai-watchlist-action-danger + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-danger)
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-danger)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-action-danger)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
+    border-color: #FB7185 !important;
+    background: linear-gradient(135deg, #991B1B, #C2410C) !important;
+    color: #FFFFFF !important;
+}
+
+.smai-watchlist-action-secondary + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-watchlist-action-secondary)
+    + div[data-testid="stButton"] button,
+.element-container:has(.smai-watchlist-action-secondary)
+    + .element-container div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
+    + div[data-testid="stElementContainer"] div[data-testid="stButton"] button {
+    border-color: #64748B !important;
+    background: #172033 !important;
+    color: #E2E8F0 !important;
+}
+
 .smai-watchlist-card--upside {
     --watchlist-state-accent: #2DD4BF;
     background: linear-gradient(135deg, rgba(6, 182, 212, 0.16), rgba(7, 13, 25, 0.96));

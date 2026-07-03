@@ -73,13 +73,15 @@ Myウォッチリスト
 `st.dialog("グループを作成")`を利用する。
 
 - グループ名: `st.text_input(max_chars=32)`
+- 説明: 任意、最大200文字
+- トーン: cyan / blue / purple / green / amber / orange / rose / slate
 - 文字数と最大20件を送信時にdomain/serviceでも再検証する。
 - `作成`: primary CTA
 - `キャンセル`: secondary
 - 作成成功後はdialog stateを消し、1回だけrerunする。
 - 同名・不正文字・保存失敗はdialog内に日本語で表示し、入力を保持する。
 
-説明、色、アイコンはMVP dialogに出さない。
+簡易プレビューで選択トーン、名称、説明、0件badgeを確認できる。
 
 ## 6. グループ編集dialog
 

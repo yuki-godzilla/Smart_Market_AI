@@ -43,7 +43,7 @@ unclassified = visible - grouped
       "name": "日本個別株",
       "description": null,
       "order": 10,
-      "accent": null,
+      "tone": "cyan",
       "is_system": false,
       "created_at": "2026-07-03T07:00:00+09:00",
       "updated_at": "2026-07-03T07:00:00+09:00"
@@ -65,9 +65,9 @@ unclassified = visible - grouped
 | --- | --- | --- |
 | `group_id` | string | `^wg_[a-f0-9]{12,32}$`、一意、変更不可 |
 | `name` | string | trim後1〜32文字、制御文字なし、同一ユーザー内で一意 |
-| `description` | string/null | v1はnull、将来最大200文字候補 |
+| `description` | string/null | 任意、最大200文字、制御文字なし |
 | `order` | integer | 10刻みの正整数、同値時はcreated_at/group_idで安定化 |
-| `accent` | string/null | v1はnull、将来allowlist |
+| `tone` | string | 8種のpreset allowlist |
 | `is_system` | boolean | v1保存groupは必ずfalse |
 | `created_at` | ISO 8601 string | timezone付き |
 | `updated_at` | ISO 8601 string | timezone付き |

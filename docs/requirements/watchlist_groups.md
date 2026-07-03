@@ -51,7 +51,9 @@ Research、Risk、通知、売買判断を変更しない。
 - `group_id`はユーザー入力と無関係な安全なランダムIDとする。
 - 改名しても`group_id`と配置は変えない。
 - 表示順は永続化し、MVPでは「上へ」「下へ」で変更する。
-- 説明、アクセント色、アイコンはschema予約に留め、MVPの編集対象外とする。
+- 説明は任意で最大200文字とし、作成・編集・グループ見出しで扱う。
+- トーンは8種のプリセットから選択し、未指定時は未使用・最少使用を優先して自動割り当てする。
+- 自由色入力とアイコンはMVP対象外とする。
 
 表示名の基本制約は既存プロフィール名の1〜32文字、空白のみ不可、
 制御文字不可に合わせる。重複名と最大件数は本機能固有の制約である。
@@ -170,5 +172,5 @@ Playwright再現性を小さなspikeで確認する。採用後もselect fallbac
 
 ## 10. 将来拡張
 
-schemaはdescription、accent、group order、placement orderを持てる形にする。
+schemaはdescription、tone、group order、placement orderを持つ。
 ただし未実装値をUIで暗黙利用せず、schema version migrationを通じて段階導入する。

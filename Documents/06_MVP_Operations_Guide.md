@@ -134,6 +134,18 @@ Phase N4:
 - Phase 32-H removes the normal-screen Radar-reason, update-options, and empty-note expanders. Filters are limited to `すべて`, `更新推奨`, `上昇傾向`, `下落注意`, `未取得`, and `メモ未入力`; sorting defaults to newest-added and exposes `確認優先度順` instead of the internal Radar term. Cards use three desktop columns, stronger restrained trend backgrounds, natural missing-data wording, and a subdued remove action.
 - On the first Myウォッチリスト visit per session, eligible missing/failed/stale snapshot candidates outside the six-hour TTL are automatically refreshed up to three items while the shared loading mascot is visible. Worker-disabled sessions skip this path. Provider opt-in remains enforced by the Phase 32-G refresh service, prior snapshots survive failures, and AI調査 / News / Decision Report are not auto-run.
 - Final runtime polish removes the empty `判断メモ` row completely, reads snapshot `price` before older row aliases, and uses the existing Cockpit preview calculation during bounded auto/manual snapshot refresh so AI総合 / 上昇気配 / 下振れ警戒 are persisted when calculation succeeds. The page title uses the dedicated star-play `smai-title-watchlist.webp` asset.
+- Watchlist Groups adds an always-expanded `グループ別` view while preserving the existing
+  `すべて` card/table view. Custom profiles save `watchlist_groups.json` below their profile;
+  `SMAIデフォルト` keeps the same schema in Streamlit session only. Favorites and placements
+  remain separate, one symbol belongs to at most one group, and unplaced or invalid-reference
+  favorites appear in the final slate `未分類` section.
+- Groups support a name, optional description, up/down display order, and one of eight preset
+  tones (`cyan`, `blue`, `purple`, `green`, `amber`, `orange`, `rose`, `slate`). Creation
+  chooses an unused tone first and then the least-used tone; creation/edit dialogs can override
+  it. Deleting a group removes only its placements, so its favorite symbols return to `未分類`.
+- `配置を編集` exposes a touch-safe destination select and `移動を保存` per symbol. Removing
+  a favorite hides it without deleting placement, allowing a later re-favorite to restore the
+  previous group. D&D is not enabled in this MVP.
 - Watchlist card actions distinguish in-place review from navigation. `銘柄を詳しく見る` opens the existing Ranking-style wide `銘柄データ` dialog with snapshot values and its `AI Research` tab; AI Research loading stays inside the dialog instead of blocking the full app. The old card-level `AI調査` / `レポート` navigation buttons are removed. `Cockpit画面で確認` remains the explicit page transition and uses a separate visual treatment, while `解除` stays subdued.
 
 ## 2026-06-26 Symbol Metadata Operations Update

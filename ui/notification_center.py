@@ -29,6 +29,7 @@ from ui.user_icon_assets import (
     resolve_user_icon,
     user_icon_browser_source,
 )
+from ui.watchlist_groups import clear_watchlist_group_transient_state
 
 DEFAULT_NOTIFICATION_USER_ID = "local_user"
 DEVICE_QUERY_KEY = "smai_device_id"
@@ -286,6 +287,7 @@ def render_user_notification_area() -> bool:
     start_user_id = _query_value(START_PROFILE_QUERY_KEY)
     start_user = next((item for item in users if item.user_id == start_user_id), None)
     if start_user is not None:
+        clear_watchlist_group_transient_state()
         st.session_state["smai_current_user_id"] = start_user.user_id
         st.session_state.pop("smai_profile_candidate", None)
         _clear_query_value(START_PROFILE_QUERY_KEY)
@@ -532,6 +534,7 @@ def _render_add_user_form() -> None:
     except (ValueError, RuntimeError, NotificationSettingsError) as exc:
         st.error(str(exc))
         return
+    clear_watchlist_group_transient_state()
     st.session_state["smai_current_user_id"] = user.user_id
     st.session_state.pop("smai_profile_candidate", None)
     _clear_query_value(ADD_PROFILE_QUERY_KEY)
@@ -791,6 +794,7 @@ def _render_user_area_view(
     elif view == "icon_settings":
         _render_icon_settings(user_repository, user)
     elif view == "switch_user":
+        clear_watchlist_group_transient_state()
         st.session_state.pop("smai_current_user_id", None)
         st.session_state.pop("smai_profile_candidate", None)
         st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME

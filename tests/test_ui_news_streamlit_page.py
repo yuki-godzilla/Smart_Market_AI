@@ -295,6 +295,9 @@ def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monk
     app.run()
 
     assert not app.exception
+    assert app.selectbox(key="watchlist_groups_view_mode").value == "グループ別"
+    app.selectbox(key="watchlist_groups_view_mode").set_value("すべて").run()
+    assert not app.exception
     assert "My Radarの判定理由を見る" not in {item.label for item in app.expander}
     assert "更新オプション" not in {item.label for item in app.expander}
     assert "判断メモを追加" not in {item.label for item in app.expander}

@@ -97,6 +97,9 @@ def test_my_radar_responsive_viewports() -> None:
                     assert "rgba" in sortable_container.evaluate(
                         "(element) => getComputedStyle(element).backgroundColor"
                     )
+                    editor.get_by_text("Tone smoke を編集", exact=True).click()
+                    assert editor.get_by_role("button", name="↑ 上へ").is_visible()
+                    assert editor.get_by_role("button", name="↓ 下へ").is_visible()
                 assert editor.locator("label").filter(has_text="移動先").count() == 0
                 editor.get_by_role("button", name="キャンセル").click()
                 editor.wait_for(state="detached", timeout=30_000)

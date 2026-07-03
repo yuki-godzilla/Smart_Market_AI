@@ -1,5 +1,16 @@
 # 99_Work_Log
 
+## 2026-07-03 Watchlist Groups repeated D&D remount and group order
+
+- Made no-op sortable payloads preserve the exact draft instead of changing timestamps.
+- After each real D&D change, increments a component revision and remounts the board from the
+  latest draft so additional moves remain available in the same editor session.
+- Added touch-safe group `上へ` / `下へ` controls that reorder groups in the draft and remount
+  the board; boundary actions are disabled.
+- Added no-op identity, consecutive move, and group reorder tests.
+- Verification passed: 79 targeted/relevant tests, full Ruff, targeted Mypy, the Black helper
+  for all 377 Python files, and the four-viewport responsive smoke including visible order controls.
+
 ## 2026-07-03 Watchlist Groups consecutive D&D and touch fix
 
 - Fixed consecutive moves being dropped after the first move. Dynamic count-bearing component

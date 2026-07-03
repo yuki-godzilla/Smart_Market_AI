@@ -112,7 +112,9 @@ controls without placing them in normal cards. The editor uses the Apache-2.0
 `streamlit-sortables` component as a multi-container chip board: symbol/name chips can move
 between groups/`未分類` and reorder within a group, while validated results update only the
 session draft until save. Stable container identities keep consecutive moves valid when counts
-change. Explicit tone gradients apply to normal sections and editor drop zones. Touch chips
+change, and actual moves increment a component revision so the next drag starts from the latest
+draft without remounting on no-op payloads. Group display order is editable with touch-safe
+up/down buttons in each group editor. Explicit tone gradients apply to normal sections and editor drop zones. Touch chips
 suppress page swipe while dragging, while surrounding board space remains scrollable. Favorite
 removal keeps placement for possible restoration when the symbol is favorited again.
 

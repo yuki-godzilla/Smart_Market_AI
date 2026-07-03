@@ -10,6 +10,7 @@ from ui.watchlist_groups import (
     compact_watchlist_card_html,
     draft_add_group,
     draft_delete_group,
+    draft_move_group,
     draft_move_symbol,
     draft_update_group,
     group_preview_html,
@@ -116,6 +117,24 @@ def test_editor_draft_add_update_move_delete_without_persisting():
     assert "7974.T" not in deleted.placements
 
 
+def test_editor_draft_moves_group_up_and_down_without_persisting():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "日本株", None, "cyan")
+    draft = draft_add_group(draft, "米国株", None, "blue")
+
+    moved = draft_move_group(draft, draft.groups[1].group_id, -1)
+
+    assert [group.name for group in sorted(moved.groups, key=lambda item: item.order)] == [
+        "米国株",
+        "日本株",
+    ]
+    restored = draft_move_group(moved, draft.groups[1].group_id, 1)
+    assert [group.name for group in sorted(restored.groups, key=lambda item: item.order)] == [
+        "日本株",
+        "米国株",
+    ]
+
+
 def test_normal_group_renderer_has_no_current_confirmation_or_move_select():
     source = __import__("inspect").getsource(watchlist_groups.render_grouped_watchlist)
 
@@ -170,6 +189,15 @@ def test_sortable_payload_moves_and_orders_symbols_in_draft():
     assert updated.placements["7974.T"].group_id == group.group_id
     assert updated.placements["7974.T"].order == 10
     assert updated.placements["AAPL"].order == 20
+    assert (
+        apply_sortable_payload(
+            updated,
+            payload,
+            item_symbols=item_symbols,
+            header_groups=header_groups,
+        )
+        is updated
+    )
 
 
 def test_two_consecutive_sortable_moves_keep_stable_group_headers():

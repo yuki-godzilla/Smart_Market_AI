@@ -158,6 +158,10 @@ Phase N4:
   dragging within a group changes `order`. The component is provided by pinned
   `streamlit-sortables==0.3.1` (Apache-2.0).
 - D&D container headers remain stable across count changes so consecutive moves are accepted.
+  No-op component payloads leave the draft untouched; an actual move increments the board
+  revision and remounts from the latest draft, allowing repeated moves in one editor session.
+  Group display order uses `上へ` / `下へ` controls in each group editor and remains draft-only
+  until `保存して閉じる`.
   Tone classes use explicit gradients in normal sections and per-container backgrounds inside
   the editor component. On touch devices, draggable chips suppress page pan and text selection
   during a drag; surrounding group/drop-zone space remains available for normal scrolling.

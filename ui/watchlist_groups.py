@@ -31,6 +31,7 @@ VIEW_MODE_KEY = "watchlist_groups_view_mode"
 EDITOR_OPEN_KEY = "watchlist_groups_editor_open"
 EDITOR_DRAFT_KEY = "watchlist_groups_edit_draft"
 EDITOR_FOCUS_KEY = "watchlist_groups_editor_focus"
+EDITOR_DND_REVISION_KEY = "watchlist_groups_dnd_revision"
 COLLAPSED_KEY = "watchlist_groups_collapsed"
 UNCLASSIFIED_VALUE = "__unclassified__"
 TONE_LABELS = {
@@ -149,6 +150,7 @@ def open_watchlist_groups_editor(
     st.session_state[EDITOR_DRAFT_KEY] = state.model_copy(deep=True)
     st.session_state[EDITOR_OPEN_KEY] = True
     st.session_state[EDITOR_FOCUS_KEY] = focus_group_id
+    st.session_state[EDITOR_DND_REVISION_KEY] = 0
 
 
 @st.dialog("ウォッチリストグループを編集", width="large")
@@ -231,7 +233,7 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
         multi_containers=True,
         direction="horizontal",
         custom_style=sortable_watchlist_style(draft),
-        key="watchlist_groups_dnd_board",
+        key=f"watchlist_groups_dnd_board_{st.session_state.get(EDITOR_DND_REVISION_KEY, 0)}",
     )
     updated = apply_sortable_payload(
         draft,
@@ -241,6 +243,10 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     )
     if updated != draft:
         st.session_state[EDITOR_DRAFT_KEY] = updated
+        st.session_state[EDITOR_DND_REVISION_KEY] = (
+            int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
+        )
+        st.rerun()
 
 
 def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) -> None:
@@ -278,6 +284,33 @@ def _render_editor_group_settings(draft: WatchlistGroupsState, group_id: str) ->
             except ValueError as exc:
                 st.error(str(exc))
                 return
+            st.rerun()
+        ordered_groups = list(sorted(draft.groups, key=lambda item: item.order))
+        group_index = next(
+            index for index, item in enumerate(ordered_groups) if item.group_id == group_id
+        )
+        order_up, order_down = st.columns(2)
+        if order_up.button(
+            "↑ 上へ",
+            key=f"watchlist_groups_editor_up_{group_id}",
+            disabled=group_index == 0,
+            use_container_width=True,
+        ):
+            st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, -1)
+            st.session_state[EDITOR_DND_REVISION_KEY] = (
+                int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
+            )
+            st.rerun()
+        if order_down.button(
+            "↓ 下へ",
+            key=f"watchlist_groups_editor_down_{group_id}",
+            disabled=group_index == len(ordered_groups) - 1,
+            use_container_width=True,
+        ):
+            st.session_state[EDITOR_DRAFT_KEY] = draft_move_group(draft, group_id, 1)
+            st.session_state[EDITOR_DND_REVISION_KEY] = (
+                int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
+            )
             st.rerun()
         confirm = st.checkbox(
             "削除を確認しました。中の銘柄はお気に入りから削除されず、未分類へ移動します。",
@@ -444,6 +477,30 @@ def draft_move_symbol(
     return draft.model_copy(update={"placements": placements, "updated_at": now})
 
 
+def draft_move_group(
+    draft: WatchlistGroupsState,
+    group_id: str,
+    direction: int,
+) -> WatchlistGroupsState:
+    groups = list(sorted(draft.groups, key=lambda group: group.order))
+    index = next(
+        (position for position, group in enumerate(groups) if group.group_id == group_id),
+        None,
+    )
+    if index is None:
+        raise ValueError("グループが見つかりません。")
+    target = index + direction
+    if target < 0 or target >= len(groups):
+        return draft
+    groups[index], groups[target] = groups[target], groups[index]
+    now = datetime.now(UTC)
+    reordered = tuple(
+        group.model_copy(update={"order": (position + 1) * 10, "updated_at": now})
+        for position, group in enumerate(groups)
+    )
+    return draft.model_copy(update={"groups": reordered, "updated_at": now})
+
+
 def group_section_header_html(
     name: str,
     description: str | None,
@@ -584,11 +641,16 @@ def apply_sortable_payload(
             if group_id is None:
                 placements.pop(symbol, None)
             else:
-                placements[symbol] = WatchlistPlacement(
-                    group_id=group_id,
-                    order=(index + 1) * 10,
-                    updated_at=now,
-                )
+                target_order = (index + 1) * 10
+                current = placements.get(symbol)
+                if current is None or current.group_id != group_id or current.order != target_order:
+                    placements[symbol] = WatchlistPlacement(
+                        group_id=group_id,
+                        order=target_order,
+                        updated_at=now,
+                    )
+    if placements == draft.placements:
+        return draft
     return draft.model_copy(update={"placements": placements, "updated_at": now})
 
 
@@ -614,6 +676,7 @@ def _close_editor() -> None:
     st.session_state.pop(EDITOR_DRAFT_KEY, None)
     st.session_state.pop(EDITOR_OPEN_KEY, None)
     st.session_state.pop(EDITOR_FOCUS_KEY, None)
+    st.session_state.pop(EDITOR_DND_REVISION_KEY, None)
 
 
 def clear_watchlist_group_transient_state() -> None:
@@ -622,6 +685,7 @@ def clear_watchlist_group_transient_state() -> None:
             EDITOR_OPEN_KEY,
             EDITOR_DRAFT_KEY,
             EDITOR_FOCUS_KEY,
+            EDITOR_DND_REVISION_KEY,
             COLLAPSED_KEY,
         }:
             st.session_state.pop(key, None)

@@ -20,6 +20,7 @@ from backend.symbols.logging_utils import configure_symbol_refresh_logger
 from backend.symbols.metrics_repository import SYMBOL_METRICS_DIR
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN
 from backend.symbols.startup import SYMBOL_UNIVERSE_CSV, run_symbol_database_startup_refresh
+from backend.server_ops.maintenance import maintenance_operation
 
 
 @dataclass(frozen=True)
@@ -176,6 +177,36 @@ def run_symbol_background_refresh_cycle(
 ) -> list[SymbolStartupRefreshSummary]:
     """Run the short-session background plan without depending on UI actions."""
 
+    with maintenance_operation("symbol_background_refresh"):
+        return _run_symbol_background_refresh_cycle(
+            cache_dir=cache_dir,
+            symbol_universe_csv=symbol_universe_csv,
+            startup_max_items=startup_max_items,
+            steps=steps,
+            recurring_interval_minutes=recurring_interval_minutes,
+            recurring_max_items=recurring_max_items,
+            max_items_per_session=max_items_per_session,
+            delay_scale=delay_scale,
+            wait=wait,
+            now_provider=now_provider,
+            logger=logger,
+        )
+
+
+def _run_symbol_background_refresh_cycle(
+    *,
+    cache_dir: Path | str,
+    symbol_universe_csv: Path | str,
+    startup_max_items: int,
+    steps: Sequence[SymbolBackgroundRefreshStep],
+    recurring_interval_minutes: int,
+    recurring_max_items: int,
+    max_items_per_session: int,
+    delay_scale: float,
+    wait: Callable[[float], None],
+    now_provider: Callable[[], datetime],
+    logger: logging.Logger | None,
+) -> list[SymbolStartupRefreshSummary]:
     logger = logger or configure_symbol_refresh_logger()
     summaries: list[SymbolStartupRefreshSummary] = []
     refreshed_count = 0

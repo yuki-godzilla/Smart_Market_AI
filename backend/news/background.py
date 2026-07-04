@@ -12,6 +12,7 @@ from backend.news.contracts import NewsDashboardSnapshot
 from backend.news.logging_utils import configure_news_update_logger
 from backend.news.sources import build_standard_news_dashboard_snapshot
 from backend.news.update_manager import NewsRefreshResult, refresh_news_dashboard_cache
+from backend.server_ops.maintenance import maintenance_operation
 
 NEWS_BACKGROUND_STARTUP_DELAY_SECONDS = 2.0
 
@@ -70,12 +71,13 @@ def run_news_background_refresh_once(
             fallback_to_demo=False,
         )
     )
-    result = refresh_news_dashboard_cache(
-        builder,
-        cache_dir=cache_dir,
-        logger=logger,
-        force=False,
-    )
+    with maintenance_operation("news_background_refresh"):
+        result = refresh_news_dashboard_cache(
+            builder,
+            cache_dir=cache_dir,
+            logger=logger,
+            force=False,
+        )
     logger.info(
         "background refresh finished refreshed=%s skipped=%s fallback=%s message=%s",
         result.refreshed,

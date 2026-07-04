@@ -4343,3 +4343,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   30分以内は自動復元、30分超または削除済みユーザーはJSON削除後にユーザー選択へ戻す。
 - ユーザーメニューへ `この端末のセッションを解除` を追加した。破損JSONと保存失敗は
   起動を妨げず、復元時に外部取得やランキング再計算は開始しない。
+# 2026-07-04 SMAI ホームサーバー常時運用・自動メンテナンス
+
+- AC電源時のみスリープ/休止無効、ディスプレイ10分OFFを適用・表示する
+  `scripts/server_ops/apply_power_policy.*` を追加。
+- Windows起動後に既存 `start_smai_server.bat` と5分監視を起動するタスク登録/解除を追加。
+- `MaintenanceManager` に起動時刻、24時間待ち、セッションheartbeat、処理中marker、
+  lock確認、30秒通知を実装。監視側は通知後に再判定し、活動があれば再起動を取消。
+- News/Symbol background refreshをbusy markerへ接続し、Streamlit UIは1分heartbeatと
+  メンテナンス通知を表示。
+- `logs/server_ops/` に autostart/watch/maintenance ログを集約。
+- 運用手順とトラブル対応を `docs/server_operation.md` に追加。

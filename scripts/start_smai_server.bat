@@ -11,6 +11,8 @@ set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"
 if not exist "%SMAI_LOG_DIR%" mkdir "%SMAI_LOG_DIR%"
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "SMAI_RUN_ID=%%I"
 set "SMAI_LOG_FILE=%SMAI_LOG_DIR%\smai_server_%SMAI_RUN_ID%.log"
+set "SMAI_AUTOSTART_LOG=%SMAI_LOG_DIR%\autostart.log"
+>> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [START] start_smai_server.bat invoked.
 
 call :log "============================================================"
 call :log "[SMAI] Scheduled LAN server startup"
@@ -29,10 +31,12 @@ set "SMAI_PORT_STATUS=%ERRORLEVEL%"
 
 if "%SMAI_PORT_STATUS%"=="10" (
     call :log "[OK] SMAI is already running. A second instance will not be started."
+    >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Duplicate startup skipped.
     exit /b 0
 )
 if "%SMAI_PORT_STATUS%"=="11" (
     call :log "[ERROR] Port 8501 is used by another process. SMAI was not started."
+    >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [ERROR] TCP 8501 is occupied by another process.
     exit /b 2
 )
 if not "%SMAI_PORT_STATUS%"=="0" (
@@ -51,6 +55,13 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-
 if not "%SMAI_TAILSCALE_IP%"=="" call :log "[SMAI] Tailscale URL: http://%SMAI_TAILSCALE_IP%:8501"
 call :log "[SMAI] Listening on 0.0.0.0:8501 (bind address; do not open 0.0.0.0 in a browser)"
 call :log "[SMAI] Starting Streamlit..."
+>> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Starting SMAI Streamlit server.
+call :log "[SMAI] Recording maintenance uptime start."
+"%SMAI_PYTHON%" -m backend.server_ops.maintenance startup >> "%SMAI_LOG_FILE%" 2>&1
+if errorlevel 1 (
+    call :log "[ERROR] Maintenance startup state could not be recorded. Streamlit was not started."
+    exit /b 3
+)
 
 "%SMAI_PYTHON%" -m streamlit run ui/app.py ^
   --server.address 0.0.0.0 ^

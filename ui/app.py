@@ -11,6 +11,7 @@ import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from uuid import uuid4
 from typing import (
     Any,
     Callable,
@@ -63,6 +64,7 @@ from backend.llm_factor import (
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.news.background import start_news_background_refresh_worker
+from backend.server_ops.maintenance import MaintenanceManager
 from backend.reporting import (
     DecisionReportContext,
     DecisionReportSection,
@@ -1745,6 +1747,7 @@ def main() -> None:
     )
     inject_pwa_head_metadata()
     render_global_styles()
+    _render_maintenance_status()
     if not render_user_notification_area():
         return
     _start_symbol_background_refresh_worker_once()
@@ -1797,6 +1800,24 @@ def main() -> None:
         client_id=client_id,
         selected_symbol=selected_symbol,
     )
+
+
+def _render_maintenance_status() -> None:
+    session_key = "smai_server_ops_session_id"
+    session_id = str(st.session_state.get(session_key) or "")
+    if not session_id:
+        session_id = uuid4().hex
+        st.session_state[session_key] = session_id
+    _maintenance_heartbeat_fragment(session_id)
+
+
+@st.fragment(run_every=60)
+def _maintenance_heartbeat_fragment(session_id: str) -> None:
+    manager = MaintenanceManager()
+    manager.heartbeat(session_id)
+    notice = manager.notice()
+    if notice:
+        st.warning(str(notice.get("message") or "30秒後にメンテナンス再起動を行います。"))
 
 
 def _apply_navigation_query_params() -> None:

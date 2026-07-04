@@ -7,6 +7,14 @@ Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_L
 
 Last updated: 2026-06-29
 
+Windows home-server operations now include AC-only power-policy setup, boot-time
+SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,
+and a fail-closed 24-hour maintenance-restart manager. Connected Streamlit sessions
+publish one-minute heartbeats; background news/symbol refreshes publish busy markers;
+file locks and unreadable state defer restart. A 30-second UI notice is followed by
+a second safety check, and any new activity cancels restart. See
+`docs/server_operation.md`.
+
 ## Project Summary
 
 Smart Market AI is a Python-based investment support project that combines market-data ingestion, feature generation, screening, deterministic baseline forecasting, model-informed Investment Score, portfolio/risk checks, Streamlit UI, Decision Report context, and Research RAG evidence workflows.

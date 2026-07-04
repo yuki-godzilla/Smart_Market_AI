@@ -1042,23 +1042,26 @@ Assistant loading UI / auto transition の実Streamlit smoke:
 ## スマホ / PWA の前回状態復元
 
 Streamlit の WebSocket session が iOS / Safari / PWA 側で破棄されても、SMAI は
-`data/user_state/last_session.json` から軽量な前回状態を復元します。
+URL の `client=smai_client_...` に対応する
+`data/user_state/clients/<client_id>.json` から軽量な前回状態を復元します。
 
-- 通常起動では最初にユーザー選択を表示し、選択後はサイドメニュー先頭の
-  `銘柄コックピット` を開きます。前回ユーザーや前回ページへ自動遷移しません。
+- URL に `client` がなければ安全なランダムIDを生成し、query parameterへ反映します。
+- `last_seen_at` から30分以内は、前回ユーザー、主要画面、Cockpit銘柄を自動復元します。
+- 30分を超えた場合、または保存ユーザーが存在しない場合は、該当端末のJSONを削除して
+  ユーザー選択画面へ戻ります。
 - 明示的なプロフィール/ページ URL query parameter は通常起動より優先します。
-- Last Session Snapshot の安全な銘柄、Ranking主要条件、データ取得元は、
-  ユーザー選択や初期ページを飛ばさない範囲で復元します。
 - 保存対象は最後のユーザー、主要画面、Cockpit 銘柄、Ranking の主要条件、
   Cockpit / Ranking のデータ取得元です。
 - DataFrame、画像、ニュース本文、Research本文、LLM応答は保存しません。
 - 値が変わった場合だけ atomic write し、破損JSON、存在しないユーザー、
   読み書き失敗時は通常起動へフォールバックします。
 - 復元だけでは価格取得、ランキング作成、AI調査更新、ニュース取得を実行しません。
+- ユーザーメニューの `この端末のセッションを解除` で、端末JSONと選択状態を削除して
+  ユーザー選択画面へ戻せます。
 - `.streamlit/config.toml` の `disconnectedSessionTTL=300` は5分以内の再接続を助ける設定で、
   OSがWebViewやWebSocket sessionを破棄した場合の保証ではありません。永続復元が根本対策です。
 
-手動確認では、ユーザー、Cockpit、銘柄を選択してPWAを閉じ、5分以内と5分超の両方で
-再表示します。LAN URLとTailscale URLを別々に確認し、必要に応じて
-`last_session.json` を一時的に破損させてもユーザー選択画面または通常画面が起動することを
-確認します。
+手動確認では、ユーザー、Cockpit、銘柄を選択してF5更新またはPWAを閉じ、30分以内の
+再表示で同じ状態が復元されることを確認します。`last_seen_at` を30分超へ変更した場合は、
+ユーザー選択画面へ戻り、該当する `clients/<client_id>.json` が削除されることも確認します。
+LAN URLとTailscale URLは別々に確認します。

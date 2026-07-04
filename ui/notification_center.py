@@ -21,7 +21,13 @@ from backend.notifications.trusted_devices import (
     TrustedDeviceRepository,
 )
 from backend.users import UserRepository
-from ui.last_session import restore_last_session
+from ui.last_session import (
+    CLIENT_ID_STATE_KEY,
+    CLIENT_QUERY_KEY,
+    clear_client_session,
+    ensure_client_id,
+    restore_client_session,
+)
 from ui.notification_ui import render_notification_preferences
 from ui.user_data import migrate_legacy_user_data
 from ui.user_icon_assets import (
@@ -277,12 +283,16 @@ def render_user_notification_area() -> bool:
     migrate_legacy_user_data(
         [candidate.user_id for candidate in users if not candidate.is_system_user]
     )
-    restore_last_session(
+    query_params = getattr(st, "query_params", None)
+    client_id = ensure_client_id(
         cast(MutableMapping[str, Any], st.session_state),
+        cast(MutableMapping[str, Any] | None, query_params),
+    )
+    restore_client_session(
+        cast(MutableMapping[str, Any], st.session_state),
+        client_id=client_id,
         valid_user_ids={candidate.user_id for candidate in users},
-        query_params=getattr(st, "query_params", None),
-        restore_selected_user=False,
-        restore_active_page=False,
+        query_params=query_params,
     )
     start_user_id = _query_value(START_PROFILE_QUERY_KEY)
     start_user = next((item for item in users if item.user_id == start_user_id), None)
@@ -431,6 +441,7 @@ def _select_user(
         unsafe_allow_html=True,
     )
     query_candidate = _query_value(PROFILE_QUERY_KEY)
+    client_query_suffix = _client_query_suffix()
     selected_user_id = (
         query_candidate
         if any(candidate.user_id == query_candidate for candidate in users)
@@ -450,7 +461,7 @@ def _select_user(
             if source:
                 st.markdown(
                     f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
-                    f'{html.escape(candidate.user_id)}" target="_self" '
+                    f'{html.escape(candidate.user_id)}{client_query_suffix}" target="_self" '
                     f'data-user-id="{html.escape(candidate.user_id)}" '
                     f'aria-current="{selected_value}" '
                     f'aria-label="{html.escape(candidate.display_name)}を選択">'
@@ -474,7 +485,8 @@ def _select_user(
                 )
     with columns[len(users) % column_count]:
         st.markdown(
-            f'<a class="smai-profile-link" href="?{ADD_PROFILE_QUERY_KEY}=1" '
+            f'<a class="smai-profile-link" href="?{ADD_PROFILE_QUERY_KEY}=1'
+            f'{client_query_suffix}" '
             'target="_self" aria-label="ユーザー追加">'
             '<div class="smai-add-profile" aria-hidden="true">＋</div>'
             '<div class="smai-profile-name">ユーザー追加</div></a>',
@@ -485,7 +497,7 @@ def _select_user(
 
     selected = next((item for item in users if item.user_id == selected_user_id), None)
     start_href = (
-        f"?{START_PROFILE_QUERY_KEY}={html.escape(selected.user_id)}"
+        f"?{START_PROFILE_QUERY_KEY}={html.escape(selected.user_id)}{client_query_suffix}"
         if selected is not None
         else "#"
     )
@@ -741,6 +753,19 @@ def _render_user_menu(user: SmaiUser, unread: int, important: int) -> None:
         if st.button(label, key=f"open_user_area_{view}", use_container_width=True):
             st.session_state[USER_AREA_VIEW_KEY] = view
             st.rerun()
+    if st.button(
+        "この端末のセッションを解除",
+        key="release_client_session",
+        use_container_width=True,
+    ):
+        client_id = str(st.session_state.get(CLIENT_ID_STATE_KEY) or "")
+        clear_watchlist_group_transient_state()
+        clear_client_session(
+            cast(MutableMapping[str, Any], st.session_state),
+            client_id=client_id,
+        )
+        st.session_state[USER_AREA_VIEW_KEY] = USER_AREA_HOME
+        st.rerun()
 
 
 def _render_user_area_view(
@@ -1006,6 +1031,13 @@ def _query_value(key: str) -> str:
     if isinstance(value, list):
         return str(value[0]) if value else ""
     return str(value)
+
+
+def _client_query_suffix() -> str:
+    client_id = _query_value(CLIENT_QUERY_KEY)
+    if not client_id:
+        return ""
+    return f"&amp;{CLIENT_QUERY_KEY}={html.escape(client_id)}"
 
 
 def _clear_query_value(key: str) -> None:

@@ -66,15 +66,15 @@ settings, optimized-asset totals, and session-state size estimates; snapshots lo
 sizes only. Deterministic delivery/asset reports live under `logs/server_ops/`; live Tailscale and
 iPhone/iPad Safari/PWA verification remains a separate manual six-environment check.
 
-Mobile/PWA session recovery now has a lightweight, network-free Last Session Snapshot. The app
-stores the last valid user, primary page, selected Cockpit symbol, four main Ranking conditions,
-and explicit MarketData provider selections in `data/user_state/last_session.json`. On a normal
-new Streamlit session, user and page are not auto-selected: the user-selection gate appears first,
-then the side-menu default Cockpit opens. Explicit profile/page URL query parameters still take
-priority, while safe symbol, Ranking-condition, and provider values may be restored without
-starting work. Invalid users, corrupt/oversized JSON, and read/write failures safely fall back to
-normal startup. Restoration never starts price
-fetch, Ranking creation, Research/News retrieval, or other heavy work. Streamlit
+Mobile/PWA session recovery uses a lightweight, network-free per-client snapshot. A safe random
+`client` query parameter identifies the browser/PWA, and its allowlisted state is stored under
+`data/user_state/clients/<client_id>.json`. The last valid user, primary page, Cockpit symbol,
+four main Ranking conditions, and explicit MarketData provider selections are restored
+automatically for 30 minutes. Older snapshots and snapshots referencing deleted users are removed
+and startup returns to the user-selection gate. Explicit profile/page URL query parameters still
+take priority. Corrupt/oversized JSON and read/write failures safely fall back without breaking
+startup. Restoration never starts price fetch, Ranking creation, Research/News retrieval, or
+other heavy work. The user menu can release the current device session. Streamlit
 `disconnectedSessionTTL=300` remains a short reconnect aid rather than the recovery mechanism;
 iPhone/iPad Safari/PWA and Tailscale behavior still require the documented manual device check.
 

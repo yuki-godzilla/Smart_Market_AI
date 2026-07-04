@@ -5,17 +5,21 @@ import logging
 import os
 import re
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping
 
 LOGGER = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
-DEFAULT_LAST_SESSION_PATH = Path("data/user_state/last_session.json")
+CLIENT_QUERY_KEY = "client"
+CLIENT_ID_PREFIX = "smai_client_"
+CLIENT_SESSION_TTL = timedelta(minutes=30)
+DEFAULT_CLIENT_SESSION_DIR = Path("data/user_state/clients")
 MAX_SNAPSHOT_BYTES = 16 * 1024
 RESTORE_NOTICE_KEY = "smai_last_session_restore_notice"
 RESTORE_APPLIED_KEY = "smai_last_session_restore_applied"
+CLIENT_ID_STATE_KEY = "smai_client_id"
 
 ALLOWED_PAGES = frozenset(
     {"cockpit", "ranking", "news", "watchlist", "copilot", "rebalance", "settings"}
@@ -30,25 +34,73 @@ PROVIDER_STATE_KEYS = (
     "market_data_provider_live_first",
     "market_data_ranking_provider_live_first",
 )
-_SAFE_ID = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_SAFE_VALUE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_CLIENT_ID = re.compile(r"^smai_client_[a-f0-9]{24}$")
+_RESTORED_STATE_KEYS = (
+    "smai_current_user_id",
+    "sidemenu_page",
+    "market_data_symbol_candidate",
+    "market_data_ranking_handoff_symbol",
+    *RANKING_STATE_KEYS,
+    *PROVIDER_STATE_KEYS,
+)
 
 
-def load_last_session(path: Path = DEFAULT_LAST_SESSION_PATH) -> dict[str, Any] | None:
-    """Load a small, validated snapshot without making app startup fragile."""
+def generate_client_id() -> str:
+    return f"{CLIENT_ID_PREFIX}{secrets.token_hex(12)}"
+
+
+def valid_client_id(value: object) -> bool:
+    return isinstance(value, str) and _CLIENT_ID.fullmatch(value) is not None
+
+
+def ensure_client_id(
+    session_state: MutableMapping[str, Any],
+    query_params: MutableMapping[str, Any] | None,
+) -> str:
+    """Resolve a safe per-browser identifier and reflect it in the URL."""
+    query_value = _query_value(query_params, CLIENT_QUERY_KEY)
+    state_value = session_state.get(CLIENT_ID_STATE_KEY)
+    if valid_client_id(query_value):
+        client_id = query_value
+    elif valid_client_id(state_value):
+        client_id = str(state_value)
+    else:
+        client_id = generate_client_id()
+    session_state[CLIENT_ID_STATE_KEY] = client_id
+    if query_params is not None and query_value != client_id:
+        try:
+            query_params[CLIENT_QUERY_KEY] = client_id
+        except (TypeError, AttributeError):
+            LOGGER.warning(
+                "Client id could not be added to query params.",
+                exc_info=True,
+            )
+    return client_id
+
+
+def client_session_path(
+    client_id: str,
+    directory: Path = DEFAULT_CLIENT_SESSION_DIR,
+) -> Path | None:
+    if not valid_client_id(client_id):
+        return None
+    return directory / f"{client_id}.json"
+
+
+def load_client_session(path: Path) -> dict[str, Any] | None:
+    """Load a small, validated snapshot without making startup fragile."""
     try:
         if not path.is_file() or path.stat().st_size > MAX_SNAPSHOT_BYTES:
             return None
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
-        LOGGER.warning("Last-session snapshot could not be loaded.", exc_info=True)
+        LOGGER.warning("Client-session snapshot could not be loaded.", exc_info=True)
         return None
     return _validated_snapshot(raw)
 
 
-def save_last_session(
-    snapshot: Mapping[str, Any],
-    path: Path = DEFAULT_LAST_SESSION_PATH,
-) -> bool:
+def save_client_session(snapshot: Mapping[str, Any], path: Path) -> bool:
     """Atomically save a snapshot, returning False instead of breaking the UI."""
     validated = _validated_snapshot(dict(snapshot))
     if validated is None:
@@ -62,7 +114,7 @@ def save_last_session(
         temporary_path.write_text(payload, encoding="utf-8")
         os.replace(temporary_path, path)
     except OSError:
-        LOGGER.warning("Last-session snapshot could not be saved.", exc_info=True)
+        LOGGER.warning("Client-session snapshot could not be saved.", exc_info=True)
         try:
             temporary_path.unlink(missing_ok=True)
         except OSError:
@@ -71,43 +123,52 @@ def save_last_session(
     return True
 
 
-def restore_last_session(
+def restore_client_session(
     session_state: MutableMapping[str, Any],
     *,
+    client_id: str,
     valid_user_ids: set[str],
     query_params: Mapping[str, Any] | None = None,
-    path: Path = DEFAULT_LAST_SESSION_PATH,
-    restore_selected_user: bool = True,
-    restore_active_page: bool = True,
+    directory: Path = DEFAULT_CLIENT_SESSION_DIR,
+    now: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Restore lightweight values once per Streamlit session.
-
-    Explicit URL values win over persisted values. No data fetch or calculation is
-    triggered here.
-    """
+    """Restore allowlisted values once, without starting fetches or calculations."""
     if session_state.get(RESTORE_APPLIED_KEY):
         return None
     session_state[RESTORE_APPLIED_KEY] = True
-    snapshot = load_last_session(path)
+    path = client_session_path(client_id, directory)
+    if path is None:
+        return None
+    snapshot = load_client_session(path)
     if snapshot is None:
+        return None
+    current_time = _as_utc(now or datetime.now(UTC))
+    last_seen = _parse_datetime(snapshot.get("last_seen_at"))
+    if last_seen is None or current_time - last_seen > CLIENT_SESSION_TTL:
+        _delete_path(path)
+        clear_restored_session_state(session_state)
+        session_state[RESTORE_APPLIED_KEY] = True
         return None
 
     params = query_params or {}
     restored: dict[str, Any] = {}
     user_id = str(snapshot.get("selected_user_id") or "")
     if (
-        restore_selected_user
-        and not _has_query_value(params, "smai_start_profile", "smai_profile")
+        not _has_query_value(params, "smai_start_profile", "smai_profile")
         and "smai_current_user_id" not in session_state
         and user_id in valid_user_ids
     ):
         session_state["smai_current_user_id"] = user_id
         restored["selected_user_id"] = user_id
+    elif user_id not in valid_user_ids:
+        _delete_path(path)
+        clear_restored_session_state(session_state)
+        session_state[RESTORE_APPLIED_KEY] = True
+        return None
 
     active_page = str(snapshot.get("active_page") or "")
     if (
-        restore_active_page
-        and not _has_query_value(params, "smai_page")
+        not _has_query_value(params, "smai_page")
         and "sidemenu_page" not in session_state
         and active_page in ALLOWED_PAGES
     ):
@@ -124,19 +185,16 @@ def restore_last_session(
         session_state["market_data_ranking_handoff_symbol"] = symbol
         restored["selected_symbol"] = symbol
 
-    ranking_filters = snapshot.get("ranking_filters")
-    if isinstance(ranking_filters, dict):
-        for key in RANKING_STATE_KEYS:
-            value = ranking_filters.get(key)
-            if key not in session_state and _safe_value(value):
-                session_state[key] = value
-
-    settings = snapshot.get("settings")
-    if isinstance(settings, dict):
-        for key in PROVIDER_STATE_KEYS:
-            value = settings.get(key)
-            if key not in session_state and _safe_value(value):
-                session_state[key] = value
+    for section, allowed_keys in (
+        ("ranking_filters", RANKING_STATE_KEYS),
+        ("settings", PROVIDER_STATE_KEYS),
+    ):
+        values = snapshot.get(section)
+        if isinstance(values, dict):
+            for key in allowed_keys:
+                value = values.get(key)
+                if key not in session_state and _safe_value(value):
+                    session_state[key] = value
 
     if restored:
         session_state[RESTORE_NOTICE_KEY] = restored
@@ -147,70 +205,109 @@ def restore_last_session(
 def snapshot_from_session_state(
     session_state: Mapping[str, Any],
     *,
+    client_id: str,
     selected_symbol: str = "",
+    now: datetime | None = None,
 ) -> dict[str, Any] | None:
     user_id = str(session_state.get("smai_current_user_id") or "")
     active_page = str(session_state.get("sidemenu_page") or "")
-    if not _safe_value(user_id) or active_page not in ALLOWED_PAGES:
+    if (
+        not valid_client_id(client_id)
+        or not _safe_value(user_id)
+        or active_page not in ALLOWED_PAGES
+    ):
         return None
     snapshot: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "updated_at": datetime.now(UTC).isoformat(),
+        "client_id": client_id,
         "selected_user_id": user_id,
         "active_page": active_page,
+        "last_seen_at": _as_utc(now or datetime.now(UTC)).isoformat(),
     }
     if _safe_value(selected_symbol):
         snapshot["selected_symbol"] = selected_symbol
-    ranking_filters = {
-        key: session_state[key]
-        for key in RANKING_STATE_KEYS
-        if key in session_state and _safe_value(session_state[key])
-    }
-    if ranking_filters:
-        snapshot["ranking_filters"] = ranking_filters
-    settings = {
-        key: session_state[key]
-        for key in PROVIDER_STATE_KEYS
-        if key in session_state and _safe_value(session_state[key])
-    }
-    if settings:
-        snapshot["settings"] = settings
+    for section, allowed_keys in (
+        ("ranking_filters", RANKING_STATE_KEYS),
+        ("settings", PROVIDER_STATE_KEYS),
+    ):
+        values = {
+            key: session_state[key]
+            for key in allowed_keys
+            if key in session_state and _safe_value(session_state[key])
+        }
+        if values:
+            snapshot[section] = values
     return snapshot
 
 
-def save_last_session_if_changed(
+def save_client_session_if_changed(
     session_state: Mapping[str, Any],
     *,
+    client_id: str,
     selected_symbol: str = "",
-    path: Path = DEFAULT_LAST_SESSION_PATH,
+    directory: Path = DEFAULT_CLIENT_SESSION_DIR,
+    now: datetime | None = None,
 ) -> bool:
-    snapshot = snapshot_from_session_state(session_state, selected_symbol=selected_symbol)
-    if snapshot is None:
+    snapshot = snapshot_from_session_state(
+        session_state,
+        client_id=client_id,
+        selected_symbol=selected_symbol,
+        now=now,
+    )
+    path = client_session_path(client_id, directory)
+    if snapshot is None or path is None:
         return False
-    current = load_last_session(path)
-    comparable = {key: value for key, value in snapshot.items() if key != "updated_at"}
+    current = load_client_session(path)
+    comparable = {key: value for key, value in snapshot.items() if key != "last_seen_at"}
     current_comparable = (
-        {key: value for key, value in current.items() if key != "updated_at"}
+        {key: value for key, value in current.items() if key != "last_seen_at"}
         if current is not None
         else None
     )
     if comparable == current_comparable:
         return False
-    return save_last_session(snapshot, path)
+    return save_client_session(snapshot, path)
+
+
+def clear_client_session(
+    session_state: MutableMapping[str, Any],
+    *,
+    client_id: str,
+    directory: Path = DEFAULT_CLIENT_SESSION_DIR,
+) -> bool:
+    path = client_session_path(client_id, directory)
+    deleted = _delete_path(path) if path is not None else False
+    clear_restored_session_state(session_state)
+    session_state[CLIENT_ID_STATE_KEY] = client_id
+    session_state[RESTORE_APPLIED_KEY] = True
+    return deleted
+
+
+def clear_restored_session_state(session_state: MutableMapping[str, Any]) -> None:
+    for key in (*_RESTORED_STATE_KEYS, RESTORE_NOTICE_KEY):
+        session_state.pop(key, None)
 
 
 def _validated_snapshot(value: object) -> dict[str, Any] | None:
     if not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION:
         return None
+    client_id = value.get("client_id")
     user_id = value.get("selected_user_id")
     active_page = value.get("active_page")
-    if not _safe_value(user_id) or active_page not in ALLOWED_PAGES:
+    last_seen_at = value.get("last_seen_at")
+    if (
+        not valid_client_id(client_id)
+        or not _safe_value(user_id)
+        or active_page not in ALLOWED_PAGES
+        or _parse_datetime(last_seen_at) is None
+    ):
         return None
     result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "updated_at": str(value.get("updated_at") or ""),
+        "client_id": str(client_id),
         "selected_user_id": str(user_id),
         "active_page": str(active_page),
+        "last_seen_at": str(last_seen_at),
     }
     symbol = value.get("selected_symbol")
     if _safe_value(symbol):
@@ -220,29 +317,58 @@ def _validated_snapshot(value: object) -> dict[str, Any] | None:
         ("settings", PROVIDER_STATE_KEYS),
     ):
         source = value.get(section)
-        if not isinstance(source, dict):
-            continue
-        cleaned = {
-            key: source[key] for key in allowed_keys if key in source and _safe_value(source[key])
-        }
-        if cleaned:
-            result[section] = cleaned
+        if isinstance(source, dict):
+            cleaned = {
+                key: source[key]
+                for key in allowed_keys
+                if key in source and _safe_value(source[key])
+            }
+            if cleaned:
+                result[section] = cleaned
     return result
 
 
 def _safe_value(value: object) -> bool:
     if isinstance(value, bool):
         return True
-    if not isinstance(value, str):
-        return False
-    return bool(_SAFE_ID.fullmatch(value))
+    return isinstance(value, str) and _SAFE_VALUE.fullmatch(value) is not None
+
+
+def _query_value(params: Mapping[str, Any] | None, key: str) -> str:
+    if params is None:
+        return ""
+    try:
+        value = params.get(key)
+    except AttributeError:
+        return ""
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else ""
+    return str(value or "").strip()
 
 
 def _has_query_value(params: Mapping[str, Any], *keys: str) -> bool:
-    for key in keys:
-        value = params.get(key)
-        if isinstance(value, (list, tuple)):
-            value = value[0] if value else ""
-        if str(value or "").strip():
-            return True
-    return False
+    return any(_query_value(params, key) for key in keys)
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return _as_utc(parsed)
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value.astimezone(UTC)
+
+
+def _delete_path(path: Path) -> bool:
+    try:
+        existed = path.exists()
+        path.unlink(missing_ok=True)
+        return existed
+    except OSError:
+        LOGGER.warning("Client-session snapshot could not be deleted.", exc_info=True)
+        return False

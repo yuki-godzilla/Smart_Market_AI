@@ -73,3 +73,4 @@ data/ops/symbol_maintenance_state.json
 data/ops/symbol_maintenance_state.json.tmp
 data/ops/symbol_maintenance.lock
 data/user_state/last_session.json
+data/user_state/clients/

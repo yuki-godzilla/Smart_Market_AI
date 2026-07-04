@@ -219,7 +219,11 @@ from ui.favorites import (
     update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
-from ui.last_session import RESTORE_NOTICE_KEY, save_last_session_if_changed
+from ui.last_session import (
+    CLIENT_ID_STATE_KEY,
+    RESTORE_NOTICE_KEY,
+    save_client_session_if_changed,
+)
 from ui.notification_center import render_user_notification_area
 from ui.pwa import inject_pwa_head_metadata
 from ui.ranking import (
@@ -1787,7 +1791,12 @@ def main() -> None:
     selected_symbol = (
         _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
     )
-    save_last_session_if_changed(st.session_state, selected_symbol=selected_symbol)
+    client_id = str(st.session_state.get(CLIENT_ID_STATE_KEY) or "")
+    save_client_session_if_changed(
+        st.session_state,
+        client_id=client_id,
+        selected_symbol=selected_symbol,
+    )
 
 
 def _apply_navigation_query_params() -> None:

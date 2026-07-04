@@ -34,6 +34,7 @@ def _current_sidemenu_page() -> SideMenuPage:
     page = st.session_state.get(SIDEMENU_STATE_KEY, SIDEMENU_PAGE_COCKPIT)
     if page not in SIDEMENU_PAGE_LABELS:
         page = SIDEMENU_PAGE_COCKPIT
+    if st.session_state.get(SIDEMENU_STATE_KEY) != page:
         st.session_state[SIDEMENU_STATE_KEY] = page
     return cast(SideMenuPage, page)
 

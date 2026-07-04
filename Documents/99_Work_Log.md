@@ -4334,3 +4334,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ローカル再生成物の`dist/`、ルート`build/`、`.mypy_cache/`、`.tmp/`、
   `.ruff_cache/`、component `node_modules/`を削除した。仮想環境、UI assets、
   responsive screenshots、symbol cacheは維持した。
+
+## 2026-07-04 端末別セッション復元
+
+- URL query parameter の `client` と `data/user_state/clients/<client_id>.json` を使う、
+  端末別の軽量セッションスナップショットへ移行した。
+- ユーザー、主要画面、Cockpit銘柄、Ranking主要条件、明示的providerだけを保存し、
+  30分以内は自動復元、30分超または削除済みユーザーはJSON削除後にユーザー選択へ戻す。
+- ユーザーメニューへ `この端末のセッションを解除` を追加した。破損JSONと保存失敗は
+  起動を妨げず、復元時に外部取得やランキング再計算は開始しない。

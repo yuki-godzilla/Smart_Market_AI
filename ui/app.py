@@ -10804,6 +10804,7 @@ async def _refresh_watchlist_snapshots(
     success_symbols: list[str] = []
     failed_symbols: list[str] = []
     previous_data_symbols: list[str] = []
+    fx_rates_by_currency: dict[str, Decimal] = {}
     end = datetime.now(UTC)
     start = end - timedelta(days=45)
     for symbol in symbols:
@@ -10845,6 +10846,38 @@ async def _refresh_watchlist_snapshots(
                         _bar_with_display_symbol(bar, display_symbol=normalized)
                         for bar in provider_bars
                     ]
+            favorite = favorite_by_symbol.get(normalized)
+            source_currency = (
+                str(bars[-1].symbol.currency).strip().upper()
+                if bars
+                else str(row.get("currency") or (favorite.currency if favorite else ""))
+                .strip()
+                .upper()
+            )
+            if (
+                bars
+                and adapter is not None
+                and source_currency not in {"", "JPY"}
+                and source_currency not in fx_rates_by_currency
+            ):
+                fx_rates_by_currency.update(
+                    await _ranking_jpy_fx_rates(adapter, [source_currency], at=end)
+                )
+            if bars:
+                fx_rate = fx_rates_by_currency.get(source_currency)
+                current_price_jpy = _ranking_current_price_jpy(
+                    bars[-1].close,
+                    source_currency=source_currency,
+                    jpy_fx_rates=fx_rates_by_currency,
+                )
+                row = {
+                    **row,
+                    "currency": source_currency,
+                    "current_price_jpy": (
+                        str(current_price_jpy) if current_price_jpy is not None else ""
+                    ),
+                    "fx_rate_jpy": str(fx_rate) if fx_rate is not None else "",
+                }
             snapshot = build_watchlist_snapshot_for_symbol(
                 normalized,
                 favorite=favorite_by_symbol.get(normalized),
@@ -11024,6 +11057,8 @@ def _favorite_display_payload(
             "asset_type": snapshot.asset_type,
             "currency": snapshot.currency,
             "price": snapshot.price_display or snapshot.price,
+            "price_jpy": snapshot.price_jpy,
+            "fx_rate_jpy": snapshot.fx_rate_jpy,
             "ai_score": snapshot.ai_score,
             "upside_score": snapshot.upside_score,
             "downside_risk_score": snapshot.downside_risk_score,
@@ -11036,7 +11071,12 @@ def _favorite_display_payload(
     market = str(row.get("market") or favorite.market or "未取得")
     asset_type = str(row.get("asset_type") or favorite.asset_type or "未取得")
     currency = str(row.get("currency") or favorite.currency or "未取得")
-    price = str(row.get("price") or row.get("last_price") or row.get("close") or "")
+    original_price = str(row.get("price") or row.get("last_price") or row.get("close") or "")
+    price = _favorite_price_display(
+        original_price,
+        currency=currency,
+        price_jpy=_favorite_first_value(row, "price_jpy", "current_price_jpy"),
+    )
     ai_score = str(row.get("ai_score") or row.get("investment_score") or "")
     upside = str(row.get("upside_score") or row.get("forecast_agreement") or "")
     downside = str(row.get("downside_risk_score") or "")
@@ -11250,6 +11290,32 @@ def _favorite_fundamental_value(
         return "—"
     formatted = f"{number:.2f}".rstrip("0").rstrip(".")
     return f"{formatted}{suffix}"
+
+
+def _favorite_price_display(price: object, *, currency: str, price_jpy: object = "") -> str:
+    original = _favorite_price_number(price)
+    if original is None:
+        return "未取得"
+    normalized_currency = currency.strip().upper()
+    if normalized_currency in {"", "JPY"}:
+        return f"{original:,.2f}".rstrip("0").rstrip(".") + "円"
+    converted = _favorite_price_number(price_jpy)
+    yen_display = f"{converted:,.0f}円" if converted is not None else "—円"
+    original_display = f"{original:,.2f}".rstrip("0").rstrip(".")
+    return f"{yen_display}（{original_display} {normalized_currency}）"
+
+
+def _favorite_price_number(value: object) -> Decimal | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    normalized = re.sub(r"[,\s]", "", text)
+    normalized = re.sub(r"(?:円|[A-Za-z]{3})$", "", normalized)
+    try:
+        number = Decimal(normalized)
+    except Exception:  # noqa: BLE001
+        return None
+    return number if number.is_finite() else None
 
 
 def _format_favorite_market_cap(value: object, *, currency: str) -> str:

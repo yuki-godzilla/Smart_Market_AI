@@ -4303,3 +4303,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   smartphoneで1列に折り返すコンパクト表にした。
 - 関連392 test、Ruff、Black helper、diff checkを確認。My Radar Playwright smokeで
   iPhone 13 mini、iPad縦横、PCの横overflowなし、Streamlit例外なしを確認した。
+
+## 2026-07-04 Myウォッチリスト価格の円主表示
+
+- Myウォッチリストの価格は円を主表示とし、海外銘柄は
+  `27,368円（182.45 USD）`のように元価格と元通貨を横に併記した。
+- ウォッチリスト更新時に取得した対円レートと円換算価格をスナップショットへ保存。
+  為替未取得時は`—円（182.45 USD）`として、換算値を推測せず元価格を維持する。
+- 日本株は従来どおり`1,843円`形式を維持。カードとテーブルは同じ価格表示を共有する。
+- 関連403 test、Ruff、Black helper、diff checkを確認した。

@@ -31,6 +31,8 @@ class WatchlistSnapshot:
     asset_type: str | None = None
     currency: str | None = None
     price: float | None = None
+    price_jpy: float | None = None
+    fx_rate_jpy: float | None = None
     price_display: str | None = None
     price_change_1d: float | None = None
     price_change_5d: float | None = None
@@ -227,6 +229,14 @@ def build_watchlist_snapshot_for_symbol(
     )
     closes = [float(bar.close) for bar in sorted_bars if _finite_float(bar.close) is not None]
     price = closes[-1] if closes else _first_float(row, "price", "last_price", "close")
+    currency = _first_text(row, "currency") or (favorite.currency if favorite else None)
+    fx_rate_jpy = _first_float(row, "fx_rate_jpy")
+    price_jpy = _first_float(row, "price_jpy", "current_price_jpy")
+    if price_jpy is None and price is not None:
+        if str(currency or "").upper() == "JPY":
+            price_jpy = price
+        elif fx_rate_jpy is not None:
+            price_jpy = price * fx_rate_jpy
     change_1d = _price_change(closes, 1) if closes else _first_float(row, "price_change_1d")
     change_5d = _price_change(closes, 5) if closes else _first_float(row, "price_change_5d")
     change_1m = _price_change(closes, 20) if closes else _first_float(row, "price_change_1m")
@@ -240,11 +250,11 @@ def build_watchlist_snapshot_for_symbol(
         name=_first_text(row, "name") or (favorite.name if favorite else None),
         market=_first_text(row, "market") or (favorite.market if favorite else None),
         asset_type=_first_text(row, "asset_type") or (favorite.asset_type if favorite else None),
-        currency=_first_text(row, "currency") or (favorite.currency if favorite else None),
+        currency=currency,
         price=price,
-        price_display=_format_price(
-            price, _first_text(row, "currency") or (favorite.currency if favorite else None)
-        ),
+        price_jpy=price_jpy,
+        fx_rate_jpy=fx_rate_jpy,
+        price_display=_format_price(price, currency),
         price_change_1d=change_1d,
         price_change_5d=change_5d,
         price_change_1m=change_1m,

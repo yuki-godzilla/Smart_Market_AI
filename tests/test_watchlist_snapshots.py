@@ -115,7 +115,12 @@ def test_build_snapshot_calculates_partial_returns_and_keeps_previous_data():
     snapshot = build_watchlist_snapshot_for_symbol(
         "aapl",
         favorite=FavoriteStock(symbol="AAPL", name="Apple"),
-        row={"currency": "USD", "upside_score": "61", "downside_risk_score": "32"},
+        row={
+            "currency": "USD",
+            "fx_rate_jpy": "150",
+            "upside_score": "61",
+            "downside_risk_score": "32",
+        },
         bars=bars,
         previous=previous,
         now=datetime(2026, 6, 27, tzinfo=UTC),
@@ -123,6 +128,8 @@ def test_build_snapshot_calculates_partial_returns_and_keeps_previous_data():
     )
 
     assert snapshot.price == 121.0
+    assert snapshot.price_jpy == 18150.0
+    assert snapshot.fx_rate_jpy == 150.0
     assert snapshot.price_change_1d == pytest.approx(0.8333, abs=0.0001)
     assert snapshot.price_change_5d == pytest.approx(4.3103, abs=0.0001)
     assert snapshot.price_change_1m == pytest.approx(19.802, abs=0.0001)

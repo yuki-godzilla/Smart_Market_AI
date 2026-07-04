@@ -528,6 +528,40 @@ def test_favorite_display_payload_formats_fundamentals_and_jst_dates():
     assert payload["sector"] == "保険"
 
 
+def test_favorite_display_payload_prefers_jpy_and_keeps_original_currency():
+    favorite = app_module.FavoriteStock(
+        symbol="NVDA",
+        name="NVIDIA",
+        market="us",
+        asset_type="stock",
+        currency="USD",
+    )
+
+    payload = app_module._favorite_display_payload(
+        favorite,
+        {"NVDA": {"price": "182.45", "current_price_jpy": "27367.5", "currency": "USD"}},
+    )
+
+    assert payload["price"] == "27,368円（182.45 USD）"
+
+
+def test_favorite_display_payload_marks_missing_fx_without_hiding_original_price():
+    favorite = app_module.FavoriteStock(
+        symbol="NVDA",
+        name="NVIDIA",
+        market="us",
+        asset_type="stock",
+        currency="USD",
+    )
+
+    payload = app_module._favorite_display_payload(
+        favorite,
+        {"NVDA": {"price": "182.45", "currency": "USD"}},
+    )
+
+    assert payload["price"] == "—円（182.45 USD）"
+
+
 def test_favorite_card_html_compacts_empty_decision_trail():
     markup = _favorite_card_html(
         {

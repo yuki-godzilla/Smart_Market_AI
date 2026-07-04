@@ -76,7 +76,15 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
 
     kpi_labels = page.locator(".smai-card-label").all_text_contents()[:4]
     assert kpi_labels == ["投資スコア", "上昇気配", "下降警戒", "データ信頼度"]
-    assert page.locator(".research-ai-cta--hero").count() == 1
+    research_card = page.locator(".research-ai-cta--hero")
+    assert research_card.count() == 1
+    research_text = research_card.inner_text()
+    assert "AI調査はまだ未取得です" in research_text
+    assert "調査アクション" not in research_text
+    assert "確認方針" not in research_text
+    assert "売買推奨ではありません" not in research_text
+    assert "企業理解のための情報整理" not in research_text
+    assert research_card.get_by_text("AI調査はまだ未取得です", exact=True).count() == 1
     research_button = page.get_by_role("button", name="AI調査を開始・更新", exact=True)
     research_button.wait_for(state="visible")
     button_box = research_button.bounding_box()

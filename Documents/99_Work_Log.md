@@ -4279,3 +4279,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   UX-018はRanking / Rebalance横断確認が残るためIn reviewを維持した。
 - AI調査の外部更新はnetwork-free smokeの対象外とし、未取得状態のヒーロー密度、
   CTA操作性、取得後表示契約は既存fake/local testで確認した。
+
+## 2026-07-04 Cockpit AI調査カードのポリッシュ
+
+- `03 AI調査・材料分析`の説明を1文へ短縮し、左右2カラムを廃止。
+  状態、短い説明、チップ、primary CTAを単一の操作カードへ集約した。
+- 未取得時は`AI調査はまだ未取得です`と`AI調査を開始・更新`を主表示にし、
+  下部の重複通知、`調査アクション`、`確認方針`、カード内免責文を削除した。
+- 取得後は`AI調査結果`、確認件数、注目材料、注意材料、`AI調査を更新`へ切り替える。
+  AI調査の取得処理、ニュース・IR取得、Gateway、詳細データのタブ構成は変更していない。
+- カードのpadding、glow、見出し、チップ余白を軽量化し、PC / iPhone / iPadで
+  折返し、CTA幅、ページ横overflow、Streamlit例外なしをPlaywrightで確認した。

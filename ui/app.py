@@ -187,7 +187,6 @@ from ui.content.research_texts import (
     RESEARCH_IR_SUMMARY_TITLE,
     RESEARCH_NEWS_SUMMARY_TITLE,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
-    RESEARCH_NOT_FETCHED_MESSAGE,
     RESEARCH_QUANTITATIVE_SUMMARY_TITLE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
     RESEARCH_RANKING_LOOKUP_INTRO,
@@ -776,13 +775,13 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .research-ai-cta-title {
     color: var(--text-ai-title);
     font-weight: 800;
-    font-size: 1.02rem;
-    margin-bottom: 0.45rem;
+    font-size: 0.96rem;
+    margin-bottom: 0.3rem;
 }
 .research-ai-cta-copy {
     color: var(--text-ai-primary);
-    font-size: 0.9rem;
-    line-height: 1.55;
+    font-size: 0.86rem;
+    line-height: 1.48;
 }
 .research-ai-cta-source {
     color: var(--text-ai-muted);
@@ -12085,7 +12084,6 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                 _external_research_fetch_overview_html(external_research_result),
                 unsafe_allow_html=True,
             )
-        st.info(RESEARCH_NOT_FETCHED_MESSAGE)
         if news_report is not None and news_report.news:
             _render_stock_news_cards_panel(news_report)
     else:
@@ -13433,55 +13431,76 @@ def _render_research_operation_card(
     news_report: StockNewsReport | None,
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
-    insight = _research_operation_insight(report, news_report)
     status_chips = _research_operation_status_chips(report, news_report)
     status_chips_html = "".join(
         f'<span class="research-ai-state-chip">{html.escape(label)}: '
         f"{html.escape(value)}</span>"
         for label, value in status_chips
     )
-    with st.container(border=False):
-        text_col, action_col = st.columns([1.55, 1.0])
-        with text_col:
-            st.markdown(
-                (
-                    '<div class="research-ai-cta research-ai-cta--hero">'
-                    '<div class="research-ai-cta-title">AI調査で材料を確認</div>'
-                    '<div class="research-ai-cta-copy">'
-                    "ニュース・IR・開示・外部データから、注目材料と注意材料を整理します。"
-                    "チャートや予測だけでは分からない背景を確認できます。</div>"
-                    '<div class="research-ai-cta-source">'
-                    f'{html.escape(insight["summary"])}</div>'
-                    f'<div class="research-next-step">{html.escape(insight["next_step"])}</div>'
-                    '<div class="research-ai-state-row">'
-                    f"{status_chips_html}"
-                    '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
-                    "</div>"
-                    '<div class="research-ai-cta-note">'
-                    "企業理解のための情報整理であり、売買推奨ではありません。</div>"
-                    "</div>"
-                ),
-                unsafe_allow_html=True,
-            )
-        with action_col:
-            st.markdown(
-                '<div class="research-action-label">調査アクション</div>', unsafe_allow_html=True
-            )
-            fetch_clicked = st.button(
-                RESEARCH_FETCH_BUTTON_LABEL,
-                key=f"research_ai_fetch_{symbol}",
-                help=(
-                    "外部参照ソースと保存済み資料から、企業概要、事業内容、定量情報、IR、ニュースを整理します。"
-                    "売買判断の代行ではありません。"
-                ),
-                type="primary",
-                use_container_width=True,
-            )
-            st.markdown(
-                '<div class="research-action-help">根拠資料とニュースをまとめて更新します。</div>',
-                unsafe_allow_html=True,
-            )
-            return fetch_clicked
+    title, summary, materials_html = _research_operation_card_content(report, news_report)
+    with st.container(border=True):
+        st.markdown(
+            (
+                '<div class="research-ai-cta research-ai-cta--hero">'
+                f'<div class="research-ai-cta-title">{html.escape(title)}</div>'
+                f'<div class="research-ai-cta-copy">{html.escape(summary)}</div>'
+                f"{materials_html}"
+                '<div class="research-ai-state-row">'
+                f"{status_chips_html}"
+                '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
+                "</div>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+        return st.button(
+            RESEARCH_FETCH_BUTTON_LABEL if report is None else "AI調査を更新",
+            key=f"research_ai_fetch_{symbol}",
+            help="ニュース・IR・開示・外部データをまとめて確認します。",
+            type="primary",
+            use_container_width=True,
+        )
+
+
+def _research_operation_card_content(
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> tuple[str, str, str]:
+    if report is None:
+        return (
+            "AI調査はまだ未取得です",
+            "ニュース、IR、開示、保存済み資料を確認し、注目材料と注意材料を整理します。",
+            "",
+        )
+
+    brief = ResearchBriefBuilder().build(report, news_report=news_report)
+    status = dict(_research_operation_status_chips(report, news_report))
+    summary = (
+        f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
+        f"外部データ{status['外部データ']}を確認"
+    )
+    positive = [
+        _research_brief_ui_text(item.summary, max_chars=88) for item in brief.positive_materials[:3]
+    ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.positive_candidates[:3]]
+    caution = [
+        _research_brief_ui_text(item.summary, max_chars=88) for item in brief.caution_materials[:3]
+    ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.caution_candidates[:3]]
+    materials_html = "".join(
+        _research_operation_material_list_html(label, items)
+        for label, items in (("注目材料", positive), ("注意材料", caution))
+        if items
+    )
+    return "AI調査結果", summary, materials_html
+
+
+def _research_operation_material_list_html(label: str, items: list[str]) -> str:
+    list_html = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return (
+        '<div class="research-ai-materials">'
+        f'<div class="research-ai-materials-title">{html.escape(label)}</div>'
+        f"<ul>{list_html}</ul>"
+        "</div>"
+    )
 
 
 def _research_operation_status_chips(

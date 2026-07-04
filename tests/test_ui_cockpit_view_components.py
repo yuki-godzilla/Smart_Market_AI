@@ -116,11 +116,15 @@ def test_cockpit_details_use_one_expander_with_export_tab():
 
 def test_cockpit_research_and_forecast_labels_match_primary_flow():
     research_source = inspect.getsource(app_module._render_research_operation_card)
+    summary_source = inspect.getsource(app_module._render_cockpit_research_summary)
     forecast_source = inspect.getsource(app_module._render_price_forecast_hero)
 
     assert RESEARCH_COCKPIT_SECTION_TITLE == "03 AI調査・材料分析"
     assert RESEARCH_FETCH_BUTTON_LABEL == "AI調査を開始・更新"
     assert research_source.count('type="primary"') == 1
+    assert "st.columns" not in research_source
+    assert "調査アクション" not in research_source
+    assert "RESEARCH_NOT_FETCHED_MESSAGE" not in summary_source
     assert '"予測日数"' in forecast_source
     assert '"Forecast days"' not in forecast_source
 

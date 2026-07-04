@@ -2527,13 +2527,12 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
 
     def fake_button(label: str, **kwargs: object) -> bool:
         button_calls.append((label, kwargs))
-        return label == "AI調査を開始・更新"
+        return True
 
     def fake_download_button(*args: object, **kwargs: object) -> None:
         raise AssertionError("Research operation card should not show CSV export.")
 
     monkeypatch.setattr("ui.app.st.container", lambda **kwargs: nullcontext())
-    monkeypatch.setattr("ui.app.st.columns", lambda spec: [nullcontext() for _ in spec])
     monkeypatch.setattr(
         "ui.app.st.markdown",
         lambda body, *args, **kwargs: markdown_calls.append(str(body)),
@@ -2545,17 +2544,32 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     markup = "\n".join(markdown_calls)
 
     assert clicked is True
-    assert [label for label, _ in button_calls] == ["AI調査を開始・更新"]
+    assert [label for label, _ in button_calls] == ["AI調査を更新"]
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
-    assert "AI調査で材料を確認" in markup
+    assert "AI調査結果" in markup
     assert "レポート: 作成済み" in markup
     assert "ニュース: 0件" in markup
     assert "IR/開示: 2件" in markup
     assert "外部データ: 1件" in markup
-    assert "事業:" in markup
-    assert "補足:" in markup
-    assert "追加確認:" in markup
+    assert "注目材料" in markup
+    assert "注意材料" in markup
+    assert "調査アクション" not in markup
+    assert "売買推奨ではありません" not in markup
+    assert "企業理解のための情報整理" not in markup
+    assert "JSON" not in markup
+    assert "CSV" not in markup
+
+    button_calls.clear()
+    markdown_calls.clear()
+    clicked = _render_research_operation_card(preview, report=None, news_report=None)
+    markup = "\n".join(markdown_calls)
+
+    assert clicked is True
+    assert [label for label, _ in button_calls] == ["AI調査を開始・更新"]
+    assert "AI調査はまだ未取得です" in markup
+    assert "未取得通知" not in markup
+    assert "確認方針" not in markup
 
 
 def test_research_operation_insight_uses_neutral_prefetch_guidance():

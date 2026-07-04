@@ -4290,3 +4290,16 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   AI調査の取得処理、ニュース・IR取得、Gateway、詳細データのタブ構成は変更していない。
 - カードのpadding、glow、見出し、チップ余白を軽量化し、PC / iPhone / iPadで
   折返し、CTA幅、ページ横overflow、Streamlit例外なしをPlaywrightで確認した。
+
+## 2026-07-04 Myウォッチリスト銘柄カードの情報密度改善
+
+- 価格、AI総合、上昇気配、下振れ警戒の主要4指標を維持し、既存の銘柄情報から
+  配当利回り、PER、PBR、ROE、時価総額、セクターを詳細指標として追加した。
+- カード常時表示から「次の確認」「確認ポイント」と判断メモ本文を外し、
+  判断メモ編集の折りたたみ導線は維持した。
+- 追加日は`YYYY/MM/DD`、更新は日本時間の`M/D HH:MM JST`へ表示時に変換し、
+  内部ISO値を維持して並び替え・更新判定への影響を避けた。
+- カード、タグ、値動き、主要指標の余白を縮め、詳細指標はPC / tabletで2列、
+  smartphoneで1列に折り返すコンパクト表にした。
+- 関連392 test、Ruff、Black helper、diff checkを確認。My Radar Playwright smokeで
+  iPhone 13 mini、iPad縦横、PCの横overflowなし、Streamlit例外なしを確認した。

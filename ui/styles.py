@@ -5695,8 +5695,8 @@ div[data-testid="stRadio"]:has([role="radiogroup"] label:nth-child(6))
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.06),
         0 18px 38px rgba(0, 0, 0, 0.18);
-    margin: 0 0 0.86rem;
-    padding: 0.9rem;
+    margin: 0 0 0.58rem;
+    padding: 0.72rem 0.76rem;
 }
 
 .smai-watchlist-groups-toolbar {
@@ -6144,8 +6144,10 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     margin-top: 0.16rem;
 }
 
-.smai-watchlist-card-added {
-    min-width: 5.6rem;
+.smai-watchlist-card-dates {
+    display: grid;
+    gap: 0.08rem;
+    min-width: 8.4rem;
     color: var(--text-muted);
     font-size: 0.72rem;
     font-weight: 720;
@@ -6153,9 +6155,9 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     text-align: right;
 }
 
-.smai-watchlist-card-added strong {
+.smai-watchlist-card-dates strong {
     color: var(--text-heading);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
 }
 
 .smai-watchlist-card-meta {
@@ -6163,14 +6165,14 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     font-size: 0.78rem;
     font-weight: 650;
     line-height: 1.45;
-    margin-top: 0.42rem;
+    margin-top: 0.28rem;
 }
 
 .smai-watchlist-badge-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.42rem;
-    margin-top: 0.74rem;
+    gap: 0.32rem;
+    margin-top: 0.52rem;
 }
 
 .smai-watchlist-badge {
@@ -6179,8 +6181,8 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     color: var(--text-heading);
     display: inline-flex;
     align-items: center;
-    min-height: 1.6rem;
-    padding: 0.24rem 0.62rem;
+    min-height: 1.4rem;
+    padding: 0.18rem 0.52rem;
     font-size: 0.78rem;
     font-weight: 820;
     line-height: 1.1;
@@ -6297,8 +6299,8 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     gap: 0.5rem;
     border-block: 1px solid rgba(70, 91, 120, 0.36);
     color: var(--text-secondary);
-    margin-top: 0.72rem;
-    padding: 0.52rem 0;
+    margin-top: 0.5rem;
+    padding: 0.4rem 0;
 }
 
 .smai-watchlist-movement strong {
@@ -6385,8 +6387,8 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 .smai-watchlist-metric-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.48rem;
-    margin-top: 0.82rem;
+    gap: 0.36rem;
+    margin-top: 0.58rem;
 }
 
 .smai-watchlist-metric {
@@ -6394,7 +6396,7 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     border-radius: 6px;
     background: rgba(2, 6, 23, 0.28);
     min-width: 0;
-    padding: 0.48rem 0.52rem;
+    padding: 0.38rem 0.46rem;
 }
 
 .smai-watchlist-metric--muted .smai-watchlist-metric-value {
@@ -6405,7 +6407,7 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 .smai-watchlist-metric-label {
     color: var(--text-muted);
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 760;
     line-height: 1.25;
     margin-bottom: 0.18rem;
@@ -6418,6 +6420,44 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     font-weight: 860;
     line-height: 1.25;
     overflow-wrap: anywhere;
+}
+
+.smai-watchlist-detail-title {
+    border-top: 1px solid rgba(70, 91, 120, 0.4);
+    color: var(--text-heading);
+    font-size: 0.72rem;
+    font-weight: 820;
+    margin-top: 0.58rem;
+    padding-top: 0.48rem;
+}
+
+.smai-watchlist-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0.18rem;
+}
+
+.smai-watchlist-detail-metric {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 0.28rem;
+    min-width: 0;
+    padding: 0.28rem 0.32rem;
+    border-bottom: 1px solid rgba(70, 91, 120, 0.28);
+}
+
+.smai-watchlist-detail-metric span {
+    color: var(--text-muted);
+    font-size: 0.67rem;
+    font-weight: 720;
+}
+
+.smai-watchlist-detail-metric strong {
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    font-weight: 760;
+    overflow-wrap: anywhere;
+    text-align: right;
 }
 
 .smai-watchlist-info {
@@ -6509,13 +6549,17 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
         flex-direction: column;
     }
 
-    .smai-watchlist-card-added {
+    .smai-watchlist-card-dates {
         min-width: 0;
         text-align: left;
     }
 
     .smai-watchlist-metric-grid,
     .smai-watchlist-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .smai-watchlist-detail-grid {
         grid-template-columns: 1fr;
     }
 }

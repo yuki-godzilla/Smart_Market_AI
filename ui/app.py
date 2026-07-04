@@ -28,6 +28,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, JsCode
+from zoneinfo import ZoneInfo
 
 from backend.core.config import get_settings
 from backend.core.data_contracts import (
@@ -11087,6 +11088,28 @@ def _favorite_display_payload(
         "ai_score": ai_score or "未取得",
         "upside": upside or "未取得",
         "downside": downside or "未取得",
+        "dividend_yield": _favorite_fundamental_value(
+            row,
+            "dividend_yield_pct",
+            "dividend_yield",
+            "dividendYield",
+            "yield",
+            suffix="%",
+        ),
+        "per": _favorite_fundamental_value(row, "per", "trailing_pe", "forward_pe"),
+        "pbr": _favorite_fundamental_value(row, "pbr", "price_to_book"),
+        "roe": _favorite_fundamental_value(
+            row,
+            "roe_pct",
+            "roe",
+            "return_on_equity",
+            suffix="%",
+        ),
+        "market_cap": _format_favorite_market_cap(
+            _favorite_first_value(row, "market_cap", "market_cap_jpy", "marketCapitalization"),
+            currency=currency,
+        ),
+        "sector": _favorite_sector_value(row),
         "price_change_1d": price_change_1d or "",
         "price_change_5d": price_change_5d or "",
         "price_change_1m": price_change_1m or "",
@@ -11200,6 +11223,78 @@ def _favorite_display_value(value: object, *, fallback: str = "未取得") -> st
     if not text or text in {"-", "None", "null"}:
         return fallback
     return text
+
+
+def _favorite_first_value(row: Mapping[str, object], *keys: str) -> object:
+    for key in keys:
+        value = row.get(key)
+        if str(value or "").strip() not in {"", "-", "None", "null", "nan", "NaN"}:
+            return value
+    return ""
+
+
+def _favorite_fundamental_value(
+    row: Mapping[str, object],
+    *keys: str,
+    suffix: str = "",
+) -> str:
+    value = _favorite_first_value(row, *keys)
+    if value == "":
+        return "—"
+    text = str(value).replace("%", "").strip()
+    try:
+        number = Decimal(text)
+    except Exception:  # noqa: BLE001
+        return str(value)
+    if not number.is_finite():
+        return "—"
+    formatted = f"{number:.2f}".rstrip("0").rstrip(".")
+    return f"{formatted}{suffix}"
+
+
+def _format_favorite_market_cap(value: object, *, currency: str) -> str:
+    text = str(value or "").replace(",", "").strip()
+    if text in {"", "-", "None", "null", "nan", "NaN"}:
+        return "—"
+    try:
+        amount = Decimal(text)
+    except Exception:  # noqa: BLE001
+        return str(value)
+    if not amount.is_finite():
+        return "—"
+    if currency.upper() == "JPY":
+        if amount >= Decimal("1000000000000"):
+            return f"{amount / Decimal('1000000000000'):.1f}".rstrip("0").rstrip(".") + "兆円"
+        if amount >= Decimal("100000000"):
+            return f"{amount / Decimal('100000000'):.0f}億円"
+        return f"{amount:,.0f}円"
+    if amount >= Decimal("1000000000"):
+        return f"${amount / Decimal('1000000000'):.1f}".rstrip("0").rstrip(".") + "B"
+    if amount >= Decimal("1000000"):
+        return f"${amount / Decimal('1000000'):.1f}".rstrip("0").rstrip(".") + "M"
+    return f"{amount:,.0f} {currency}"
+
+
+def _favorite_sector_value(row: Mapping[str, object]) -> str:
+    value = str(_favorite_first_value(row, "sector", "industry") or "").strip()
+    if not value:
+        return "—"
+    return {"insurance": "保険"}.get(value, RANKING_OFFICIAL_SECTOR_LABELS.get(value, value))
+
+
+def _format_watchlist_added_date(value: str | None) -> str:
+    parsed = _parse_watchlist_datetime(value)
+    if parsed is None:
+        return "—"
+    return parsed.astimezone(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d")
+
+
+def _format_watchlist_updated_at(value: str | None) -> str:
+    parsed = _parse_watchlist_datetime(value)
+    if parsed is None:
+        return "—"
+    localized = parsed.astimezone(ZoneInfo("Asia/Tokyo"))
+    return f"{localized.month}/{localized.day} {localized:%H:%M} JST"
 
 
 def _favorite_change_value(row: Mapping[str, object], *keys: str) -> str:
@@ -11375,7 +11470,8 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         html.escape(_favorite_display_value(payload.get(key), fallback="未取得"))
         for key in ("market", "asset_type", "currency")
     )
-    added_at = html.escape(_favorite_display_value(payload.get("added_at"), fallback="未確認"))
+    added_at = html.escape(_format_watchlist_added_date(payload.get("added_at")))
+    updated_at = html.escape(_format_watchlist_updated_at(payload.get("last_checked_at")))
     has_decision_details = _favorite_has_decision_details(payload)
     metrics_missing = _favorite_metrics_missing(payload)
     decision_badge = (
@@ -11389,55 +11485,19 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             _favorite_metric_html("AI総合", payload.get("ai_score"), fallback="AI評価なし"),
             _favorite_metric_html("上昇気配", payload.get("upside"), fallback="AI評価なし"),
             _favorite_metric_html("下振れ警戒", payload.get("downside"), fallback="AI評価なし"),
-            _favorite_metric_html("最終確認", payload.get("last_checked_at"), fallback="未確認"),
         ]
     )
-    confirmation_rows = "".join(
-        [
-            _favorite_info_row_html("次の確認", payload.get("refresh_next_action")),
-            _favorite_info_row_html(
-                "確認ポイント",
-                payload.get("checkpoint") or payload.get("refresh_reason"),
-            ),
-        ]
-    )
-    if has_decision_details:
-        decision_content = (
-            '<div class="smai-watchlist-decision-title">判断メモ</div>'
-            '<div class="smai-watchlist-info smai-watchlist-decision">'
-            + "".join(
-                [
-                    _favorite_info_row_html(
-                        "判断状態",
-                        payload.get("decision_status"),
-                        fallback="未設定",
-                    ),
-                    _favorite_info_row_html(
-                        "Watch理由",
-                        payload.get("watch_reason"),
-                        fallback="未入力",
-                    ),
-                    _favorite_info_row_html(
-                        "現在の見方",
-                        payload.get("decision_note"),
-                        fallback="未入力",
-                    ),
-                    _favorite_info_row_html(
-                        "次の確認",
-                        payload.get("next_check_label") or payload.get("next_check_at"),
-                        fallback="未設定",
-                    ),
-                    _favorite_info_row_html(
-                        "最終更新",
-                        payload.get("decision_updated_label"),
-                        fallback="未更新",
-                    ),
-                ]
-            )
-            + "</div>"
+    fundamentals = "".join(
+        _favorite_detail_metric_html(label, payload.get(key))
+        for label, key in (
+            ("配当利回り", "dividend_yield"),
+            ("PER", "per"),
+            ("PBR", "pbr"),
+            ("ROE", "roe"),
+            ("時価総額", "market_cap"),
+            ("セクター", "sector"),
         )
-    else:
-        decision_content = ""
+    )
     data_update_content = (
         '<div class="smai-watchlist-data-needed">'
         "<strong>データ更新が必要です</strong>"
@@ -11460,7 +11520,10 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         f'<div class="smai-watchlist-card-symbol">{html.escape(name)}</div>'
         f'<div class="smai-watchlist-card-name">{html.escape(symbol)}</div>'
         "</div>"
-        f'<div class="smai-watchlist-card-added">追加日<br><strong>{added_at}</strong></div>'
+        '<div class="smai-watchlist-card-dates">'
+        f"<span>追加日: <strong>{added_at}</strong></span>"
+        f"<span>更新: <strong>{updated_at}</strong></span>"
+        "</div>"
         "</div>"
         f'<div class="smai-watchlist-card-meta">{meta}</div>'
         '<div class="smai-watchlist-badge-row">'
@@ -11475,9 +11538,19 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         f"{snapshot_notice}"
         f"{data_update_content}"
         f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
-        f'<div class="smai-watchlist-info">{confirmation_rows}</div>'
-        f"{decision_content}"
+        '<div class="smai-watchlist-detail-title">詳細指標</div>'
+        f'<div class="smai-watchlist-detail-grid">{fundamentals}</div>'
         "</section>"
+    )
+
+
+def _favorite_detail_metric_html(label: str, value: object) -> str:
+    display_value = _favorite_display_value(value, fallback="—")
+    return (
+        '<div class="smai-watchlist-detail-metric">'
+        f"<span>{html.escape(label)}</span>"
+        f"<strong>{html.escape(display_value)}</strong>"
+        "</div>"
     )
 
 

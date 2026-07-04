@@ -447,6 +447,7 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
             "asset_type": "stock",
             "currency": "USD",
             "added_at": "2026-06-27",
+            "last_checked_at": "2026-06-27T20:00:00+09:00",
             "status": "上昇候補",
             "status_label": "上昇傾向",
             "refresh_status": "failed",
@@ -461,6 +462,12 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
             "next_check_label": "次回決算",
             "decision_updated_label": "2026/06/27 20:00",
             "related_news": "あり",
+            "dividend_yield": "0.03%",
+            "per": "42.1",
+            "pbr": "38.4",
+            "roe": "91.2%",
+            "market_cap": "$3.8T",
+            "sector": "Technology",
         }
     )
 
@@ -469,17 +476,56 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
     assert markup.index("NVIDIA") < markup.index("NVDA")
     assert "上昇傾向" in markup
     assert "前回失敗" in markup
-    assert "判断メモ" in markup
-    assert "監視中" in markup
-    assert "AI関連として確認" in markup
-    assert "決算前後の値動きを確認" in markup
+    assert "判断メモ" not in markup
+    assert "AI関連として確認" not in markup
     assert "smai-watchlist-status--upside" in markup
     assert "smai-watchlist-refresh--failed" in markup
     assert "価格" in markup
     assert "AI総合" in markup
     assert "価格データなし" in markup
     assert "AI評価なし" in markup
-    assert "未確認" in markup
+    assert "更新: <strong>6/27 20:00 JST" in markup
+    assert "詳細指標" in markup
+    assert all(
+        label in markup for label in ("配当利回り", "PER", "PBR", "ROE", "時価総額", "セクター")
+    )
+    assert "次の確認" not in markup
+    assert "確認ポイント" not in markup
+
+
+def test_favorite_display_payload_formats_fundamentals_and_jst_dates():
+    favorite = app_module.FavoriteStock(
+        symbol="8750.T",
+        name="第一生命グループ",
+        market="jp",
+        asset_type="stock",
+        currency="JPY",
+        added_at="2026-07-02T21:35:48+09:00",
+        last_checked_at="2026-07-04T16:58:36+09:00",
+    )
+
+    payload = app_module._favorite_display_payload(
+        favorite,
+        {
+            "8750.T": {
+                "dividend_yield_pct": "3.80",
+                "per": "12.40",
+                "pbr": "0.92",
+                "roe_pct": "8.20",
+                "market_cap": "4300000000000",
+                "sector": "insurance",
+            }
+        },
+    )
+
+    assert app_module._format_watchlist_added_date(payload["added_at"]) == "2026/07/02"
+    assert app_module._format_watchlist_updated_at(payload["last_checked_at"]) == "7/4 16:58 JST"
+    assert payload["dividend_yield"] == "3.8%"
+    assert payload["per"] == "12.4"
+    assert payload["pbr"] == "0.92"
+    assert payload["roe"] == "8.2%"
+    assert payload["market_cap"] == "4.3兆円"
+    assert payload["sector"] == "保険"
 
 
 def test_favorite_card_html_compacts_empty_decision_trail():

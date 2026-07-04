@@ -34,6 +34,7 @@ from ui.favorites import (
     load_favorites,
     render_favorite_button,
 )
+from ui.notification_center import START_PROFILE_QUERY_KEY
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -461,10 +462,17 @@ def news_dashboard_cockpit_href(symbol: str) -> str:
 
     normalized = symbol.strip().upper()
     encoded_symbol = quote(normalized, safe="")
-    return (
-        f"?{NEWS_COCKPIT_QUERY_PAGE_PARAM}={NEWS_COCKPIT_QUERY_COCKPIT_VALUE}"
-        f"&{NEWS_COCKPIT_QUERY_SYMBOL_PARAM}={encoded_symbol}"
+    query_parts: list[tuple[str, str]] = []
+    current_user_id = str(st.session_state.get("smai_current_user_id") or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", current_user_id):
+        query_parts.append((START_PROFILE_QUERY_KEY, quote(current_user_id, safe="")))
+    query_parts.extend(
+        (
+            (NEWS_COCKPIT_QUERY_PAGE_PARAM, NEWS_COCKPIT_QUERY_COCKPIT_VALUE),
+            (NEWS_COCKPIT_QUERY_SYMBOL_PARAM, encoded_symbol),
+        )
     )
+    return "?" + "&".join(f"{key}={value}" for key, value in query_parts)
 
 
 def news_headline_card_html(
@@ -1363,7 +1371,8 @@ def _stock_heatmap_tile_factors_label(
     market_cap_label: str,
     symbol_score: float,
 ) -> str:
-    return f"{change_label} / {market_cap_label} / 注目{symbol_score:.1f}"
+    del change_label
+    return f"{market_cap_label}・注目{symbol_score:.1f}"
 
 
 def _stock_heatmap_tile_spans(area_score: float, tile_index: int) -> tuple[int, int]:
@@ -1442,8 +1451,14 @@ def _stock_heatmap_group_class(group_index: int, heat_score: float) -> str:
 
 def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     category = html.escape(str(group["category"]))
-    metric_source = html.escape(str(group["metric_source"]))
-    summary_label = html.escape(str(group["summary_label"]))
+    meta = _stock_heatmap_group_meta_parts(
+        str(group["metric_source"]),
+        str(group["summary_label"]),
+    )
+    score = html.escape(meta["score"])
+    badge = html.escape(meta["badge"])
+    trend = html.escape(meta["trend"])
+    tone = html.escape(meta["tone"])
     group_class = html.escape(str(group["group_class"]))
     tiles_raw = group.get("tiles")
     tiles = cast(list[dict[str, object]], tiles_raw) if isinstance(tiles_raw, list) else []
@@ -1452,12 +1467,46 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     return (
         f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'
+        '<div class="investment-stock-heatmap-group-main">'
         f'<span class="investment-stock-heatmap-group-title">{category}</span>'
-        f'<span class="investment-stock-heatmap-group-meta">{metric_source} / {summary_label}</span>'
+        f'<span class="investment-stock-heatmap-group-score {tone}">{score}</span>'
+        "</div>"
+        '<div class="investment-stock-heatmap-group-sub">'
+        f'<span class="investment-stock-heatmap-group-badge">{badge}</span>'
+        f'<span class="investment-stock-heatmap-group-trend {tone}">{trend}</span>'
+        "</div>"
         "</header>"
         f'<div class="investment-stock-heatmap-tiles">{tile_html}</div>'
         "</article>"
     )
+
+
+def _stock_heatmap_group_meta_parts(
+    metric_source: str,
+    summary_label: str,
+) -> dict[str, str]:
+    parts = [part.strip() for part in summary_label.split("/") if part.strip()]
+    score = parts[0] if parts else "変化なし"
+    raw_trend = parts[-1] if len(parts) > 1 else "中立"
+    trend = {
+        "上昇・一方向": "上昇優勢",
+        "下降・一方向": "下落優勢",
+        "下落・一方向": "下落優勢",
+        "まちまち": "まちまち",
+        "中立": "中立",
+        "中立中心": "中立",
+    }.get(raw_trend, raw_trend)
+    tone = (
+        "negative"
+        if score.startswith("-") or trend == "下落優勢"
+        else ("positive" if score.startswith("+") or trend == "上昇優勢" else "neutral")
+    )
+    return {
+        "score": score,
+        "badge": metric_source.strip() or "市場データ",
+        "trend": trend,
+        "tone": tone,
+    }
 
 
 def _stock_heatmap_group_tile_count(group: dict[str, object]) -> int:

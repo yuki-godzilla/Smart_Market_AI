@@ -4354,3 +4354,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   メンテナンス通知を表示。
 - `logs/server_ops/` に autostart/watch/maintenance ログを集約。
 - 運用手順とトラブル対応を `docs/server_operation.md` に追加。
+
+## 2026-07-05 投資レーダーの遷移・ヒートマップ表示改善
+
+- ヒートマップ銘柄リンクへ安全な現在ユーザーの `smai_start_profile` を付け、同一アプリ遷移でユーザー選択へ戻らないようにした。
+- 既存のクライアント別30分セッション復元、期限切れ削除、不正・削除済みユーザー拒否を回帰テストで確認した。
+- コックピット遷移時に投資レーダー由来の銘柄コンテキストを保存するようにした。
+- セクターヘッダーを濃紺の2段表示へ変更し、スコア、データ種別、短いトレンド表示を分離した。
+- タイル補足から変化率の重複を除き、規模・注目度だけを表示するようにした。
+- 関連478 test、Ruff、対象ファイルのBlack互換、および投資レーダー4 viewport Playwright smokeを確認した。

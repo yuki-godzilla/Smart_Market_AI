@@ -10232,6 +10232,11 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
     st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = default_market_data_provider()
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
+    st.session_state["market_data_navigation_source"] = {
+        "source_page": "investment_radar",
+        "source_label": "投資レーダー",
+        "symbol": symbol.strip().upper(),
+    }
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
 

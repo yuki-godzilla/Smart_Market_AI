@@ -29,14 +29,15 @@ def test_investment_radar_responsive_viewports() -> None:
         try:
             for name, width, height in VIEWPORTS:
                 page = browser.new_page(viewport={"width": width, "height": height})
-                page.goto(base_url, wait_until="networkidle", timeout=120_000)
-                sidebar_control = page.locator('[data-testid="stSidebarCollapsedControl"] button')
-                if sidebar_control.count() and sidebar_control.is_visible():
-                    sidebar_control.click()
-                page.get_by_role("button", name="投資レーダー", exact=True).click()
+                page.goto(
+                    f"{base_url}?smai_start_profile=local_user&smai_page=news",
+                    wait_until="networkidle",
+                    timeout=120_000,
+                )
                 sidebar_close = page.locator('[data-testid="stSidebarCollapseButton"] button')
                 if sidebar_close.count() and sidebar_close.is_visible():
-                    sidebar_close.click()
+                    sidebar_close.evaluate("(element) => element.click()")
+                    page.keyboard.press("Escape")
                 page.wait_for_timeout(3_000)
 
                 body_width = page.locator("body").evaluate(
@@ -49,6 +50,14 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("投資レーダー", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
+                heatmap_tile = page.locator("a.investment-stock-heatmap-tile").first
+                heatmap_header = page.locator(".investment-stock-heatmap-group-header").first
+                assert heatmap_tile.count() > 0
+                assert heatmap_header.count() > 0
+                assert str(heatmap_tile.get_attribute("href")).startswith("?smai_start_profile=")
+                header_box = heatmap_header.bounding_box()
+                assert header_box is not None
+                assert header_box["height"] >= 40
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

@@ -1580,20 +1580,36 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-stock-heatmap-group-header {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.28rem;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
     background:
-        linear-gradient(90deg, rgba(226, 232, 240, 0.95), rgba(186, 230, 253, 0.88));
-    color: #0F172A;
-    padding: 0.24rem 0.42rem;
+        linear-gradient(115deg, rgba(8, 24, 44, 0.98), rgba(13, 47, 73, 0.92));
+    color: #E6F6FF;
+    padding: 0.48rem 0.56rem 0.44rem;
+}
+
+.investment-stock-heatmap-group-main,
+.investment-stock-heatmap-group-sub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.investment-stock-heatmap-group-main {
+    gap: 0.65rem;
+}
+
+.investment-stock-heatmap-group-sub {
+    justify-content: flex-start;
+    gap: 0.38rem;
 }
 
 .investment-stock-heatmap-group-title {
     min-width: 0;
-    font-size: 0.92rem;
-    font-weight: 850;
+    font-size: 1rem;
+    font-weight: 900;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1607,6 +1623,43 @@ div[data-testid="stElementContainer"]:has(
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.investment-stock-heatmap-group-score,
+.investment-stock-heatmap-group-trend {
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.investment-stock-heatmap-group-score {
+    color: #CBD5E1;
+    font-size: 0.9rem;
+}
+
+.investment-stock-heatmap-group-badge {
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 999px;
+    background: rgba(14, 116, 144, 0.18);
+    color: #BAE6FD;
+    font-size: 0.68rem;
+    font-weight: 760;
+    line-height: 1.2;
+    padding: 0.1rem 0.38rem;
+}
+
+.investment-stock-heatmap-group-trend {
+    color: #CBD5E1;
+    font-size: 0.72rem;
+}
+
+.investment-stock-heatmap-group-score.positive,
+.investment-stock-heatmap-group-trend.positive {
+    color: #86EFAC;
+}
+
+.investment-stock-heatmap-group-score.negative,
+.investment-stock-heatmap-group-trend.negative {
+    color: #FDA4AF;
 }
 
 .investment-stock-heatmap-tiles {
@@ -1949,12 +2002,14 @@ div[data-testid="stElementContainer"]:has(
         min-height: 14.2rem;
     }
     .investment-stock-heatmap-group-header {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 0.16rem;
+        gap: 0.3rem;
+        padding: 0.46rem 0.5rem;
     }
-    .investment-stock-heatmap-group-meta {
-        white-space: normal;
+    .investment-stock-heatmap-group-title {
+        font-size: 0.94rem;
+    }
+    .investment-stock-heatmap-group-sub {
+        flex-wrap: wrap;
     }
     .investment-stock-heatmap-tiles {
         grid-template-columns: repeat(3, minmax(0, 1fr));

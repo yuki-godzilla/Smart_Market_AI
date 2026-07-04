@@ -29,3 +29,21 @@ def test_navigation_query_params_open_ranking_from_assistant(monkeypatch):
 
     assert session_state["sidemenu_page"] == "ranking"
     assert query_params == {}
+
+
+def test_navigation_query_params_keep_investment_radar_cockpit_context(monkeypatch):
+    session_state: dict[str, object] = {}
+    query_params = {"smai_page": ["cockpit"], "smai_symbol": ["nvda"]}
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module.st, "query_params", query_params, raising=False)
+
+    _apply_navigation_query_params()
+
+    assert session_state["sidemenu_page"] == "cockpit"
+    assert str(session_state["market_data_symbol_candidate"]).startswith("NVDA")
+    assert session_state["market_data_navigation_source"] == {
+        "source_page": "investment_radar",
+        "source_label": "投資レーダー",
+        "symbol": "NVDA",
+    }
+    assert query_params == {}

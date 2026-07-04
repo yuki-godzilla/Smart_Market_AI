@@ -6,6 +6,7 @@ from backend.news import (
     NewsHeadlineCard,
     build_demo_news_dashboard_snapshot,
 )
+from ui.views import news as news_module
 from ui.views.news import (
     _news_ticker_html,
     news_card_market_proxy_symbols,
@@ -84,6 +85,11 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert groups[0]["tiles"]
     assert "investment-stock-heatmap-board" in html_text
     assert "investment-stock-heatmap-group" in html_text
+    assert "investment-stock-heatmap-group-main" in html_text
+    assert "investment-stock-heatmap-group-score" in html_text
+    assert "investment-stock-heatmap-group-sub" in html_text
+    assert "investment-stock-heatmap-group-badge" in html_text
+    assert "investment-stock-heatmap-group-trend" in html_text
     assert "investment-stock-heatmap-tile" in html_text
     assert "8セクター" in html_text
     assert "64銘柄タイル" in html_text
@@ -116,16 +122,30 @@ def test_news_dashboard_stock_heatmap_tiles_use_dynamic_area_factors():
 
     assert len(spans) >= 3
     assert all(tile["area_score"] > 0 for tile in tiles)
-    assert all(" / " in tile["factors_label"] for tile in tiles)
+    assert all("注目" in tile["factors_label"] for tile in tiles)
+    assert all(not tile["factors_label"].startswith(tile["change_label"]) for tile in tiles)
     assert all(tile["color_style"].startswith("--heatmap-tile-bg") for tile in tiles)
     assert "investment-stock-heatmap-factors" in html_text
     assert "面積根拠:" in html_text
-    assert "一方向" in html_text or "銘柄差" in html_text
+    assert "investment-stock-heatmap-group-trend" in html_text
     assert 'style="grid-column: span ' in html_text
 
 
 def test_news_dashboard_cockpit_href_normalizes_symbol_for_same_app_navigation():
+    news_module.st.session_state.clear()
     assert news_dashboard_cockpit_href(" nvda ") == "?smai_page=cockpit&smai_symbol=NVDA"
+    assert news_dashboard_cockpit_href("9432.t") == "?smai_page=cockpit&smai_symbol=9432.T"
+
+
+def test_news_dashboard_cockpit_href_includes_safe_current_user(monkeypatch):
+    session_state = {"smai_current_user_id": "local_user"}
+    monkeypatch.setattr(news_module.st, "session_state", session_state)
+
+    assert news_dashboard_cockpit_href(" nvda ") == (
+        "?smai_start_profile=local_user&smai_page=cockpit&smai_symbol=NVDA"
+    )
+
+    session_state["smai_current_user_id"] = "../unsafe"
     assert news_dashboard_cockpit_href("9432.t") == "?smai_page=cockpit&smai_symbol=9432.T"
 
 

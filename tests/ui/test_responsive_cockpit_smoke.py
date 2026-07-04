@@ -15,6 +15,90 @@ VIEWPORTS = (
 )
 
 
+def _enter_cockpit(page) -> None:
+    cockpit_heading = page.get_by_role("heading", name="銘柄コックピット", exact=True)
+    profile_gate = page.get_by_text("どのユーザーで使いますか？", exact=True)
+    page.wait_for_timeout(1_000)
+    if not (cockpit_heading.count() and cockpit_heading.is_visible()):
+        profile_gate.wait_for(state="visible", timeout=30_000)
+        page.get_by_text("Yuki", exact=True).click()
+        page.locator('.smai-profile-card[data-selected="true"]').first.wait_for(
+            state="visible", timeout=30_000
+        )
+        page.get_by_text("このユーザーで開始", exact=True).click()
+    cockpit_heading.wait_for(state="visible", timeout=60_000)
+    page.get_by_label("データ取得元").wait_for(state="visible", timeout=60_000)
+
+
+def _load_mock_cockpit_result(page) -> None:
+    _enter_cockpit(page)
+    page.get_by_label("データ取得元").click()
+    page.get_by_role("option", name="mock", exact=True).click()
+    page.get_by_label("キーワード").wait_for(state="visible", timeout=30_000)
+    page.get_by_label("キーワード").fill("7203.T")
+    page.get_by_label("キーワード").press("Enter")
+    page.wait_for_timeout(2_000)
+    page.get_by_label("銘柄").click()
+    page.get_by_role("option", name="7203.T", exact=False).click()
+    page.get_by_role("button", name="データを取得", exact=True).click()
+    page.get_by_text("01 判断サマリー", exact=True).wait_for(state="visible", timeout=120_000)
+    page.get_by_text("予測設定を変更", exact=True).last.click()
+    page.get_by_label("予測日数").last.fill("1")
+    page.get_by_label("予測日数").last.press("Enter")
+    page.get_by_text("予測期間: 1日", exact=True).wait_for(state="visible", timeout=60_000)
+    page.get_by_text("予測設定を変更", exact=True).last.click()
+    page.get_by_text("05 確認レポート", exact=True).wait_for(state="visible", timeout=120_000)
+
+
+def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
+    dimensions = page.locator("body").evaluate(
+        "(element) => ({scrollWidth: element.scrollWidth, " "clientWidth: element.clientWidth})"
+    )
+    assert dimensions["scrollWidth"] <= dimensions["clientWidth"] + 2
+    assert page.locator('[data-testid="stException"], .stException').count() == 0
+    expected_sections = [
+        "01 判断サマリー",
+        "02 価格・AI予測",
+        "03 AI調査・材料分析",
+        "04 確認メモ",
+        "05 確認レポート",
+    ]
+    page.wait_for_function(
+        "(sections) => sections.every((section) => document.body.innerText.includes(section))",
+        arg=expected_sections,
+        timeout=120_000,
+    )
+    section_text = page.locator("body").inner_text()
+    section_positions = [section_text.index(section) for section in expected_sections]
+    assert section_positions == sorted(section_positions)
+    assert section_text.count("04 確認メモ") == 1
+    assert "スコアから見た注意点" in section_text
+
+    kpi_labels = page.locator(".smai-card-label").all_text_contents()[:4]
+    assert kpi_labels == ["投資スコア", "上昇気配", "下降警戒", "データ信頼度"]
+    assert page.locator(".research-ai-cta--hero").count() == 1
+    research_button = page.get_by_role("button", name="AI調査を開始・更新", exact=True)
+    research_button.wait_for(state="visible")
+    button_box = research_button.bounding_box()
+    assert button_box is not None
+    assert button_box["width"] > 0
+    assert button_box["height"] >= (40 if viewport_width <= 1024 else 36)
+    assert button_box["x"] + button_box["width"] <= viewport_width + 2
+
+    page.get_by_text("詳細データ・開発者向け", exact=True).click()
+    tab_names = ["予測", "スコア", "取得元", "特徴量", "エクスポート"]
+    for tab_name in tab_names:
+        tab = page.get_by_role("tab", name=tab_name, exact=True)
+        tab.wait_for(state="visible")
+        tab.click()
+        assert tab.get_attribute("aria-selected") == "true"
+    detail_expander = page.locator("details").filter(has_text="詳細データ・開発者向け").last
+    if detail_expander.get_attribute("open") is not None:
+        detail_expander.locator(":scope > summary").click()
+    page.locator(".smai-dashboard-header").last.scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+
+
 @pytest.mark.skipif(
     os.getenv("SMAI_RUN_RESPONSIVE_SMOKE") != "1",
     reason="Set SMAI_RUN_RESPONSIVE_SMOKE=1 with Streamlit running to enable.",
@@ -28,25 +112,23 @@ def test_cockpit_responsive_viewports() -> None:
         browser = runtime.chromium.launch(headless=True)
         try:
             for name, width, height in VIEWPORTS:
-                page = browser.new_page(viewport={"width": width, "height": height})
+                context = browser.new_context(viewport={"width": width, "height": height})
+                page = context.new_page()
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
-                page.wait_for_timeout(3_000)
-
-                body_width = page.locator("body").evaluate(
-                    "(element) => ({"
-                    "scrollWidth: element.scrollWidth, "
-                    "clientWidth: element.clientWidth"
-                    "})"
-                )
-                assert body_width["scrollWidth"] <= body_width["clientWidth"] + 2
-                assert page.locator('[data-testid="stException"], .stException').count() == 0
-                assert page.get_by_role("button").count() > 0
+                _load_mock_cockpit_result(page)
+                _assert_cockpit_result_contract(page, width)
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),
-                    full_page=True,
+                    full_page=False,
                 )
-                page.close()
+                page.locator(".research-ai-cta--hero").scroll_into_view_if_needed()
+                page.wait_for_timeout(200)
+                page.screenshot(
+                    path=str(screenshot_dir / f"{name}_research.png"),
+                    full_page=False,
+                )
+                context.close()
         finally:
             browser.close()
 
@@ -65,19 +147,19 @@ def test_cockpit_chart_renders_inside_mobile_viewport() -> None:
         try:
             page = browser.new_page(viewport={"width": 375, "height": 812})
             page.goto(base_url, wait_until="networkidle", timeout=120_000)
-            page.get_by_label("データ取得元").click()
-            page.get_by_role("option", name="mock", exact=True).click()
-            page.get_by_label("キーワード").fill("7203")
-            page.wait_for_timeout(1_000)
-            page.get_by_label("銘柄").click()
-            page.get_by_role("option", name="7203.T", exact=False).click()
-            page.get_by_role("button", name="データを取得", exact=True).click()
-            page.wait_for_timeout(30_000)
+            _load_mock_cockpit_result(page)
             page.screenshot(path=str(screenshot_path), full_page=True)
             chart = page.locator('[data-testid="stVegaLiteChart"]').first
             if chart.count() == 0:
                 visible_text = page.locator("body").inner_text()
-                pytest.fail(f"Chart was not rendered. Visible page tail:\n{visible_text[-3000:]}")
+                chart_test_ids = page.locator('[data-testid*="Chart"]').evaluate_all(
+                    "(elements) => elements.map((element) => element.dataset.testid)"
+                )
+                pytest.fail(
+                    "Chart was not rendered with the expected test id. "
+                    f"Chart test ids: {chart_test_ids}; canvas count: "
+                    f"{page.locator('canvas').count()}.\nVisible page tail:\n{visible_text[-3000:]}"
+                )
             chart.wait_for(state="visible", timeout=30_000)
 
             chart_box = chart.bounding_box()

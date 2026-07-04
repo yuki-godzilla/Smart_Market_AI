@@ -11786,6 +11786,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         symbol_label,
         rows=score_display_rows,
     )
+    if score_row is not None:
+        _render_cockpit_direction_signal_section(score_row, consensus_rows)
     _render_price_forecast_hero(
         preview,
         symbol_label,
@@ -11798,8 +11800,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     )
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     llm_factor_response = _cockpit_llm_factor_result(preview) if symbol else None
-    if score_row is not None:
-        _render_cockpit_direction_signal_section(score_row, consensus_rows)
     _render_cockpit_research_summary(preview)
     _render_cockpit_llm_factor(preview, response=llm_factor_response)
     _render_cockpit_interpretation(
@@ -13434,9 +13434,12 @@ def _render_research_operation_card(
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
     insight = _research_operation_insight(report, news_report)
-    news_count = len(news_report.news) if news_report is not None else 0
-    evidence_count = report.data_quality.evidence_count if report is not None else 0
-    report_status = "作成済み" if report is not None else "未取得"
+    status_chips = _research_operation_status_chips(report, news_report)
+    status_chips_html = "".join(
+        f'<span class="research-ai-state-chip">{html.escape(label)}: '
+        f"{html.escape(value)}</span>"
+        for label, value in status_chips
+    )
     with st.container(border=False):
         text_col, action_col = st.columns([1.55, 1.0])
         with text_col:
@@ -13451,9 +13454,7 @@ def _render_research_operation_card(
                     f'{html.escape(insight["summary"])}</div>'
                     f'<div class="research-next-step">{html.escape(insight["next_step"])}</div>'
                     '<div class="research-ai-state-row">'
-                    f'<span class="research-ai-state-chip">AI調査: {report_status}</span>'
-                    f'<span class="research-ai-state-chip">ニュース: {news_count}件</span>'
-                    f'<span class="research-ai-state-chip">外部ソース: {evidence_count}件</span>'
+                    f"{status_chips_html}"
                     '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
                     "</div>"
                     '<div class="research-ai-cta-note">'
@@ -13481,6 +13482,42 @@ def _render_research_operation_card(
                 unsafe_allow_html=True,
             )
             return fetch_clicked
+
+
+def _research_operation_status_chips(
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> list[tuple[str, str]]:
+    source_types = {
+        evidence.source_type.strip().lower()
+        for evidence in (report.evidence if report is not None else [])
+    }
+    ir_source_types = {
+        "annual_report",
+        "earnings_report",
+        "financial_results",
+        "tdnet",
+        "company_ir",
+    }
+    ir_count = sum(
+        1
+        for evidence in (report.evidence if report is not None else [])
+        if evidence.source_type.strip().lower() in ir_source_types
+    )
+    external_data_count = sum(
+        1
+        for evidence in (report.evidence if report is not None else [])
+        if evidence.source_type.strip().lower() == "provider_profile"
+    )
+    return [
+        ("レポート", "作成済み" if report is not None else "未取得"),
+        ("ニュース", f"{len(news_report.news) if news_report is not None else 0}件"),
+        ("IR/開示", f"{ir_count}件" if source_types & ir_source_types else "未確認"),
+        (
+            "外部データ",
+            f"{external_data_count}件" if external_data_count else "未確認",
+        ),
+    ]
 
 
 def _research_operation_insight(
@@ -17289,7 +17326,7 @@ def _render_score_breakdown_context(
         str(item.get("見方") or item.get("内容") or item.get("確認ポイント") or "")
         for item in memo_rows[:3]
     )
-    st.markdown("#### 確認メモ")
+    st.markdown("#### スコアから見た注意点")
     st.markdown(
         smai_insight_html(
             " ".join(part for part in [" ".join(summary_lines[:2]), memo_text] if part),

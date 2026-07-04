@@ -91,6 +91,9 @@ def test_cockpit_result_flow_prioritizes_research_and_consolidates_details():
     assert source.index("_render_price_forecast_hero(") < source.index(
         "_render_cockpit_research_summary("
     )
+    assert source.index("_render_cockpit_direction_signal_section(") < source.index(
+        "_render_price_forecast_hero("
+    )
     assert source.index("_render_cockpit_research_summary(") < source.index(
         "_render_cockpit_llm_factor("
     )

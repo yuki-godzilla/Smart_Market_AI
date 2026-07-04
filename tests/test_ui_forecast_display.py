@@ -2549,9 +2549,10 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
     assert "AI調査で材料を確認" in markup
-    assert "AI調査: 作成済み" in markup
+    assert "レポート: 作成済み" in markup
     assert "ニュース: 0件" in markup
-    assert "外部ソース: 3件" in markup
+    assert "IR/開示: 2件" in markup
+    assert "外部データ: 1件" in markup
     assert "事業:" in markup
     assert "補足:" in markup
     assert "追加確認:" in markup

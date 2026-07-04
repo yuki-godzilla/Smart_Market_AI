@@ -4258,3 +4258,21 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   単一の`詳細データ・開発者向け` expanderと5タブへ集約した。
 - 対象389 test、CSS test、Ruff、全Python Black helperを確認。
   Cockpit Playwright smokeは8501の既存ページに`データ取得元`が表示されず未完了。
+
+## 2026-07-04 銘柄コックピット取得後UI最終確認
+
+- 最新mainを専用8511番で起動し、起動ログを`.tmp/cockpit-smoke/`へ保存。
+  Playwright smokeをユーザー選択、mock provider、7203.T取得、予測1日設定まで自動化した。
+- iPhone 13 mini、iPad縦、iPad横、PCの4 viewportで、ページ横overflowなし、
+  Streamlit例外なし、KPI 4枚、主セクション順、AI調査CTA、詳細5タブ操作を確認。
+  画面上部とAI調査カードの画像を`docs/responsive/screenshots/cockpit/`へ保存した。
+- SMAI Insightは「結論を最初に見る」目的を優先してKPI直下へ移動。
+  重複していた小見出し`確認メモ`は`スコアから見た注意点`へ変更した。
+- AI調査状態はsource typeから正確に判定できる`レポート`、`ニュース`、
+  `IR/開示`、`外部データ`へ細分化。曖昧なsourceは件数に含めない。
+- mockの4本データと既定31日予測ではチャートを描画できないため、smoke内だけ予測日数を
+  1日に変更してモバイルチャートを確認。予測計算・データ取得ロジックは変更していない。
+- UX-001、UX-002、UX-016、UX-017、FS-009をResolvedへ更新。
+  UX-018はRanking / Rebalance横断確認が残るためIn reviewを維持した。
+- AI調査の外部更新はnetwork-free smokeの対象外とし、未取得状態のヒーロー密度、
+  CTA操作性、取得後表示契約は既存fake/local testで確認した。

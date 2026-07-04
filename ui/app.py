@@ -8015,6 +8015,18 @@ def symbol_universe_rows_for_symbols(
     return resolved
 
 
+def cockpit_preserved_candidate_symbols(
+    query: str,
+    ranking_handoff_symbol: str,
+    current_selected_symbol: str,
+) -> list[str]:
+    """Preserve navigation/current choices only while no keyword search is active."""
+
+    if query.strip():
+        return []
+    return [ranking_handoff_symbol, current_selected_symbol]
+
+
 def favorite_prioritized_symbol_candidate_labels(
     rows: list[dict[str, str]],
     favorite_symbols: set[str],
@@ -8133,9 +8145,14 @@ def _render_market_data_cockpit() -> None:
     current_selected_symbol = (
         _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
     )
+    preserved_symbols = cockpit_preserved_candidate_symbols(
+        symbol_query,
+        ranking_handoff_symbol,
+        current_selected_symbol,
+    )
     preserved_symbol_rows = symbol_universe_rows_for_symbols(
         symbol_options,
-        [ranking_handoff_symbol, current_selected_symbol],
+        preserved_symbols,
     )
     live_symbol_options = yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
     candidate_rows = merged_symbol_candidate_rows(
@@ -8159,8 +8176,7 @@ def _render_market_data_cockpit() -> None:
             favorites_only=favorites_only,
             query=symbol_query,
             required_symbols=[
-                ranking_handoff_symbol,
-                current_selected_symbol,
+                *preserved_symbols,
                 normalized_query,
             ],
         )

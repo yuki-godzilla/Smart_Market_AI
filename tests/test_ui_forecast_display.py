@@ -4779,6 +4779,22 @@ def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
     assert query_params == {}
 
 
+def test_cockpit_preserved_candidate_symbols_drops_current_choice_during_search():
+    assert app_module.cockpit_preserved_candidate_symbols(
+        "",
+        "7203.T",
+        "6367.T",
+    ) == ["7203.T", "6367.T"]
+    assert (
+        app_module.cockpit_preserved_candidate_symbols(
+            "1938",
+            "7203.T",
+            "6367.T",
+        )
+        == []
+    )
+
+
 def test_symbol_universe_rows_adds_static_selection_metadata():
     rows = symbol_universe_rows(
         [

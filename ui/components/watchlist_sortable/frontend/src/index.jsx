@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {createRoot} from "react-dom/client";
 import {
   DndContext,
@@ -13,7 +13,6 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  arrayMove,
   rectSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
@@ -23,8 +22,13 @@ import {
   Streamlit,
   withStreamlitConnection,
 } from "streamlit-component-lib";
+import {
+  cloneContainers,
+  finalizeDrag,
+  moveAcrossContainers,
+} from "./dnd_state.js";
 
-function Item({id, overlay = false}) {
+function Item({id, label, overlay = false}) {
   const sortable = useSortable({id, disabled: overlay});
   const style = {
     transform: CSS.Transform.toString(sortable.transform),
@@ -40,13 +44,13 @@ function Item({id, overlay = false}) {
       {...sortable.attributes}
       {...sortable.listeners}
     >
-      <span aria-hidden="true">⠿</span> {id}
+      <span aria-hidden="true">⠿</span> {label}
     </button>
   );
 }
 
-function Container({container, index, total, onAction}) {
-  const droppable = useDroppable({id: container.header});
+function Container({canMoveDown, canMoveUp, container, onAction}) {
+  const droppable = useDroppable({id: container.id});
   return (
     <section
       className={`sortable-container tone-${container.tone || "slate"}`}
@@ -58,13 +62,13 @@ function Container({container, index, total, onAction}) {
           <span className="group-actions">
             <button
               aria-label={`${container.header}を上へ`}
-              disabled={index === 0}
+              disabled={!canMoveUp}
               onClick={() => onAction("up", container.groupId)}
               type="button"
             >↑</button>
             <button
               aria-label={`${container.header}を下へ`}
-              disabled={index === total - 2}
+              disabled={!canMoveDown}
               onClick={() => onAction("down", container.groupId)}
               type="button"
             >↓</button>
@@ -78,7 +82,9 @@ function Container({container, index, total, onAction}) {
       </header>
       <SortableContext items={container.items} strategy={rectSortingStrategy}>
         <div className="sortable-container-body">
-          {container.items.map((item) => <Item id={item} key={item} />)}
+          {container.items.map((item) => (
+            <Item id={item} key={item} label={container.labels[item] || item} />
+          ))}
         </div>
       </SortableContext>
     </section>
@@ -88,6 +94,9 @@ function Container({container, index, total, onAction}) {
 function App({args}) {
   const [containers, setContainers] = useState(args.containers);
   const [active, setActive] = useState(null);
+  const containersRef = useRef(args.containers);
+  const dragStartSnapshot = useRef(null);
+  const commitPending = useRef(false);
   const sensors = useSensors(
     useSensor(MouseSensor, {activationConstraint: {distance: 8}}),
     useSensor(TouchSensor, {activationConstraint: {delay: 220, tolerance: 8}}),
@@ -95,71 +104,99 @@ function App({args}) {
   );
 
   useEffect(() => {
-    setContainers(args.containers);
+    const next = cloneContainers(args.containers);
+    containersRef.current = next;
+    dragStartSnapshot.current = null;
+    commitPending.current = false;
+    setContainers(next);
   }, [args.containers]);
   useEffect(() => {
     Streamlit.setFrameHeight();
   }, [containers]);
 
-  const findContainer = (id) => containers.findIndex(
-    (container) => container.header === id || container.items.includes(id)
-  );
   const emitAction = (action, groupId) => {
+    if (commitPending.current) return;
+    commitPending.current = true;
     Streamlit.setComponentValue({type: "action", action, groupId});
   };
   const dragOver = ({active: activeEvent, over}) => {
-    if (!over) return;
-    const from = findContainer(activeEvent.id);
-    const to = findContainer(over.id);
-    if (from < 0 || to < 0 || from === to) return;
+    if (!over || commitPending.current) return;
     setContainers((current) => {
-      const next = current.map((container) => ({...container, items: [...container.items]}));
-      const itemIndex = next[from].items.indexOf(activeEvent.id);
-      const [item] = next[from].items.splice(itemIndex, 1);
-      const overIndex = next[to].items.indexOf(over.id);
-      next[to].items.splice(overIndex < 0 ? next[to].items.length : overIndex, 0, item);
+      const next = moveAcrossContainers(current, activeEvent.id, over.id);
+      containersRef.current = next;
       return next;
     });
   };
   const dragEnd = ({active: activeEvent, over}) => {
     setActive(null);
-    if (!over) return;
-    setContainers((current) => {
-      const target = findContainer(activeEvent.id);
-      if (target < 0) return current;
-      const fromIndex = current[target].items.indexOf(activeEvent.id);
-      const toIndex = current[target].items.indexOf(over.id);
-      const next = current.map((container, index) => (
-        index === target && toIndex >= 0
-          ? {...container, items: arrayMove(container.items, fromIndex, toIndex)}
-          : container
-      ));
-      Streamlit.setComponentValue({type: "sort", containers: next});
-      return next;
-    });
+    if (commitPending.current) return;
+    if (!over) {
+      restoreSnapshot();
+      return;
+    }
+    const next = finalizeDrag(containersRef.current, activeEvent.id, over.id);
+    if (!next) {
+      restoreSnapshot();
+      return;
+    }
+    commitPending.current = true;
+    containersRef.current = next;
+    setContainers(next);
+    Streamlit.setComponentValue({type: "sort", containers: next});
   };
+  const dragStart = ({active: eventActive}) => {
+    if (commitPending.current) return;
+    dragStartSnapshot.current = cloneContainers(containersRef.current);
+    setActive(eventActive.id);
+  };
+  const restoreSnapshot = () => {
+    const snapshot = dragStartSnapshot.current;
+    if (snapshot) {
+      const restored = cloneContainers(snapshot);
+      containersRef.current = restored;
+      setContainers(restored);
+    }
+    dragStartSnapshot.current = null;
+  };
+  const dragCancel = () => {
+    setActive(null);
+    restoreSnapshot();
+  };
+  const activeLabel = containersRef.current
+    .map((container) => container.labels?.[active])
+    .find(Boolean);
+  const editableContainerIds = containers
+    .filter((container) => !container.system)
+    .map((container) => container.id);
 
   return (
     <main className="sortable-component">
       <style>{args.customStyle}</style>
       <DndContext
         collisionDetection={closestCenter}
-        onDragStart={({active: eventActive}) => setActive(eventActive.id)}
+        onDragStart={dragStart}
         onDragOver={dragOver}
         onDragEnd={dragEnd}
-        onDragCancel={() => setActive(null)}
+        onDragCancel={dragCancel}
         sensors={sensors}
       >
-        {containers.map((container, index) => (
+        {containers.map((container) => (
           <Container
+            canMoveDown={
+              !container.system
+              && editableContainerIds.indexOf(container.id) < editableContainerIds.length - 1
+            }
+            canMoveUp={
+              !container.system && editableContainerIds.indexOf(container.id) > 0
+            }
             container={container}
-            index={index}
-            key={container.header}
+            key={container.id}
             onAction={emitAction}
-            total={containers.length}
           />
         ))}
-        <DragOverlay>{active ? <Item id={active} overlay /> : null}</DragOverlay>
+        <DragOverlay>
+          {active ? <Item id={active} label={activeLabel || active} overlay /> : null}
+        </DragOverlay>
       </DndContext>
     </main>
   );

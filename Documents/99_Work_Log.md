@@ -1,5 +1,20 @@
 # 99_Work_Log
 
+## 2026-07-04 Watchlist Groups D&D state consistency
+
+- Replaced stale-closure drag calculations with pure latest-state transitions and guarded every
+  source/destination index.
+- Added drag-start snapshots, cancel/outside-drop rollback, and a commit lock preventing another
+  event from being sent while Streamlit remounts the updated board.
+- Changed internal identities from visible group/name labels to stable group IDs and normalized
+  symbols, including a dedicated system `未分類` ID.
+- Made Python reject incomplete, duplicate, unknown-container, and unknown-symbol payloads instead
+  of partially applying them.
+- Added six frontend state-transition tests plus Python coverage for strict payloads and a custom
+  group named `未分類`.
+- Verification passed: six frontend tests and production build, 72 relevant Python tests, Ruff,
+  targeted Mypy, project Black helper, and the four-viewport responsive browser smoke.
+
 ## 2026-07-04 Watchlist Groups full-panel tone
 
 - Wrapped each normal-screen group in a tone-aware bordered container covering the clickable

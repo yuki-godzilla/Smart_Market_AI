@@ -158,9 +158,12 @@ Phase N4:
   dragging within a group changes `order`. The component is provided by pinned
   project-owned `ui/components/watchlist_sortable` component. Its D&D implementation follows
   the earlier Apache-2.0 sortable component approach, while adding SMAI-specific group actions.
-- D&D container headers remain stable across count changes so consecutive moves are accepted.
-  No-op component payloads leave the draft untouched; an actual move increments the board
-  revision and remounts from the latest draft, allowing repeated moves in one editor session.
+- D&D uses stable group IDs and normalized symbol IDs; display labels are not identifiers.
+  Cross-container previews calculate from the latest local state, invalid indexes are ignored,
+  and cancel / outside-drop restores the drag-start snapshot. Python accepts only a complete
+  payload containing every known container and symbol exactly once. No-op payloads leave the
+  draft untouched; an actual move increments the board revision and remounts from the latest
+  draft, allowing repeated moves in one editor session.
   Every custom group container has its own `↑` / `↓` / `編集` controls in the D&D header;
   `未分類` has no mutation controls. Order changes remain draft-only until `保存して閉じる`,
   and `編集` opens only that group's inline settings. There is no shared selector toolbar,

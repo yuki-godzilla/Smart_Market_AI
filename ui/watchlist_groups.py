@@ -644,18 +644,23 @@ def build_sortable_watchlist_containers(
         # Header text must stay stable across moves. Dynamic counts caused the component's
         # next payload to reference stale headers, so only the first move was accepted.
         header = section.name
-        header_groups[header] = section.group_id
+        container_id = f"group:{section.group_id}" if section.group_id else "system:unclassified"
+        header_groups[container_id] = section.group_id
         items: list[str] = []
+        labels: dict[str, str] = {}
         for row in section.items:
             symbol = str(row.get("symbol") or "").strip().upper()
             name = str(row.get("name") or symbol).strip()
             label = f"{symbol} | {name[:34]}"
-            item_symbols[label] = symbol
-            items.append(label)
+            item_symbols[symbol] = symbol
+            labels[symbol] = label
+            items.append(symbol)
         containers.append(
             {
+                "id": container_id,
                 "header": header,
                 "items": items,
+                "labels": labels,
                 "groupId": section.group_id,
                 "system": section.is_system,
                 "tone": section.tone,
@@ -673,24 +678,40 @@ def apply_sortable_payload(
 ) -> WatchlistGroupsState:
     if not isinstance(payload, list):
         return draft
-    placements = dict(draft.placements)
-    seen: set[str] = set()
-    now = datetime.now(UTC)
+    if len(payload) != len(header_groups):
+        return draft
+    payload_container_ids: list[str] = []
+    payload_item_ids: list[str] = []
     for container in payload:
         if not isinstance(container, Mapping):
             return draft
-        header = str(container.get("header") or "")
-        if header not in header_groups:
-            return draft
+        container_id = str(container.get("id") or "")
         items = container.get("items")
-        if not isinstance(items, list):
+        if container_id not in header_groups or not isinstance(items, list):
             return draft
-        group_id = header_groups[header]
+        if not all(isinstance(item, str) for item in items):
+            return draft
+        payload_container_ids.append(container_id)
+        payload_item_ids.extend(items)
+    if len(payload_container_ids) != len(set(payload_container_ids)):
+        return draft
+    if set(payload_container_ids) != set(header_groups):
+        return draft
+    if len(payload_item_ids) != len(set(payload_item_ids)):
+        return draft
+    if set(payload_item_ids) != set(item_symbols):
+        return draft
+
+    placements = dict(draft.placements)
+    now = datetime.now(UTC)
+    for container in payload:
+        container_id = str(container.get("id") or "")
+        items = container["items"]
+        group_id = header_groups[container_id]
         for index, label_value in enumerate(items):
             symbol = item_symbols.get(str(label_value))
-            if not symbol or symbol in seen:
-                continue
-            seen.add(symbol)
+            if not symbol:
+                return draft
             if group_id is None:
                 placements.pop(symbol, None)
             else:

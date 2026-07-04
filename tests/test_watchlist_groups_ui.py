@@ -180,10 +180,24 @@ def test_sortable_containers_are_chip_only_and_keep_empty_and_unclassified_last(
     assert len(containers) == 2
     assert containers[0]["items"] == []
     assert str(containers[-1]["header"]).startswith("未分類")
-    assert containers[-1]["items"] == ["AAPL | Apple"]
-    assert item_symbols == {"AAPL | Apple": "AAPL"}
-    assert header_groups[str(containers[-1]["header"])] is None
+    assert containers[-1]["items"] == ["AAPL"]
+    assert containers[-1]["labels"] == {"AAPL": "AAPL | Apple"}
+    assert item_symbols == {"AAPL": "AAPL"}
+    assert header_groups["system:unclassified"] is None
     assert "99" not in str(containers)
+
+
+def test_sortable_container_ids_do_not_collide_with_custom_unclassified_name():
+    draft = watchlist_groups.empty_watchlist_groups_state()
+    draft = draft_add_group(draft, "未分類", None, "cyan")
+
+    containers, _, container_groups = build_sortable_watchlist_containers([], draft)
+
+    assert [container["id"] for container in containers] == [
+        f"group:{draft.groups[0].group_id}",
+        "system:unclassified",
+    ]
+    assert len(container_groups) == 2
 
 
 def test_sortable_payload_moves_and_orders_symbols_in_draft():
@@ -195,14 +209,14 @@ def test_sortable_payload_moves_and_orders_symbols_in_draft():
         {"symbol": "7974.T", "name": "Nintendo"},
     ]
     containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
-    group_header = str(containers[0]["header"])
-    uncategorized_header = str(containers[-1]["header"])
+    group_id = str(containers[0]["id"])
+    uncategorized_id = str(containers[-1]["id"])
     payload = [
         {
-            "header": group_header,
-            "items": ["7974.T | Nintendo", "AAPL | Apple"],
+            "id": group_id,
+            "items": ["7974.T", "AAPL"],
         },
-        {"header": uncategorized_header, "items": []},
+        {"id": uncategorized_id, "items": []},
     ]
 
     updated = apply_sortable_payload(
@@ -236,9 +250,9 @@ def test_two_consecutive_sortable_moves_keep_stable_group_headers():
     ]
     containers, item_symbols, header_groups = build_sortable_watchlist_containers(rows, draft)
     first_payload = [
-        {"header": "日本株", "items": ["7974.T | Nintendo"]},
-        {"header": "米国株", "items": []},
-        {"header": "未分類", "items": ["AAPL | Apple"]},
+        {"id": str(containers[0]["id"]), "items": ["7974.T"]},
+        {"id": str(containers[1]["id"]), "items": []},
+        {"id": "system:unclassified", "items": ["AAPL"]},
     ]
     first = apply_sortable_payload(
         draft,
@@ -256,9 +270,9 @@ def test_two_consecutive_sortable_moves_keep_stable_group_headers():
         "未分類",
     ]
     second_payload = [
-        {"header": "日本株", "items": ["7974.T | Nintendo"]},
-        {"header": "米国株", "items": ["AAPL | Apple"]},
-        {"header": "未分類", "items": []},
+        {"id": str(second_containers[0]["id"]), "items": ["7974.T"]},
+        {"id": str(second_containers[1]["id"]), "items": ["AAPL"]},
+        {"id": "system:unclassified", "items": []},
     ]
     second = apply_sortable_payload(
         first,
@@ -270,14 +284,14 @@ def test_two_consecutive_sortable_moves_keep_stable_group_headers():
     assert second.placements["AAPL"].group_id == draft.groups[1].group_id
 
 
-def test_sortable_payload_rejects_unknown_group_and_ignores_duplicate_unknown_symbol():
+def test_sortable_payload_rejects_unknown_incomplete_and_duplicate_values():
     draft = watchlist_groups.empty_watchlist_groups_state()
     draft = draft_add_group(draft, "日本株", None, "cyan")
     containers, item_symbols, header_groups = build_sortable_watchlist_containers(
         [{"symbol": "AAPL", "name": "Apple"}],
         draft,
     )
-    invalid = [{"header": "unknown", "items": ["AAPL | Apple"]}]
+    invalid = [{"id": "unknown", "items": ["AAPL"]}]
     assert (
         apply_sortable_payload(
             draft,
@@ -288,19 +302,29 @@ def test_sortable_payload_rejects_unknown_group_and_ignores_duplicate_unknown_sy
         == draft
     )
 
-    group_header = str(containers[0]["header"])
-    uncategorized_header = str(containers[-1]["header"])
     duplicate = [
-        {"header": group_header, "items": ["AAPL | Apple", "UNKNOWN"]},
-        {"header": uncategorized_header, "items": ["AAPL | Apple"]},
+        {"id": str(containers[0]["id"]), "items": ["AAPL"]},
+        {"id": "system:unclassified", "items": ["AAPL"]},
     ]
-    updated = apply_sortable_payload(
-        draft,
-        duplicate,
-        item_symbols=item_symbols,
-        header_groups=header_groups,
+    assert (
+        apply_sortable_payload(
+            draft,
+            duplicate,
+            item_symbols=item_symbols,
+            header_groups=header_groups,
+        )
+        == draft
     )
-    assert updated.placements["AAPL"].group_id == draft.groups[0].group_id
+    incomplete = [{"id": str(containers[0]["id"]), "items": ["AAPL"]}]
+    assert (
+        apply_sortable_payload(
+            draft,
+            incomplete,
+            item_symbols=item_symbols,
+            header_groups=header_groups,
+        )
+        == draft
+    )
 
 
 def test_sortable_style_applies_tones_and_touch_drag_without_page_swipe():

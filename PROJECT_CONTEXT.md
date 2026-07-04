@@ -112,9 +112,11 @@ controls without placing them in normal cards. The editor uses the project-owned
 `ui/components/watchlist_sortable` component, derived from the earlier Apache-2.0 sortable
 approach, as a multi-container chip board: symbol/name chips can move
 between groups/`未分類` and reorder within a group, while validated results update only the
-session draft until save. Stable container identities keep consecutive moves valid when counts
-change, and actual moves increment a component revision so the next drag starts from the latest
-draft without remounting on no-op payloads. Each custom group container owns touch-safe
+session draft until save. Stable group IDs and normalized symbol IDs keep labels separate from
+D&D identity. Cross-container previews always calculate from the latest local state, cancellation
+restores the drag-start snapshot, and only a complete unique payload is accepted. Actual drops
+increment a component revision so the next drag starts from the latest draft without remounting
+on no-op payloads. Each custom group container owns touch-safe
 `↑` / `↓` / `編集` controls in its D&D header; `未分類` has none. The edit action opens that
 group's settings inline only on demand, with no shared selector toolbar or lower editing stack.
 The normal screen exposes only the top-level editor action; each tone-colored group header

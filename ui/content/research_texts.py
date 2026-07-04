@@ -19,19 +19,19 @@ RESEARCH_INSUFFICIENT_REPORT_NOTE = (
     "AI Researchでは十分な根拠を確認できませんでした。資料登録や別資料の確認が必要です。"
 )
 RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します。"
-RESEARCH_COCKPIT_SECTION_TITLE = "05 根拠資料"
+RESEARCH_COCKPIT_SECTION_TITLE = "03 AI調査・材料分析"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI調査 / 根拠資料"
 RESEARCH_COCKPIT_INTRO = (
-    "SMAIがニュース・外部情報・補足データを取得し、企業理解に使える根拠資料へ整理します。"
-    "企業概要、定量情報、IR、最新ニュース、追加確認が必要な情報を確認できます。"
+    "ニュース、IR、開示、外部データをAIが読み取り、この銘柄を見るうえで確認したい材料を整理します。"
+    "チャートや予測だけでは分からない「なぜ上がる／下がるか」を確認します。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の保存済み資料から、企業概要、事業内容、定量情報、確認したい出典を整理します。"
 )
-RESEARCH_FETCH_BUTTON_LABEL = "AI調査を更新"
+RESEARCH_FETCH_BUTTON_LABEL = "AI調査を開始・更新"
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
 RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料を、企業リサーチレポートに整理しています。"
-RESEARCH_NOT_FETCHED_MESSAGE = "企業リサーチレポートはまだ作成されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を企業理解の材料に変換できます。"
+RESEARCH_NOT_FETCHED_MESSAGE = "AI調査はまだ取得されていません。「AI調査を開始・更新」を押すと、ニュースや外部情報を確認材料に整理できます。"
 RESEARCH_COMPANY_RESEARCH_TITLE = "企業リサーチサマリー"
 RESEARCH_QUANTITATIVE_SUMMARY_TITLE = "定量情報サマリー"
 RESEARCH_IR_SUMMARY_TITLE = "IR情報サマリー"

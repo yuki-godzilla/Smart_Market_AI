@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from datetime import date
 from decimal import Decimal
 
@@ -8,6 +9,11 @@ from backend.research import (
     ResearchDataQuality,
     ResearchEvidence,
     ResearchSummaryPoint,
+)
+from ui import app as app_module
+from ui.content.research_texts import (
+    RESEARCH_COCKPIT_SECTION_TITLE,
+    RESEARCH_FETCH_BUTTON_LABEL,
 )
 from ui.views.cockpit import (
     cockpit_direction_signal_cards,
@@ -43,9 +49,16 @@ def test_cockpit_summary_items_use_existing_score_and_metadata_values():
     assert items[0]["value"] == "7203.T"
     assert items[1]["value"] == "Toyota Motor"
     assert items[5]["value"] == "stock / japan / Automobiles"
-    assert items[6]["value"] == "72"
-    assert "投資魅力度ではなく" in items[8]["help_text"]
-    assert "今回: 高め" in items[8]["caption"]
+    assert [item["label"] for item in items] == [
+        "銘柄コード",
+        "銘柄名",
+        "データ取得元",
+        "基準日",
+        "参照期間",
+        "商品/地域",
+        "総合評価",
+    ]
+    assert items[6]["value"] == "比較候補"
 
 
 def test_cockpit_kpi_cards_do_not_create_new_scores():
@@ -65,13 +78,48 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
         "上昇気配",
         "下降警戒",
         "データ信頼度",
-        "リスク確認",
     ]
-    assert [card["value"] for card in cards] == ["72", "76", "38", "95", "68"]
+    assert [card["value"] for card in cards] == ["72", "76", "38", "95"]
     assert "投資魅力度ではなく" in cards[3]["help_text"]
     assert "今回: 強め" in cards[1]["caption"]
     assert "今回: 低め" in cards[2]["caption"]
-    assert "今回: やや落ち着き" in cards[4]["caption"]
+
+
+def test_cockpit_result_flow_prioritizes_research_and_consolidates_details():
+    source = inspect.getsource(app_module._render_market_data_preview_result)
+
+    assert source.index("_render_price_forecast_hero(") < source.index(
+        "_render_cockpit_research_summary("
+    )
+    assert source.index("_render_cockpit_research_summary(") < source.index(
+        "_render_cockpit_llm_factor("
+    )
+    assert source.index("_render_cockpit_llm_factor(") < source.index(
+        "_render_cockpit_interpretation("
+    )
+    assert "_render_cockpit_check_summary(" not in source
+    assert source.count("_render_cockpit_technical_detail_expander(") == 1
+
+
+def test_cockpit_details_use_one_expander_with_export_tab():
+    source = inspect.getsource(app_module._render_cockpit_technical_detail_expander)
+
+    assert source.count('st.expander("詳細データ・開発者向け"') == 1
+    assert 'st.tabs(["予測", "スコア", "取得元", "特徴量", "エクスポート"])' in source
+    assert source.index("with tabs[4]") < source.index('"予測JSONをダウンロード"')
+    assert "期間別の見方" in source
+    assert "主要確認サマリー" in source
+
+
+def test_cockpit_research_and_forecast_labels_match_primary_flow():
+    research_source = inspect.getsource(app_module._render_research_operation_card)
+    forecast_source = inspect.getsource(app_module._render_price_forecast_hero)
+
+    assert RESEARCH_COCKPIT_SECTION_TITLE == "03 AI調査・材料分析"
+    assert RESEARCH_FETCH_BUTTON_LABEL == "AI調査を開始・更新"
+    assert research_source.count('type="primary"') == 1
+    assert '"予測日数"' in forecast_source
+    assert '"Forecast days"' not in forecast_source
 
 
 def test_cockpit_direction_signal_cards_use_existing_direction_values():

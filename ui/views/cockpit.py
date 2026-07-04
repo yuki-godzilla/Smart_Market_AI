@@ -81,33 +81,10 @@ def cockpit_summary_items(
             "help": "銘柄マスタ由来の分類情報です。",
         },
         {
-            "label": "投資スコア",
-            "value": _display_value((score_row or {}).get("総合スコア"), "未計算"),
-            "caption": _cockpit_card_caption("投資スコア", (score_row or {}).get("総合スコア")),
-            "help_text": _cockpit_metric_help("投資スコア"),
-        },
-        {
             "label": "総合評価",
             "value": _display_value((score_row or {}).get("見方"), "未判定"),
             "caption": _cockpit_card_caption("総合評価", (score_row or {}).get("見方")),
             "help_text": _cockpit_metric_help("総合評価"),
-        },
-        {
-            "label": "データ信頼度",
-            "value": _display_value((score_row or {}).get("データ品質"), "未計算"),
-            "caption": _cockpit_card_caption("データ信頼度", (score_row or {}).get("データ品質")),
-            "help_text": _cockpit_metric_help("データ信頼度"),
-        },
-        {
-            "label": "リスク確認",
-            "value": _display_value((score_row or {}).get("Risk"), "未接続"),
-            "caption": _cockpit_card_caption("リスク確認", (score_row or {}).get("Risk")),
-            "help_text": _cockpit_metric_help("リスク確認"),
-        },
-        {
-            "label": "予測期間",
-            "value": f"{forecast_horizon_days}日",
-            "help": "チャート上に表示する予測日数です。",
         },
     ]
 
@@ -138,12 +115,6 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
             "value": _display_value(row.get("データ品質"), "未計算"),
             "caption": _cockpit_card_caption("データ信頼度", row.get("データ品質")),
             "help_text": _cockpit_metric_help("データ信頼度"),
-        },
-        {
-            "label": "リスク確認",
-            "value": _display_value(row.get("Risk"), "未接続"),
-            "caption": _cockpit_card_caption("リスク確認", row.get("Risk")),
-            "help_text": _cockpit_metric_help("リスク確認"),
         },
     ]
 
@@ -685,11 +656,12 @@ def render_cockpit_summary_header(
     title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
     render_dashboard_header(
         title,
-        "価格・予測・スコア・根拠資料を1画面で確認する分析ビューです。表示内容は売買推奨ではありません。",
+        "価格・予測・AI調査を一つの流れで確認する分析ビューです。表示内容は売買推奨ではありません。",
         chips=[
             ("データ取得元", _item_value(item_by_label, "データ取得元")),
             ("基準日", _item_value(item_by_label, "基準日")),
             ("期間", _item_value(item_by_label, "参照期間")),
+            ("商品/地域", _item_value(item_by_label, "商品/地域")),
             ("総合評価", _item_value(item_by_label, "総合評価")),
         ],
     )
@@ -701,28 +673,12 @@ def render_cockpit_summary_header(
                 unsafe_allow_html=True,
             )
             header_action()
-    render_section_heading("01 サマリー / 銘柄コックピット")
-    st.caption(
-        "この画面は、選択銘柄の価格・予測・スコア・根拠資料を整理する分析ビューです。表示内容は売買推奨ではありません。"
-    )
-    columns = st.columns(4)
-    for index, item in enumerate(items):
-        with columns[index % len(columns)]:
-            render_metric_card(
-                item["label"],
-                item["value"],
-                caption=_card_caption(item),
-                help_text=item.get("help_text", ""),
-                badges=(_badge_for_summary_item(item),),
-                tone=_tone_for_summary_item(item),
-                progress=_progress_for_summary_item(item),
-            )
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
-    render_section_heading("主要KPI")
-    st.caption("まず主要KPIで全体感をつかみ、その後に価格チャートと評価内訳を確認します。")
-    columns = st.columns(min(5, len(cards)))
+    render_section_heading("01 判断サマリー")
+    st.caption("結論・方向感・データ信頼度を先に確認し、その後にチャートとAI調査へ進みます。")
+    columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
             render_metric_card(

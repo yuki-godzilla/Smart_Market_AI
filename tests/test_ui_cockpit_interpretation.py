@@ -12,7 +12,6 @@ def test_cockpit_interpretation_panel_html_shows_disabled_state() -> None:
     html = _cockpit_interpretation_panel_html(result)
     runtime_html = _cockpit_interpretation_runtime_html(result)
 
-    assert "AI解釈メモ" in html
     assert "確認メモ" in html
     assert "設定で無効 (disabled)" in runtime_html
     assert "Ranking・予測・Investment Scoreには反映していません" in html

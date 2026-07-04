@@ -10566,12 +10566,12 @@ def _render_favorite_next_action_hint() -> None:
     if action == "research":
         st.info(
             "MyウォッチリストからAI調査を確認しに来ました。"
-            "下の「05 根拠資料」にある「AI調査を更新」から、最新情報を確認できます。"
+            "下の「03 AI調査・材料分析」にある「AI調査を開始・更新」から、最新情報を確認できます。"
         )
     elif action == "report":
         st.info(
             "Myウォッチリストから確認レポートを確認しに来ました。"
-            "下の「06 確認レポート」で、この銘柄の確認メモを作成・更新できます。"
+            "下の「05 確認レポート」で、この銘柄の確認メモを作成・更新できます。"
         )
 
 
@@ -11777,7 +11777,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     )
     render_mascot_panel(
         "cockpit",
-        message="KPIとチャートで全体感をつかみ、AI解釈メモ、スコア、根拠資料の順に確認します。",
+        message="判断サマリーとチャートで全体感をつかみ、AI調査で背景材料を確認します。",
         layout="compact",
     )
     _render_favorite_next_action_hint()
@@ -11798,6 +11798,10 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     )
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     llm_factor_response = _cockpit_llm_factor_result(preview) if symbol else None
+    if score_row is not None:
+        _render_cockpit_direction_signal_section(score_row, consensus_rows)
+    _render_cockpit_research_summary(preview)
+    _render_cockpit_llm_factor(preview, response=llm_factor_response)
     _render_cockpit_interpretation(
         preview,
         llm_factor_result=llm_factor_response.result if llm_factor_response else None,
@@ -11811,118 +11815,154 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         investment_score_summary=[score_row] if score_row is not None else score_display_rows[:1],
     )
     if score_row is not None:
-        _render_cockpit_direction_signal_section(score_row, consensus_rows)
         _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
-    _render_cockpit_check_summary(summary_rows)
-
-    _render_cockpit_research_summary(preview)
-    _render_cockpit_llm_factor(preview, response=llm_factor_response)
     _render_cockpit_decision_report(preview)
-
-    st.subheader("07 詳細データ")
-    st.caption(
-        "取得元データや計算に使った詳細情報です。通常は閉じたまま、再確認が必要な場合だけ参照します。"
+    _render_cockpit_technical_detail_expander(
+        preview,
+        symbol_label=symbol_label,
+        score_display_rows=score_display_rows,
+        score_row=score_row,
+        consensus_rows=consensus_rows,
+        metric_rows=metric_rows,
+        advanced_forecast_rows=advanced_forecast_rows,
+        advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
+        summary_rows=summary_rows,
     )
-    with st.expander("予測の詳細データを表示", expanded=False):
-        st.caption(
-            "予測モデルごとの詳細値です。チャートで気になった点を確認するための補助データです。"
-        )
-        for index, message in enumerate(forecast_metric_summary(metric_rows)):
-            if index == 0:
-                st.info(message)
-            else:
-                st.caption(message)
-        st.subheader("予測サマリー")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(
-            forecast_consensus_display_rows(consensus_rows),
-            EMPTY_STATE_MESSAGES["forecast_summary"],
-        )
-        st.subheader("予測精度")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(
-            forecast_metric_display_rows(metric_rows),
-            EMPTY_STATE_MESSAGES["forecast_metrics"],
-        )
-        if advanced_forecast_consensus_rows:
-            st.subheader(ADVANCED_FORECAST_CONSENSUS_LABEL)
-            _render_table(
-                advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows),
-                f"{ADVANCED_FORECAST_CONSENSUS_LABEL}を表示するには、もう少し長い価格データが必要です。",
-            )
-        if advanced_forecast_rows:
-            st.subheader("高度予測モデル")
-            st.caption(
-                "高度予測は取得期間に合わせた予測先で表示します。売買判断ではなく、価格レンジと注意点の確認に使います。"
-            )
-            _render_table(
-                advanced_forecast_display_rows(advanced_forecast_rows),
-                "高度予測を表示するには、もう少し長い価格データが必要です。",
-            )
-        if metric_rows:
-            col_json, col_csv = st.columns(2)
-            col_json.download_button(
-                "予測JSONをダウンロード",
-                data=forecast_metric_json_download(metric_rows),
-                file_name="forecast_metrics.json",
-                mime="application/json",
-            )
-            with col_csv:
-                render_csv_download_button(
-                    label="予測CSVをダウンロード",
-                    data=forecast_metric_csv_download(metric_rows),
-                    file_name="forecast_metrics.csv",
-                )
-
-    with st.expander("スクリーニングの詳細データを表示", expanded=False):
-        st.caption(
-            "スクリーニングスコアの元データです。主要KPIで気になった点を詳しく見るために使います。"
-        )
-        _render_target_symbol_caption(symbol_label)
-        _render_table(preview.screening_rows, EMPTY_STATE_MESSAGES["screening_score_rows"])
-        if preview.screening_rows:
-            col_json, col_csv = st.columns(2)
-            col_json.download_button(
-                "スクリーニングJSONをダウンロード",
-                data=screening_score_json_download(preview.screening_rows),
-                file_name="screening_score.json",
-                mime="application/json",
-            )
-            with col_csv:
-                render_csv_download_button(
-                    label="スクリーニングCSVをダウンロード",
-                    data=screening_score_csv_download(preview.screening_rows),
-                    file_name="screening_score.csv",
-                )
-
-    with st.expander("取得元データを表示", expanded=False):
-        st.caption(
-            "データ取得元、現在値、価格データの詳細です。データ鮮度や取得内容を確認したい場合に使います。"
-        )
-        st.subheader("データ取得元")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(preview.provider_rows, EMPTY_STATE_MESSAGES["provider_metadata"])
-
-        st.subheader("現在値")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(preview.quote_rows, EMPTY_STATE_MESSAGES["quote_rows"])
-
-        st.subheader("価格データ概要")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(preview.ohlcv_rows, EMPTY_STATE_MESSAGES["ohlcv_rows"])
-
-    with st.expander("為替・特徴量データを表示", expanded=False):
-        st.caption("為替換算や特徴量データの詳細です。通常は主要KPIとチャート確認後に参照します。")
-        st.subheader("為替")
-        _render_table(preview.fx_rows, EMPTY_STATE_MESSAGES["fx_rows"])
-
-        st.subheader("特徴量データ")
-        _render_target_symbol_caption(symbol_label)
-        _render_table(preview.feature_rows, EMPTY_STATE_MESSAGES["feature_snapshot_rows"])
 
     if preview.error_rows:
         st.subheader("補助データの取得警告")
         _render_provider_error_summary(preview.error_rows)
+
+
+def _render_cockpit_technical_detail_expander(
+    preview: MarketDataPreview,
+    *,
+    symbol_label: str,
+    score_display_rows: list[dict[str, str]],
+    score_row: dict[str, str] | None,
+    consensus_rows: list[dict[str, str]],
+    metric_rows: list[dict[str, str]],
+    advanced_forecast_rows: list[dict[str, str]],
+    advanced_forecast_consensus_rows: list[dict[str, str]],
+    summary_rows: list[dict[str, str]],
+) -> None:
+    with st.expander("詳細データ・開発者向け", expanded=False):
+        tabs = st.tabs(["予測", "スコア", "取得元", "特徴量", "エクスポート"])
+        with tabs[0]:
+            st.caption(
+                "予測モデルごとの詳細値です。チャートで気になった点を確認するための補助データです。"
+            )
+            for index, message in enumerate(forecast_metric_summary(metric_rows)):
+                if index == 0:
+                    st.info(message)
+                else:
+                    st.caption(message)
+            st.subheader("予測サマリー")
+            _render_target_symbol_caption(symbol_label)
+            _render_table(
+                forecast_consensus_display_rows(consensus_rows),
+                EMPTY_STATE_MESSAGES["forecast_summary"],
+            )
+            st.subheader("予測精度")
+            _render_target_symbol_caption(symbol_label)
+            _render_table(
+                forecast_metric_display_rows(metric_rows),
+                EMPTY_STATE_MESSAGES["forecast_metrics"],
+            )
+            if advanced_forecast_consensus_rows:
+                st.subheader(ADVANCED_FORECAST_CONSENSUS_LABEL)
+                _render_table(
+                    advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows),
+                    f"{ADVANCED_FORECAST_CONSENSUS_LABEL}を表示するには、もう少し長い価格データが必要です。",
+                )
+            if advanced_forecast_rows:
+                st.subheader("高度予測モデル")
+                st.caption(
+                    "高度予測は取得期間に合わせた予測先で表示します。売買判断ではなく、価格レンジと注意点の確認に使います。"
+                )
+                _render_table(
+                    advanced_forecast_display_rows(advanced_forecast_rows),
+                    "高度予測を表示するには、もう少し長い価格データが必要です。",
+                )
+        with tabs[1]:
+            st.markdown("#### スコア・リスク詳細")
+            if score_row is not None:
+                detail_rows = cockpit_direction_signal_detail_rows(
+                    score_row, consensus_rows[0] if consensus_rows else {}
+                )
+                _render_symbol_detail_table(detail_rows)
+                _render_score_breakdown_chart(score_component_rows(score_row))
+                period_rows = cockpit_period_evaluation_rows(preview.bars)
+                memo_rows = cockpit_investment_memo_rows(preview, score_row)
+                st.markdown("#### 期間別の見方")
+                _render_symbol_detail_table(period_rows)
+                st.markdown("#### 確認メモ（詳細）")
+                _render_symbol_detail_table(memo_rows)
+            st.markdown("#### 主要確認サマリー")
+            _render_symbol_detail_table(summary_rows)
+            st.markdown("#### 投資スコア")
+            _render_table(score_display_rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
+            st.markdown("#### スクリーニング")
+            _render_table(preview.screening_rows, EMPTY_STATE_MESSAGES["screening_score_rows"])
+
+        with tabs[2]:
+            st.markdown("#### データ取得元")
+            _render_table(preview.provider_rows, EMPTY_STATE_MESSAGES["provider_metadata"])
+            st.markdown("#### 現在値")
+            _render_table(preview.quote_rows, EMPTY_STATE_MESSAGES["quote_rows"])
+            st.markdown("#### 価格データ概要")
+            _render_table(preview.ohlcv_rows, EMPTY_STATE_MESSAGES["ohlcv_rows"])
+
+        with tabs[3]:
+            st.markdown("#### 為替")
+            _render_table(preview.fx_rows, EMPTY_STATE_MESSAGES["fx_rows"])
+            st.markdown("#### 特徴量データ")
+            _render_table(preview.feature_rows, EMPTY_STATE_MESSAGES["feature_snapshot_rows"])
+
+        with tabs[4]:
+            st.caption("JSON / CSVは保存・再確認が必要な場合に利用します。")
+            if metric_rows:
+                col_json, col_csv = st.columns(2)
+                col_json.download_button(
+                    "予測JSONをダウンロード",
+                    data=forecast_metric_json_download(metric_rows),
+                    file_name="forecast_metrics.json",
+                    mime="application/json",
+                )
+                with col_csv:
+                    render_csv_download_button(
+                        label="予測CSVをダウンロード",
+                        data=forecast_metric_csv_download(metric_rows),
+                        file_name="forecast_metrics.csv",
+                    )
+            if preview.investment_score_rows:
+                col_json, col_csv = st.columns(2)
+                col_json.download_button(
+                    "投資スコアJSONをダウンロード",
+                    data=investment_score_json_download(preview.investment_score_rows),
+                    file_name="investment_score.json",
+                    mime="application/json",
+                )
+                with col_csv:
+                    render_csv_download_button(
+                        label="投資スコアCSVをダウンロード",
+                        data=investment_score_csv_download(preview.investment_score_rows),
+                        file_name="investment_score.csv",
+                    )
+            if preview.screening_rows:
+                col_json, col_csv = st.columns(2)
+                col_json.download_button(
+                    "スクリーニングJSONをダウンロード",
+                    data=screening_score_json_download(preview.screening_rows),
+                    file_name="screening_score.json",
+                    mime="application/json",
+                )
+                with col_csv:
+                    render_csv_download_button(
+                        label="スクリーニングCSVをダウンロード",
+                        data=screening_score_csv_download(preview.screening_rows),
+                        file_name="screening_score.csv",
+                    )
 
 
 def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
@@ -12068,7 +12108,7 @@ def _render_cockpit_llm_factor(
         return None
     response = response or _cockpit_llm_factor_result(preview)
     result = response.result
-    st.markdown("#### AI材料分析")
+    st.markdown("#### AI調査から見た材料分析")
     st.caption(
         "根拠資料をLLMで上昇材料・注意材料へ整理する補助メモです。"
         "スコアやランキングには反映しません。"
@@ -12105,8 +12145,8 @@ def _render_cockpit_interpretation(
         advanced_forecast_summary=advanced_forecast_summary,
         investment_score_summary=investment_score_summary,
     )
-    st.subheader("03 AI解釈メモ")
-    st.caption("価格・予測・根拠資料・AI材料分析を、次に何を見るかの確認メモとして整理します。")
+    st.subheader("04 確認メモ")
+    st.caption("価格・予測・AI調査を合わせ、次に見ることを短い確認メモに整理します。")
     st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
     with st.expander("AI解釈メモの詳細（実行情報）", expanded=False):
         st.caption(_cockpit_interpretation_cache_caption(response.cache))
@@ -13394,20 +13434,30 @@ def _render_research_operation_card(
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
     insight = _research_operation_insight(report, news_report)
-    with st.container(border=True):
+    news_count = len(news_report.news) if news_report is not None else 0
+    evidence_count = report.data_quality.evidence_count if report is not None else 0
+    report_status = "作成済み" if report is not None else "未取得"
+    with st.container(border=False):
         text_col, action_col = st.columns([1.55, 1.0])
         with text_col:
             st.markdown(
                 (
-                    '<div class="research-ai-cta">'
-                    f'<div class="research-ai-cta-title">{html.escape(insight["title"])}</div>'
+                    '<div class="research-ai-cta research-ai-cta--hero">'
+                    '<div class="research-ai-cta-title">AI調査で材料を確認</div>'
                     '<div class="research-ai-cta-copy">'
-                    f'{html.escape(insight["summary"])}</div>'
+                    "ニュース・IR・開示・外部データから、注目材料と注意材料を整理します。"
+                    "チャートや予測だけでは分からない背景を確認できます。</div>"
                     '<div class="research-ai-cta-source">'
-                    f'{html.escape(insight["source_summary"])}</div>'
+                    f'{html.escape(insight["summary"])}</div>'
                     f'<div class="research-next-step">{html.escape(insight["next_step"])}</div>'
+                    '<div class="research-ai-state-row">'
+                    f'<span class="research-ai-state-chip">AI調査: {report_status}</span>'
+                    f'<span class="research-ai-state-chip">ニュース: {news_count}件</span>'
+                    f'<span class="research-ai-state-chip">外部ソース: {evidence_count}件</span>'
+                    '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
+                    "</div>"
                     '<div class="research-ai-cta-note">'
-                    "売買推奨ではなく、企業理解のための外部情報整理です。</div>"
+                    "企業理解のための情報整理であり、売買推奨ではありません。</div>"
                     "</div>"
                 ),
                 unsafe_allow_html=True,
@@ -16225,20 +16275,9 @@ def _render_market_data_cockpit_header(
     preview: MarketDataPreview,
     symbol_label: str,
 ) -> int:
-    _spacer_col, horizon_col = st.columns([4.0, 1.0])
-    with horizon_col:
-        forecast_horizon_days = cast(
-            int,
-            st.number_input(
-                "Forecast days",
-                min_value=1,
-                max_value=60,
-                step=1,
-                key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-                help="取得済みデータを使ってチャートと指標だけを再計算します。",
-            ),
-        )
-    return forecast_horizon_days
+    _ = preview
+    _ = symbol_label
+    return int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 7))
 
 
 def _render_price_forecast_hero(
@@ -16252,7 +16291,17 @@ def _render_price_forecast_hero(
     *,
     forecast_horizon_days: int,
 ) -> None:
-    st.subheader("02 価格・予測")
+    st.subheader("02 価格・AI予測")
+    st.caption(f"予測期間: {forecast_horizon_days}日")
+    with st.expander("予測設定を変更", expanded=False):
+        st.number_input(
+            "予測日数",
+            min_value=1,
+            max_value=60,
+            step=1,
+            key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+            help="取得済みデータを使ってチャートと指標だけを再計算します。",
+        )
     chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
@@ -17212,11 +17261,7 @@ def _render_cockpit_direction_signal_section(
     consensus_row = consensus_rows[0] if consensus_rows else {}
     detail_rows = cockpit_direction_signal_detail_rows(score_row, consensus_row)
     _register_cockpit_direction_assistant_context(score_row, consensus_row, detail_rows)
-    render_section_heading("04 スコア・リスクの内訳")
-    st.caption(
-        "総合スコア、上昇気配、下降警戒、予測のばらつきを分けて確認します。"
-        "SMAIの表示は売買を推奨するものではありません。"
-    )
+    render_section_heading("判断シグナル")
     insight_tone: Literal["caution", "forecast"] = (
         "caution"
         if (_decimal_from_text(score_row.get("下降警戒")) or Decimal("0")) >= Decimal("65")
@@ -17229,8 +17274,6 @@ def _render_cockpit_direction_signal_section(
         ),
         unsafe_allow_html=True,
     )
-    if detail_rows:
-        _render_symbol_detail_table(detail_rows)
 
 
 def _render_score_breakdown_context(
@@ -17239,58 +17282,21 @@ def _render_score_breakdown_context(
     row: dict[str, str],
     rows: list[dict[str, str]],
 ) -> None:
-    st.markdown("#### スコア構成と期間別評価")
-    st.caption("総合スコアを構成する観点と、取得期間に応じた値動きの見方をまとめます。")
-    _render_score_breakdown_chart(score_component_rows(row))
-
     warning = row.get("注意点", "")
     summary_lines = investment_score_summary_lines(row)
+    memo_rows = cockpit_investment_memo_rows(preview, row)
+    memo_text = " ".join(
+        str(item.get("見方") or item.get("内容") or item.get("確認ポイント") or "")
+        for item in memo_rows[:3]
+    )
+    st.markdown("#### 確認メモ")
     st.markdown(
         smai_insight_html(
-            " ".join(summary_lines[:2]),
+            " ".join(part for part in [" ".join(summary_lines[:2]), memo_text] if part),
             tone="caution" if warning else "forecast",
         ),
         unsafe_allow_html=True,
     )
-    for line in summary_lines[2:]:
-        st.caption(line)
-    period_rows = cockpit_period_evaluation_rows(preview.bars)
-    if period_rows:
-        st.markdown("#### 期間別の見方")
-        st.caption("取得した期間の長さに合わせて、値動きの確認観点を整理しています。")
-        _render_symbol_detail_table(period_rows)
-    memo_rows = cockpit_investment_memo_rows(preview, row)
-    if memo_rows:
-        st.markdown("#### 確認メモ")
-        st.caption("銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。")
-        _render_symbol_detail_table(memo_rows)
-
-    with st.expander("投資スコアの詳細・ダウンロード"):
-        st.caption(
-            "投資スコア、予測、リスク、データ信頼度の読み分けとダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
-        )
-        st.caption(
-            "Research Score、データ品質、DB信頼度は役割が異なります。総合スコアと混同せず、確認材料として読み分けます。"
-        )
-        _render_score_confidence_hierarchy()
-        _render_target_symbol_caption(symbol_label)
-        _render_table(rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
-        if preview.investment_score_rows:
-            col_json, col_csv = st.columns(2)
-            col_json.download_button(
-                "投資スコアJSONをダウンロード",
-                data=investment_score_json_download(preview.investment_score_rows),
-                file_name="investment_score.json",
-                mime="application/json",
-            )
-            with col_csv:
-                render_csv_download_button(
-                    label="投資スコアCSVをダウンロード",
-                    data=investment_score_csv_download(preview.investment_score_rows),
-                    file_name="investment_score.csv",
-                )
-        else:
-            st.warning("CSVに出力できる投資スコアデータがありません。")
 
 
 def _render_cockpit_check_summary(summary_rows: list[dict[str, str]]) -> None:
@@ -19041,7 +19047,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     news_report = _cockpit_stock_news_report_from_state(preview)
     overview = cockpit_decision_report_overview(preview)
 
-    st.markdown("### 06 確認レポート")
+    st.markdown("### 05 確認レポート")
     st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 

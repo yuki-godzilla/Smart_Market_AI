@@ -2527,7 +2527,7 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
 
     def fake_button(label: str, **kwargs: object) -> bool:
         button_calls.append((label, kwargs))
-        return label == "AI調査を更新"
+        return label == "AI調査を開始・更新"
 
     def fake_download_button(*args: object, **kwargs: object) -> None:
         raise AssertionError("Research operation card should not show CSV export.")
@@ -2545,24 +2545,16 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     markup = "\n".join(markdown_calls)
 
     assert clicked is True
-    assert [label for label, _ in button_calls] == ["AI調査を更新"]
+    assert [label for label, _ in button_calls] == ["AI調査を開始・更新"]
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
-    assert "企業リサーチレポートを更新しました" in markup
+    assert "AI調査で材料を確認" in markup
+    assert "AI調査: 作成済み" in markup
+    assert "ニュース: 0件" in markup
+    assert "外部ソース: 3件" in markup
     assert "事業:" in markup
     assert "補足:" in markup
-    assert "確認済み:" in markup
     assert "追加確認:" in markup
-    assert "確認できた数値:" not in markup
-    assert "業績見通し:" not in markup
-    assert "株主還元:" not in markup
-    assert "直近確認:" not in markup
-    assert "確認した資料:" not in markup
-    assert "決算短信" in markup
-    assert "良材料候補1件" not in markup
-    assert "注意材料候補1件" not in markup
-    assert "状態:" not in markup
-    assert "最終更新:" not in markup
 
 
 def test_research_operation_insight_uses_neutral_prefetch_guidance():
@@ -10498,7 +10490,7 @@ def test_price_forecast_hero_keeps_guidance_inside_cards(monkeypatch):
         forecast_horizon_days=31,
     )
 
-    assert caption_calls == []
+    assert caption_calls == ["予測期間: 31日"]
     assert warning_calls == []
 
 

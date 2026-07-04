@@ -151,6 +151,32 @@ RANKING_GRID_CUSTOM_CSS = {
 
 SMAI_GLOBAL_CSS = """
 <style>
+.research-ai-cta--hero {
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 36%),
+        linear-gradient(135deg, rgba(8, 27, 42, 0.98), rgba(17, 31, 53, 0.94));
+    box-shadow: 0 18px 42px rgba(2, 8, 23, 0.28);
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.75rem;
+}
+.research-ai-state-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+}
+.research-ai-state-chip {
+    border: 1px solid rgba(103, 232, 249, 0.28);
+    border-radius: 999px;
+    background: rgba(8, 27, 42, 0.72);
+    color: #c9f4fb;
+    font-size: 0.78rem;
+    padding: 0.28rem 0.58rem;
+}
+</style>
+<style>
 :root {
     /* Background */
     --bg-page: #070D19;

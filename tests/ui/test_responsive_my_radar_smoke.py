@@ -122,6 +122,9 @@ def test_my_radar_responsive_viewports() -> None:
                         "(element) => getComputedStyle(element).backgroundColor"
                     )
                     component = component_frame.content_frame
+                    component_frame.evaluate(
+                        "(element) => { element.dataset.dndInstance = 'stable'; }"
+                    )
                     up_action = component.get_by_role("button", name=re.compile(r".+を上へ")).first
                     up_action.wait_for(state="visible", timeout=30_000)
                     down_action = component.get_by_role(
@@ -153,6 +156,7 @@ def test_my_radar_responsive_viewports() -> None:
                             .filter(has_text=chip_label)
                         )
                         moved_chip.wait_for(state="visible", timeout=30_000)
+                        assert component_frame.get_attribute("data-dnd-instance") == "stable"
                         _drag_between(
                             page,
                             moved_chip,

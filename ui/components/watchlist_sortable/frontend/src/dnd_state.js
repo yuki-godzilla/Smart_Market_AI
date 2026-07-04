@@ -21,6 +21,18 @@ export function selectCollisionId(collisionIds, containerIds, activeId) {
   );
 }
 
+export function shouldAcceptServerState(
+  incomingRevision,
+  currentRevision,
+  acknowledgedSequence,
+  latestClientSequence,
+) {
+  return (
+    incomingRevision !== currentRevision
+    && acknowledgedSequence >= latestClientSequence
+  );
+}
+
 export function moveAcrossContainers(containers, activeId, overId) {
   const from = findContainerIndex(containers, activeId);
   const to = findContainerIndex(containers, overId);

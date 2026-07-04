@@ -7,6 +7,7 @@ import {
   findContainerIndex,
   moveAcrossContainers,
   selectCollisionId,
+  shouldAcceptServerState,
 } from "./dnd_state.js";
 
 const initial = () => [
@@ -88,4 +89,10 @@ test("collision selection prefers the chip directly under the pointer", () => {
 test("collision selection ignores the active chip and supports no hit", () => {
   assert.equal(selectCollisionId(["AAA", "group:b"], ["group:b"], "AAA"), "group:b");
   assert.equal(selectCollisionId([], ["group:b"], "AAA"), null);
+});
+
+test("server state waits until every local drag sequence is acknowledged", () => {
+  assert.equal(shouldAcceptServerState(1, 0, 1, 2), false);
+  assert.equal(shouldAcceptServerState(2, 1, 2, 2), true);
+  assert.equal(shouldAcceptServerState(2, 2, 2, 2), false);
 });

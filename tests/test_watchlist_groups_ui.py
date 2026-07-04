@@ -169,6 +169,19 @@ def test_editor_handles_group_controls_from_each_sortable_container():
     assert '"edit"' in action_source
 
 
+def test_editor_uses_stable_component_key_and_monotonic_client_sequences(monkeypatch):
+    source = __import__("inspect").getsource(watchlist_groups._render_editor_groups)
+    state: dict[str, object] = {watchlist_groups.EDITOR_DND_SEQUENCE_KEY: 2}
+    monkeypatch.setattr(watchlist_groups.st, "session_state", state)
+
+    assert 'key="watchlist_groups_dnd_board"' in source
+    assert 'key=f"watchlist_groups_dnd_board_' not in source
+    assert watchlist_groups._accept_dnd_sequence({"clientSequence": 2}) is False
+    assert watchlist_groups._accept_dnd_sequence({"clientSequence": 3}) is True
+    assert state[watchlist_groups.EDITOR_DND_SEQUENCE_KEY] == 3
+    assert watchlist_groups._accept_dnd_sequence({"clientSequence": 1}) is False
+
+
 def test_sortable_containers_are_chip_only_and_keep_empty_and_unclassified_last():
     draft = watchlist_groups.empty_watchlist_groups_state()
     draft = draft_add_group(draft, "日本株", None, "cyan")

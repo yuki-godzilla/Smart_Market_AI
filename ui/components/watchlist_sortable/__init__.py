@@ -13,11 +13,15 @@ def watchlist_sortable(
     containers: list[dict[str, Any]],
     *,
     custom_style: str,
+    server_revision: int,
+    acknowledged_sequence: int,
     key: str,
 ) -> dict[str, Any]:
     return _component(
         containers=containers,
         customStyle=custom_style,
+        serverRevision=server_revision,
+        acknowledgedSequence=acknowledged_sequence,
         default={"type": "ready", "containers": containers},
         key=key,
     )

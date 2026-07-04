@@ -33,6 +33,7 @@ EDITOR_OPEN_KEY = "watchlist_groups_editor_open"
 EDITOR_DRAFT_KEY = "watchlist_groups_edit_draft"
 EDITOR_FOCUS_KEY = "watchlist_groups_editor_focus"
 EDITOR_DND_REVISION_KEY = "watchlist_groups_dnd_revision"
+EDITOR_DND_SEQUENCE_KEY = "watchlist_groups_dnd_sequence"
 EDITOR_SELECTED_GROUP_KEY = "watchlist_groups_editor_selected_group"
 EDITOR_SETTINGS_OPEN_KEY = "watchlist_groups_editor_settings_open"
 COLLAPSED_KEY = "watchlist_groups_collapsed"
@@ -126,6 +127,7 @@ def open_watchlist_groups_editor(
     st.session_state[EDITOR_FOCUS_KEY] = focus_group_id
     st.session_state[EDITOR_SELECTED_GROUP_KEY] = focus_group_id
     st.session_state[EDITOR_DND_REVISION_KEY] = 0
+    st.session_state[EDITOR_DND_SEQUENCE_KEY] = 0
     st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
     st.session_state.pop("watchlist_groups_editor_group_selector", None)
 
@@ -192,6 +194,7 @@ def _render_editor_add_group(draft: WatchlistGroupsState) -> None:
                 st.session_state[EDITOR_DRAFT_KEY] = updated
                 st.session_state[EDITOR_SELECTED_GROUP_KEY] = updated.groups[-1].group_id
                 st.session_state.pop("watchlist_groups_editor_group_selector", None)
+                _remount_dnd_board()
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
                 return
@@ -208,10 +211,14 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     result = watchlist_sortable(
         containers,
         custom_style=sortable_watchlist_style(draft),
-        key=f"watchlist_groups_dnd_board_{st.session_state.get(EDITOR_DND_REVISION_KEY, 0)}",
+        server_revision=int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)),
+        acknowledged_sequence=int(st.session_state.get(EDITOR_DND_SEQUENCE_KEY, 0)),
+        key="watchlist_groups_dnd_board",
     )
     if result.get("type") == "action":
         _apply_group_board_action(draft, result)
+        return
+    if result.get("type") != "sort" or not _accept_dnd_sequence(result):
         return
     updated = apply_sortable_payload(
         draft,
@@ -221,18 +228,31 @@ def _render_editor_groups(draft: WatchlistGroupsState) -> None:
     )
     if updated != draft:
         st.session_state[EDITOR_DRAFT_KEY] = updated
-        st.session_state[EDITOR_DND_REVISION_KEY] = (
-            int(st.session_state.get(EDITOR_DND_REVISION_KEY, 0)) + 1
-        )
-        st.rerun()
+    _remount_dnd_board()
+    st.rerun()
+
+
+def _accept_dnd_sequence(result: Mapping[str, object]) -> bool:
+    sequence = result.get("clientSequence")
+    if not isinstance(sequence, int):
+        return False
+    acknowledged = int(st.session_state.get(EDITOR_DND_SEQUENCE_KEY, 0))
+    if sequence <= acknowledged:
+        return False
+    st.session_state[EDITOR_DND_SEQUENCE_KEY] = sequence
+    return True
 
 
 def _apply_group_board_action(
     draft: WatchlistGroupsState,
     result: Mapping[str, object],
 ) -> None:
+    if not _accept_dnd_sequence(result):
+        return
     group_id = str(result.get("groupId") or "")
     if not any(group.group_id == group_id for group in draft.groups):
+        _remount_dnd_board()
+        st.rerun()
         return
     action = str(result.get("action") or "")
     if action in {"up", "down"}:
@@ -302,6 +322,7 @@ def _render_inline_group_settings(
                 st.error(str(exc))
                 return
             st.session_state[EDITOR_SETTINGS_OPEN_KEY] = False
+            _remount_dnd_board()
             st.rerun()
         confirm = st.checkbox(
             "削除を確認しました。中の銘柄はお気に入りから削除されず、未分類へ移動します。",
@@ -760,6 +781,7 @@ def _close_editor() -> None:
     st.session_state.pop(EDITOR_FOCUS_KEY, None)
     st.session_state.pop(EDITOR_SELECTED_GROUP_KEY, None)
     st.session_state.pop(EDITOR_DND_REVISION_KEY, None)
+    st.session_state.pop(EDITOR_DND_SEQUENCE_KEY, None)
     st.session_state.pop(EDITOR_SETTINGS_OPEN_KEY, None)
 
 
@@ -771,6 +793,7 @@ def clear_watchlist_group_transient_state() -> None:
             EDITOR_FOCUS_KEY,
             EDITOR_SELECTED_GROUP_KEY,
             EDITOR_DND_REVISION_KEY,
+            EDITOR_DND_SEQUENCE_KEY,
             EDITOR_SETTINGS_OPEN_KEY,
             COLLAPSED_KEY,
         }:

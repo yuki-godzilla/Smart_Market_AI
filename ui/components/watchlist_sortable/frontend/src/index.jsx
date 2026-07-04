@@ -29,6 +29,7 @@ import {
   findContainerIndex,
   moveAcrossContainers,
   selectCollisionId,
+  shouldAcceptServerState,
 } from "./dnd_state.js";
 
 function Item({id, label, overlay = false}) {
@@ -100,6 +101,8 @@ function App({args}) {
   const containersRef = useRef(args.containers);
   const dragStartSnapshot = useRef(null);
   const lastOverId = useRef(null);
+  const serverRevision = useRef(args.serverRevision || 0);
+  const clientSequence = useRef(args.acknowledgedSequence || 0);
   const sensors = useSensors(
     useSensor(MouseSensor, {activationConstraint: {distance: 8}}),
     useSensor(TouchSensor, {activationConstraint: {delay: 220, tolerance: 8}}),
@@ -107,18 +110,34 @@ function App({args}) {
   );
 
   useEffect(() => {
+    const incomingRevision = args.serverRevision || 0;
+    const acknowledgedSequence = args.acknowledgedSequence || 0;
+    if (!shouldAcceptServerState(
+      incomingRevision,
+      serverRevision.current,
+      acknowledgedSequence,
+      clientSequence.current,
+    )) return;
     const next = cloneContainers(args.containers);
     containersRef.current = next;
     dragStartSnapshot.current = null;
     lastOverId.current = null;
+    serverRevision.current = incomingRevision;
+    clientSequence.current = acknowledgedSequence;
     setContainers(next);
-  }, [args.containers]);
+  }, [args.acknowledgedSequence, args.containers, args.serverRevision]);
   useEffect(() => {
     Streamlit.setFrameHeight();
   }, [containers]);
 
   const emitAction = (action, groupId) => {
-    Streamlit.setComponentValue({type: "action", action, groupId});
+    clientSequence.current += 1;
+    Streamlit.setComponentValue({
+      type: "action",
+      action,
+      groupId,
+      clientSequence: clientSequence.current,
+    });
   };
   const dragOver = ({active: activeEvent, over}) => {
     if (!over) return;
@@ -155,7 +174,12 @@ function App({args}) {
     lastOverId.current = null;
     containersRef.current = next;
     setContainers(next);
-    Streamlit.setComponentValue({type: "sort", containers: next});
+    clientSequence.current += 1;
+    Streamlit.setComponentValue({
+      type: "sort",
+      containers: next,
+      clientSequence: clientSequence.current,
+    });
   };
   const dragStart = ({active: eventActive}) => {
     dragStartSnapshot.current = cloneContainers(containersRef.current);

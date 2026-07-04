@@ -19,6 +19,10 @@ htmlcov/
 build/
 dist/
 
+# Project-owned Streamlit component runtime bundle
+!ui/components/watchlist_sortable/frontend/build/
+!ui/components/watchlist_sortable/frontend/build/**
+
 # VSCode
 .vscode/
 
@@ -31,6 +35,7 @@ Thumbs.db
 
 # MarketData generated/live artifacts
 data/marketdata/live_checks/
+data/marketdata/backup/
 data/marketdata/raw/*.pdf
 data/marketdata/**/*.tmp
 data/marketdata/**/*.bak

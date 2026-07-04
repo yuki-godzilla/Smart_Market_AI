@@ -4322,3 +4322,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 元通貨併記が見切れにくいよう株価列を広げ、円換算額による数値ソートを維持した。
 - 関連385 test、Ruff、Black helper、diff checkを確認。Ranking Playwright smokeで
   iPhone 13 mini、iPad縦横、PCの横overflowなし、Streamlit例外なしを確認した。
+
+## 2026-07-04 リポジトリ容量整理
+
+- 実行時参照のない`data/marketdata/backup/`の世代別symbol universe CSV 6件
+  （約51.8MB）を追跡対象から削除し、同ディレクトリを`.gitignore`へ追加した。
+- 明示live smokeで再生成できる`data/marketdata/live_checks/`の既存結果22件を
+  追跡対象から削除。既存のignore方針と実際の追跡状態を一致させた。
+- `ui/components/watchlist_sortable/frontend/build/`はStreamlit実行時に必要なため、
+  汎用`build/` ignoreの明示例外として追跡を維持した。
+- ローカル再生成物の`dist/`、ルート`build/`、`.mypy_cache/`、`.tmp/`、
+  `.ruff_cache/`、component `node_modules/`を削除した。仮想環境、UI assets、
+  responsive screenshots、symbol cacheは維持した。

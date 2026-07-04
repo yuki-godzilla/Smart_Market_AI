@@ -1,5 +1,0 @@
-symbol,name,short_period_bars,short_period_error,long_period_bars,first_available_date,last_available_date,long_period_error
-2344.T,平安レイサービス,0,ProviderUnavailableError: Yahoo market-data provider returned no batch data,23,2026-04-01,2026-05-07,
-4530.T,久光製薬,0,ProviderUnavailableError: Yahoo market-data provider returned no batch data,25,2026-04-01,2026-05-11,
-6565.T,ＡＢホテル,0,ProviderUnavailableError: Yahoo market-data provider returned no batch data,22,2026-04-01,2026-05-01,
-9237.T,笑美面,7,,32,2026-04-01,2026-05-20,

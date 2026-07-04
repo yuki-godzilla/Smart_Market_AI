@@ -336,6 +336,8 @@ def test_sortable_style_applies_tones_and_touch_drag_without_page_swipe():
 
     assert "touch-action: none" in style
     assert "overscroll-behavior: contain" in style
+    assert ".sortable-container-body::after" in style
+    assert "min-width: 72px" in style
     assert "rgba(8, 67, 86, .88)" in style
     assert "rgba(91, 31, 48, .88)" in style
     assert "rgba(43, 53, 70, .88)" in style

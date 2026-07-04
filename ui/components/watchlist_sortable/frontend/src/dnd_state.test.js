@@ -6,6 +6,7 @@ import {
   finalizeDrag,
   findContainerIndex,
   moveAcrossContainers,
+  selectCollisionId,
 } from "./dnd_state.js";
 
 const initial = () => [
@@ -61,4 +62,20 @@ test("clone creates a rollback-safe snapshot", () => {
   state[0].items.splice(0, 1);
 
   assert.deepEqual(snapshot[0].items, ["AAA", "BBB"]);
+});
+
+test("collision selection prefers the chip directly under the pointer", () => {
+  assert.equal(
+    selectCollisionId(["group:b", "CCC"], ["group:a", "group:b"], "AAA"),
+    "CCC",
+  );
+  assert.equal(
+    selectCollisionId(["group:b"], ["group:a", "group:b"], "AAA"),
+    "group:b",
+  );
+});
+
+test("collision selection ignores the active chip and supports no hit", () => {
+  assert.equal(selectCollisionId(["AAA", "group:b"], ["group:b"], "AAA"), "group:b");
+  assert.equal(selectCollisionId([], ["group:b"], "AAA"), null);
 });

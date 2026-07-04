@@ -163,7 +163,9 @@ Phase N4:
   and cancel / outside-drop restores the drag-start snapshot. Python accepts only a complete
   payload containing every known container and symbol exactly once. No-op payloads leave the
   draft untouched; an actual move increments the board revision and remounts from the latest
-  draft, allowing repeated moves in one editor session.
+  draft, allowing repeated moves in one editor session. Collision detection prioritizes the chip
+  directly under the pointer, falls back to the containing group, and retains the last valid target
+  while crossing gaps. Wrapped groups keep a visible tail drop lane even when chips fill a row.
   Every custom group container has its own `↑` / `↓` / `編集` controls in the D&D header;
   `未分類` has no mutation controls. Order changes remain draft-only until `保存して閉じる`,
   and `編集` opens only that group's inline settings. There is no shared selector toolbar,

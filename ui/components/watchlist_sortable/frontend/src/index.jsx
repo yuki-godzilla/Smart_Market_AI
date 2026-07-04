@@ -6,7 +6,8 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
-  closestCenter,
+  rectIntersection,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -26,6 +27,7 @@ import {
   cloneContainers,
   finalizeDrag,
   moveAcrossContainers,
+  selectCollisionId,
 } from "./dnd_state.js";
 
 function Item({id, label, overlay = false}) {
@@ -97,6 +99,7 @@ function App({args}) {
   const containersRef = useRef(args.containers);
   const dragStartSnapshot = useRef(null);
   const commitPending = useRef(false);
+  const lastOverId = useRef(null);
   const sensors = useSensors(
     useSensor(MouseSensor, {activationConstraint: {distance: 8}}),
     useSensor(TouchSensor, {activationConstraint: {delay: 220, tolerance: 8}}),
@@ -108,6 +111,7 @@ function App({args}) {
     containersRef.current = next;
     dragStartSnapshot.current = null;
     commitPending.current = false;
+    lastOverId.current = null;
     setContainers(next);
   }, [args.containers]);
   useEffect(() => {
@@ -140,6 +144,7 @@ function App({args}) {
       return;
     }
     commitPending.current = true;
+    lastOverId.current = null;
     containersRef.current = next;
     setContainers(next);
     Streamlit.setComponentValue({type: "sort", containers: next});
@@ -147,6 +152,7 @@ function App({args}) {
   const dragStart = ({active: eventActive}) => {
     if (commitPending.current) return;
     dragStartSnapshot.current = cloneContainers(containersRef.current);
+    lastOverId.current = null;
     setActive(eventActive.id);
   };
   const restoreSnapshot = () => {
@@ -157,6 +163,7 @@ function App({args}) {
       setContainers(restored);
     }
     dragStartSnapshot.current = null;
+    lastOverId.current = null;
   };
   const dragCancel = () => {
     setActive(null);
@@ -168,12 +175,28 @@ function App({args}) {
   const editableContainerIds = containers
     .filter((container) => !container.system)
     .map((container) => container.id);
+  const containerIds = containers.map((container) => container.id);
+  const collisionDetection = (args) => {
+    const pointerHits = pointerWithin(args).map((collision) => collision.id);
+    const fallbackHits = pointerHits.length
+      ? []
+      : rectIntersection(args).map((collision) => collision.id);
+    const overId = selectCollisionId(
+      pointerHits.length ? pointerHits : fallbackHits,
+      containerIds,
+      args.active.id,
+    );
+    if (overId) lastOverId.current = overId;
+    return overId
+      ? [{id: overId}]
+      : (lastOverId.current ? [{id: lastOverId.current}] : []);
+  };
 
   return (
     <main className="sortable-component">
       <style>{args.customStyle}</style>
       <DndContext
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         onDragStart={dragStart}
         onDragOver={dragOver}
         onDragEnd={dragEnd}

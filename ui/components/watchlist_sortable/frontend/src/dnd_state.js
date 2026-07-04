@@ -12,6 +12,15 @@ export function findContainerIndex(containers, id) {
   );
 }
 
+export function selectCollisionId(collisionIds, containerIds, activeId) {
+  const candidates = collisionIds.filter((id) => id !== activeId);
+  return (
+    candidates.find((id) => !containerIds.includes(id))
+    || candidates.find((id) => containerIds.includes(id))
+    || null
+  );
+}
+
 export function moveAcrossContainers(containers, activeId, overId) {
   const from = findContainerIndex(containers, activeId);
   const to = findContainerIndex(containers, overId);

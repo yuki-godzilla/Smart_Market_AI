@@ -590,7 +590,15 @@ WATCHLIST_SORTABLE_STYLE = """
   .group-actions { width: 100%; }
   .group-actions button { flex: 1 1 0; }
 }
-.sortable-container-body { min-height: 42px; display: flex; flex-wrap: wrap; gap: 5px; }
+.sortable-container-body {
+  min-height: 48px; display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 3px 3px 9px;
+}
+.sortable-container-body::after {
+  content: ""; flex: 1 1 72px; min-width: 72px; height: 34px;
+  border: 1px dashed rgba(125, 211, 252, .2); border-radius: 999px;
+  background: rgba(7, 18, 34, .18); pointer-events: none;
+}
 .sortable-item {
   max-width: 100%; min-height: 34px; margin: 0; padding: 6px 9px;
   border: 1px solid rgba(34,211,238,.5); border-radius: 999px;

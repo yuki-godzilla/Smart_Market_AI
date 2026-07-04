@@ -26,6 +26,7 @@ import {
 import {
   cloneContainers,
   finalizeDrag,
+  findContainerIndex,
   moveAcrossContainers,
   selectCollisionId,
 } from "./dnd_state.js";
@@ -98,7 +99,6 @@ function App({args}) {
   const [active, setActive] = useState(null);
   const containersRef = useRef(args.containers);
   const dragStartSnapshot = useRef(null);
-  const commitPending = useRef(false);
   const lastOverId = useRef(null);
   const sensors = useSensors(
     useSensor(MouseSensor, {activationConstraint: {distance: 8}}),
@@ -110,7 +110,6 @@ function App({args}) {
     const next = cloneContainers(args.containers);
     containersRef.current = next;
     dragStartSnapshot.current = null;
-    commitPending.current = false;
     lastOverId.current = null;
     setContainers(next);
   }, [args.containers]);
@@ -119,38 +118,46 @@ function App({args}) {
   }, [containers]);
 
   const emitAction = (action, groupId) => {
-    if (commitPending.current) return;
-    commitPending.current = true;
     Streamlit.setComponentValue({type: "action", action, groupId});
   };
   const dragOver = ({active: activeEvent, over}) => {
-    if (!over || commitPending.current) return;
-    setContainers((current) => {
-      const next = moveAcrossContainers(current, activeEvent.id, over.id);
-      containersRef.current = next;
-      return next;
-    });
+    if (!over) return;
+    const next = moveAcrossContainers(
+      containersRef.current,
+      activeEvent.id,
+      over.id,
+    );
+    containersRef.current = next;
+    setContainers(next);
   };
   const dragEnd = ({active: activeEvent, over}) => {
     setActive(null);
-    if (commitPending.current) return;
     if (!over) {
       restoreSnapshot();
       return;
     }
-    const next = finalizeDrag(containersRef.current, activeEvent.id, over.id);
+    const originIndex = dragStartSnapshot.current
+      ? findContainerIndex(dragStartSnapshot.current, activeEvent.id)
+      : -1;
+    const originContainerId = originIndex >= 0
+      ? dragStartSnapshot.current[originIndex].id
+      : null;
+    const next = finalizeDrag(
+      containersRef.current,
+      activeEvent.id,
+      over.id,
+      originContainerId,
+    );
     if (!next) {
       restoreSnapshot();
       return;
     }
-    commitPending.current = true;
     lastOverId.current = null;
     containersRef.current = next;
     setContainers(next);
     Streamlit.setComponentValue({type: "sort", containers: next});
   };
   const dragStart = ({active: eventActive}) => {
-    if (commitPending.current) return;
     dragStartSnapshot.current = cloneContainers(containersRef.current);
     lastOverId.current = null;
     setActive(eventActive.id);

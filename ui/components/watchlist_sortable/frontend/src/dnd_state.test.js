@@ -23,6 +23,16 @@ test("repeated cross-container previews always use the latest state", () => {
   assert.deepEqual(second.map((row) => row.items), [["BBB"], ["CCC"], ["AAA", "DDD"]]);
 });
 
+test("two completed drags accumulate without waiting for a remount", () => {
+  const firstPreview = moveAcrossContainers(initial(), "AAA", "CCC");
+  const first = finalizeDrag(firstPreview, "AAA", "CCC", "group:a");
+  const secondPreview = moveAcrossContainers(first, "DDD", "BBB");
+  const second = finalizeDrag(secondPreview, "DDD", "BBB", "system:unclassified");
+
+  assert.deepEqual(first.map((row) => row.items), [["BBB"], ["AAA", "CCC"], ["DDD"]]);
+  assert.deepEqual(second.map((row) => row.items), [["DDD", "BBB"], ["AAA", "CCC"], []]);
+});
+
 test("a repeated stale drag-over cannot remove another tail item", () => {
   const moved = moveAcrossContainers(initial(), "AAA", "CCC");
   const repeated = moveAcrossContainers(moved, "AAA", "CCC");
@@ -42,7 +52,7 @@ test("dropping over an empty container appends the item safely", () => {
   const state = initial();
   state[0].items = [];
   const moved = moveAcrossContainers(state, "CCC", "group:a");
-  const finalized = finalizeDrag(moved, "CCC", "group:a");
+  const finalized = finalizeDrag(moved, "CCC", "group:a", "group:b");
 
   assert.deepEqual(finalized[0].items, ["CCC"]);
   assert.deepEqual(finalized[1].items, []);

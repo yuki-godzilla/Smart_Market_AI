@@ -4,8 +4,10 @@
 
 - Replaced stale-closure drag calculations with pure latest-state transitions and guarded every
   source/destination index.
-- Added drag-start snapshots, cancel/outside-drop rollback, and a commit lock preventing another
-  event from being sent while Streamlit remounts the updated board.
+- Added drag-start snapshots and cancel/outside-drop rollback. Removed the persistent post-drop
+  lock so subsequent complete-state payloads can be sent before or after Streamlit remounts.
+- Made cross-container previews update the authoritative ref synchronously before React rendering,
+  preventing an immediate pointer release from finalizing the pre-move state and snapping back.
 - Changed internal identities from visible group/name labels to stable group IDs and normalized
   symbols, including a dedicated system `未分類` ID.
 - Replaced center-distance collision selection with pointer-first chip/container selection and a
@@ -13,9 +15,10 @@
 - Added a persistent tail drop lane so wrapped/full rows retain a reliable group-level target.
 - Made Python reject incomplete, duplicate, unknown-container, and unknown-symbol payloads instead
   of partially applying them.
-- Added six frontend state-transition tests plus Python coverage for strict payloads and a custom
+- Prevented cross-container drops from applying a second same-container reorder at drag end.
+- Added frontend state-transition tests plus Python coverage for strict payloads and a custom
   group named `未分類`.
-- Verification passed: eight frontend tests and production build, 72 relevant Python tests, Ruff,
+- Verification passed: nine frontend tests and production build, 72 relevant Python tests, Ruff,
   targeted Mypy, project Black helper, and the four-viewport responsive browser smoke.
 
 ## 2026-07-04 Watchlist Groups full-panel tone

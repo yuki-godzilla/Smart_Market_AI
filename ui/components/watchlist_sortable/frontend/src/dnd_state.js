@@ -35,11 +35,14 @@ export function moveAcrossContainers(containers, activeId, overId) {
   return next;
 }
 
-export function finalizeDrag(containers, activeId, overId) {
+export function finalizeDrag(containers, activeId, overId, originContainerId = null) {
   const target = findContainerIndex(containers, activeId);
   if (target < 0) return null;
   const fromIndex = containers[target].items.indexOf(activeId);
   if (fromIndex < 0) return null;
+  if (originContainerId && containers[target].id !== originContainerId) {
+    return cloneContainers(containers);
+  }
   const overContainer = findContainerIndex(containers, overId);
   if (overContainer < 0 || overContainer !== target) return cloneContainers(containers);
   const toIndex = containers[target].items.indexOf(overId);

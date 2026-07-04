@@ -16,6 +16,21 @@ VIEWPORTS = (
 )
 
 
+def _drag_between(page, source, target) -> None:
+    source_box = source.bounding_box()
+    target_box = target.bounding_box()
+    assert source_box is not None
+    assert target_box is not None
+    start_x = source_box["x"] + source_box["width"] / 2
+    start_y = source_box["y"] + source_box["height"] / 2
+    end_x = target_box["x"] + target_box["width"] / 2
+    end_y = target_box["y"] + target_box["height"] / 2
+    page.mouse.move(start_x, start_y)
+    page.mouse.down()
+    page.mouse.move(end_x, end_y, steps=16)
+    page.mouse.up()
+
+
 @pytest.mark.skipif(
     os.getenv("SMAI_RUN_RESPONSIVE_SMOKE") != "1",
     reason="Set SMAI_RUN_RESPONSIVE_SMOKE=1 with Streamlit running to enable.",
@@ -113,6 +128,45 @@ def test_my_radar_responsive_viewports() -> None:
                         "button", name=re.compile(r".+を下へ")
                     ).first
                     down_action.wait_for(state="visible", timeout=30_000)
+                    containers = component.locator(".sortable-container")
+                    source_index = next(
+                        (
+                            index
+                            for index in range(containers.count())
+                            if containers.nth(index).locator(".sortable-item").count()
+                        ),
+                        None,
+                    )
+                    if source_index is not None:
+                        target_index = (source_index + 1) % containers.count()
+                        source_chip = containers.nth(source_index).locator(".sortable-item").first
+                        chip_label = source_chip.inner_text().replace("⠿", "").strip()
+                        _drag_between(
+                            page,
+                            source_chip,
+                            containers.nth(target_index).locator(".sortable-container-body"),
+                        )
+                        moved_chip = (
+                            component_frame.content_frame.locator(".sortable-container")
+                            .nth(target_index)
+                            .locator(".sortable-item")
+                            .filter(has_text=chip_label)
+                        )
+                        moved_chip.wait_for(state="visible", timeout=30_000)
+                        _drag_between(
+                            page,
+                            moved_chip,
+                            component_frame.content_frame.locator(".sortable-container")
+                            .nth(source_index)
+                            .locator(".sortable-container-body"),
+                        )
+                        restored_chip = (
+                            component_frame.content_frame.locator(".sortable-container")
+                            .nth(source_index)
+                            .locator(".sortable-item")
+                            .filter(has_text=chip_label)
+                        )
+                        restored_chip.wait_for(state="visible", timeout=30_000)
                     edit_group = component.get_by_role("button", name=re.compile(r".+を編集")).first
                     assert edit_group.is_visible()
                     edit_group.click()

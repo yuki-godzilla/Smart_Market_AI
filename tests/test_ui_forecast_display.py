@@ -6904,8 +6904,24 @@ def test_build_market_data_ranking_rows_adds_current_price_jpy_for_usd(monkeypat
     assert rows[0]["current_price_currency"] == "USD"
     assert rows[0]["current_price_jpy"] == "19350"
     assert display_rows[0]["現在株価（円）"] == "19350"
+    assert display_rows[0]["株価"] == "19,350円（129 USD）"
     assert display_rows[0]["現在値"] == "129"
-    assert frame.loc[0, "現在株価（円）"] == "19350"
+    assert frame.loc[0, "株価"] == "19,350円（129 USD）"
+
+
+def test_ranking_stock_price_keeps_jpy_primary_for_domestic_symbol():
+    display_rows = investment_score_display_rows(
+        [
+            {
+                "symbol": "7203.T",
+                "current_price": "2845.5",
+                "current_price_jpy": "2845.5",
+                "current_price_currency": "JPY",
+            }
+        ]
+    )
+
+    assert display_rows[0]["株価"] == "2,845.5円"
 
 
 def test_build_market_data_ranking_rows_uses_feature_history_for_direction_signal(monkeypatch):
@@ -7747,7 +7763,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "銘柄",
         "お気に入り",
         "銘柄名",
-        "現在株価（円）",
+        "株価",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -7765,7 +7781,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
     ]
     assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
     assert frame.loc[0, "お気に入り"] in {"☆ 追加", "★ 登録済"}
-    assert frame.loc[0, "現在株価（円）"] == "N/A"
+    assert frame.loc[0, "株価"] == "N/A"
     assert frame.loc[0, "判断方針"] == "比較候補"
     assert frame.loc[0, "PER"] == "N/A"
     assert frame.loc[0, "PBR"] == "N/A"
@@ -7813,7 +7829,7 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         "銘柄",
         "お気に入り",
         "銘柄名",
-        "現在株価（円）",
+        "株価",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -8227,7 +8243,7 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         "銘柄",
         "お気に入り",
         "銘柄名",
-        "現在株価（円）",
+        "株価",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -8277,7 +8293,7 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
         "銘柄",
         "お気に入り",
         "銘柄名",
-        "現在株価（円）",
+        "株価",
         "総合スコア",
         "判断方針",
         "配当利回り",

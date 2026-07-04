@@ -544,7 +544,7 @@ RANKING_TABLE_BASE_COLUMNS = (
     "銘柄",
     "お気に入り",
     "銘柄名",
-    "現在株価（円）",
+    "株価",
     "総合スコア",
     "判断方針",
     "配当利回り",
@@ -617,7 +617,7 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "予測確度": "desc",
     "高度予測日数": "desc",
     "高度予測スコア": "desc",
-    "現在株価（円）": "desc",
+    "株価": "desc",
     "時価総額": "desc",
     "出来高": "desc",
     "ボラティリティ": "asc",
@@ -685,7 +685,8 @@ function(valueA, valueB, nodeA, nodeB, isDescending) {
     if (missing.indexOf(text) >= 0) {
       return null;
     }
-    var numberValue = Number(text);
+    var leadingNumber = text.match(/^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)/);
+    var numberValue = leadingNumber ? Number(leadingNumber[0]) : Number(text);
     return Number.isFinite(numberValue) ? numberValue : null;
   }
   var a = parseMetric(valueA);
@@ -3476,7 +3477,7 @@ def ranking_result_aggrid_frame(
             "経費率": row.get("経費率", ""),
             "NISA": row.get("NISA", ""),
             "投資スタイル": row.get("投資スタイル", ""),
-            "現在株価（円）": _ranking_table_display_value(row.get("現在株価（円）", "")),
+            "株価": _ranking_table_display_value(row.get("株価", "")),
             "現在値": _ranking_table_display_value(row.get("現在値", "")),
             "時価総額": _ranking_table_display_value(row.get("時価総額", "")),
             "出来高": _ranking_table_display_value(row.get("出来高", "")),
@@ -3612,7 +3613,7 @@ def ranking_result_aggrid_options(
         "PBR",
         "ROE",
         "配当利回り",
-        "現在株価（円）",
+        "株価",
         "時価総額",
         "出来高",
         "ボラティリティ",
@@ -3633,7 +3634,7 @@ def ranking_result_aggrid_options(
             )
             builder.configure_column(
                 column,
-                width=92,
+                width=168 if column == "株価" else 92,
                 filter=False,
                 headerName=header_name,
                 comparator=RANKING_NUMERIC_SORT_COMPARATOR,
@@ -21871,6 +21872,26 @@ def _ranking_display_current_price_jpy(
     return RANKING_MISSING_DISPLAY
 
 
+def _ranking_display_stock_price(
+    row: Mapping[str, str],
+    symbol_row: Mapping[str, str] | None,
+) -> str:
+    source_currency = str(row.get("current_price_currency", "")).strip().upper()
+    if not source_currency and symbol_row is not None:
+        source_currency = str(symbol_row.get("currency", "")).strip().upper()
+    current_price = str(row.get("current_price", "")).strip()
+    current_price_jpy = str(row.get("current_price_jpy", "")).strip()
+    if not current_price and source_currency == "JPY":
+        current_price = current_price_jpy
+    if not current_price:
+        return RANKING_MISSING_DISPLAY
+    return _favorite_price_display(
+        current_price,
+        currency=source_currency,
+        price_jpy=current_price_jpy,
+    )
+
+
 def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     symbol_rows_by_symbol = _symbol_universe_rows_by_symbol()
     display_rows: list[dict[str, str]] = []
@@ -21935,6 +21956,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                     "investment_style",
                 ),
                 "現在株価（円）": _ranking_display_current_price_jpy(row, symbol_row),
+                "株価": _ranking_display_stock_price(row, symbol_row),
                 "現在値": _ranking_optional_display(row.get("current_price", "")),
                 "時価総額": _ranking_optional_display(
                     row.get("market_cap", "")

@@ -4312,3 +4312,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
   為替未取得時は`—円（182.45 USD）`として、換算値を推測せず元価格を維持する。
 - 日本株は従来どおり`1,843円`形式を維持。カードとテーブルは同じ価格表示を共有する。
 - 関連403 test、Ruff、Black helper、diff checkを確認した。
+
+## 2026-07-04 ランキング詳細テーブルの株価表示統一
+
+- ランキング結果の詳細テーブルに`株価`列を置き、Myウォッチリストと同じ
+  円主表示へ統一した。
+- 日本株は`2,845.5円`、海外銘柄は`19,350円（129 USD）`のように、
+  円換算額の横へ元価格と元通貨を併記する。
+- 元通貨併記が見切れにくいよう株価列を広げ、円換算額による数値ソートを維持した。
+- 関連385 test、Ruff、Black helper、diff checkを確認。Ranking Playwright smokeで
+  iPhone 13 mini、iPad縦横、PCの横overflowなし、Streamlit例外なしを確認した。

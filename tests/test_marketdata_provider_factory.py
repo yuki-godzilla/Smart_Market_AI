@@ -513,6 +513,8 @@ def test_yahoo_adapter_retries_single_history_after_transient_request_error(monk
     )
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
     monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "reset_shared_yfinance_session", lambda: None)
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
     )
@@ -529,6 +531,35 @@ def test_yahoo_adapter_retries_single_history_after_transient_request_error(monk
     assert len(fake_yfinance.history_calls) == 2
     assert [bar.symbol.raw for bar in bars] == ["6758.T", "6758.T"]
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
+
+
+def test_yahoo_adapter_retries_single_history_after_connection_refused(monkeypatch):
+    fake_yfinance = _FakeYFinance(
+        history_errors=[
+            RuntimeError(
+                "Failed to perform, curl: (7) Failed to connect to "
+                "query1.finance.yahoo.com port 443: Could not connect to server"
+            )
+        ],
+    )
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "reset_shared_yfinance_session", lambda: None)
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["7203.T"],
+            start=datetime(2025, 6, 9, tzinfo=UTC),
+            end=datetime(2026, 6, 9, tzinfo=UTC),
+        )
+    )
+
+    assert len(fake_yfinance.history_calls) == 2
+    assert [bar.symbol.raw for bar in bars] == ["7203.T", "7203.T"]
 
 
 def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):

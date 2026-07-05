@@ -13,7 +13,7 @@ import streamlit as st
 import ui.app as app_module
 from backend.core.config import CONFIG_FILE_ENV
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, FxRate, Symbol
-from backend.core.errors import DataSourceError
+from backend.core.errors import DataSourceError, ProviderUnavailableError
 from backend.llm_factor import (
     FakeLLMFactorService,
     LLMFactorCacheMetadata,
@@ -105,6 +105,7 @@ from ui.app import (
     _external_research_source_cards_html,
     _favorite_card_html,
     _fetch_external_research_for_preview,
+    _fetch_ranking_ohlcv_tolerant,
     _forecast_model_logic_help,
     _format_market_chart_fx_rate,
     _investment_hint_news_panel_html,
@@ -6749,6 +6750,38 @@ def test_ranking_provider_error_rows_summarizes_many_symbols():
     details = json.loads(rows[0]["details"])
     assert details["provider"] == "yahoo"
     assert details["request"]["operation"] == "fetch_ohlcv"
+
+
+def test_ranking_batch_provider_outage_stops_without_retrying_every_symbol():
+    class UnavailableAdapter:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def fetch_ohlcv(self, symbols, start, end):
+            self.calls += 1
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned no batch data",
+                details={"request": {"symbols": symbols}},
+            )
+
+    adapter = UnavailableAdapter()
+    symbols = ["7203.T", "9432.T", "7974.T"]
+    with pytest.raises(
+        ProviderUnavailableError,
+        match="Yahoo market-data provider returned no batch data",
+    ):
+        asyncio.run(
+            _fetch_ranking_ohlcv_tolerant(
+                adapter,
+                symbols,
+                provider="yahoo",
+                start=datetime(2025, 7, 5, tzinfo=UTC),
+                end=datetime(2026, 7, 5, tzinfo=UTC),
+                display_symbols_by_provider_symbol={symbol: [symbol] for symbol in symbols},
+            )
+        )
+
+    assert adapter.calls == 1
 
 
 def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):

@@ -10076,6 +10076,8 @@ async def _fetch_ranking_ohlcv_tolerant(
                 ranking_provider_error_rows(provider, display_symbols, exc),
                 set(display_symbols),
             )
+        if _ranking_batch_failure_is_provider_wide(exc):
+            raise
 
     bars: list[Bar] = []
     error_rows: list[dict[str, str]] = []
@@ -10088,6 +10090,13 @@ async def _fetch_ranking_ohlcv_tolerant(
             error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
             failed_display_symbols.update(display_symbols)
     return bars, error_rows, failed_display_symbols
+
+
+def _ranking_batch_failure_is_provider_wide(exc: AppError) -> bool:
+    return exc.message in {
+        "Yahoo market-data provider batch request failed",
+        "Yahoo market-data provider returned no batch data",
+    }
 
 
 async def _fetch_ranking_fundamentals_tolerant(

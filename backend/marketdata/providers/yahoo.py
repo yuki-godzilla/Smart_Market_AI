@@ -28,8 +28,8 @@ YAHOO_FX_TICKERS = {
     "CNYJPY": "CNYJPY=X",
 }
 YFINANCE_CACHE_DIR_ENV = "SMAI_YFINANCE_CACHE_DIR"
-YAHOO_DOWNLOAD_MAX_ATTEMPTS = 2
-YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 0.25
+YAHOO_DOWNLOAD_MAX_ATTEMPTS = 4
+YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 2.0
 YAHOO_MAX_REASONABLE_DIVIDEND_YIELD_RATIO = Decimal("0.20")
 YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
 YAHOO_OHLCV_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
@@ -282,7 +282,7 @@ class YahooMarketDataProviderAdapter:
             if _is_yahoo_transient_request_error(exc):
                 retry_reason = "transient_request"
                 retry_frame = await self._retry_history_after_transient_request_error(
-                    ticker,
+                    raw_symbol,
                     kwargs,
                 )
                 if retry_frame is not None:
@@ -337,9 +337,13 @@ class YahooMarketDataProviderAdapter:
 
     async def _retry_history_after_transient_request_error(
         self,
-        ticker: Any,
+        raw_symbol: str,
         kwargs: dict[str, object],
     ) -> Any | None:
+        await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS)
+        reset_shared_yfinance_session()
+        yf = _load_yfinance()
+        ticker = yf.Ticker(raw_symbol, session=shared_yfinance_session())
         try:
             frame = await asyncio.to_thread(
                 _call_yfinance_silently,
@@ -402,8 +406,20 @@ class YahooMarketDataProviderAdapter:
         }
         for attempt in range(1, YAHOO_DOWNLOAD_MAX_ATTEMPTS + 1):
             try:
-                frame = await asyncio.to_thread(_call_yfinance_silently, yf.download, **kwargs)
+                frame = await asyncio.to_thread(
+                    _call_yfinance_silently,
+                    yf.download,
+                    **kwargs,
+                )
             except Exception as exc:
+                if (
+                    _is_yahoo_transient_request_error(exc)
+                    and attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS
+                ):
+                    await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS * attempt)
+                    reset_shared_yfinance_session()
+                    kwargs["session"] = shared_yfinance_session()
+                    continue
                 raise ProviderUnavailableError(
                     "Yahoo market-data provider batch request failed",
                     details=self._provider_details(
@@ -421,7 +437,9 @@ class YahooMarketDataProviderAdapter:
                 return frame
 
             if attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS:
-                await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS)
+                await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS * attempt)
+                reset_shared_yfinance_session()
+                kwargs["session"] = shared_yfinance_session()
 
         raise ProviderUnavailableError(
             "Yahoo market-data provider returned no batch data",
@@ -469,6 +487,20 @@ def shared_yfinance_session() -> Any:
 
         _YAHOO_SESSION = requests.Session(impersonate="chrome")
     return _YAHOO_SESSION
+
+
+def reset_shared_yfinance_session() -> None:
+    """Drop a failed curl session so a transient network error can recover."""
+
+    global _YAHOO_SESSION
+    session = _YAHOO_SESSION
+    _YAHOO_SESSION = None
+    if session is None:
+        return
+    try:
+        session.close()
+    except Exception:  # noqa: BLE001 - cleanup must not mask the provider error.
+        pass
 
 
 def _configure_yfinance_cache(yf: Any) -> None:
@@ -519,6 +551,10 @@ def _is_yahoo_transient_request_error(exc: Exception) -> bool:
         marker in text
         for marker in (
             "curl: (28)",
+            "curl: (7)",
+            "could not connect to server",
+            "connection reset",
+            "connection refused",
             "resolving timed out",
             "operation timed out",
             "connection timed out",

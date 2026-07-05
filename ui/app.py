@@ -6181,20 +6181,13 @@ def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) ->
         ]
         beginner_explanation = (
             '<div class="smai-ranking-policy-beginner-note">'
-            "<strong>何を計算している？</strong>"
-            "<p>「最近下がった」という理由だけでは上位にしません。"
-            "押し目の深さ、今後の上向き余地、さらに下がる危険の小ささ、"
-            "データの確かさ、反転し始めた兆しを、それぞれ0〜100点で採点します。</p>"
-            "<p><strong>計算式：</strong>"
-            "押し目状態×30% ＋ 予測上向き余地×30% ＋ 下落安全性×20% ＋ "
-            "データ品質×10% ＋ 反転初動×10%</p>"
-            "<p>下降警戒が強い、急落中、データ品質が低い場合は、"
-            "合計が高くても最終スコアに上限をかけます。</p>"
+            "<strong>計算の考え方</strong>"
+            "<p>下がっただけでは評価せず、下の5項目を合算します。"
+            "下降警戒・急落・低品質がある場合は最終スコアに上限をかけます。</p>"
             "</div>"
         )
         caution = (
-            "上位は「反発しそうな銘柄」の断定ではなく、"
-            "下落理由と危険度を詳しく確認する候補です。"
+            "上位は反発の断定ではなく、下落理由と危険度を確認する候補です。"
         )
     else:
         group_rows = ranking_weight_group_rows(weight_preset)

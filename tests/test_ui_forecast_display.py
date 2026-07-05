@@ -8835,14 +8835,19 @@ def test_reversal_policy_builder_card_explains_formula_without_opening_details()
         RANKING_PRESET_REVERSAL_EXPECTATION,
     )
 
-    assert "何を計算している？" in markup
-    assert "押し目状態×30%" in markup
-    assert "予測上向き余地×30%" in markup
-    assert "下落安全性×20%" in markup
-    assert "データ品質×10%" in markup
-    assert "反転初動×10%" in markup
+    assert "計算の考え方" in markup
+    assert "下がっただけでは評価せず" in markup
+    assert "押し目状態" in markup
+    assert "予測上向き余地" in markup
+    assert "下落安全性" in markup
+    assert "企業・データ品質" in markup
+    assert "反転初動" in markup
+    assert "30%" in markup
+    assert "20%" in markup
+    assert "10%" in markup
     assert "最終スコアに上限" in markup
-    assert "反発しそうな銘柄」の断定ではなく" in markup
+    assert "上位は反発の断定ではなく" in markup
+    assert "計算式：" not in markup
 
 
 def test_ranking_creation_target_summary_html_explains_effective_target_count():

@@ -51,6 +51,7 @@ NEWS_MARKET_PROXY_SYMBOL_DISPLAY_LIMIT = 5
 NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
+NEWS_FEATURED_HEADLINE_LIMIT = 3
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -77,6 +78,30 @@ _MATERIAL_TONES = {
     "risk": "risk",
     "shareholder_return": "positive",
     "theme": "news",
+}
+
+_HEATMAP_GROUP_KIND_LABELS = {
+    "market": "市場",
+    "asset_class": "資産クラス",
+    "theme": "テーマ",
+    "macro": "マクロ",
+    "event": "イベント",
+}
+
+_HEATMAP_CATEGORY_GROUP_KINDS = {
+    "日本株": "market",
+    "米国株": "market",
+    "アジア株": "market",
+    "ETF": "asset_class",
+    "ETF・投信": "asset_class",
+    "REIT": "asset_class",
+    "為替・金利": "macro",
+    "地政学・マクロリスク": "macro",
+    "指数・市場心理": "macro",
+    "地政学・資源価格": "macro",
+    "決算・業績修正": "event",
+    "資金フロー": "event",
+    "大型ニュース反応": "event",
 }
 
 _NEWS_MARKET_PROXY_LABELS = {
@@ -360,12 +385,8 @@ def render_news_dashboard_page(
     _render_update_warning(status)
     symbol_name_map = _news_symbol_name_map()
     filtered_snapshot = _render_news_detail_filters(snapshot)
-    _render_news_stream(
-        filtered_snapshot,
-        open_symbol_callback=open_symbol_callback,
-        symbol_name_map=symbol_name_map,
-    )
     _render_heatmap(filtered_snapshot)
+    _render_news_stream(filtered_snapshot)
     _render_category_lanes(
         filtered_snapshot,
         open_symbol_callback=open_symbol_callback,
@@ -385,7 +406,7 @@ def news_dashboard_stock_heatmap_groups(
     max_groups: int = 12,
     max_tiles_per_group: int = 8,
 ) -> list[dict[str, object]]:
-    """Return sector-style groups for the stock heatmap view."""
+    """Return classified category groups for the stock heatmap view."""
 
     if max_groups <= 0 or max_tiles_per_group <= 0:
         return []
@@ -421,6 +442,8 @@ def news_dashboard_stock_heatmap_groups(
         groups.append(
             {
                 "category": category,
+                "group_kind": news_dashboard_heatmap_group_kind(category),
+                "group_kind_label": news_dashboard_heatmap_group_kind_label(category),
                 "region": str(row["分野"]),
                 "metric_source": str(row["市場指標"]),
                 "heat_score": row["加熱度"],
@@ -432,8 +455,20 @@ def news_dashboard_stock_heatmap_groups(
     return groups
 
 
+def news_dashboard_heatmap_group_kind(category: str) -> str:
+    """Return the display classification for an Investment Radar category."""
+
+    return _HEATMAP_CATEGORY_GROUP_KINDS.get(category.strip(), "theme")
+
+
+def news_dashboard_heatmap_group_kind_label(category: str) -> str:
+    """Return the beginner-friendly classification badge text."""
+
+    return _HEATMAP_GROUP_KIND_LABELS[news_dashboard_heatmap_group_kind(category)]
+
+
 def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
-    """Return a sector-style stock heatmap HTML surface."""
+    """Return a classified stock heatmap HTML surface."""
 
     groups = news_dashboard_stock_heatmap_groups(snapshot)
     if not groups:
@@ -444,8 +479,9 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
         '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
         '<div class="investment-stock-heatmap-topline">'
         '<span class="investment-stock-heatmap-read">'
-        f"表示: {len(groups)}セクター / {tile_count}銘柄タイル。"
-        "面積は値動き・時価総額目安・注目度、色は値動きで変わります。"
+        f"表示: {len(groups)}カテゴリ / {tile_count}銘柄タイル。"
+        "色は値動き、面積は注目度の目安です。"
+        "市場データがないカテゴリはニュース代理で補完します。"
         "</span>"
         '<span class="investment-stock-heatmap-click">コックピット連携</span>'
         '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
@@ -1405,7 +1441,7 @@ def _stock_heatmap_tile_span_cap(spans: tuple[int, int], tile_index: int) -> tup
 def _stock_heatmap_tile_size(span_cols: int, span_rows: int) -> str:
     if span_cols >= 3 and span_rows >= 3:
         return "hero"
-    if span_cols >= 3 or span_rows >= 2:
+    if span_cols >= 3:
         return "major"
     if span_cols >= 2 and span_rows >= 2:
         return "medium"
@@ -1451,6 +1487,8 @@ def _stock_heatmap_group_class(group_index: int, heat_score: float) -> str:
 
 def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     category = html.escape(str(group["category"]))
+    group_kind = html.escape(str(group["group_kind"]))
+    group_kind_label = html.escape(str(group["group_kind_label"]))
     meta = _stock_heatmap_group_meta_parts(
         str(group["metric_source"]),
         str(group["summary_label"]),
@@ -1472,6 +1510,8 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
         f'<span class="investment-stock-heatmap-group-score {tone}">{score}</span>'
         "</div>"
         '<div class="investment-stock-heatmap-group-sub">'
+        f'<span class="investment-stock-heatmap-group-kind {group_kind}">'
+        f"{group_kind_label}</span>"
         f'<span class="investment-stock-heatmap-group-badge">{badge}</span>'
         f'<span class="investment-stock-heatmap-group-trend {tone}">{trend}</span>'
         "</div>"
@@ -1530,17 +1570,27 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
         f"grid-column: span {span_cols}; grid-row: span {span_rows}; {color_style}",
         quote=True,
     )
-    primary_name = name or symbol
-    symbol_html = f'<span class="investment-stock-heatmap-symbol">{symbol}</span>' if name else ""
+    is_small = size in {"compact", "minor"}
+    primary_name = symbol if is_small else (name or symbol)
+    symbol_html = (
+        f'<span class="investment-stock-heatmap-symbol">{symbol}</span>'
+        if name and not is_small
+        else ""
+    )
+    factors_html = (
+        f'<span class="investment-stock-heatmap-factors">{factors_label}</span>'
+        if size in {"hero", "major"}
+        else ""
+    )
     return (
-        f'<a class="investment-stock-heatmap-tile {tone} {size}" '
+        f'<a class="investment-stock-heatmap-tile text-safe {tone} {size}" '
         f'href="{href}" target="_self" title="{label}" aria-label="{label}" style="{style}">'
         '<span class="investment-stock-heatmap-identity">'
         f'<span class="investment-stock-heatmap-name">{primary_name}</span>'
         f"{symbol_html}"
         "</span>"
         f'<span class="investment-stock-heatmap-change">{change_label}</span>'
-        f'<span class="investment-stock-heatmap-factors">{factors_label}</span>'
+        f"{factors_html}"
         "</a>"
     )
 
@@ -1788,33 +1838,20 @@ def _render_news_detail_filters(
 
 def _render_news_stream(
     snapshot: NewsDashboardSnapshot,
-    *,
-    open_symbol_callback: OpenSymbolCallback,
-    symbol_name_map: dict[str, str],
 ) -> None:
-    st.markdown("### 市場ニュースヘッドライン")
-    st.markdown(_news_ticker_html(snapshot.stream_headlines[:8]), unsafe_allow_html=True)
-    featured = snapshot.stream_headlines[:3]
+    st.markdown("### 重要ニュース")
+    featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_LIMIT]
     if not featured:
         st.info("表示できるニュースはまだありません。")
         return
-    cols = st.columns(len(featured))
-    for index, card in enumerate(featured):
-        with cols[index]:
-            st.markdown(news_headline_card_html(card, compact=True), unsafe_allow_html=True)
-            _render_symbol_handoff_buttons(
-                card,
-                key_prefix=f"stream_{index}",
-                open_symbol_callback=open_symbol_callback,
-                symbol_name_map=symbol_name_map,
-            )
+    st.markdown(_news_ticker_html(featured), unsafe_allow_html=True)
 
 
 def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
     st.markdown("### 投資ヒートマップ")
     st.caption(
-        "カテゴリごとの市場温度感を、セクター枠と関連銘柄タイルで確認します。"
-        "市場指標がないカテゴリはニュース材料から代理シグナルを補完します。"
+        "色は値動き、面積は注目度の目安です。"
+        "市場データがないカテゴリはニュース代理で補完します。"
     )
     heatmap_html = news_dashboard_stock_heatmap_html(snapshot)
     if not heatmap_html:

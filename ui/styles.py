@@ -1480,8 +1480,8 @@ div[data-testid="stElementContainer"]:has(
         linear-gradient(135deg, rgba(18, 29, 49, 0.94), rgba(4, 10, 24, 0.96)),
         linear-gradient(180deg, rgba(34, 211, 238, 0.05), rgba(251, 113, 133, 0.04)),
         var(--bg-card, #0B1120);
-    padding: 0.76rem;
-    margin: 0.35rem 0 1.2rem;
+    padding: 0.62rem;
+    margin: 0.25rem 0 0.85rem;
     box-shadow:
         0 1.1rem 2.4rem rgba(2, 6, 23, 0.24),
         inset 0 1px 0 rgba(255, 255, 255, 0.035);
@@ -1492,11 +1492,11 @@ div[data-testid="stElementContainer"]:has(
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.72rem;
+    gap: 0.5rem;
     color: rgba(178, 199, 216, 0.82);
     font-size: 0.75rem;
     font-weight: 760;
-    margin: 0 0 0.55rem;
+    margin: 0 0 0.42rem;
 }
 
 .investment-stock-heatmap-read {
@@ -1546,8 +1546,8 @@ div[data-testid="stElementContainer"]:has(
 .investment-stock-heatmap-board {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-auto-rows: 6.5rem;
-    gap: 0.54rem;
+    grid-auto-rows: 5.8rem;
+    gap: 0.5rem;
 }
 
 .investment-stock-heatmap-group {
@@ -1581,12 +1581,12 @@ div[data-testid="stElementContainer"]:has(
 .investment-stock-heatmap-group-header {
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    gap: 0.22rem;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
     background:
         linear-gradient(115deg, rgba(8, 24, 44, 0.98), rgba(13, 47, 73, 0.92));
     color: #E6F6FF;
-    padding: 0.48rem 0.56rem 0.44rem;
+    padding: 0.35rem 0.5rem;
 }
 
 .investment-stock-heatmap-group-main,
@@ -1603,7 +1603,7 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-stock-heatmap-group-sub {
     justify-content: flex-start;
-    gap: 0.38rem;
+    gap: 0.3rem;
 }
 
 .investment-stock-heatmap-group-title {
@@ -1647,6 +1647,37 @@ div[data-testid="stElementContainer"]:has(
     padding: 0.1rem 0.38rem;
 }
 
+.investment-stock-heatmap-group-kind {
+    border: 1px solid rgba(196, 181, 253, 0.3);
+    border-radius: 999px;
+    background: rgba(109, 40, 217, 0.16);
+    color: #DDD6FE;
+    font-size: 0.66rem;
+    font-weight: 820;
+    line-height: 1.2;
+    padding: 0.1rem 0.38rem;
+    white-space: nowrap;
+}
+
+.investment-stock-heatmap-group-kind.market {
+    border-color: rgba(94, 234, 212, 0.3);
+    background: rgba(13, 148, 136, 0.16);
+    color: #99F6E4;
+}
+
+.investment-stock-heatmap-group-kind.asset_class {
+    border-color: rgba(253, 224, 71, 0.3);
+    background: rgba(202, 138, 4, 0.16);
+    color: #FEF08A;
+}
+
+.investment-stock-heatmap-group-kind.macro,
+.investment-stock-heatmap-group-kind.event {
+    border-color: rgba(251, 146, 60, 0.3);
+    background: rgba(194, 65, 12, 0.16);
+    color: #FED7AA;
+}
+
 .investment-stock-heatmap-group-trend {
     color: #CBD5E1;
     font-size: 0.72rem;
@@ -1685,13 +1716,13 @@ div[data-testid="stElementContainer"]:has(
     justify-content: center;
     gap: 0.22rem;
     min-width: 0;
-    min-height: 0;
+    min-height: 42px;
     border: 1px solid var(--heatmap-tile-border);
     border-radius: 4px;
     background: var(--heatmap-tile-bg);
     color: var(--heatmap-tile-name);
     overflow: hidden;
-    padding: 0.26rem;
+    padding: 0.22rem 0.3rem;
     text-align: center;
     text-decoration: none;
     text-shadow: 0 1px 1px rgba(2, 6, 23, 0.34);
@@ -1820,6 +1851,7 @@ div[data-testid="stElementContainer"]:has(
     gap: 0.16rem;
     min-width: 0;
     max-width: 100%;
+    overflow: hidden;
 }
 
 .investment-stock-heatmap-symbol {
@@ -1911,12 +1943,15 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-stock-heatmap-change {
+    max-width: 100%;
     color: var(--heatmap-tile-change);
     font-size: 0.76rem;
     font-weight: 850;
     line-height: 1.12;
     margin-top: 0.14rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-change {
@@ -1999,7 +2034,7 @@ div[data-testid="stElementContainer"]:has(
     .investment-stock-heatmap-group.medium {
         grid-column: span 1;
         grid-row: auto;
-        min-height: 14.2rem;
+        min-height: 12.5rem;
     }
     .investment-stock-heatmap-group-header {
         gap: 0.3rem;
@@ -2013,7 +2048,17 @@ div[data-testid="stElementContainer"]:has(
     }
     .investment-stock-heatmap-tiles {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-auto-rows: minmax(2.7rem, 1fr);
+        grid-auto-rows: minmax(2.75rem, 1fr);
+    }
+    .investment-stock-heatmap-tile {
+        min-height: 44px;
+    }
+    .investment-stock-heatmap-tile.compact .investment-stock-heatmap-name,
+    .investment-stock-heatmap-tile.minor .investment-stock-heatmap-name {
+        font-size: 0.68rem;
+        line-height: 1.15;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
     .investment-stock-heatmap-tile.hero,
     .investment-stock-heatmap-tile.major {

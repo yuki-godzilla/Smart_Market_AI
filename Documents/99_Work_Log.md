@@ -4388,3 +4388,19 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Removed the final BAT pause and misleading `Streamlit stopped` message when TCP 8501 is reused.
 - Added `CREATE_NO_WINDOW` to resilient startup and stopped waiting when the child already exited.
 - Verified 17 focused tests, Ruff, live health 200, and immediate existing-server reuse.
+
+## 2026-07-05 投資レーダー表示密度・カテゴリ分類ポリッシュ
+
+- ヒートマップカテゴリへ表示用の `group_kind` を付与し、`市場`、`資産クラス`、
+  `テーマ`、`マクロ`、`イベント`の分類バッジを追加した。既存スコアと表示順は変更しない。
+- 小タイルをティッカーと変化率だけに絞り、企業名・規模・注目度は非表示にした。
+  詳細は `title` / `aria-label` に残し、中・大タイルは段階的に情報量を増やした。
+- `セクター`件数表記を`カテゴリ`へ変更し、ヒートマップを重要ニュースより上へ移動。
+  上部ニュースは最大3件の簡潔なヘッドラインだけにした。
+- PCのグリッド高さ・余白・タイルpaddingを圧縮し、スマホでは44px以上のタップ領域、
+  1列カテゴリ配置、文字省略を維持した。
+- 関連472 testとRuffは成功。Black helperは今回の対象ファイルを通過したが、
+  既存のserver_ops系3ファイルに未整形差分を報告した。
+- 4 viewport Playwright smokeは、既存8501番ではユーザー選択前に留まり、
+  専用サーバーではWebSocket切断後に停止したため完走できなかった。
+  実機または安定稼働中サーバーでの最終目視確認を残す。

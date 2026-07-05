@@ -9,9 +9,9 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 VIEWPORTS = (
     ("iphone13mini", 375, 812),
-    ("ipad8_portrait", 810, 1080),
+    ("ipad", 820, 1080),
     ("ipad8_landscape", 1080, 810),
-    ("pc_1366", 1366, 768),
+    ("pc_1440", 1440, 900),
 )
 
 
@@ -38,6 +38,12 @@ def test_investment_radar_responsive_viewports() -> None:
                 if sidebar_close.count() and sidebar_close.is_visible():
                     sidebar_close.evaluate("(element) => element.click()")
                     page.keyboard.press("Escape")
+                if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
+                    page.get_by_text("Yuki", exact=True).click()
+                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.get_by_text("投資レーダー", exact=True).wait_for(
+                        state="visible", timeout=60_000
+                    )
                 page.wait_for_timeout(3_000)
 
                 body_width = page.locator("body").evaluate(
@@ -58,6 +64,14 @@ def test_investment_radar_responsive_viewports() -> None:
                 header_box = heatmap_header.bounding_box()
                 assert header_box is not None
                 assert header_box["height"] >= 40
+                assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
+                assert page.get_by_text("8セクター", exact=False).count() == 0
+                assert page.locator(".investment-stock-heatmap-group-kind").count() > 0
+                assert page.locator(".investment-news-ticker-item").count() <= 3
+                if width <= 767:
+                    tile_box = heatmap_tile.bounding_box()
+                    assert tile_box is not None
+                    assert tile_box["height"] >= 44
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

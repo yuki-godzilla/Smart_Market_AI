@@ -14,6 +14,8 @@ from ui.views.news import (
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
+    news_dashboard_heatmap_group_kind,
+    news_dashboard_heatmap_group_kind_label,
     news_dashboard_lane_card_items,
     news_dashboard_stock_heatmap_groups,
     news_dashboard_stock_heatmap_html,
@@ -74,7 +76,7 @@ def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metric
     assert frame.loc[0, "値動き表示"].startswith("材料")
 
 
-def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
+def test_news_dashboard_stock_heatmap_html_uses_classified_category_tiles():
     snapshot = build_demo_news_dashboard_snapshot(
         now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
     )
@@ -89,11 +91,13 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-group-score" in html_text
     assert "investment-stock-heatmap-group-sub" in html_text
     assert "investment-stock-heatmap-group-badge" in html_text
+    assert "investment-stock-heatmap-group-kind" in html_text
     assert "investment-stock-heatmap-group-trend" in html_text
     assert "investment-stock-heatmap-tile" in html_text
-    assert "8セクター" in html_text
+    assert "8カテゴリ" in html_text
+    assert "8セクター" not in html_text
     assert "64銘柄タイル" in html_text
-    assert "面積は値動き・時価総額目安・注目度" in html_text
+    assert "色は値動き、面積は注目度の目安" in html_text
     assert "investment-stock-heatmap-click" in html_text
     assert '<a class="investment-stock-heatmap-tile' in html_text
     assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
@@ -108,6 +112,21 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
         "investment-stock-heatmap-symbol"
     )
     assert "未取得" not in html_text
+
+
+def test_news_dashboard_heatmap_group_kind_labels_cover_mixed_category_axes():
+    expected = {
+        "日本株": ("market", "市場"),
+        "米国株": ("market", "市場"),
+        "ETF": ("asset_class", "資産クラス"),
+        "半導体・AI": ("theme", "テーマ"),
+        "為替・金利": ("macro", "マクロ"),
+        "決算・業績修正": ("event", "イベント"),
+    }
+
+    for category, (kind, label) in expected.items():
+        assert news_dashboard_heatmap_group_kind(category) == kind
+        assert news_dashboard_heatmap_group_kind_label(category) == label
 
 
 def test_news_dashboard_stock_heatmap_tiles_use_dynamic_area_factors():
@@ -129,6 +148,41 @@ def test_news_dashboard_stock_heatmap_tiles_use_dynamic_area_factors():
     assert "面積根拠:" in html_text
     assert "investment-stock-heatmap-group-trend" in html_text
     assert 'style="grid-column: span ' in html_text
+
+
+def test_news_dashboard_stock_heatmap_small_tiles_only_show_symbol_and_change():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    small_tile = next(
+        tile for group in groups for tile in group["tiles"] if tile["size"] in {"compact", "minor"}
+    )
+    html_text = news_module._stock_heatmap_tile_html(small_tile)
+
+    assert "text-safe" in html_text
+    assert f'>{small_tile["symbol"]}</span>' in html_text
+    assert str(small_tile["change_label"]) in html_text
+    assert "investment-stock-heatmap-symbol" not in html_text
+    assert "investment-stock-heatmap-factors" not in html_text
+    assert "面積根拠:" in html_text
+    assert "aria-label=" in html_text
+
+
+def test_news_dashboard_stock_heatmap_large_tile_keeps_one_auxiliary_line():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    large_tile = next(
+        tile for group in groups for tile in group["tiles"] if tile["size"] in {"hero", "major"}
+    )
+    html_text = news_module._stock_heatmap_tile_html(large_tile)
+
+    assert html_text.count("investment-stock-heatmap-factors") == 1
+    assert str(large_tile["factors_label"]) in html_text
 
 
 def test_news_dashboard_cockpit_href_normalizes_symbol_for_same_app_navigation():

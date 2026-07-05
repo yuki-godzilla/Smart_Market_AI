@@ -4467,3 +4467,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 実測は高度予測24銘柄が直列13.4秒から4.45秒、キャッシュ時0.0004秒。ファンダメンタル10銘柄は3.11秒から1.47秒、キャッシュ時0.002秒。OHLCV 25銘柄は5.90秒、キャッシュ時0.0009秒。
 - 実Yahoo 25銘柄・3年の一気通貫ranking smokeは12.99秒、25結果・0エラーで完了。
 - 関連172 testとRuffが成功。Black helperは今回変更した大規模既存ファイル2件と既存server_ops 3件の整形差分を報告。
+
+## 2026-07-05: 上向き兆候実確認 Step 0 ランキング実行安定化
+
+- 70〜80%の高度予測フェーズでWindowsの別プロセスを最大4本起動していた経路を、最大2本のthread並列へ変更し、Streamlit server/sessionへの負荷を抑制。
+- ランキング作成をprocess共通の実行中jobとして管理し、同条件の二重起動と、実行中に古い完成結果を再接続sessionへ復元する動作を抑止。
+- 高度予測の銘柄別cacheは逐次公開せず、batch全体が完了した場合だけ一括公開するよう変更。失敗・中断時の途中結果を完成cacheとして再利用しない。
+- 対象ファイル384 testとRuffは成功。Black helperは今回未変更の既存4ファイルを整形対象として報告。

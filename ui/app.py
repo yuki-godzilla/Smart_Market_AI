@@ -8985,12 +8985,20 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
+        if ranking_build_is_running(cache_key):
+            st.info(
+                "同じ条件のランキングを別の実行で作成中です。"
+                "完了するまで条件を変えずにお待ちください。"
+            )
+            return
+        begin_ranking_build(cache_key)
         loading_slot = st.empty()
         loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
             max_items=4
         )
 
         def update_progress(message: str, ratio: float) -> None:
+            update_ranking_build_progress(cache_key, message=message, ratio=ratio)
             loading_slot.markdown(
                 workflow_loading_html(
                     title="ランキングを作成中",
@@ -9029,9 +9037,13 @@ def _render_market_data_ranking() -> None:
                         )
                     )
             update_progress("ランキング更新が完了しました。", 1.0)
+        except BaseException:
+            fail_ranking_build(cache_key)
+            raise
         finally:
             loading_slot.empty()
         set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
+        complete_ranking_build(cache_key)
         st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
         st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
         st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
@@ -9089,7 +9101,11 @@ def _render_market_data_ranking() -> None:
     if ranking_filter_dialog_is_open():
         st.caption("探索条件モーダルを表示中です。ランキング結果の再描画はスキップしています。")
         return
-    if not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY) and current_ranking_source:
+    if (
+        not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY)
+        and current_ranking_source
+        and not ranking_build_is_running(current_ranking_source)
+    ):
         cached_build = get_cached_ranking_build(current_ranking_source)
         if cached_build is not None:
             cached_rows, cached_error_rows = cached_build
@@ -10111,6 +10127,7 @@ def _ranking_advanced_forecast_fields_for_symbols(
     progress_callback: RankingProgressCallback | None,
 ) -> dict[str, dict[str, str]]:
     fields_by_symbol: dict[str, dict[str, str]] = {}
+    completed_fields_by_symbol: dict[str, dict[str, str]] = {}
     pending: list[tuple[str, list[Bar]]] = []
     for symbol in symbols:
         symbol_bars = bars_by_symbol[symbol]
@@ -10143,12 +10160,7 @@ def _ranking_advanced_forecast_fields_for_symbols(
                     advanced_forecast_rows_for_results(results, symbol_bars),
                     advanced_forecast_consensus_rows_for_results(results),
                 )
-            _cache_ranking_advanced_forecast(
-                symbol,
-                symbol_bars,
-                advanced_fields,
-                horizon_days=horizon_days,
-            )
+            completed_fields_by_symbol[symbol] = advanced_fields
             if advanced_fields:
                 fields_by_symbol[symbol.strip().upper()] = advanced_fields
             if completed_count == 1 or completed_count % 10 == 0 or completed_count == len(pending):
@@ -10163,16 +10175,20 @@ def _ranking_advanced_forecast_fields_for_symbols(
             evaluate_advanced_forecasts_for_symbol(symbol, bars, horizon_days)
             for symbol, bars in pending
         )
+        _cache_completed_ranking_advanced_forecasts(
+            completed_fields_by_symbol,
+            bars_by_symbol=bars_by_symbol,
+            horizon_days=horizon_days,
+        )
         return fields_by_symbol
 
     from joblib import Parallel, delayed  # type: ignore[import-untyped]  # noqa: PLC0415
 
     profile = resolve_performance_profile()
-    workers = max(1, min(4, profile.processing.forecast_workers))
-    os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(workers))
+    workers = max(1, min(2, profile.processing.forecast_workers))
     completed = Parallel(
         n_jobs=workers,
-        backend="loky",
+        backend="threading",
         batch_size=1,
         pre_dispatch=workers,
         return_as="generator_unordered",
@@ -10181,7 +10197,29 @@ def _ranking_advanced_forecast_fields_for_symbols(
         for symbol, bars in pending
     )
     consume(completed)
+    _cache_completed_ranking_advanced_forecasts(
+        completed_fields_by_symbol,
+        bars_by_symbol=bars_by_symbol,
+        horizon_days=horizon_days,
+    )
     return fields_by_symbol
+
+
+def _cache_completed_ranking_advanced_forecasts(
+    fields_by_symbol: Mapping[str, dict[str, str]],
+    *,
+    bars_by_symbol: Mapping[str, list[Bar]],
+    horizon_days: int,
+) -> None:
+    """Publish per-symbol forecast cache entries only after the batch completed."""
+
+    for symbol, fields in fields_by_symbol.items():
+        _cache_ranking_advanced_forecast(
+            symbol,
+            bars_by_symbol[symbol],
+            fields,
+            horizon_days=horizon_days,
+        )
 
 
 async def _fetch_ranking_ohlcv_tolerant(
@@ -10397,6 +10435,48 @@ def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
     """Share completed market-data rankings across reconnecting UI sessions."""
 
     return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_build_jobs() -> dict[str, dict[str, object]]:
+    """Track ranking work across Streamlit reconnects in this server process."""
+
+    return {}
+
+
+def begin_ranking_build(cache_key: str) -> None:
+    _ranking_build_jobs()[cache_key] = {
+        "status": "running",
+        "message": "ランキング対象と取得条件を確認しています。",
+        "ratio": 0.0,
+    }
+
+
+def update_ranking_build_progress(cache_key: str, *, message: str, ratio: float) -> None:
+    job = _ranking_build_jobs().get(cache_key)
+    if job is None or job.get("status") != "running":
+        return
+    job.update({"message": message, "ratio": max(0.0, min(1.0, ratio))})
+
+
+def ranking_build_is_running(cache_key: str) -> bool:
+    return _ranking_build_jobs().get(cache_key, {}).get("status") == "running"
+
+
+def complete_ranking_build(cache_key: str) -> None:
+    _ranking_build_jobs()[cache_key] = {
+        "status": "completed",
+        "message": "ランキング更新が完了しました。",
+        "ratio": 1.0,
+    }
+
+
+def fail_ranking_build(cache_key: str) -> None:
+    _ranking_build_jobs()[cache_key] = {
+        "status": "failed",
+        "message": "ランキング作成を完了できませんでした。",
+        "ratio": 0.0,
+    }
 
 
 @st.cache_resource(show_spinner=False)

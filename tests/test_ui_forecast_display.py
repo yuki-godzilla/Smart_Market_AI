@@ -6348,6 +6348,55 @@ def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatc
     assert get_cached_ranking_build("missing") is None
 
 
+def test_ranking_build_job_state_blocks_restore_only_while_running():
+    cache_key = "test-running-ranking-build"
+
+    app_module.begin_ranking_build(cache_key)
+    assert app_module.ranking_build_is_running(cache_key)
+
+    app_module.complete_ranking_build(cache_key)
+    assert not app_module.ranking_build_is_running(cache_key)
+
+    app_module.begin_ranking_build(cache_key)
+    app_module.fail_ranking_build(cache_key)
+    assert not app_module.ranking_build_is_running(cache_key)
+
+
+def test_advanced_forecast_cache_is_not_published_from_failed_batch(monkeypatch):
+    cache_calls: list[str] = []
+
+    def fake_evaluate(symbol, bars, horizon_days):
+        if symbol == "BBB":
+            raise RuntimeError("forecast failed")
+        return symbol, [], None
+
+    monkeypatch.setattr(
+        app_module,
+        "evaluate_advanced_forecasts_for_symbol",
+        fake_evaluate,
+    )
+    monkeypatch.setattr(
+        app_module,
+        "_get_cached_ranking_advanced_forecast",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        app_module,
+        "_cache_ranking_advanced_forecast",
+        lambda symbol, *args, **kwargs: cache_calls.append(symbol),
+    )
+
+    with pytest.raises(RuntimeError, match="forecast failed"):
+        app_module._ranking_advanced_forecast_fields_for_symbols(
+            ["AAA", "BBB"],
+            bars_by_symbol={"AAA": [object()], "BBB": [object()]},
+            horizon_days=5,
+            progress_callback=None,
+        )
+
+    assert cache_calls == []
+
+
 def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeypatch):
     session_state: dict[str, object] = {
         "market_data_ranking_min_dividend": "3.0",

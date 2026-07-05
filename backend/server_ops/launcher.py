@@ -94,6 +94,8 @@ def streamlit_command(browser_address: str) -> list[str]:
         str(PORT),
         "--server.headless",
         "true",
+        "--server.runOnSave",
+        "false",
         "--browser.serverAddress",
         browser_address,
     ]

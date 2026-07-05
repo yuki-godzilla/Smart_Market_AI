@@ -27,6 +27,7 @@ def test_streamlit_command_uses_expected_lan_settings() -> None:
     assert command[command.index("--server.address") + 1] == "0.0.0.0"
     assert command[command.index("--server.port") + 1] == "8501"
     assert command[command.index("--server.headless") + 1] == "true"
+    assert command[command.index("--server.runOnSave") + 1] == "false"
     assert command[command.index("--browser.serverAddress") + 1] == "192.168.1.20"
 
 

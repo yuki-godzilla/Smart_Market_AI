@@ -11,6 +11,10 @@ Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,
 and a fail-closed 24-hour SMAI service-restart manager. Scheduled startup uses a
 resilient Windows process group so a console interrupt cannot stop the shared server.
+Production startup disables Streamlit run-on-save reloads so source edits do not
+discard active ranking sessions. Large live rankings run in bounded 100-symbol
+cohorts, merge partial successes, and keep completed builds in a process-wide cache
+so reconnecting sessions can restore the same-condition result.
 Connected Streamlit sessions
 publish one-minute heartbeats; background news/symbol refreshes publish busy markers;
 file locks and unreadable state defer restart. A 30-second UI notice is followed by

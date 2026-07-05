@@ -4449,3 +4449,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ランキング実行中の画面リセット時刻と、ソース変更によるStreamlit正常終了 `exit=0` が一致することを確認。
 - 常時運用launcherへ `server.runOnSave=false` を追加し、開発中のファイル更新で実行中ランキングとセッションが消えないよう変更。
 - コード更新は自動起動タスクの明示再起動で反映する運用へ統一。
+
+## 2026-07-05: 大量銘柄ランキングのセッション非依存化
+
+- 800件などのliveランキングを100銘柄単位で取得・予測・採点し、最後に全体順位を統合するbounded cohort方式へ変更。
+- cohort単位の失敗はエラーとして残し、成功したcohortの候補でランキングを継続する。
+- 完成ランキングをStreamlit Session State内だけでなくプロセス共通キャッシュへ保存し、同じ条件で再接続したセッションへ自動復元する。
+- 205件を100/100/5件へ分割し、中央cohort失敗時も成功105件を統合する確認、単銘柄fallback、共通キャッシュ再利用、launcher確認の計14 testとRuffが成功。

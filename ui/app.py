@@ -368,7 +368,6 @@ from ui.state import (
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,
     MARKET_DATA_PREVIEW_STATE_KEY,
-    MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
     MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY,
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
     MARKET_DATA_RANKING_FILTERS_STATE_KEY,
@@ -471,6 +470,7 @@ MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
+RANKING_PIPELINE_COHORT_SIZE = 100
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
 MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY = "market_data_ranking_stock_news_reports"
@@ -9058,6 +9058,14 @@ def _render_market_data_ranking() -> None:
     if ranking_filter_dialog_is_open():
         st.caption("探索条件モーダルを表示中です。ランキング結果の再描画はスキップしています。")
         return
+    if not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY) and current_ranking_source:
+        cached_build = get_cached_ranking_build(current_ranking_source)
+        if cached_build is not None:
+            cached_rows, cached_error_rows = cached_build
+            st.session_state[MARKET_DATA_RANKING_STATE_KEY] = cached_rows
+            st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = cached_error_rows
+            st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = current_ranking_source
+            st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = "再接続後に復元"
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
     ranking_source = str(st.session_state.get(MARKET_DATA_RANKING_SOURCE_STATE_KEY, ""))
@@ -9840,6 +9848,14 @@ async def _build_market_data_ranking_rows(
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    if provider in LIVE_MARKET_DATA_PROVIDERS and len(symbols) > RANKING_PIPELINE_COHORT_SIZE:
+        return await _build_large_market_data_ranking_rows(
+            symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=progress_callback,
+        )
     try:
         return await _build_market_data_ranking_rows_fast(
             symbols,
@@ -9863,6 +9879,50 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
+
+
+async def _build_large_market_data_ranking_rows(
+    symbols: list[str],
+    *,
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: RankingProgressCallback | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Build a large live ranking in bounded cohorts to cap peak memory."""
+
+    cohorts = [
+        symbols[index : index + RANKING_PIPELINE_COHORT_SIZE]
+        for index in range(0, len(symbols), RANKING_PIPELINE_COHORT_SIZE)
+    ]
+    rows: list[dict[str, str]] = []
+    error_rows: list[dict[str, str]] = []
+    for cohort_index, cohort in enumerate(cohorts):
+        cohort_start = cohort_index / len(cohorts)
+        cohort_width = 1 / len(cohorts)
+
+        def cohort_progress(message: str, ratio: float) -> None:
+            _report_ranking_progress(
+                progress_callback,
+                f"{message}（{cohort_index + 1}/{len(cohorts)}組）",
+                min(0.99, cohort_start + (cohort_width * ratio)),
+            )
+
+        try:
+            cohort_rows, cohort_errors = await _build_market_data_ranking_rows_fast(
+                cohort,
+                start=start,
+                end=end,
+                provider=provider,
+                progress_callback=cohort_progress,
+            )
+        except AppError as exc:
+            cohort_rows = []
+            cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
+        rows.extend(cohort_rows)
+        error_rows.extend(cohort_errors)
+    _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
+    return rank_investment_score_rows(rows), error_rows
 
 
 async def _build_market_data_ranking_rows_fast(
@@ -10234,11 +10294,10 @@ def _report_ranking_progress(
         progress_callback(message, ratio)
 
 
+@st.cache_resource(show_spinner=False)
 def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
-    cache = st.session_state.setdefault(MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY, {})
-    if isinstance(cache, dict):
-        return cast(dict[str, dict[str, list[dict[str, str]]]], cache)
-    st.session_state[MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY] = {}
+    """Share completed market-data rankings across reconnecting UI sessions."""
+
     return {}
 
 

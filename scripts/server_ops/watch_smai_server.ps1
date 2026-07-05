@@ -13,6 +13,7 @@ $startScript = Join-Path $projectRoot "scripts\start_smai_server.bat"
 $logDir = Join-Path $projectRoot "logs\server_ops"
 $logPath = Join-Path $logDir "watch_server.log"
 $maintenanceLogPath = Join-Path $logDir "maintenance.log"
+$supervisorStopRequestPath = Join-Path $projectRoot "data\ops\server_ops\streamlit.stop"
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
@@ -67,8 +68,18 @@ function Restart-SmaiService {
         if ($null -eq $process -or [string]$process.CommandLine -notmatch "(?i)streamlit.+ui[\\/]+app\.py") {
             throw "TCP 8501 listener is not the expected SMAI Streamlit process."
         }
-        Stop-Process -Id $connection.OwningProcess -Force -ErrorAction Stop
+        New-Item -ItemType Directory -Path (Split-Path $supervisorStopRequestPath) -Force |
+            Out-Null
+        Set-Content -LiteralPath $supervisorStopRequestPath `
+            -Value "maintenance_restart" -Encoding ASCII
+        try {
+            Stop-Process -Id $connection.OwningProcess -Force -ErrorAction Stop
+        } catch {
+            Remove-Item -LiteralPath $supervisorStopRequestPath -Force -ErrorAction SilentlyContinue
+            throw
+        }
         Write-WatchLog "[INFO] Stopped SMAI Streamlit PID $($connection.OwningProcess)."
+        Start-Sleep -Seconds 3
     }
     & $python -m backend.server_ops.maintenance clear-notice
     Start-SmaiRecovery

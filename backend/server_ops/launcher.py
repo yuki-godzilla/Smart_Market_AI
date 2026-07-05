@@ -13,6 +13,7 @@ from urllib.request import urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOCK_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.lock"
+STOP_REQUEST_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.stop"
 HOST = "127.0.0.1"
 PORT = 8501
 EXIT_ALREADY_RUNNING = 10
@@ -142,6 +143,18 @@ def wait_for_existing_server(timeout_seconds: float = 30.0) -> bool:
     return is_smai_healthy()
 
 
+def consume_supervisor_stop_request(path: Path = STOP_REQUEST_PATH) -> bool:
+    """Consume an explicit request to stop the resilient launcher."""
+
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+    return True
+
+
 def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
     """Run Streamlit and keep it alive when the always-on policy is enabled."""
 
@@ -153,6 +166,14 @@ def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
         )
         returncode = wait_for_streamlit(process, resilient=resilient)
         if not resilient:
+            return returncode
+        if consume_supervisor_stop_request():
+            print(
+                "[SMAI] Streamlit stopped by an explicit service operation; "
+                "leaving the resilient launcher.",
+                file=sys.stderr,
+                flush=True,
+            )
             return returncode
         print(
             "[SMAI] Streamlit exited unexpectedly "

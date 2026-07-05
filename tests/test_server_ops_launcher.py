@@ -9,6 +9,7 @@ import pytest
 from backend.server_ops.launcher import (
     EXIT_INTERRUPTED,
     ServerLockUnavailable,
+    consume_supervisor_stop_request,
     is_smai_healthy,
     server_lock,
     streamlit_command,
@@ -124,6 +125,32 @@ def test_resilient_supervisor_restarts_after_clean_streamlit_exit(monkeypatch) -
         supervise_streamlit("localhost", resilient=True)
 
     assert len(starts) == 3
+
+
+def test_resilient_supervisor_leaves_after_explicit_stop_request(
+    monkeypatch, tmp_path: Path
+) -> None:
+    request_path = tmp_path / "streamlit.stop"
+    request_path.write_text("maintenance_restart", encoding="ascii")
+
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.subprocess.Popen",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 0
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.consume_supervisor_stop_request",
+        lambda: consume_supervisor_stop_request(request_path),
+    )
+
+    assert supervise_streamlit("localhost", resilient=True) == 0
+    assert not request_path.exists()
+
+
+def test_missing_supervisor_stop_request_is_not_consumed(tmp_path: Path) -> None:
+    assert consume_supervisor_stop_request(tmp_path / "missing.stop") is False
 
 
 def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:

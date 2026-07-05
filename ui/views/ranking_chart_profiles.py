@@ -14,6 +14,7 @@ class RankingChartProfile:
     x_candidates: tuple[str, ...]
     y_candidates: tuple[str, ...]
     color_candidates: tuple[str, ...] = ()
+    size_candidates: tuple[str, ...] = ()
     fallback_key: str | None = None
     description: str = ""
     how_to_read: tuple[str, ...] = ()
@@ -27,6 +28,7 @@ class RankingChartSelection:
     x_column: str
     y_column: str
     color_column: str | None
+    size_column: str | None
     used_fallback: bool
 
 
@@ -46,8 +48,18 @@ PROFILE_FIT_DIRECTION = "fit_direction"
 PROFILE_FIT_RISK = "fit_risk"
 PROFILE_CONFIDENCE_QUALITY = "confidence_quality"
 PROFILE_ETF_FIT_CONFIDENCE = "etf_fit_confidence"
+PROFILE_REVERSAL_EXPECTATION = "reversal_expectation"
 
 RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
+    PROFILE_REVERSAL_EXPECTATION: RankingChartProfile(
+        key=PROFILE_REVERSAL_EXPECTATION,
+        x_candidates=("reversal_pullback_depth", "20日高値乖離", "reversal_pullback_score"),
+        y_candidates=("反転余地", "reversal_forecast_score", "反転期待"),
+        color_candidates=("下落安全性", "reversal_safety_score"),
+        size_candidates=("データ品質", "data_quality_score"),
+        fallback_key=PROFILE_SCORE_RISK,
+        **RANKING_CHART_PROFILE_TEXTS[PROFILE_REVERSAL_EXPECTATION],
+    ),
     PROFILE_SCORE_RISK: RankingChartProfile(
         key=PROFILE_SCORE_RISK,
         x_candidates=("総合スコア", "Investment Score"),
@@ -176,6 +188,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
 }
 
 RANKING_PURPOSE_CHART_PROFILE_KEYS: dict[str, str] = {
+    "reversal_expectation": PROFILE_REVERSAL_EXPECTATION,
     "multi_factor": PROFILE_UPSIDE_DOWNSIDE,
     "upside_signal": PROFILE_UPSIDE_DOWNSIDE,
     "quality_growth": PROFILE_FIT_DIRECTION,
@@ -232,11 +245,15 @@ def _ranking_chart_frame(
     y_column = _first_numeric_column(display_rows, profile.y_candidates, min_rows=min_rows)
     if x_column and y_column:
         color_column = _first_present_column(display_rows, profile.color_candidates)
+        size_column = _first_numeric_column(
+            display_rows, profile.size_candidates, min_rows=min_rows
+        )
         frame = _profile_frame(
             display_rows,
             x_column=x_column,
             y_column=y_column,
             color_column=color_column,
+            size_column=size_column,
         )
         frame = frame.dropna(subset=["x_value", "y_value"])
         if len(frame) >= min_rows and _frame_has_profile_variation(frame, profile):
@@ -246,6 +263,7 @@ def _ranking_chart_frame(
                 x_column=x_column,
                 y_column=y_column,
                 color_column=color_column,
+                size_column=size_column,
                 used_fallback=used_fallback,
             )
     if profile.fallback_key:
@@ -302,6 +320,7 @@ def _profile_frame(
     x_column: str,
     y_column: str,
     color_column: str | None,
+    size_column: str | None,
 ) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for row in rows:
@@ -320,6 +339,7 @@ def _profile_frame(
                 "color_numeric_value": (
                     _numeric_value(row.get(color_column, "")) if color_column else None
                 ),
+                "size_value": (_numeric_value(row.get(size_column, "")) if size_column else None),
                 "caution": row.get("注意点", ""),
             }
         )

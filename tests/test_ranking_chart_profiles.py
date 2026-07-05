@@ -62,6 +62,26 @@ def test_chart_profile_for_purpose_maps_data_confidence_to_confidence_chart():
     assert chart_profile_for_purpose("upside_signal").key == PROFILE_UPSIDE_DOWNSIDE
     assert chart_profile_for_purpose("etf_core_cost").key == PROFILE_ETF_COST_SCORE
     assert chart_profile_for_purpose("etf_income").key == PROFILE_ETF_FIT_CONFIDENCE
+    assert chart_profile_for_purpose("reversal_expectation").key == "reversal_expectation"
+
+
+def test_reversal_chart_uses_pullback_forecast_and_safety():
+    rows = [
+        {
+            "銘柄": f"R{index}",
+            "reversal_pullback_score": str(50 + index),
+            "reversal_forecast_score": str(60 + index * 2),
+            "reversal_safety_score": str(70 + index),
+        }
+        for index in range(3)
+    ]
+    selection = ranking_chart_frame(rows, chart_profile_for_purpose("reversal_expectation"))
+
+    assert selection is not None
+    assert selection.profile.key == "reversal_expectation"
+    assert selection.x_column == "reversal_pullback_score"
+    assert selection.y_column == "reversal_forecast_score"
+    assert selection.color_column == "reversal_safety_score"
 
 
 def test_ranking_chart_frame_uses_available_primary_profile_columns():

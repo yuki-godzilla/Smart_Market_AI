@@ -5,7 +5,16 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-06-29
+Last updated: 2026-07-05
+
+Reversal Expectation v2 is implemented as a chart-shape-first ranking axis. It combines chart
+shape 25%, forecast upside 25%, downside safety 20%, pullback state 15%,
+company/data/dividend quality 10%, and reversal material 5%, then applies falling-knife,
+weak-forecast, low-quality, and dividend-trap caps. Ranking rows preserve the six components,
+shape label, trap warnings, dividend safety, yield-spike flag, and sustainability label across
+ranking display, watchlist snapshots, ranking history, Cockpit context, and Decision Report
+context. The dedicated chart uses pullback depth on x, forecast reversal potential on y,
+downside safety as color, and data quality as point size.
 
 Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,

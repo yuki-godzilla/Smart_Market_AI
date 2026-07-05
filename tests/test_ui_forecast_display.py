@@ -8744,10 +8744,17 @@ def test_reversal_condition_card_explains_formula_and_guardrails():
     caps = reversal_expectation_cap_rows()
 
     assert "反転期待をひとことで" in markup
-    assert "押し目状態 30%" in markup
-    assert "予測上向き余地 30%" in markup
+    assert "チャート形状 25%" in markup
+    assert "予測上向き余地 25%" in markup
     assert "スコア上限" in markup
-    assert [row["配点"] for row in components] == ["30%", "30%", "20%", "10%", "10%"]
+    assert [row["配点"] for row in components] == [
+        "25%",
+        "25%",
+        "20%",
+        "15%",
+        "10%",
+        "5%",
+    ]
     assert next(row for row in pullbacks if row["基礎点"] == "90")["20日高値からの下落"] == (
         "6%以上〜12%未満"
     )
@@ -8874,9 +8881,12 @@ def test_reversal_policy_builder_card_explains_formula_without_opening_details()
     assert "押し目状態" in markup
     assert "予測上向き余地" in markup
     assert "下落安全性" in markup
-    assert "企業・データ品質" in markup
-    assert "反転初動" in markup
-    assert "30%" in markup
+    assert "企業・データ・配当品質" in markup
+    assert "チャート形状" in markup
+    assert "反転材料" in markup
+    assert "25%" in markup
+    assert "15%" in markup
+    assert "5%" in markup
     assert "20%" in markup
     assert "10%" in markup
     assert "最終スコアに上限" in markup

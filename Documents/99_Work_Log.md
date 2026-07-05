@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-05 反転期待スコア v2
+
+- 反転期待を、チャート形状25%・予測25%・安全性20%・押し目15%・企業/データ/配当品質10%・反転材料5%へ再構成。
+- 6種類の形状分類と、落ちるナイフ・弱い予測・低品質に対する上限制御を追加。
+- 配当性向、利益成長、営業CF、FCF、株価下落による利回り急上昇を確認する配当トラップ判定を追加。
+- 専用マップを押し目深度×反転余地、色=下落安全性、サイズ=データ品質として追加。
+- v2内訳・警告をランキング、ウォッチリストsnapshot、ランキング履歴、Cockpit/確認レポート文脈へ伝播。
+
 ## 2026-07-04 Watchlist Groups D&D state consistency
 
 - Replaced stale-closure drag calculations with pure latest-state transitions and guarded every

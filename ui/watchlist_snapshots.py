@@ -42,6 +42,12 @@ class WatchlistSnapshot:
     reversal_expectation_score: float | None = None
     reversal_expectation_label: str | None = None
     reversal_expectation_reason: str | None = None
+    reversal_chart_shape_label: str | None = None
+    reversal_trap_warning: str | None = None
+    dividend_trap_warning: str | None = None
+    dividend_safety_score: float | None = None
+    dividend_yield_spike_flag: bool | None = None
+    dividend_sustainability_label: str | None = None
     downside_risk_score: float | None = None
     trend_label: str | None = None
     trend_icon: str | None = None
@@ -278,6 +284,12 @@ def build_watchlist_snapshot_for_symbol(
         reversal_expectation_score=_first_float(row, "reversal_expectation_score"),
         reversal_expectation_label=_first_text(row, "reversal_expectation_label"),
         reversal_expectation_reason=_first_text(row, "reversal_expectation_reason"),
+        reversal_chart_shape_label=_first_text(row, "reversal_chart_shape_label"),
+        reversal_trap_warning=_first_text(row, "reversal_trap_warning"),
+        dividend_trap_warning=_first_text(row, "dividend_trap_warning"),
+        dividend_safety_score=_first_float(row, "dividend_safety_score"),
+        dividend_yield_spike_flag=_first_bool(row, "dividend_yield_spike_flag"),
+        dividend_sustainability_label=_first_text(row, "dividend_sustainability_label"),
         downside_risk_score=_first_float(
             row,
             "downside_risk_score",
@@ -391,6 +403,7 @@ def _snapshot_from_mapping(
         "ai_score",
         "upside_score",
         "reversal_expectation_score",
+        "dividend_safety_score",
         "downside_risk_score",
     ):
         values[key] = _finite_float(values.get(key))
@@ -428,6 +441,19 @@ def _first_int(row: Mapping[str, Any], *keys: str) -> int | None:
         value = _finite_int(row.get(key))
         if value is not None:
             return value
+    return None
+
+
+def _first_bool(row: Mapping[str, Any], *keys: str) -> bool | None:
+    for key in keys:
+        value = row.get(key)
+        if isinstance(value, bool):
+            return value
+        text = str(value or "").strip().lower()
+        if text in {"1", "true", "yes", "on", "はい", "あり"}:
+            return True
+        if text in {"0", "false", "no", "off", "いいえ", "なし"}:
+            return False
     return None
 
 

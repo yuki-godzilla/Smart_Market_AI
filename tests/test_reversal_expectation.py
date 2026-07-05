@@ -45,6 +45,9 @@ def test_healthy_pullback_with_positive_forecast_scores_highly():
     result = calculate_reversal_expectation(_candidate())
     assert result.reversal_expectation_score >= Decimal("65")
     assert result.reversal_pullback_score >= Decimal("85")
+    assert result.reversal_chart_shape_label == "押し目反発待ち"
+    assert result.reversal_chart_shape_score >= Decimal("80")
+    assert result.reversal_material_score > 0
 
 
 def test_reversal_caps_cover_falling_knife_and_missing_up_models():
@@ -62,6 +65,38 @@ def test_already_rising_candidate_is_capped_and_total_score_is_not_changed():
     ranked = apply_ranking_weight_preset([row], RANKING_PRESET_REVERSAL_EXPECTATION, {"AAA": row})
     assert result.reversal_expectation_score <= Decimal("55")
     assert ranked[0]["total_score"] == "71"
+
+
+def test_falling_knife_and_bottoming_shape_are_distinguished():
+    falling = calculate_reversal_expectation(
+        _candidate(drawdown_20d="-38", momentum_5d="-9", downside_signal_score="82")
+    )
+    bottoming = calculate_reversal_expectation(
+        _candidate(drawdown_20d="-16", momentum_5d="-1", downside_signal_score="48")
+    )
+
+    assert falling.reversal_chart_shape_label == "落ちるナイフ注意"
+    assert falling.reversal_trap_warning != "目立つ警告なし"
+    assert bottoming.reversal_chart_shape_label == "底打ち接近"
+    assert bottoming.reversal_expectation_score > falling.reversal_expectation_score
+
+
+def test_dividend_trap_caps_high_yield_created_by_price_drop():
+    result = calculate_reversal_expectation(
+        _candidate(
+            dividend_yield_pct="8.5",
+            drawdown_20d="-24",
+            drawdown_60d="-30",
+            payout_ratio="115",
+            eps_growth_pct="-12",
+            operating_cash_flow="-1",
+        )
+    )
+
+    assert result.dividend_yield_spike_flag is True
+    assert result.dividend_safety_score < Decimal("50")
+    assert result.dividend_trap_warning == "減配リスク高"
+    assert result.reversal_expectation_score <= Decimal("45")
 
 
 def test_reversal_ranking_uses_safety_before_total_score_for_ties():

@@ -10,7 +10,7 @@ import re
 import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import (
     Any,
     Callable,
@@ -5032,39 +5032,46 @@ def _render_ranking_condition_card(
 def reversal_expectation_component_rows() -> list[dict[str, str]]:
     return [
         {
-            "評価要素": "押し目状態",
-            "配点": "30%",
-            "初心者向けの意味": "ほどよく下がった調整局面か",
-            "主な材料": "20日高値からの下落、5日騰落率",
-            "計算の要点": "6〜12%下落を90点。35%超の急落は20点",
+            "評価要素": "チャート形状",
+            "配点": "25%",
+            "初心者向けの意味": "狙う形に近い下げ方か",
+            "主な材料": "押し目の深さ、短期騰落、底打ち・安値更新",
+            "計算の要点": "押し目反発待ち、底打ち接近、落ちるナイフ等に分類",
         },
         {
             "評価要素": "予測上向き余地",
-            "配点": "30%",
-            "初心者向けの意味": "今後戻る理由があるか",
-            "主な材料": "予測変化率、上向き/下向きモデル数、高度予測",
-            "計算の要点": "予測変化率40%、モデル方向25%、高度予測15%+品質10%、上昇気配10%",
+            "配点": "25%",
+            "初心者向けの意味": "今後戻る予測材料があるか",
+            "主な材料": "予測変化率、上向きモデル数、高度予測",
+            "計算の要点": "予測値40%・方向一致25%・高度予測等35%",
         },
         {
             "評価要素": "下落安全性",
             "配点": "20%",
-            "初心者向けの意味": "落ちるナイフではないか",
-            "主な材料": "下降警戒、Risk、ボラティリティ",
-            "計算の要点": "下降警戒の低さ45%、Risk35%、値動きの安定20%",
+            "初心者向けの意味": "下落継続の危険が強すぎないか",
+            "主な材料": "下降警戒、Risk、値動きの荒さ",
+            "計算の要点": "下降警戒45%・Risk35%・値動き20%",
         },
         {
-            "評価要素": "企業・データ品質",
-            "配点": "10%",
-            "初心者向けの意味": "最低限信頼して確認できるか",
-            "主な材料": "基礎評価、データ品質、DB信頼度",
-            "計算の要点": "基礎評価35%、データ品質35%、DB関連30%",
+            "評価要素": "押し目状態",
+            "配点": "15%",
+            "初心者向けの意味": "押し目として適度な深さか",
+            "主な材料": "20日高値からの下落、5日騰落率",
+            "計算の要点": "6〜12%下落を中心に、急落と上昇済みを減点",
         },
         {
-            "評価要素": "反転初動",
+            "評価要素": "企業・データ・配当品質",
             "配点": "10%",
-            "初心者向けの意味": "下げ止まりの兆しがあるか",
-            "主な材料": "5日騰落率、押し目幅、下降警戒",
-            "計算の要点": "小幅下落〜横ばいを評価。急落や上昇済みは減点",
+            "初心者向けの意味": "根拠を信頼でき、配当を維持できそうか",
+            "主な材料": "基礎評価、データ品質、配当性向、利益・CF",
+            "計算の要点": "高配当時は配当安全性も合成し、罠を上限制御",
+        },
+        {
+            "評価要素": "反転材料",
+            "配点": "5%",
+            "初心者向けの意味": "戻りを後押しする材料があるか",
+            "主な材料": "調査・ニュース材料、予測方向、上昇余地",
+            "計算の要点": "材料スコアを優先し、なければ予測情報で補完",
         },
     ]
 
@@ -5087,10 +5094,20 @@ def reversal_expectation_cap_rows() -> list[dict[str, str]]:
         {"危険条件": "データ品質 60未満", "スコア上限": "55", "理由": "信頼度不足"},
         {"危険条件": "下降警戒 80以上", "スコア上限": "45", "理由": "急落継続を警戒"},
         {"危険条件": "下降警戒 70以上", "スコア上限": "60", "理由": "下振れ警戒が強い"},
-        {"危険条件": "Risk 40未満", "スコア上限": "55", "理由": "安全確認が弱い"},
+        {"危険条件": "Risk 40未満", "スコア上限": "45", "理由": "安全確認が弱い"},
         {"危険条件": "20日高値から35%以上下落", "スコア上限": "45", "理由": "落ちるナイフを警戒"},
         {"危険条件": "予測変化率 0%以下", "スコア上限": "50", "理由": "戻る予測根拠が弱い"},
         {"危険条件": "上向きモデル 0", "スコア上限": "50", "理由": "上向き予測がない"},
+        {
+            "危険条件": "高配当・急落・配当維持材料不足",
+            "スコア上限": "60以下",
+            "理由": "利回り上昇が株価下落による可能性",
+        },
+        {
+            "危険条件": "配当性向100%超または営業CF赤字",
+            "スコア上限": "45",
+            "理由": "減配リスクを警戒",
+        },
         {"危険条件": "5日騰落率 -8%以下", "スコア上限": "55", "理由": "足元で急落中"},
         {
             "危険条件": "下落3%未満かつ5日で+3%超",
@@ -5116,7 +5133,7 @@ def _ranking_condition_card_html(
         for row in group_rows
     )
     focus_items = "".join(
-        f"<span>{html.escape(item)}</span>" for item in description["main_focus"][:5]
+        f"<span>{html.escape(item)}</span>" for item in description["main_focus"][:6]
     )
     purpose = ranking_policy_label(ranking_purpose)
     profile = ranking_weight_preset_label(weight_preset)
@@ -5126,8 +5143,8 @@ def _ranking_condition_card_html(
         "今は下落・調整中でも、戻る予測根拠があり、下落リスクが強すぎない銘柄を"
         "「詳しく確認したい候補」として探します。買い時や底打ちを示すものではありません。"
         "<br><br><strong>計算式</strong><br>"
-        "押し目状態 30% ＋ 予測上向き余地 30% ＋ 下落安全性 20% ＋ "
-        "企業・データ品質 10% ＋ 反転初動 10%。"
+        "チャート形状 25% ＋ 予測上向き余地 25% ＋ 下落安全性 20% ＋ "
+        "押し目状態 15% ＋ 企業・データ・配当品質 10% ＋ 反転材料 5%。"
         "その後、急落・高い下降警戒・低いデータ品質などに応じてスコア上限を適用します。"
         "</div>"
         if ranking_purpose == "reversal_expectation"
@@ -5515,6 +5532,12 @@ def _render_ranking_profile_chart(
         )
     else:
         encoding["color"] = alt.value(CHART_COLORS["ai"])
+    if selection.size_column and selection.frame["size_value"].notna().any():
+        encoding["size"] = alt.Size(
+            "size_value:Q",
+            title=selection.size_column,
+            scale=alt.Scale(range=[45, 180]),
+        )
     chart = (
         alt.Chart(selection.frame)
         .mark_circle(size=90, opacity=0.78)
@@ -6186,13 +6209,11 @@ def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) ->
         beginner_explanation = (
             '<div class="smai-ranking-policy-beginner-note">'
             "<strong>計算の考え方</strong>"
-            "<p>下がっただけでは評価せず、下の5項目を合算します。"
+            "<p>下がっただけでは評価せず、下の6項目を合算します。"
             "下降警戒・急落・低品質がある場合は最終スコアに上限をかけます。</p>"
             "</div>"
         )
-        caution = (
-            "上位は反発の断定ではなく、下落理由と危険度を確認する候補です。"
-        )
+        caution = "上位は反発の断定ではなく、下落理由と危険度を確認する候補です。"
     else:
         group_rows = ranking_weight_group_rows(weight_preset)
         beginner_explanation = ""
@@ -10130,11 +10151,7 @@ def _ranking_advanced_forecast_fields_for_symbols(
             )
             if advanced_fields:
                 fields_by_symbol[symbol.strip().upper()] = advanced_fields
-            if (
-                completed_count == 1
-                or completed_count % 10 == 0
-                or completed_count == len(pending)
-            ):
+            if completed_count == 1 or completed_count % 10 == 0 or completed_count == len(pending):
                 _report_ranking_progress(
                     progress_callback,
                     f"高度予測を計算しています ({completed_count}/{len(pending)})。",
@@ -10423,9 +10440,7 @@ def _cache_ranking_ohlcv(
     end: datetime,
 ) -> None:
     cache = _ranking_ohlcv_cache()
-    bars_by_symbol: dict[str, list[Bar]] = {
-        symbol.strip().upper(): [] for symbol in symbols
-    }
+    bars_by_symbol: dict[str, list[Bar]] = {symbol.strip().upper(): [] for symbol in symbols}
     for bar in bars:
         raw_symbol = str(getattr(getattr(bar, "symbol", None), "raw", "")).strip().upper()
         if raw_symbol:
@@ -10443,9 +10458,7 @@ def _cache_ranking_ohlcv(
 
 
 @st.cache_resource(show_spinner=False)
-def _ranking_fundamental_cache() -> (
-    dict[tuple[str, str, str], list[FundamentalSnapshot]]
-):
+def _ranking_fundamental_cache() -> dict[tuple[str, str, str], list[FundamentalSnapshot]]:
     return {}
 
 
@@ -10487,9 +10500,7 @@ def _cache_ranking_fundamentals(
 
 
 @st.cache_resource(show_spinner=False)
-def _ranking_advanced_forecast_cache() -> (
-    dict[tuple[str, int, int, str, str], dict[str, str]]
-):
+def _ranking_advanced_forecast_cache() -> dict[tuple[str, int, int, str, str], dict[str, str]]:
     return {}
 
 
@@ -11566,6 +11577,12 @@ def _favorite_display_payload(
             "reversal_expectation_score": snapshot.reversal_expectation_score,
             "reversal_expectation_label": snapshot.reversal_expectation_label,
             "reversal_expectation_reason": snapshot.reversal_expectation_reason,
+            "reversal_chart_shape_label": snapshot.reversal_chart_shape_label,
+            "reversal_trap_warning": snapshot.reversal_trap_warning,
+            "dividend_trap_warning": snapshot.dividend_trap_warning,
+            "dividend_safety_score": snapshot.dividend_safety_score,
+            "dividend_yield_spike_flag": snapshot.dividend_yield_spike_flag,
+            "dividend_sustainability_label": snapshot.dividend_sustainability_label,
             "downside_risk_score": snapshot.downside_risk_score,
             "price_change_1d": snapshot.price_change_1d,
             "price_change_5d": snapshot.price_change_5d,
@@ -20005,6 +20022,18 @@ def _investment_score_report_section(
         "reversal_expectation_score": row.get("reversal_expectation_score", ""),
         "reversal_expectation_label": row.get("reversal_expectation_label", ""),
         "reversal_expectation_reason": row.get("reversal_expectation_reason", ""),
+        "reversal_chart_shape_score": row.get("reversal_chart_shape_score", ""),
+        "reversal_chart_shape_label": row.get("reversal_chart_shape_label", ""),
+        "reversal_forecast_score": row.get("reversal_forecast_score", ""),
+        "reversal_safety_score": row.get("reversal_safety_score", ""),
+        "reversal_pullback_score": row.get("reversal_pullback_score", ""),
+        "reversal_quality_score": row.get("reversal_quality_score", ""),
+        "reversal_material_score": row.get("reversal_material_score", ""),
+        "reversal_trap_warning": row.get("reversal_trap_warning", ""),
+        "dividend_trap_warning": row.get("dividend_trap_warning", ""),
+        "dividend_safety_score": row.get("dividend_safety_score", ""),
+        "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", ""),
+        "dividend_sustainability_label": row.get("dividend_sustainability_label", ""),
         "downside_signal_score": row.get("downside_signal_score", ""),
         "forecast_return_pct": row.get("forecast_return_pct", ""),
         "data_quality_score": row.get("data_quality_score", ""),
@@ -22449,6 +22478,20 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
         symbol_row = symbol_rows_by_symbol.get(symbol.strip().upper())
         display_rows.append(
             {
+                "reversal_chart_shape_score": row.get("reversal_chart_shape_score", ""),
+                "reversal_forecast_score": row.get("reversal_forecast_score", ""),
+                "reversal_safety_score": row.get("reversal_safety_score", ""),
+                "reversal_pullback_score": row.get("reversal_pullback_score", ""),
+                "reversal_quality_score": row.get("reversal_quality_score", ""),
+                "reversal_material_score": row.get("reversal_material_score", ""),
+                "reversal_pullback_depth": _absolute_numeric_text(row.get("drawdown_20d", "")),
+                "data_quality_score": row.get("data_quality_score", ""),
+                "reversal_chart_shape_label": row.get("reversal_chart_shape_label", ""),
+                "reversal_trap_warning": row.get("reversal_trap_warning", ""),
+                "dividend_trap_warning": row.get("dividend_trap_warning", ""),
+                "dividend_safety_score": row.get("dividend_safety_score", ""),
+                "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", False),
+                "dividend_sustainability_label": row.get("dividend_sustainability_label", ""),
                 "順位": row.get("rank", ""),
                 "銘柄": symbol,
                 "銘柄名": symbol_name(symbol) or "",
@@ -22534,6 +22577,16 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
             }
         )
     return display_rows
+
+
+def _absolute_numeric_text(value: object) -> str:
+    text = str(value or "").replace("%", "").replace(",", "").strip()
+    if not text:
+        return ""
+    try:
+        return format(abs(Decimal(text)).normalize(), "f")
+    except (InvalidOperation, ValueError):
+        return ""
 
 
 def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:

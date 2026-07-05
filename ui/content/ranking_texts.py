@@ -608,7 +608,14 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
             "直近は下落または調整中でも、予測余地と下落安全性がある戻り候補を探す方針です。"
         ),
         "suited_for": "押し目・調整中の銘柄から深掘り候補を探す時",
-        "main_focus": ("押し目状態", "予測余地", "下落安全性", "データ品質", "反転初動"),
+        "main_focus": (
+            "チャート形状",
+            "予測余地",
+            "下落安全性",
+            "押し目状態",
+            "企業・データ・配当品質",
+            "反転材料",
+        ),
         "caution": ("反転期待は買い推奨ではありません。下降警戒と下落理由を必ず確認してください。"),
     },
     "momentum": {
@@ -726,6 +733,17 @@ RANKING_CRITERIA_GUIDE_ROWS: tuple[RankingCriteriaGuideRow, ...] = (
 
 
 RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
+    "reversal_expectation": {
+        "title": "押し目の深さ × 反転余地",
+        "description": "下落の深さだけでなく、予測の上向き余地と下落安全性を分けて確認します。",
+        "how_to_read": (
+            "右上: 押し目が深く反転余地もあるため、危険度を確認して詳しく見る候補",
+            "左上: 押し目は浅いが反転余地がある候補",
+            "右下: 大きく下げた一方で反転材料が弱く、落ちるナイフに注意",
+            "左下: 押し目・反転余地とも小さく、優先度は低め",
+        ),
+        "caution": "色は下落安全性です。上位でも反発を断定せず、下落理由と配当維持力を確認してください。",
+    },
     "score_risk": {
         "title": "スコア x リスク",
         "description": "スコアが高い候補の中で、リスクもあわせて確認できます。高スコアでもリスクが高い場合は、詳細確認に進むと安心です。",

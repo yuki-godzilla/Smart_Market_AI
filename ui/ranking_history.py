@@ -907,6 +907,30 @@ def _history_row(row: Mapping[str, Any], *, rank: int) -> RankingHistoryResultRo
         "favorite_status_at_save": str(row.get("お気に入り", "")).startswith("★"),
         "display": {str(key): str(value) for key, value in row.items()},
     }
+    numeric_reversal_fields = (
+        "reversal_chart_shape_score",
+        "reversal_forecast_score",
+        "reversal_safety_score",
+        "reversal_pullback_score",
+        "reversal_quality_score",
+        "reversal_material_score",
+        "dividend_safety_score",
+    )
+    text_reversal_fields = (
+        "reversal_chart_shape_label",
+        "reversal_trap_warning",
+        "dividend_trap_warning",
+        "dividend_sustainability_label",
+    )
+    for field in numeric_reversal_fields:
+        values[field] = _number(row.get(field))
+    for field in text_reversal_fields:
+        values[field] = _text(row.get(field))
+    spike_flag = row.get("dividend_yield_spike_flag")
+    if isinstance(spike_flag, bool):
+        values["dividend_yield_spike_flag"] = spike_flag
+    elif str(spike_flag or "").strip().lower() in {"true", "false"}:
+        values["dividend_yield_spike_flag"] = str(spike_flag).strip().lower() == "true"
     for label, field in DISPLAY_TO_FIELD.items():
         if label not in row or field in values:
             continue

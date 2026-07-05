@@ -12,13 +12,12 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert 'set "SMAI_PERFORMANCE_PROFILE=workstation"' in script
     assert 'set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"' in script
     assert "logs\\server_ops" in script
-    assert "Get-NetTCPConnection -LocalPort 8501 -State Listen" in script
-    assert "A second instance will not be started." in script
-    assert "--server.address 0.0.0.0" in script
-    assert "--server.headless true" in script
-    assert "--browser.serverAddress %SMAI_LAN_IP%" in script
+    assert "-m backend.server_ops.launcher" in script
+    assert "--browser-address %SMAI_LAN_IP%" in script
+    assert "--maintenance-startup" in script
     assert "tailscale ip -4" in script
     assert "websocket compression=enabled" in script
+    assert "Duplicate-safe shared launcher: enabled" in script
     assert "run_symbol_universe_import_all.bat" not in script
     assert "pause" not in script.lower()
     assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script

@@ -4363,3 +4363,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - セクターヘッダーを濃紺の2段表示へ変更し、スコア、データ種別、短いトレンド表示を分離した。
 - タイル補足から変化率の重複を除き、規模・注目度だけを表示するようにした。
 - 関連478 test、Ruff、対象ファイルのBlack互換、および投資レーダー4 viewport Playwright smokeを確認した。
+
+## 2026-07-05: Streamlit LAN server duplicate-start race fix
+
+- 手動 `run_lan_server.bat`、自動 `start_smai_server.bat`、監視復旧を
+  `backend.server_ops.launcher` に集約した。
+- OS解放型ファイルロックをStreamlit終了まで保持し、同時起動時は後続処理が
+  既存サーバーを待って正常終了するようにした。
+- Streamlit 1.38.0で未対応の `disconnectedSessionTTL` と
+  `websocketPingInterval` を設定・診断表示から削除した。
+- 対象テスト、Ruff、Streamlit設定表示で警告が出ないことを確認した。

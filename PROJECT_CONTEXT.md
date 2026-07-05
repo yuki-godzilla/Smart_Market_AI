@@ -82,9 +82,10 @@ automatically for 30 minutes. Older snapshots and snapshots referencing deleted 
 and startup returns to the user-selection gate. Explicit profile/page URL query parameters still
 take priority. Corrupt/oversized JSON and read/write failures safely fall back without breaking
 startup. Restoration never starts price fetch, Ranking creation, Research/News retrieval, or
-other heavy work. The user menu can release the current device session. Streamlit
-`disconnectedSessionTTL=300` remains a short reconnect aid rather than the recovery mechanism;
-iPhone/iPad Safari/PWA and Tailscale behavior still require the documented manual device check.
+other heavy work. The user menu can release the current device session. The Streamlit 1.38
+configuration uses only supported server options; client snapshot recovery,
+not Streamlit disconnected-session retention, is the recovery mechanism. iPhone/iPad Safari/PWA
+and Tailscale behavior still require the documented manual device check.
 
 Phase 31-SDB Screening DB Reliability is implemented as a backward-compatible DB quality slice. The symbol metadata schema now accepts separate official-industry / SMAI-theme fields, SBI/NISA confirmation states, ETF asset-class/AUM/average-volume fields, and per-metric source/as-of/quality metadata without requiring new columns in existing CSVs. Yahoo metadata refresh can fill missing values only and preserves existing canonical values; unavailable values remain null. `symbol_universe_quality_report.json` provides network-free total, region, product, Japan-stock, US-stock, and ETF coverage. The 2026-06-22 deterministic screening backfill fills JPX official `tse_33_industry` / `topix_17` for 3,746 Japan-stock rows and one-to-one mappable `sector_gics` for 3,662 US-stock rows, while keeping ambiguous consumer GICS splits blank. Ranking/Cockpit UI now separates `業種・セクター` from SMAI `投資テーマ`; theme filtering uses `theme` / `smai_theme_tags`, and official-sector filtering uses `sector` / GICS / JPX fields. Ranking UI now calls the `risk_band` filter `値動きリスク` instead of presenting the band as an exact beta value. Phase 31-SDB operational maintenance on 2026-06-26 added deterministic provenance normalization via `tools/normalize_symbol_universe_quality.py`, a reviewed patch workflow via `tools/export_symbol_universe_metadata_gaps.py` and `tools/apply_symbol_universe_metadata_patch.py`, and chunked weak-Asia refresh auditing that records `no_update_symbols`, `unchanged_update_symbols`, and batch `no_update_symbols.csv` outputs. Live backfill remains explicit opt-in and Execution/Broker scope remains deferred.
 

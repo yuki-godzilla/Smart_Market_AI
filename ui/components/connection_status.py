@@ -22,8 +22,6 @@ class ConnectionDiagnostic:
     lightweight_mode: bool
     static_serving: bool
     websocket_compression: bool
-    websocket_ping_interval: int
-    disconnected_session_ttl: int
     optimized_asset_count: int
     optimized_asset_bytes: int
     session_key_count: int
@@ -87,8 +85,6 @@ def build_connection_diagnostic(
         lightweight_mode=os.getenv("SMAI_LIGHTWEIGHT_MODE", "0") == "1",
         static_serving=bool(config.get("enableStaticServing", False)),
         websocket_compression=bool(config.get("enableWebsocketCompression", False)),
-        websocket_ping_interval=int(config.get("websocketPingInterval", 0) or 0),
-        disconnected_session_ttl=int(config.get("disconnectedSessionTTL", 0) or 0),
         optimized_asset_count=len(optimized_files),
         optimized_asset_bytes=sum(path.stat().st_size for path in optimized_files),
         session_key_count=key_count,
@@ -133,13 +129,6 @@ def render_connection_status() -> None:
             {
                 "項目": "static配信 / WebSocket圧縮",
                 "状態": f"{diagnostic.static_serving} / {diagnostic.websocket_compression}",
-            },
-            {
-                "項目": "ping / 切断セッション保持",
-                "状態": (
-                    f"{diagnostic.websocket_ping_interval}秒 / "
-                    f"{diagnostic.disconnected_session_ttl}秒"
-                ),
             },
             {
                 "項目": "session_state概算",

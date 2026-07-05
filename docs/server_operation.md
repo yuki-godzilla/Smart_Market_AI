@@ -21,6 +21,10 @@ SMAI を Windows PC 上で常時運用するための手順です。既存の LA
   `scripts/start_smai_server.bat` を起動
 - `SmartMarketAI-Server-Watch`: Streamlit、TCP 8501、メンテナンス条件を5分ごとに確認
 
+手動起動、自動起動、監視復旧はすべて
+`backend.server_ops.launcher` の排他ロックを通ります。同時に起動要求が来た場合は
+1プロセスだけがStreamlitを起動し、後続処理は既存サーバーを検出して正常終了します。
+
 旧 `SmartMarketAI-LAN-Server` タスクがあれば二重起動防止のため無効化します。
 登録解除は次で行います。
 

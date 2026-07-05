@@ -37,8 +37,8 @@ def test_streamlit_static_serving_is_enabled() -> None:
 
     assert "enableStaticServing = true" in config
     assert "enableWebsocketCompression = true" in config
-    assert "disconnectedSessionTTL = 300" in config
-    assert "websocketPingInterval = 30" in config
+    assert "disconnectedSessionTTL" not in config
+    assert "websocketPingInterval" not in config
     assert "gatherUsageStats = false" in config
 
 

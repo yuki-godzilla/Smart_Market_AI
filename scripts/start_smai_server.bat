@@ -19,29 +19,12 @@ call :log "[SMAI] Scheduled LAN server startup"
 call :log "[SMAI] Root: %SMAI_ROOT%"
 call :log "[SMAI] Performance profile: %SMAI_PERFORMANCE_PROFILE%"
 call :log "[SMAI] Assistant Gateway autostart: %SMAI_ASSISTANT_GATEWAY_AUTOSTART%"
-call :log "[SMAI] Streamlit config: static serving=enabled, websocket compression=enabled, disconnected TTL=300s, ping interval=30s"
+call :log "[SMAI] Streamlit config: static serving=enabled, websocket compression=enabled"
+call :log "[SMAI] Duplicate-safe shared launcher: enabled"
 
 if not exist "%SMAI_PYTHON%" (
     call :log "[ERROR] Python virtual environment was not found: %SMAI_PYTHON%"
     exit /b 1
-)
-
-powershell -NoProfile -Command "$c=Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 0}; $p=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $c.OwningProcess) -ErrorAction SilentlyContinue; $cmd=[string]$p.CommandLine; Write-Output ('[SMAI] Port 8501 is already listening. PID=' + $c.OwningProcess); Write-Output ('[SMAI] CommandLine: ' + $cmd); if($cmd -match '(?i)streamlit.+ui[\\/]+app\.py'){exit 10}else{exit 11}" >> "%SMAI_LOG_FILE%" 2>&1
-set "SMAI_PORT_STATUS=%ERRORLEVEL%"
-
-if "%SMAI_PORT_STATUS%"=="10" (
-    call :log "[OK] SMAI is already running. A second instance will not be started."
-    >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Duplicate startup skipped.
-    exit /b 0
-)
-if "%SMAI_PORT_STATUS%"=="11" (
-    call :log "[ERROR] Port 8501 is used by another process. SMAI was not started."
-    >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [ERROR] TCP 8501 is occupied by another process.
-    exit /b 2
-)
-if not "%SMAI_PORT_STATUS%"=="0" (
-    call :log "[ERROR] Port inspection failed with exit code %SMAI_PORT_STATUS%."
-    exit /b %SMAI_PORT_STATUS%
 )
 
 set "SMAI_LAN_IP="
@@ -56,18 +39,9 @@ if not "%SMAI_TAILSCALE_IP%"=="" call :log "[SMAI] Tailscale URL: http://%SMAI_T
 call :log "[SMAI] Listening on 0.0.0.0:8501 (bind address; do not open 0.0.0.0 in a browser)"
 call :log "[SMAI] Starting Streamlit..."
 >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Starting SMAI Streamlit server.
-call :log "[SMAI] Recording maintenance uptime start."
-"%SMAI_PYTHON%" -m backend.server_ops.maintenance startup >> "%SMAI_LOG_FILE%" 2>&1
-if errorlevel 1 (
-    call :log "[ERROR] Maintenance startup state could not be recorded. Streamlit was not started."
-    exit /b 3
-)
-
-"%SMAI_PYTHON%" -m streamlit run ui/app.py ^
-  --server.address 0.0.0.0 ^
-  --server.port 8501 ^
-  --server.headless true ^
-  --browser.serverAddress %SMAI_LAN_IP% >> "%SMAI_LOG_FILE%" 2>&1
+"%SMAI_PYTHON%" -m backend.server_ops.launcher ^
+  --browser-address %SMAI_LAN_IP% ^
+  --maintenance-startup >> "%SMAI_LOG_FILE%" 2>&1
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 call :log "[SMAI] Streamlit stopped with exit code %SMAI_EXIT_CODE%."

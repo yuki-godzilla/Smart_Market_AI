@@ -26,6 +26,4 @@ def test_connection_diagnostic_reads_external_access_config() -> None:
     assert diagnostic.connection_type == "Tailscale"
     assert diagnostic.static_serving is True
     assert diagnostic.websocket_compression is True
-    assert diagnostic.websocket_ping_interval == 30
-    assert diagnostic.disconnected_session_ttl == 300
     assert diagnostic.optimized_asset_count >= 12

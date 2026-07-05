@@ -24,7 +24,7 @@ echo [SMAI] Starting LAN server...
 echo [SMAI] Listening on all network interfaces: 0.0.0.0:8501
 echo [SMAI] Static serving: enabled
 echo [SMAI] WebSocket compression: enabled
-echo [SMAI] Disconnected session TTL: 300 seconds
+echo [SMAI] Duplicate-safe shared launcher: enabled
 echo.
 echo [SMAI] From this PC, open:
 echo        http://localhost:8501
@@ -53,11 +53,8 @@ echo [SMAI] Use only on a trusted private network.
 echo [SMAI] Do not expose port 8501 to the Internet.
 echo.
 
-"%SMAI_PYTHON%" -m streamlit run ui/app.py ^
-  --server.address 0.0.0.0 ^
-  --server.port 8501 ^
-  --server.headless true ^
-  --browser.serverAddress %SMAI_LAN_IP%
+"%SMAI_PYTHON%" -m backend.server_ops.launcher ^
+  --browser-address %SMAI_LAN_IP%
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 echo.

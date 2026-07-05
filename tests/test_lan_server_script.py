@@ -10,6 +10,9 @@ def test_lan_server_passes_detected_ip_to_streamlit_browser_address() -> None:
     assert "tailscale ip -4" in script
     assert "WebSocket compression: enabled" in script
     assert "Duplicate-safe shared launcher: enabled" in script
+    assert 'if "%SMAI_EXIT_CODE%"=="10"' in script
+    assert "Existing SMAI server remains available. Nothing was stopped." in script
+    assert "pause" not in script.lower()
 
 
 def test_lan_server_uses_localhost_when_lan_ip_detection_fails() -> None:

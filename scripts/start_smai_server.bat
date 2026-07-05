@@ -45,6 +45,10 @@ call :log "[SMAI] Starting Streamlit..."
   --resilient >> "%SMAI_LOG_FILE%" 2>&1
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
+if "%SMAI_EXIT_CODE%"=="10" (
+    call :log "[SMAI] Existing SMAI server remains available."
+    exit /b 0
+)
 call :log "[SMAI] Streamlit stopped with exit code %SMAI_EXIT_CODE%."
 exit /b %SMAI_EXIT_CODE%
 

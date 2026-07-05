@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from backend.server_ops.launcher import (
+    EXIT_INTERRUPTED,
     ServerLockUnavailable,
     is_smai_healthy,
     server_lock,
@@ -52,6 +53,9 @@ def test_resilient_wait_ignores_console_interrupt() -> None:
                 raise KeyboardInterrupt
             return 0
 
+        def poll(self):
+            return None
+
     process = Process()
 
     assert wait_for_streamlit(process, resilient=True) == 0  # type: ignore[arg-type]
@@ -75,7 +79,7 @@ def test_non_resilient_wait_stops_streamlit_after_console_interrupt() -> None:
 
     process = Process()
 
-    assert wait_for_streamlit(process, resilient=False) == 130  # type: ignore[arg-type]
+    assert wait_for_streamlit(process, resilient=False) == EXIT_INTERRUPTED  # type: ignore[arg-type]
     assert process.terminated is True
 
 
@@ -83,6 +87,17 @@ def test_resilient_creation_flags_are_windows_only(monkeypatch) -> None:
     monkeypatch.setattr("backend.server_ops.launcher.sys.platform", "linux")
 
     assert streamlit_creation_flags(resilient=True) == 0
+
+
+def test_resilient_wait_returns_when_child_already_stopped() -> None:
+    class Process:
+        def wait(self, timeout=None) -> int:
+            raise KeyboardInterrupt
+
+        def poll(self) -> int:
+            return 1
+
+    assert wait_for_streamlit(Process(), resilient=True) == 1  # type: ignore[arg-type]
 
 
 def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:

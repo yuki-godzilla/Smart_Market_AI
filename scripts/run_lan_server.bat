@@ -7,7 +7,6 @@ if not exist "%SMAI_PYTHON%" (
     echo [SMAI] Python virtual environment was not found:
     echo        %SMAI_PYTHON%
     echo [SMAI] Create venv_SMAI or use the normal project setup first.
-    pause
     exit /b 1
 )
 
@@ -58,6 +57,17 @@ echo.
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 echo.
-echo [SMAI] Streamlit stopped with exit code %SMAI_EXIT_CODE%.
-pause
+if "%SMAI_EXIT_CODE%"=="10" (
+    echo [SMAI] Existing SMAI server remains available. Nothing was stopped.
+    exit /b 0
+)
+if "%SMAI_EXIT_CODE%"=="130" (
+    echo [SMAI] Streamlit stopped by user.
+    exit /b 0
+)
+if "%SMAI_EXIT_CODE%"=="0" (
+    echo [SMAI] Streamlit stopped normally.
+    exit /b 0
+)
+echo [SMAI] Streamlit exited with error code %SMAI_EXIT_CODE%.
 exit /b %SMAI_EXIT_CODE%

@@ -15,6 +15,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOCK_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.lock"
 HOST = "127.0.0.1"
 PORT = 8501
+EXIT_ALREADY_RUNNING = 10
+EXIT_INTERRUPTED = 130
 
 
 class ServerLockUnavailable(RuntimeError):
@@ -98,7 +100,9 @@ def streamlit_command(browser_address: str) -> list[str]:
 def streamlit_creation_flags(*, resilient: bool) -> int:
     if sys.platform != "win32" or not resilient:
         return 0
-    return getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    return getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
+        subprocess, "CREATE_NO_WINDOW", 0
+    )
 
 
 def wait_for_streamlit(process: subprocess.Popen[bytes], *, resilient: bool) -> int:
@@ -107,27 +111,34 @@ def wait_for_streamlit(process: subprocess.Popen[bytes], *, resilient: bool) -> 
             return process.wait()
         except KeyboardInterrupt:
             if resilient:
+                returncode = process.poll()
+                if returncode is not None:
+                    return returncode
                 print(
                     "[SMAI] Ignored a console interrupt in resilient server mode.",
                     file=sys.stderr,
                 )
                 continue
             print("[SMAI] Console interrupt received; stopping Streamlit.", file=sys.stderr)
-            process.terminate()
             try:
-                return process.wait(timeout=10)
+                process.terminate()
+            except OSError:
+                pass
+            try:
+                process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait()
+                process.wait()
+            return EXIT_INTERRUPTED
 
 
 def wait_for_existing_server(timeout_seconds: float = 30.0) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        if is_port_listening():
+        if is_smai_healthy():
             return True
         time.sleep(0.25)
-    return is_port_listening()
+    return is_smai_healthy()
 
 
 def run_server(
@@ -143,7 +154,7 @@ def run_server(
                 if is_smai_healthy():
                     print("[SMAI] SMAI is already running on TCP 8501; reusing it.")
                     print(f"[SMAI] Open http://{browser_address}:{PORT}")
-                    return 0
+                    return EXIT_ALREADY_RUNNING
                 print(
                     "[SMAI] TCP 8501 is already in use, but the listener did not "
                     "answer as SMAI. Stop that process or choose another port.",
@@ -172,7 +183,7 @@ def run_server(
         if wait_for_existing_server():
             print("[SMAI] SMAI is already starting or running on TCP 8501.")
             print(f"[SMAI] Open http://{browser_address}:{PORT}")
-            return 0
+            return EXIT_ALREADY_RUNNING
         print(
             "[SMAI] Another SMAI launcher owns the startup lock, but TCP 8501 "
             "did not become available.",

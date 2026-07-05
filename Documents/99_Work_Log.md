@@ -4381,3 +4381,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 24時間メンテナンスをWindows全体の再起動からSMAIサービス再起動へ変更した。
 - 自動起動・5分監視タスクを登録し、旧ログオン起動タスクを無効化した。
 - 対象19 test、Ruff、実サーバーhealth、投資レーダーURLアクセス後の生存を確認した。
+
+## 2026-07-05: LAN launcher reuse UX
+
+- Added distinct launcher exit codes for an existing server and a manual Ctrl+C stop.
+- Removed the final BAT pause and misleading `Streamlit stopped` message when TCP 8501 is reused.
+- Added `CREATE_NO_WINDOW` to resilient startup and stopped waiting when the child already exited.
+- Verified 17 focused tests, Ruff, live health 200, and immediate existing-server reuse.

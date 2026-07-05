@@ -40,6 +40,7 @@ def test_streamlit_static_serving_is_enabled() -> None:
     assert "disconnectedSessionTTL" not in config
     assert "websocketPingInterval" not in config
     assert "gatherUsageStats = false" in config
+    assert 'toolbarMode = "viewer"' in config
 
 
 def test_pwa_icons_exist_with_expected_square_dimensions() -> None:

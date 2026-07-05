@@ -6,3 +6,6 @@ enableWebsocketCompression = true
 
 [browser]
 gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"

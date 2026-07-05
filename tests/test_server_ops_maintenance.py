@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from backend.server_ops import maintenance
 from backend.server_ops.maintenance import MaintenanceManager
 
 
@@ -86,3 +87,11 @@ def test_corrupt_activity_state_fails_closed(tmp_path: Path) -> None:
     assert decision.safe_to_restart is False
     assert "activity_state_unavailable" in decision.blockers
 
+
+def test_pid_check_treats_windows_system_error_as_stale(monkeypatch) -> None:
+    def raise_system_error(_pid: int, _signal: int) -> None:
+        raise SystemError("<class 'OSError'> returned a result with an exception set")
+
+    monkeypatch.setattr(maintenance.os, "kill", raise_system_error)
+
+    assert maintenance._pid_exists(12345) is False

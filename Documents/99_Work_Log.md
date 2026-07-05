@@ -4418,3 +4418,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 検証用Streamlit PID 3540を終了後、4秒以内にPID 7812でTCP 8501とhealth 200が復旧することを実プロセス確認。
 - Ranking評価方針selectboxでSession State設定済みkeyへ`index`も渡していた競合を解消し、Widget警告を除去。
 - Windowsの `SmartMarketAI-Server-Watch` タスクが実行中であることを確認。
+## 2026-07-05: 反転期待の初心者向け計算説明
+
+- Ranking条件カードへ「反転期待をひとことで」と30/30/20/10/10の計算式を常時表示。
+- 詳細展開に5要素の意味・入力・内部配点、20日高値からの下落幅別基礎点、5日騰落率の加減点、危険条件ごとの上限を追加。
+- 上昇気配との違い、AI総合を上書きしないこと、買い時・底打ちを示さないことを同じ導線で説明。

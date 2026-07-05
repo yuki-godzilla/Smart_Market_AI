@@ -277,6 +277,9 @@ from ui.app import (
     ranking_symbol_db_preflight_limit,
     ranking_symbol_db_preflight_symbols,
     ranking_top_candidate_cards,
+    reversal_expectation_cap_rows,
+    reversal_expectation_component_rows,
+    reversal_expectation_pullback_rows,
     score_component_rows,
     score_confidence_hierarchy_rows,
     selected_symbol_has_universe_detail,
@@ -321,6 +324,7 @@ from ui.ranking import (
     RANKING_PRESET_NISA_LONG_TERM,
     RANKING_PRESET_QUALITY_GROWTH,
     RANKING_PRESET_QUALITY_VALUE,
+    RANKING_PRESET_REVERSAL_EXPECTATION,
     RANKING_PRESET_RISK_ADJUSTED,
     RANKING_PRESET_SMALL_GROWTH,
     RANKING_PRESET_SORT_DIVIDEND_YIELD,
@@ -8659,6 +8663,28 @@ def test_ranking_condition_card_html_explains_common_horizon_and_ai_weighting():
     assert "下降警戒は低いほど良い指標です" in markup
     assert "警戒が低いほど加点" in markup
     assert "売買推奨ではありません" in markup
+
+
+def test_reversal_condition_card_explains_formula_and_guardrails():
+    markup = _ranking_condition_card_html(
+        RANKING_PURPOSE_REVERSAL_EXPECTATION,
+        RANKING_PRESET_REVERSAL_EXPECTATION,
+        forecast_horizon_days=20,
+    )
+    components = reversal_expectation_component_rows()
+    pullbacks = reversal_expectation_pullback_rows()
+    caps = reversal_expectation_cap_rows()
+
+    assert "反転期待をひとことで" in markup
+    assert "押し目状態 30%" in markup
+    assert "予測上向き余地 30%" in markup
+    assert "スコア上限" in markup
+    assert [row["配点"] for row in components] == ["30%", "30%", "20%", "10%", "10%"]
+    assert next(row for row in pullbacks if row["基礎点"] == "90")["20日高値からの下落"] == (
+        "6%以上〜12%未満"
+    )
+    assert any(row["危険条件"] == "下降警戒 80以上" and row["スコア上限"] == "45" for row in caps)
+    assert any(row["危険条件"] == "データ品質BLOCK" and row["スコア上限"] == "0" for row in caps)
 
 
 def test_ranking_condition_summary_chips_show_default_builder_state():

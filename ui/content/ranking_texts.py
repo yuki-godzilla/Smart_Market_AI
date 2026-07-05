@@ -55,7 +55,7 @@ RANKING_MVP_PRODUCT_TYPE_LABELS = {
 }
 
 RANKING_PURPOSE_LABELS = {
-    "reversal_expectation": "反転期待",
+    "reversal_expectation": "上向き兆候",
     "sort_total_score": "総合スコア順",
     "sort_dividend_yield": "配当利回り順",
     "sort_per": "PER低い順",
@@ -68,6 +68,7 @@ RANKING_PURPOSE_LABELS = {
     "sort_data_quality": "データ信頼度順",
     "multi_factor": "総合マルチファクター",
     "upside_signal": "上昇気配重視",
+    "downside_signal": "下降警戒",
     "momentum": "モメンタム・トレンド",
     "quality_growth": "成長クオリティ",
     "quality_value": "割安クオリティ",
@@ -87,7 +88,7 @@ RANKING_PURPOSE_LABELS = {
 }
 
 RANKING_WEIGHT_PRESET_LABELS = {
-    "reversal_expectation_profile": "反転期待",
+    "reversal_expectation_profile": "上向き兆候",
     "sort_total_score": "総合スコア順",
     "sort_dividend_yield": "配当利回り順",
     "sort_per": "PER低い順",
@@ -108,6 +109,7 @@ RANKING_WEIGHT_PRESET_LABELS = {
     "stability_profile": "安定性重視",
     "trend_profile": "トレンド重視",
     "upside_signal_profile": "上昇気配重視",
+    "downside_signal_profile": "下降警戒",
     "multi_factor_profile": "総合マルチファクター",
     "quality_growth_profile": "成長クオリティ",
     "quality_value_profile": "割安クオリティ",
@@ -603,9 +605,15 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
         "main_focus": ("予測・上昇気配", "下振れ警戒", "基礎評価", "データ信頼度"),
         "caution": "上昇気配が強くても、下降警戒が高い候補は値動きの荒さを確認します。",
     },
+    "downside_signal": {
+        "short_summary": "下落継続や急落の警戒が強い候補から、危険要因を確認する方針です。",
+        "suited_for": "下振れリスクを優先して点検する時",
+        "main_focus": ("下降警戒", "Risk", "予測変化率", "データ信頼度"),
+        "caution": "下降警戒は売り推奨ではなく、下落理由と値動きの荒さを確認する指標です。",
+    },
     "reversal_expectation": {
         "short_summary": (
-            "直近は下落または調整中でも、予測余地と下落安全性がある戻り候補を探す方針です。"
+            "まだ大きく上がっていない銘柄から、押し目・底打ち・横ばい上放れなどの兆しを探します。"
         ),
         "suited_for": "押し目・調整中の銘柄から深掘り候補を探す時",
         "main_focus": (
@@ -614,9 +622,11 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
             "下落安全性",
             "押し目状態",
             "企業・データ・配当品質",
-            "反転材料",
+            "上向き材料",
         ),
-        "caution": ("反転期待は買い推奨ではありません。下降警戒と下落理由を必ず確認してください。"),
+        "caution": (
+            "上向き兆候は買い推奨ではありません。下降警戒と下落理由を必ず確認してください。"
+        ),
     },
     "momentum": {
         "short_summary": "足元の価格評価と上昇気配を中心に、追随リスクも見る方針です。",
@@ -734,13 +744,15 @@ RANKING_CRITERIA_GUIDE_ROWS: tuple[RankingCriteriaGuideRow, ...] = (
 
 RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
     "reversal_expectation": {
-        "title": "押し目の深さ × 反転余地",
-        "description": "下落の深さだけでなく、予測の上向き余地と下落安全性を分けて確認します。",
+        "title": "上向き兆候マップ",
+        "description": "調整・安定度と上向き余地を、下落安全性・データ信頼度と合わせて確認します。",
         "how_to_read": (
-            "右上: 押し目が深く反転余地もあるため、危険度を確認して詳しく見る候補",
-            "左上: 押し目は浅いが反転余地がある候補",
-            "右下: 大きく下げた一方で反転材料が弱く、落ちるナイフに注意",
-            "左下: 押し目・反転余地とも小さく、優先度は低め",
+            "中央上: 上向き兆候の本命エリア",
+            "左上: 上昇済みの可能性があるため様子見",
+            "右上: 深い調整のため危険度を要確認",
+            "右下: 落ちるナイフに注意",
+            "中央下: 材料不足の横ばい",
+            "左下: 上向き材料が弱め",
         ),
         "caution": "色は下落安全性です。上位でも反発を断定せず、下落理由と配当維持力を確認してください。",
     },

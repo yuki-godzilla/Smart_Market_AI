@@ -53,8 +53,8 @@ PROFILE_REVERSAL_EXPECTATION = "reversal_expectation"
 RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
     PROFILE_REVERSAL_EXPECTATION: RankingChartProfile(
         key=PROFILE_REVERSAL_EXPECTATION,
-        x_candidates=("reversal_pullback_depth", "20日高値乖離", "reversal_pullback_score"),
-        y_candidates=("反転余地", "reversal_forecast_score", "反転期待"),
+        x_candidates=("調整/安定度", "reversal_pullback_score", "20日高値乖離"),
+        y_candidates=("上向き余地", "reversal_forecast_score", "上向き兆候"),
         color_candidates=("下落安全性", "reversal_safety_score"),
         size_candidates=("データ品質", "data_quality_score"),
         fallback_key=PROFILE_SCORE_RISK,
@@ -191,6 +191,7 @@ RANKING_PURPOSE_CHART_PROFILE_KEYS: dict[str, str] = {
     "reversal_expectation": PROFILE_REVERSAL_EXPECTATION,
     "multi_factor": PROFILE_UPSIDE_DOWNSIDE,
     "upside_signal": PROFILE_UPSIDE_DOWNSIDE,
+    "downside_signal": PROFILE_UPSIDE_DOWNSIDE,
     "quality_growth": PROFILE_FIT_DIRECTION,
     "quality_value": PROFILE_FIT_RISK,
     "sustainable_income": PROFILE_FIT_RISK,
@@ -341,6 +342,14 @@ def _profile_frame(
                 ),
                 "size_value": (_numeric_value(row.get(size_column, "")) if size_column else None),
                 "caution": row.get("注意点", ""),
+                "upward_signal": row.get("上向き兆候", ""),
+                "shape_label": row.get("チャート形状", ""),
+                "adjustment_stability": row.get("調整/安定度", ""),
+                "upward_potential": row.get("上向き余地", ""),
+                "downside_safety": row.get("下落安全性", ""),
+                "downside_warning": row.get("下降警戒", ""),
+                "dividend_trap": row.get("配当罠警戒", ""),
+                "signal_reason": row.get("上向き兆候理由", ""),
             }
         )
     return pd.DataFrame.from_records(records)

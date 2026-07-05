@@ -4474,3 +4474,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ランキング作成をprocess共通の実行中jobとして管理し、同条件の二重起動と、実行中に古い完成結果を再接続sessionへ復元する動作を抑止。
 - 高度予測の銘柄別cacheは逐次公開せず、batch全体が完了した場合だけ一括公開するよう変更。失敗・中断時の途中結果を完成cacheとして再利用しない。
 - 対象ファイル384 testとRuffは成功。Black helperは今回未変更の既存4ファイルを整形対象として報告。
+
+## 2026-07-06: 上向き兆候 v3 名称・形状・バックテスト基盤
+
+- 公開表示を「反転期待」から「上向き兆候」へ統一し、内部 `reversal_*` keyは履歴・snapshot互換のため維持。
+- Ranking順を AI総合、上昇気配、上向き兆候、下降警戒の順にし、Cockpit、Myウォッチリスト、履歴、Decision Report、Assistant文脈を同期。
+- チャート形状30%として押し目反発、底打ち、横ばい上放れ、蓄積上昇準備の最大値から危険penaltyを引く方式へ変更。落ちるナイフ、上昇済み、高配当罠、低品質capを維持し、ETFは個別株向け配当罠判定から除外。
+- 上向き兆候マップを調整/安定度×上向き余地へ更新し、下落安全性、データ信頼度、形状、配当罠、理由をtooltipへ追加。
+- 評価日時点までの履歴だけをsignal builderへ渡し、20/60/120営業日return、最大下落、benchmark超過、成功/失敗集計と指定4成果物を生成するbacktest契約を追加。
+- deterministic対象450 testとRuffは成功。Black helperは今回未変更の既存4ファイルだけを整形対象として報告。実銘柄10スプリントはYahoo live opt-in確認として `docs/upward_signal_validation.md` に未実行状態を明記。

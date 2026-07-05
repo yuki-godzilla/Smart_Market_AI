@@ -1,7 +1,8 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
-from backend.scoring.reversal import calculate_reversal_expectation
+from backend.scoring.reversal import calculate_reversal_expectation, upward_signal_display_label
 from ui.app import (
     _favorite_status_label,
     _investment_score_report_section,
@@ -118,7 +119,7 @@ def test_watchlist_snapshot_round_trips_reversal_fields(tmp_path):
             "AAA": WatchlistSnapshot(
                 symbol="AAA",
                 reversal_expectation_score=72.5,
-                reversal_expectation_label="反転期待 中",
+                reversal_expectation_label="上向き兆候 中",
                 reversal_expectation_reason="下落理由を確認します。",
             )
         },
@@ -126,7 +127,7 @@ def test_watchlist_snapshot_round_trips_reversal_fields(tmp_path):
     )
     restored = load_watchlist_snapshots(path)["AAA"]
     assert restored.reversal_expectation_score == 72.5
-    assert restored.reversal_expectation_label == "反転期待 中"
+    assert restored.reversal_expectation_label == "上向き兆候 中"
 
 
 def test_reversal_fields_flow_to_ranking_cards_table_and_cockpit(monkeypatch):
@@ -142,12 +143,12 @@ def test_reversal_fields_flow_to_ranking_cards_table_and_cockpit(monkeypatch):
     kpis = cockpit_kpi_cards(display[0])
     details = cockpit_direction_signal_detail_rows(display[0], {})
 
-    assert display[0]["反転期待"]
-    assert cards[0]["score_label"] == "反転期待"
-    assert cards[0]["score"] == display[0]["反転期待"]
-    assert "反転期待" in frame.columns
-    assert any(card["label"] == "反転期待" for card in kpis)
-    assert any(row["観点"] == "反転期待の内訳" for row in details)
+    assert display[0]["上向き兆候"]
+    assert cards[0]["score_label"] == "上向き兆候"
+    assert cards[0]["score"] == display[0]["上向き兆候"]
+    assert "上向き兆候" in frame.columns
+    assert any(card["label"] == "上向き兆候" for card in kpis)
+    assert any(row["観点"] == "上向き兆候の内訳" for row in details)
 
 
 def test_favorite_status_uses_reversal_and_downside_guardrail():
@@ -155,7 +156,7 @@ def test_favorite_status_uses_reversal_and_downside_guardrail():
         _favorite_status_label(
             price="100", ai_score="60", upside="50", downside="45", reversal="72"
         )
-        == "反転期待"
+        == "上向き兆候"
     )
     assert (
         _favorite_status_label(
@@ -169,9 +170,9 @@ def test_history_and_decision_report_preserve_reversal_context():
     row = {
         "順位": "1",
         "銘柄": "AAA",
-        "反転期待": "72.5",
-        "反転安全性": "74",
-        "反転理由": "下落理由を確認します。",
+        "上向き兆候": "72.5",
+        "下落安全性": "74",
+        "上向き兆候理由": "下落理由を確認します。",
         "総合スコア": "61",
     }
     request = build_ranking_history_save_request(
@@ -185,14 +186,14 @@ def test_history_and_decision_report_preserve_reversal_context():
         weight_preset=RANKING_PRESET_REVERSAL_EXPECTATION,
         product_type="stock",
         target_label="日本株",
-        condition_summary="反転期待",
+        condition_summary="上向き兆候",
         candidate_count=1,
         ranking_logic_version="test",
     )
     report = _investment_score_report_section(
         {
             "reversal_expectation_score": "72.5",
-            "reversal_expectation_label": "反転期待 中",
+            "reversal_expectation_label": "上向き兆候 中",
             "reversal_expectation_reason": "下落理由を確認します。",
         },
         source_kind="ranking",
@@ -202,3 +203,67 @@ def test_history_and_decision_report_preserve_reversal_context():
     assert request.result_rows[0].reversal_expectation_score == 72.5
     assert request.result_rows[0].reversal_expectation_reason == "下落理由を確認します。"
     assert report.summary["reversal_expectation_score"] == "72.5"
+
+
+def test_range_breakout_and_accumulation_shapes_are_supported():
+    breakout = calculate_reversal_expectation(
+        _candidate(
+            drawdown_20d="-6",
+            momentum_5d="0.5",
+            return_20d="1",
+            forecast_return_pct="5",
+            volatility_20d="21",
+            volume_recovery_flag="true",
+        )
+    )
+    accumulation = calculate_reversal_expectation(
+        _candidate(
+            drawdown_20d="-4",
+            momentum_5d="0",
+            return_20d="1",
+            forecast_return_pct="3",
+            volatility_20d="16",
+            higher_low_flag="true",
+        )
+    )
+
+    assert breakout.reversal_chart_shape_label == "横ばい上放れ候補"
+    assert breakout.range_breakout_score >= Decimal("80")
+    assert accumulation.reversal_chart_shape_label == "蓄積上昇準備"
+    assert accumulation.accumulation_setup_score >= Decimal("75")
+
+
+def test_etf_does_not_apply_individual_stock_dividend_trap_cap():
+    result = calculate_reversal_expectation(
+        _candidate(
+            asset_type="etf",
+            dividend_yield_pct="8.5",
+            drawdown_60d="-30",
+            payout_ratio="120",
+            operating_cash_flow="-1",
+        )
+    )
+
+    assert result.dividend_trap_warning == "ETFには個別株の配当罠判定を適用しません"
+    assert result.dividend_sustainability_label == "対象外"
+
+
+def test_public_ui_sources_use_upward_signal_name():
+    forbidden = "反転" + "期待"
+    paths = [
+        Path("ui/app.py"),
+        Path("ui/ranking.py"),
+        Path("ui/ranking_history.py"),
+        Path("ui/content/ranking_texts.py"),
+        Path("ui/views/cockpit.py"),
+        Path("backend/assistant/service.py"),
+    ]
+
+    for path in paths:
+        source = path.read_text(encoding="utf-8")
+        assert forbidden not in source, path
+        assert "上向き兆候" in source, path
+
+
+def test_legacy_saved_label_is_normalized_for_public_display():
+    assert upward_signal_display_label("反転期待 中") == "上向き兆候 中"

@@ -134,7 +134,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
             "予測確認",
             "ai予測",
             "上昇気配",
-            "反転期待",
+            "上向き兆候",
             "予測はどう",
             "forecast",
         ),

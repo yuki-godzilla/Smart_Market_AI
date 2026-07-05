@@ -2644,8 +2644,8 @@ Markdown UTF-8 check:
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
 - PDF / Excel export をいつ入れるか
 - Execution / broker order をどの段階で再開するか
-# Reversal Expectation / 反転期待
+# Upward Signal / 上向き兆候
 
-- `反転期待` is an independent Ranking exploration axis, ordered after `AI総合` and `上昇気配`.
+- `上向き兆候` is an independent Ranking exploration axis, ordered after `AI総合` and `上昇気配`.
 - The common score, dedicated sort, Ranking/Cockpit/Watchlist display, snapshots, Ranking History, Assistant context, Decision Report, and deterministic regression coverage are implemented together.
 - The score is decision-support information for prioritizing further review; it does not modify AI総合, Investment Score, Forecast, or broker/execution behavior.

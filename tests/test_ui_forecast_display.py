@@ -336,6 +336,7 @@ from ui.ranking import (
     RANKING_PRODUCT_ETF,
     RANKING_PURPOSE_DATA_CONFIDENCE,
     RANKING_PURPOSE_DIVIDEND,
+    RANKING_PURPOSE_DOWNSIDE_SIGNAL,
     RANKING_PURPOSE_ETF_CORE_COST,
     RANKING_PURPOSE_ETF_INCOME,
     RANKING_PURPOSE_GROWTH,
@@ -5760,6 +5761,7 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
         RANKING_PURPOSE_MULTI_FACTOR,
         RANKING_PURPOSE_UPSIDE_SIGNAL,
         RANKING_PURPOSE_REVERSAL_EXPECTATION,
+        RANKING_PURPOSE_DOWNSIDE_SIGNAL,
         RANKING_PURPOSE_MOMENTUM,
         RANKING_PURPOSE_QUALITY_GROWTH,
         RANKING_PURPOSE_QUALITY_VALUE,
@@ -5775,7 +5777,8 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
     assert [ranking_policy_label(option) for option in ranking_policy_options()] == [
         "AI総合",
         "上昇気配重視",
-        "反転期待",
+        "上向き兆候",
+        "下降警戒",
         "モメンタム・トレンド",
         "成長クオリティ",
         "割安クオリティ",
@@ -7895,7 +7898,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "PBR",
         "ROE",
         "上昇気配",
-        "反転期待",
+        "上向き兆候",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -7962,7 +7965,7 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         "PBR",
         "ROE",
         "上昇気配",
-        "反転期待",
+        "上向き兆候",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -8377,7 +8380,7 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         "PBR",
         "ROE",
         "上昇気配",
-        "反転期待",
+        "上向き兆候",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -8428,7 +8431,7 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
         "PBR",
         "ROE",
         "上昇気配",
-        "反転期待",
+        "上向き兆候",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -8792,15 +8795,15 @@ def test_reversal_condition_card_explains_formula_and_guardrails():
     pullbacks = reversal_expectation_pullback_rows()
     caps = reversal_expectation_cap_rows()
 
-    assert "反転期待をひとことで" in markup
-    assert "チャート形状 25%" in markup
+    assert "上向き兆候をひとことで" in markup
+    assert "チャート形状 30%" in markup
     assert "予測上向き余地 25%" in markup
     assert "スコア上限" in markup
     assert [row["配点"] for row in components] == [
-        "25%",
+        "30%",
         "25%",
         "20%",
-        "15%",
+        "10%",
         "10%",
         "5%",
     ]
@@ -8932,9 +8935,8 @@ def test_reversal_policy_builder_card_explains_formula_without_opening_details()
     assert "下落安全性" in markup
     assert "企業・データ・配当品質" in markup
     assert "チャート形状" in markup
-    assert "反転材料" in markup
+    assert "上向き材料" in markup
     assert "25%" in markup
-    assert "15%" in markup
     assert "5%" in markup
     assert "20%" in markup
     assert "10%" in markup

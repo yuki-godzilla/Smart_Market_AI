@@ -113,7 +113,7 @@ from backend.research import (
     StockNewsReport,
 )
 from backend.scoring import InvestmentScoringService
-from backend.scoring.reversal import calculate_reversal_expectation
+from backend.scoring.reversal import calculate_reversal_expectation, upward_signal_display_label
 from backend.screening import ScreeningService
 from backend.server_ops.maintenance import MaintenanceManager, maintenance_operation
 from backend.symbols.background import (
@@ -564,7 +564,7 @@ RANKING_TABLE_BASE_COLUMNS = (
     "PBR",
     "ROE",
     "上昇気配",
-    "反転期待",
+    "上向き兆候",
     "下降警戒",
     "予測変化率",
     "予測確度",
@@ -621,7 +621,7 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "総合スコア": "desc",
     "Screening": "desc",
     "上昇気配": "desc",
-    "反転期待": "desc",
+    "上向き兆候": "desc",
     "下降警戒": "asc",
     "配当利回り": "desc",
     "PER": "asc",
@@ -1975,9 +1975,12 @@ def _register_cockpit_direction_assistant_context(
             lead="上向きシグナルと下振れ警戒を分け、どちらを先に確認するか整理します。",
             summary={
                 "上昇気配": score_row.get("上昇気配") or "未計算",
-                "反転期待": score_row.get("反転期待") or "未計算",
-                "反転期待ラベル": score_row.get("reversal_expectation_label") or "未計算",
-                "反転理由": score_row.get("reversal_expectation_reason") or "未計算",
+                "上向き兆候": score_row.get("上向き兆候") or "未計算",
+                "上向き兆候ラベル": upward_signal_display_label(
+                    score_row.get("reversal_expectation_label")
+                )
+                or "未計算",
+                "上向き兆候理由": score_row.get("reversal_expectation_reason") or "未計算",
                 "下降警戒": score_row.get("下降警戒") or "未計算",
                 "読み取り": cockpit_direction_signal_summary(score_row, consensus_row),
             },
@@ -1985,8 +1988,8 @@ def _register_cockpit_direction_assistant_context(
             warnings=(warning,) if warning else (),
             suggested_questions=(
                 "上昇気配・下降警戒の理由は？",
-                "反転期待と上昇気配は何が違う？",
-                "反転期待が高い理由は？",
+                "上昇気配と上向き兆候は何が違う？",
+                "上向き兆候が高い理由は？",
                 "AI予測インサイトとどう見比べる？",
                 "下降警戒が高い時は？",
                 "Decision Reportに残す確認ポイントは？",
@@ -2070,8 +2073,8 @@ def _register_ranking_results_assistant_context(
                     "銘柄名": row.get("銘柄名", ""),
                     "総合スコア": row.get("総合スコア", ""),
                     "上昇気配": row.get("上昇気配", ""),
-                    "反転期待": row.get("反転期待", ""),
-                    "反転理由": row.get("反転理由", ""),
+                    "上向き兆候": row.get("上向き兆候", ""),
+                    "上向き兆候理由": row.get("上向き兆候理由", ""),
                     "下降警戒": row.get("下降警戒", ""),
                     "AI予測インサイト": _ranking_advanced_forecast_display(row),
                 }
@@ -2081,8 +2084,8 @@ def _register_ranking_results_assistant_context(
                 "なぜこの候補が上位？",
                 "深掘り候補の比較ポイントは？",
                 "AI総合・上昇気配・下降警戒の違いは？",
-                "反転期待が高い銘柄を教えて",
-                "反転期待と上昇気配は何が違う？",
+                "上向き兆候が高い銘柄を教えて",
+                "上昇気配と上向き兆候は何が違う？",
                 "低信頼データはどう読む？",
             ),
             priority=92,
@@ -2113,8 +2116,8 @@ def _register_ranking_deep_dive_assistant_context(
                 "評価方針": ranking_policy_label(ranking_policy),
                 "総合スコア": selected_row.get("総合スコア", ""),
                 "上昇気配": selected_row.get("上昇気配", ""),
-                "反転期待": selected_row.get("反転期待", ""),
-                "反転理由": selected_row.get("反転理由", ""),
+                "上向き兆候": selected_row.get("上向き兆候", ""),
+                "上向き兆候理由": selected_row.get("上向き兆候理由", ""),
                 "下降警戒": selected_row.get("下降警戒", ""),
                 "AI予測インサイト": _ranking_advanced_forecast_display(selected_row),
                 "上位理由": reason,
@@ -3498,10 +3501,10 @@ def ranking_result_aggrid_frame(
             "材料鮮度": row.get("材料鮮度", ""),
             "基礎評価": row.get("Screening", ""),
             "上昇気配": row.get("上昇気配", ""),
-            "反転期待": row.get("反転期待", ""),
+            "上向き兆候": row.get("上向き兆候", ""),
             "20日高値乖離": row.get("20日高値乖離", ""),
             "5日騰落率": row.get("5日騰落率", ""),
-            "反転理由": row.get("反転理由", ""),
+            "上向き兆候理由": row.get("上向き兆候理由", ""),
             "下降警戒": row.get("下降警戒", ""),
             "予測変化率": row.get("予測変化率", ""),
             "予測確度": _ranking_forecast_confidence_display(row),
@@ -4520,12 +4523,12 @@ def ranking_top_candidate_cards(
                 "symbol": row.get("銘柄", ""),
                 "name": row.get("銘柄名", ""),
                 "score": (
-                    row.get("反転期待", "未計算")
+                    row.get("上向き兆候", "未計算")
                     if ranking_purpose == "reversal_expectation"
                     else row.get("総合スコア", "未計算")
                 ),
                 "score_label": (
-                    "反転期待" if ranking_purpose == "reversal_expectation" else "総合スコア"
+                    "上向き兆候" if ranking_purpose == "reversal_expectation" else "総合スコア"
                 ),
                 "primary_label": primary_label,
                 "primary_value": primary_value,
@@ -4537,8 +4540,8 @@ def ranking_top_candidate_cards(
                 ),
                 "confidence": row.get("DB信頼度") or row.get("条件適合度") or "未登録",
                 "upside": row.get("上昇気配", ""),
-                "reversal": row.get("反転期待", ""),
-                "reversal_reason": row.get("反転理由", ""),
+                "reversal": row.get("上向き兆候", ""),
+                "reversal_reason": row.get("上向き兆候理由", ""),
                 "downside": row.get("下降警戒", ""),
                 "view": row.get("見方", ""),
                 "caution": row.get("注意点", ""),
@@ -4996,12 +4999,12 @@ def _render_ranking_condition_card(
         unsafe_allow_html=True,
     )
     if ranking_purpose == "reversal_expectation":
-        with st.expander("反転期待スコアの詳しい計算方法を見る", expanded=False):
+        with st.expander("上向き兆候スコアの詳しい計算方法を見る", expanded=False):
             st.markdown(
-                "反転期待は、単に「下がった銘柄」を高く評価する指標ではありません。"
-                "適度な調整に加えて、戻る根拠と下落リスクの低さがそろうかを確認します。"
+                "上向き兆候は、単に「下がった銘柄」を高く評価する指標ではありません。"
+                "下落・調整・横ばいから上向きに変わる兆しと、下落リスクを確認します。"
             )
-            st.markdown("#### 5つの評価要素")
+            st.markdown("#### 6つの評価要素")
             st.dataframe(
                 reversal_expectation_component_rows(),
                 hide_index=True,
@@ -5024,7 +5027,7 @@ def _render_ranking_condition_card(
                 use_container_width=True,
             )
             st.caption(
-                "最後に、反転期待 → 下落安全性 → 予測変化率 → 下降警戒の低さ → "
+                "最後に、上向き兆候 → 下落安全性 → 予測変化率 → 下降警戒の低さ → "
                 "AI総合 → 銘柄コードの順で並べます。AI総合スコア自体は変更しません。"
             )
 
@@ -5033,10 +5036,10 @@ def reversal_expectation_component_rows() -> list[dict[str, str]]:
     return [
         {
             "評価要素": "チャート形状",
-            "配点": "25%",
+            "配点": "30%",
             "初心者向けの意味": "狙う形に近い下げ方か",
             "主な材料": "押し目の深さ、短期騰落、底打ち・安値更新",
-            "計算の要点": "押し目反発待ち、底打ち接近、落ちるナイフ等に分類",
+            "計算の要点": "押し目、底打ち、横ばい上放れ、蓄積準備の最大値から危険減点",
         },
         {
             "評価要素": "予測上向き余地",
@@ -5054,7 +5057,7 @@ def reversal_expectation_component_rows() -> list[dict[str, str]]:
         },
         {
             "評価要素": "押し目状態",
-            "配点": "15%",
+            "配点": "10%",
             "初心者向けの意味": "押し目として適度な深さか",
             "主な材料": "20日高値からの下落、5日騰落率",
             "計算の要点": "6〜12%下落を中心に、急落と上昇済みを減点",
@@ -5067,7 +5070,7 @@ def reversal_expectation_component_rows() -> list[dict[str, str]]:
             "計算の要点": "高配当時は配当安全性も合成し、罠を上限制御",
         },
         {
-            "評価要素": "反転材料",
+            "評価要素": "上向き材料",
             "配点": "5%",
             "初心者向けの意味": "戻りを後押しする材料があるか",
             "主な材料": "調査・ニュース材料、予測方向、上昇余地",
@@ -5139,12 +5142,13 @@ def _ranking_condition_card_html(
     profile = ranking_weight_preset_label(weight_preset)
     reversal_explanation = (
         '<div class="smai-ranking-condition-note">'
-        "<strong>反転期待をひとことで</strong><br>"
-        "今は下落・調整中でも、戻る予測根拠があり、下落リスクが強すぎない銘柄を"
-        "「詳しく確認したい候補」として探します。買い時や底打ちを示すものではありません。"
+        "<strong>上向き兆候をひとことで</strong><br>"
+        "まだ大きく上がっていない銘柄から、押し目反発・底打ち・横ばい上放れなど、"
+        "上向きに変わる兆しを探します。買い時や底打ち確定を示すものではありません。"
+        "<br>上昇気配は、すでに上向きの強さが出ている銘柄を評価します。"
         "<br><br><strong>計算式</strong><br>"
-        "チャート形状 25% ＋ 予測上向き余地 25% ＋ 下落安全性 20% ＋ "
-        "押し目状態 15% ＋ 企業・データ・配当品質 10% ＋ 反転材料 5%。"
+        "チャート形状 30% ＋ 予測上向き余地 25% ＋ 下落安全性 20% ＋ "
+        "押し目・安定度 10% ＋ 企業・データ・配当品質 10% ＋ 上向き材料 5%。"
         "その後、急落・高い下降警戒・低いデータ品質などに応じてスコア上限を適用します。"
         "</div>"
         if ranking_purpose == "reversal_expectation"
@@ -5476,6 +5480,19 @@ def _render_ranking_profile_chart(
         alt.Tooltip("y_value:Q", title=selection.y_column, format=".1f"),
         alt.Tooltip("caution:N", title="注意点"),
     ]
+    if selection.profile.key == "reversal_expectation":
+        chart_tooltips = [
+            alt.Tooltip("symbol:N", title="銘柄コード"),
+            alt.Tooltip("name:N", title="銘柄名"),
+            alt.Tooltip("upward_signal:N", title="上向き兆候スコア"),
+            alt.Tooltip("shape_label:N", title="チャート形状"),
+            alt.Tooltip("adjustment_stability:N", title="調整/安定度"),
+            alt.Tooltip("upward_potential:N", title="上向き余地"),
+            alt.Tooltip("downside_safety:N", title="下落安全性"),
+            alt.Tooltip("downside_warning:N", title="下降警戒"),
+            alt.Tooltip("dividend_trap:N", title="配当罠警戒"),
+            alt.Tooltip("signal_reason:N", title="上向き兆候理由"),
+        ]
     if selection.color_column:
         chart_tooltips.insert(
             -1,
@@ -5505,6 +5522,7 @@ def _render_ranking_profile_chart(
             "データ品質",
             "条件適合度",
             "DB信頼度",
+            "下落安全性",
         }:
             numeric_color_range = [
                 THEME_COLORS["signal_risk"],
@@ -11728,7 +11746,7 @@ def _favorite_display_payload(
         "refresh_next_action": refresh_state.next_action,
         "refresh_error": favorite.refresh_error or "",
         "reversal": reversal or "未計算",
-        "reversal_label": str(row.get("reversal_expectation_label") or ""),
+        "reversal_label": upward_signal_display_label(row.get("reversal_expectation_label")),
         "reversal_reason": str(row.get("reversal_expectation_reason") or ""),
         "source_screen": favorite.source_screen or "unknown",
         "price": price or "未取得",
@@ -11811,7 +11829,7 @@ def _favorite_status_label(
     except Exception:  # noqa: BLE001
         reversal_value = Decimal("0")
     if reversal_value >= Decimal("65") and downside_value < Decimal("65"):
-        return "反転期待"
+        return "上向き兆候"
     if reversal_value >= Decimal("50") and downside_value >= Decimal("70"):
         return "落ちるナイフ注意"
     if reversal_value >= Decimal("50"):
@@ -11826,8 +11844,8 @@ def _favorite_status_label(
 
 
 def _favorite_checkpoint_label(status: str) -> str:
-    if status == "反転期待":
-        return "反転期待が高めです。直近下落が連れ安か、個別悪材料かを確認します。"
+    if status == "上向き兆候":
+        return "上向き兆候が高めです。直近下落が連れ安か、個別悪材料かを確認します。"
     if status == "押し目観察":
         return "調整後の戻り候補です。予測と下落理由を継続確認します。"
     if status == "落ちるナイフ注意":
@@ -11848,7 +11866,7 @@ def _favorite_checkpoint_label(status: str) -> str:
 
 
 def _favorite_status_display_label(status: str) -> str:
-    if status in {"反転期待", "押し目観察", "落ちるナイフ注意", "反転材料弱め"}:
+    if status in {"上向き兆候", "押し目観察", "落ちるナイフ注意", "反転材料弱め"}:
         return status
     if status in {"上昇候補", "上昇傾向"}:
         return "上昇傾向"
@@ -11864,7 +11882,7 @@ def _favorite_status_display_label(status: str) -> str:
 
 
 def _favorite_status_tone(status: str) -> str:
-    if status == "反転期待":
+    if status == "上向き兆候":
         return "reversal"
     if status == "押し目観察":
         return "watch"
@@ -12188,7 +12206,7 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             _favorite_metric_html("価格", payload.get("price"), fallback="価格データなし"),
             _favorite_metric_html("AI総合", payload.get("ai_score"), fallback="AI評価なし"),
             _favorite_metric_html("上昇気配", payload.get("upside"), fallback="AI評価なし"),
-            _favorite_metric_html("反転期待", payload.get("reversal"), fallback="未計算"),
+            _favorite_metric_html("上向き兆候", payload.get("reversal"), fallback="未計算"),
             _favorite_metric_html("下振れ警戒", payload.get("downside"), fallback="AI評価なし"),
         ]
     )
@@ -12279,7 +12297,7 @@ def _favorite_table_rows(rows: Sequence[Mapping[str, str]]) -> list[dict[str, st
             "1か月": _signed_percent_from_text(row.get("price_change_1m", "")) or "未取得",
             "AI総合": row["ai_score"],
             "上昇気配": row["upside"],
-            "反転期待": row.get("reversal", ""),
+            "上向き兆候": row.get("reversal", ""),
             "下振れ警戒": row["downside"],
             "状態": row["status_label"],
             "更新": row["refresh_label"],
@@ -22565,8 +22583,14 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_quality_score": row.get("reversal_quality_score", ""),
                 "reversal_material_score": row.get("reversal_material_score", ""),
                 "reversal_pullback_depth": _absolute_numeric_text(row.get("drawdown_20d", "")),
+                "調整/安定度": _absolute_numeric_text(row.get("drawdown_20d", "")),
+                "調整度スコア": row.get("reversal_pullback_score", ""),
+                "上向き余地": row.get("reversal_forecast_score", ""),
+                "下落安全性": row.get("reversal_safety_score", ""),
                 "data_quality_score": row.get("data_quality_score", ""),
                 "reversal_chart_shape_label": row.get("reversal_chart_shape_label", ""),
+                "チャート形状": row.get("reversal_chart_shape_label", ""),
+                "配当罠警戒": row.get("dividend_trap_warning", ""),
                 "reversal_trap_warning": row.get("reversal_trap_warning", ""),
                 "dividend_trap_warning": row.get("dividend_trap_warning", ""),
                 "dividend_safety_score": row.get("dividend_safety_score", ""),
@@ -22580,9 +22604,8 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "条件適合度": row.get("database_fit_score", ""),
                 "Screening": row.get("screening_score", ""),
                 "上昇気配": row.get("upside_signal_score", ""),
-                "反転期待": row.get("reversal_expectation_score", ""),
-                "反転安全性": row.get("reversal_safety_score", ""),
-                "反転理由": row.get("reversal_expectation_reason", ""),
+                "上向き兆候": row.get("reversal_expectation_score", ""),
+                "上向き兆候理由": row.get("reversal_expectation_reason", ""),
                 "20日高値乖離": row.get("drawdown_20d", ""),
                 "5日騰落率": row.get("momentum_5d") or row.get("return_5d", ""),
                 "下降警戒": row.get("downside_signal_score", ""),

@@ -22,6 +22,11 @@ class ReversalExpectation:
     dividend_safety_score: Decimal
     dividend_yield_spike_flag: bool
     dividend_sustainability_label: str
+    pullback_rebound_score: Decimal
+    bottoming_score: Decimal
+    range_breakout_score: Decimal
+    accumulation_setup_score: Decimal
+    dangerous_shape_penalty: Decimal
     # v1 compatibility: consumers may still read this field.
     reversal_setup_score: Decimal
 
@@ -44,16 +49,25 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
     risk = _number(row, "risk_signal_score", "risk_score", default=Decimal("50"))
     data_quality = _number(row, "data_quality_score", default=Decimal("50"))
 
+    shape_scores = _chart_shape_scores(
+        row,
+        drawdown=drawdown,
+        momentum=momentum,
+        forecast_return=forecast_return,
+        downside=downside,
+        risk=risk,
+    )
     shape_label = _chart_shape_label(
+        row,
+        shape_scores=shape_scores,
         drawdown=drawdown,
         momentum=momentum,
         forecast_return=forecast_return,
         up_models=up_models,
         downside=downside,
         risk=risk,
-        recent_low_break=_truthy(row, "recent_low_break", "new_low_flag"),
     )
-    chart_shape = _chart_shape_score(row, shape_label, drawdown, momentum)
+    chart_shape = _chart_shape_score(row, shape_label, shape_scores)
     pullback = _pullback_score(drawdown, momentum)
     forecast = _forecast_score(row, forecast_return, up_models, down_models, upside, data_quality)
     safety = _safety_score(row, downside, risk)
@@ -62,10 +76,10 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
     material = _material_score(row, forecast_return, up_models, upside)
 
     raw = (
-        chart_shape * Decimal("0.25")
+        chart_shape * Decimal("0.30")
         + forecast * Decimal("0.25")
         + safety * Decimal("0.20")
-        + pullback * Decimal("0.15")
+        + pullback * Decimal("0.10")
         + quality * Decimal("0.10")
         + material * Decimal("0.05")
     )
@@ -85,7 +99,7 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
         caps.append(Decimal("50"))
     if shape_label == "落ちるナイフ注意":
         caps.append(Decimal("45"))
-    elif shape_label in {"上昇済み・押し目浅い", "反転材料弱め"}:
+    elif shape_label in {"上昇済み・兆候薄め", "反転材料弱め"}:
         caps.append(Decimal("55"))
     if dividend.score_cap is not None:
         caps.append(dividend.score_cap)
@@ -110,20 +124,31 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
         dividend_safety_score=_rounded(dividend.safety_score),
         dividend_yield_spike_flag=dividend.yield_spike,
         dividend_sustainability_label=dividend.sustainability_label,
+        pullback_rebound_score=_rounded(shape_scores["押し目反発待ち"]),
+        bottoming_score=_rounded(shape_scores["底打ち接近"]),
+        range_breakout_score=_rounded(shape_scores["横ばい上放れ候補"]),
+        accumulation_setup_score=_rounded(shape_scores["蓄積上昇準備"]),
+        dangerous_shape_penalty=_rounded(shape_scores["dangerous_penalty"]),
         reversal_setup_score=_rounded(chart_shape),
     )
 
 
 def reversal_expectation_label(score: Decimal) -> str:
     if score >= 80:
-        return "反転期待 高"
+        return "上向き兆候 高"
     if score >= 65:
-        return "反転期待 中"
+        return "上向き兆候 中"
     if score >= 50:
         return "観察候補"
     if score >= 35:
         return "反転材料弱め"
-    return "反転期待 低"
+    return "上向き兆候 低"
+
+
+def upward_signal_display_label(value: object) -> str:
+    """Normalize labels saved before the public-name migration."""
+
+    return str(value or "").replace("反転期待", "上向き兆候")
 
 
 @dataclass(frozen=True)
@@ -136,15 +161,17 @@ class _DividendAssessment:
 
 
 def _chart_shape_label(
+    row: Mapping[str, object],
     *,
+    shape_scores: Mapping[str, Decimal],
     drawdown: Decimal,
     momentum: Decimal,
     forecast_return: Decimal,
     up_models: Decimal,
     downside: Decimal,
     risk: Decimal,
-    recent_low_break: bool,
 ) -> str:
+    recent_low_break = _truthy(row, "recent_low_break", "new_low_flag")
     if (
         drawdown >= 35
         or downside >= 80
@@ -153,32 +180,99 @@ def _chart_shape_label(
         or momentum <= -8
     ):
         return "落ちるナイフ注意"
+    if _data_is_insufficient(row):
+        return "データ不足・要確認"
     if drawdown < 3 and momentum > 3:
-        return "上昇済み・押し目浅い"
+        return "上昇済み・兆候薄め"
     if forecast_return <= 0 or up_models <= 0:
         return "反転材料弱め"
     if drawdown >= 20 and momentum <= 0:
         return "売られすぎ反発狙い"
-    if drawdown >= 10 and Decimal("-3") <= momentum <= Decimal("3"):
-        return "底打ち接近"
+    candidates = {
+        label: score for label, score in shape_scores.items() if label != "dangerous_penalty"
+    }
+    label, best_score = max(candidates.items(), key=lambda item: item[1])
+    return label if best_score >= 58 else "反転材料弱め"
+
+
+def _chart_shape_scores(
+    row: Mapping[str, object],
+    *,
+    drawdown: Decimal,
+    momentum: Decimal,
+    forecast_return: Decimal,
+    downside: Decimal,
+    risk: Decimal,
+) -> dict[str, Decimal]:
+    return_20d = _number(row, "return_20d", "price_change_20d", default=momentum)
+    volatility = _number(row, "volatility_20d", "volatility", default=Decimal("25"))
+    higher_low = _truthy(row, "higher_low_flag", "recent_higher_low")
+    volume_recovery = _truthy(row, "volume_recovery_flag", "reversal_volume_confirmed")
+
+    pullback = Decimal("30")
     if Decimal("5") <= drawdown < Decimal("18") and Decimal("-5") <= momentum <= Decimal("2"):
-        return "押し目反発待ち"
-    return "反転材料弱め"
+        pullback = Decimal("82")
+    if higher_low:
+        pullback += 8
+
+    bottoming = Decimal("30")
+    if drawdown >= 10 and Decimal("-3") <= momentum <= Decimal("3"):
+        bottoming = Decimal("84")
+    if higher_low:
+        bottoming += 10
+    if volume_recovery:
+        bottoming += 6
+
+    range_breakout = Decimal("30")
+    if abs(return_20d) <= 5 and drawdown <= 10 and forecast_return >= 2 and downside < 65:
+        range_breakout = Decimal("78")
+    if volatility <= 22:
+        range_breakout += 6
+    if volume_recovery:
+        range_breakout += 6
+
+    accumulation = Decimal("30")
+    if (
+        abs(return_20d) <= 4
+        and drawdown <= 8
+        and volatility <= 20
+        and forecast_return > 0
+        and downside < 60
+        and risk >= 55
+    ):
+        accumulation = Decimal("86")
+    if higher_low:
+        accumulation += 5
+
+    dangerous = Decimal("0")
+    if drawdown >= 35 or downside >= 80 or risk < 40 or momentum <= -8:
+        dangerous = Decimal("45")
+    elif drawdown >= 25 or downside >= 70 or momentum <= -5:
+        dangerous = Decimal("20")
+    return {
+        "押し目反発待ち": _clamp(pullback - dangerous),
+        "底打ち接近": _clamp(bottoming - dangerous),
+        "横ばい上放れ候補": _clamp(range_breakout - dangerous),
+        "蓄積上昇準備": _clamp(accumulation - dangerous),
+        "dangerous_penalty": dangerous,
+    }
 
 
 def _chart_shape_score(
     row: Mapping[str, object],
     label: str,
-    drawdown: Decimal,
-    momentum: Decimal,
+    shape_scores: Mapping[str, Decimal],
 ) -> Decimal:
     base = {
-        "押し目反発待ち": Decimal("86"),
-        "底打ち接近": Decimal("78"),
+        "押し目反発待ち": shape_scores["押し目反発待ち"],
+        "底打ち接近": shape_scores["底打ち接近"],
+        "横ばい上放れ候補": shape_scores["横ばい上放れ候補"],
+        "蓄積上昇準備": shape_scores["蓄積上昇準備"],
         "売られすぎ反発狙い": Decimal("66"),
-        "上昇済み・押し目浅い": Decimal("38"),
+        "上昇済み・兆候薄め": Decimal("38"),
         "落ちるナイフ注意": Decimal("20"),
         "反転材料弱め": Decimal("45"),
+        "データ不足・要確認": Decimal("30"),
     }[label]
     rsi = _optional_number(row, "rsi_14", "rsi")
     if rsi is not None:
@@ -190,8 +284,6 @@ def _chart_shape_score(
         base += 7
     if _truthy(row, "volume_recovery_flag", "reversal_volume_confirmed"):
         base += 5
-    if drawdown >= 25 and momentum < -5:
-        base -= 10
     return _clamp(base)
 
 
@@ -267,6 +359,11 @@ def _material_score(
 
 
 def _dividend_assessment(row: Mapping[str, object], drawdown_60d: Decimal) -> _DividendAssessment:
+    asset_type = str(row.get("asset_type") or row.get("product_type") or "").strip().lower()
+    if asset_type in {"etf", "fund", "mutual_fund", "投信"}:
+        return _DividendAssessment(
+            Decimal("70"), "ETFには個別株の配当罠判定を適用しません", False, "対象外", None
+        )
     yield_pct = _yield_percent(row)
     if yield_pct < 3:
         return _DividendAssessment(Decimal("70"), "該当なし", False, "通常", None)
@@ -374,7 +471,16 @@ def _reason(
         parts.append("データ品質が低いため上限あり")
     if dividend_warning not in {"該当なし", "目立つ警告なし"}:
         parts.append(dividend_warning)
-    return "。".join(parts) + "。反転の断定ではなく、下落理由と危険度を確認する候補です。"
+    return (
+        "。".join(parts)
+        + "。上向きの確定や買い推奨ではなく、下落理由と危険度を深掘りする候補です。"
+    )
+
+
+def _data_is_insufficient(row: Mapping[str, object]) -> bool:
+    warnings = str(row.get("warnings") or "").lower()
+    data_quality = _number(row, "data_quality_score", default=Decimal("50"))
+    return data_quality < 40 or "data_quality:block" in warnings or "insufficient" in warnings
 
 
 def _truthy(row: Mapping[str, object], *keys: str) -> bool:

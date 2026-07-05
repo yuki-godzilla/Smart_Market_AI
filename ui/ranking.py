@@ -93,6 +93,7 @@ RANKING_PURPOSE_VALUE = "value"
 RANKING_PURPOSE_STABILITY = "stability"
 RANKING_PURPOSE_TREND = "trend"
 RANKING_PURPOSE_UPSIDE_SIGNAL = "upside_signal"
+RANKING_PURPOSE_DOWNSIDE_SIGNAL = "downside_signal"
 RANKING_PURPOSE_REVERSAL_EXPECTATION = "reversal_expectation"
 RANKING_PURPOSE_SORT_TOTAL_SCORE = "sort_total_score"
 RANKING_PURPOSE_SORT_DIVIDEND_YIELD = "sort_dividend_yield"
@@ -139,6 +140,7 @@ RANKING_POLICY_DISPLAY_ORDER = (
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
     RANKING_PURPOSE_REVERSAL_EXPECTATION,
+    RANKING_PURPOSE_DOWNSIDE_SIGNAL,
     RANKING_PURPOSE_MOMENTUM,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE,
@@ -363,6 +365,7 @@ RANKING_PRESET_VALUE = "value_profile"
 RANKING_PRESET_STABILITY = "stability_profile"
 RANKING_PRESET_TREND = "trend_profile"
 RANKING_PRESET_UPSIDE_SIGNAL = "upside_signal_profile"
+RANKING_PRESET_DOWNSIDE_SIGNAL = "downside_signal_profile"
 RANKING_PRESET_REVERSAL_EXPECTATION = "reversal_expectation_profile"
 RANKING_PRESET_MULTI_FACTOR = "multi_factor_profile"
 RANKING_PRESET_QUALITY_GROWTH = "quality_growth_profile"
@@ -389,6 +392,7 @@ RANKING_PRESET_SORT_DATA_QUALITY = "sort_data_quality"
 RANKING_FETCH_LIMIT_PRESET = RANKING_PRESET_MULTI_FACTOR
 RANKING_METRIC_SORT_PRESETS: dict[str, tuple[str, str]] = {
     RANKING_PRESET_REVERSAL_EXPECTATION: ("reversal_expectation_score", "desc"),
+    RANKING_PRESET_DOWNSIDE_SIGNAL: ("downside_signal_score", "desc"),
     RANKING_PRESET_SORT_TOTAL_SCORE: ("total_score", "desc"),
     RANKING_PRESET_SORT_DIVIDEND_YIELD: ("dividend_yield_pct", "desc"),
     RANKING_PRESET_SORT_PER: ("per", "asc"),
@@ -655,6 +659,7 @@ RANKING_PURPOSE_WEIGHT_PRESETS = {
     RANKING_PURPOSE_TREND: RANKING_PRESET_TREND,
     RANKING_PURPOSE_UPSIDE_SIGNAL: RANKING_PRESET_UPSIDE_SIGNAL,
     RANKING_PURPOSE_REVERSAL_EXPECTATION: RANKING_PRESET_REVERSAL_EXPECTATION,
+    RANKING_PURPOSE_DOWNSIDE_SIGNAL: RANKING_PRESET_DOWNSIDE_SIGNAL,
 }
 RANKING_FETCH_LIMIT_FAST = "fast_100"
 RANKING_FETCH_LIMIT_BALANCED = "balanced_300"
@@ -869,15 +874,26 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
         "予測変化率",
         "方向一致",
     ),
+    RANKING_PURPOSE_DOWNSIDE_SIGNAL: (
+        "下降警戒",
+        "Risk",
+        "予測変化率",
+        "上昇気配",
+        "データ品質",
+    ),
     RANKING_PURPOSE_REVERSAL_EXPECTATION: (
-        "反転期待",
+        "上向き兆候",
+        "チャート形状",
+        "調整/安定度",
         "20日高値乖離",
         "5日騰落率",
         "予測変化率",
+        "上昇気配",
         "下降警戒",
         "Risk",
+        "配当罠警戒",
         "総合スコア",
-        "反転理由",
+        "上向き兆候理由",
     ),
     RANKING_PURPOSE_MOMENTUM: (
         "Screening",
@@ -1022,8 +1038,11 @@ RANKING_PURPOSE_FOCUS_SUMMARIES = {
     ),
     RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・リスク・データ信頼度の偏りを確認します。",
     RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
+    RANKING_PURPOSE_DOWNSIDE_SIGNAL: (
+        "下降警戒が強い候補から、下落継続・急落・予測下振れの理由を確認します。"
+    ),
     RANKING_PURPOSE_REVERSAL_EXPECTATION: (
-        "直近は調整中でも、予測余地と下落安全性から戻り候補として確認価値がある銘柄を探します。"
+        "まだ大きく上がっていない銘柄から、押し目・底打ち・横ばい上放れ・蓄積準備を探します。"
     ),
     RANKING_PURPOSE_MOMENTUM: "足元の価格評価と上昇気配・下降警戒がそろっているか、追随リスクも含めて確認します。",
     RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、上昇気配と品質が伴っているかを確認します。",

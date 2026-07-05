@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 import streamlit as st
 
 from backend.research import CompanyResearchReport
+from backend.scoring.reversal import upward_signal_display_label
 from ui.content.cockpit_texts import (
     COCKPIT_CARD_MEANINGS,
     COCKPIT_DECISION_VIEW_EVALUATION_TABLE,
@@ -105,10 +106,11 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
             "help_text": _cockpit_metric_help("上昇気配"),
         },
         {
-            "label": "反転期待",
-            "value": _display_value(row.get("反転期待"), "未計算"),
+            "label": "上向き兆候",
+            "value": _display_value(row.get("上向き兆候"), "未計算"),
             "caption": _display_value(
-                row.get("reversal_expectation_label"), "戻り候補の確認優先度"
+                upward_signal_display_label(row.get("reversal_expectation_label")),
+                "戻り候補の確認優先度",
             ),
             "help_text": (
                 "直近の調整、予測余地、下落安全性を合わせた深掘り確認の優先度です。"
@@ -209,7 +211,7 @@ def cockpit_direction_signal_detail_rows(
         forecast_range=forecast_range,
         agreement=agreement,
     )
-    reversal_score = _display_value(row.get("反転期待"), "未計算")
+    reversal_score = _display_value(row.get("上向き兆候"), "未計算")
     reversal_reason = _display_value(
         row.get("reversal_expectation_reason"),
         "押し目状態、予測余地、下落安全性を合わせて確認します。",
@@ -221,12 +223,12 @@ def cockpit_direction_signal_detail_rows(
             "確認ポイント": overall_check,
         },
         {
-            "観点": "反転期待",
+            "観点": "上向き兆候",
             "内容": reversal_score,
             "確認ポイント": reversal_reason,
         },
         {
-            "観点": "反転期待の内訳",
+            "観点": "上向き兆候の内訳",
             "内容": (
                 f"押し目 {row.get('reversal_pullback_score', '未計算')} / "
                 f"予測余地 {row.get('reversal_forecast_score', '未計算')} / "

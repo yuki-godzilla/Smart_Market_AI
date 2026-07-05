@@ -7,14 +7,18 @@ Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_L
 
 Last updated: 2026-07-05
 
-Reversal Expectation v2 is implemented as a chart-shape-first ranking axis. It combines chart
-shape 25%, forecast upside 25%, downside safety 20%, pullback state 15%,
-company/data/dividend quality 10%, and reversal material 5%, then applies falling-knife,
+Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
+as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,
+downside safety 20%, pullback/stability 10%, company/data/dividend quality 10%, and upward
+material 5%, then applies falling-knife,
 weak-forecast, low-quality, and dividend-trap caps. Ranking rows preserve the six components,
 shape label, trap warnings, dividend safety, yield-spike flag, and sustainability label across
 ranking display, watchlist snapshots, ranking history, Cockpit context, and Decision Report
-context. The dedicated chart uses pullback depth on x, forecast reversal potential on y,
-downside safety as color, and data quality as point size.
+context. The dedicated chart uses adjustment/stability on x, upward potential on y, downside
+safety as color, and data quality as point size. A point-in-time backtest contract calculates
+20/60/120-day returns, maximum drawdown, benchmark return, excess return, success/failure
+summaries, and the four requested CSV/Markdown artifacts without exposing future prices to the
+signal-row builder. Live ten-sprint validation remains an explicit opt-in run.
 
 Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,
@@ -26,7 +30,7 @@ use bounded 25-symbol Yahoo fetch batches with per-symbol fallback, and keep com
 builds in a process-wide cache so reconnecting sessions can restore the
 same-condition result. Same-day OHLCV, fundamentals, and advanced forecast outputs
 are reused; fundamentals use four-way async concurrency and advanced forecasts use
-up to four local worker processes.
+up to two local worker threads.
 Connected Streamlit sessions
 publish one-minute heartbeats; background news/symbol refreshes publish busy markers;
 file locks and unreadable state defer restart. A 30-second UI notice is followed by
@@ -315,7 +319,7 @@ Partial or intentionally deferred:
 - 2026-06-04 documentation sync before Phase 22.x clarified the current implementation boundary across README / roadmap / operations / review docs: news cache and symbol DB refresh foundations are implemented, Assistant has backend deterministic service only, and the next product slice was the independent Investment News UI with fake fixture regression.
 - Keep provider selection explicit and error messages understandable in UI.
 - SMAI always-on server policy now has two recovery layers: the `--resilient` launcher immediately restarts any child Streamlit exit after 2 seconds, including clean exit code 0, while the Windows watcher remains the 5-minute external fallback. Ranking evaluation-policy selectboxes rely on the existing Session State value without also passing a conflicting default index.
-- Reversal Expectation is implemented as an independent third exploration axis beside AI総合 and 上昇気配. `backend/scoring/reversal.py` calculates the weighted pullback / forecast / safety / quality / setup breakdown and mandatory danger caps without changing AI総合 or `total_score`. Ranking uses a dedicated `反転期待` policy and tie-break order; Cockpit, Myウォッチリスト snapshots, Ranking History, Assistant context, and Decision Report preserve the score and confirmation wording. It is a deep-review priority for adjusted or declining symbols, not a buy signal.
+- Upward Signal is implemented as an independent third exploration axis beside AI総合 and 上昇気配. `backend/scoring/reversal.py` keeps backward-compatible internal keys while calculating pullback rebound, bottoming, range breakout, accumulation setup, forecast, safety, quality, and mandatory danger caps without changing AI総合 or `total_score`. Ranking uses the public `上向き兆候` policy; Cockpit, Myウォッチリスト snapshots, Ranking History, Assistant context, and Decision Report preserve the score and confirmation wording. It is a deep-review priority for declining, adjusted, or sideways symbols, not a buy signal.
 - Phase 30-A Assistant Tool Plan MVP is implemented as a proposal-only layer: `backend/assistant/context_builder.py` builds compact current-page/material context, `tool_registry.py` defines allowed action specs, `tool_plan.py` builds deterministic `AssistantToolPlan`, and `plan_validation.py` rejects unknown / unsafe / unconfirmed external actions. The `SMAIアシスタント` chat response now shows a separate `次にできること` panel with action labels, confirmation status, missing materials, warnings, and a non-advice safety note. No external fetch, ranking creation, report creation, score change, forecast change, or broker action is executed by this Phase 30-A plan display.
 - Phase 30-B confirmable navigation first MVP is implemented: navigation Tool Plan steps render same-app links for Ranking / Cockpit / News using the existing `smai_page` query param path, and `cockpit` can open without a symbol. Navigation links do not trigger AI Research refresh, ranking creation, report creation, external fetch, score changes, or forecast changes.
 - Phase 30-C Confirmable Safe Actions MVP is implemented for `create_decision_report` and `update_research`: `AssistantActionExecutor`, `AssistantActionResult`, and minimal audit entries wrap user-confirmed action execution, the SMAIアシスタント UI shows an execution confirmation panel and action result card, successful report creation feeds the existing Decision Report draft preview / save flow, and `update_research` uses the existing confirmed AI調査 external-source fetch path while displaying only safe summary fields. `refresh_news` and `create_ranking` remain follow-up actions. No ranking creation, score change, forecast change, AI総合 change, Research Score change, or broker action is performed by this slice.

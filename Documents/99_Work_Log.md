@@ -4412,3 +4412,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 「買い」「底打ち」ではなく、下落理由を確認する深掘り優先度としてUI文言を統一。
 - 対象433 testとRuffは成功。Black helperは今回未変更のserver_ops系3ファイルだけ既存未整形を報告。
 - Responsive Playwrightは既存のユーザー選択gate/ランキング履歴ボタン前提と現在の起動状態が合わず完走できなかったため、実画面の最終確認を残す。
+## 2026-07-05: 常時起動launcher即時復旧とRanking Widget警告修正
+
+- `--resilient` launcherを監督ループ化し、子Streamlitがexit 0を含む任意の終了を返しても2秒後に再起動するよう変更。
+- 検証用Streamlit PID 3540を終了後、4秒以内にPID 7812でTCP 8501とhealth 200が復旧することを実プロセス確認。
+- Ranking評価方針selectboxでSession State設定済みkeyへ`index`も渡していた競合を解消し、Widget警告を除去。
+- Windowsの `SmartMarketAI-Server-Watch` タスクが実行中であることを確認。

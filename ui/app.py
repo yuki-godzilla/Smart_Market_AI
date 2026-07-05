@@ -8543,13 +8543,6 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "ランキング基準",
                     policy_options,
-                    index=_selectbox_index(
-                        policy_options,
-                        _ranking_filter_value(
-                            "market_data_ranking_policy",
-                            RANKING_PURPOSE_MULTI_FACTOR,
-                        ),
-                    ),
                     key="market_data_ranking_policy",
                     format_func=ranking_policy_label,
                     help=(

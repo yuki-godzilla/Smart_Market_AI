@@ -13,6 +13,7 @@ from backend.server_ops.launcher import (
     server_lock,
     streamlit_command,
     streamlit_creation_flags,
+    supervise_streamlit,
     wait_for_streamlit,
 )
 
@@ -98,6 +99,43 @@ def test_resilient_wait_returns_when_child_already_stopped() -> None:
             return 1
 
     assert wait_for_streamlit(Process(), resilient=True) == 1  # type: ignore[arg-type]
+
+
+def test_resilient_supervisor_restarts_after_clean_streamlit_exit(monkeypatch) -> None:
+    starts: list[object] = []
+
+    class Process:
+        pass
+
+    def fake_popen(*_args, **_kwargs):
+        process = Process()
+        starts.append(process)
+        if len(starts) == 3:
+            raise RuntimeError("stop test loop")
+        return process
+
+    monkeypatch.setattr("backend.server_ops.launcher.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 0
+    )
+    monkeypatch.setattr("backend.server_ops.launcher.time.sleep", lambda _seconds: None)
+
+    with pytest.raises(RuntimeError, match="stop test loop"):
+        supervise_streamlit("localhost", resilient=True)
+
+    assert len(starts) == 3
+
+
+def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.subprocess.Popen",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 7
+    )
+
+    assert supervise_streamlit("localhost", resilient=False) == 7
 
 
 def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:

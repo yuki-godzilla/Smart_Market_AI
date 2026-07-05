@@ -6,6 +6,8 @@
   Windows process group で起動します。共有サーバーへ届いたコンソール割り込みは
   launcher が無視し、意図しない `KeyboardInterrupt` 停止を防ぎます。
 - 手動の `scripts\run_lan_server.bat` は従来どおり Ctrl+C で停止できます。
+- `--resilient` launcher は子Streamlitが終了コード0を含む任意の終了を返しても、
+  2秒後に同じ設定で再起動します。通常時は5分監視を待たずTCP 8501を復旧します。
 - 24時間メンテナンスはWindows PC全体ではなく、SMAI Streamlitサービスだけを
   再起動します。30秒通知と二段階の安全確認は維持します。
 - 管理者実行ではWindows起動60秒後、通常ユーザー実行ではログオン60秒後に、
@@ -93,6 +95,8 @@ LAN/Tailscaleともに `http://<PCのIP>:8501` を使用します。ルーター
 
 `watch_server.log` を確認します。監視は停止を検知すると
 `start_smai_server.bat` を非表示で起動し、20秒後に8501を再確認します。
+`smai_server_*.log` に `Streamlit exited unexpectedly` がある場合は、
+resilient launcherが2秒後に子プロセスを再生成した記録です。
 
 ### タスクが失敗する
 

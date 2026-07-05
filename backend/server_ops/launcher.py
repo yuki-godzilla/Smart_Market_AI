@@ -17,6 +17,7 @@ HOST = "127.0.0.1"
 PORT = 8501
 EXIT_ALREADY_RUNNING = 10
 EXIT_INTERRUPTED = 130
+RESILIENT_RESTART_DELAY_SECONDS = 2.0
 
 
 class ServerLockUnavailable(RuntimeError):
@@ -141,6 +142,28 @@ def wait_for_existing_server(timeout_seconds: float = 30.0) -> bool:
     return is_smai_healthy()
 
 
+def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
+    """Run Streamlit and keep it alive when the always-on policy is enabled."""
+
+    while True:
+        process = subprocess.Popen(
+            streamlit_command(browser_address),
+            cwd=PROJECT_ROOT,
+            creationflags=streamlit_creation_flags(resilient=resilient),
+        )
+        returncode = wait_for_streamlit(process, resilient=resilient)
+        if not resilient:
+            return returncode
+        print(
+            "[SMAI] Streamlit exited unexpectedly "
+            f"(exit={returncode}); restarting in "
+            f"{RESILIENT_RESTART_DELAY_SECONDS:g}s.",
+            file=sys.stderr,
+            flush=True,
+        )
+        time.sleep(RESILIENT_RESTART_DELAY_SECONDS)
+
+
 def run_server(
     browser_address: str,
     *,
@@ -173,12 +196,7 @@ def run_server(
                         file=sys.stderr,
                     )
                     return 3
-            process = subprocess.Popen(
-                streamlit_command(browser_address),
-                cwd=PROJECT_ROOT,
-                creationflags=streamlit_creation_flags(resilient=resilient),
-            )
-            return wait_for_streamlit(process, resilient=resilient)
+            return supervise_streamlit(browser_address, resilient=resilient)
     except ServerLockUnavailable:
         if wait_for_existing_server():
             print("[SMAI] SMAI is already starting or running on TCP 8501.")

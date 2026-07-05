@@ -52,6 +52,10 @@ class RankingHistoryResultRow(StrictBaseModel):
     data_quality_score: float | None = None
     condition_fit_score: float | None = None
     upside_signal_score: float | None = None
+    reversal_expectation_score: float | None = None
+    reversal_safety_score: float | None = None
+    reversal_expectation_label: str | None = None
+    reversal_expectation_reason: str | None = None
     downside_signal_score: float | None = None
     forecast_change_pct: float | None = None
     forecast_confidence: float | None = None

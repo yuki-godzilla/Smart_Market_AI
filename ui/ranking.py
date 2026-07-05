@@ -9,6 +9,7 @@ from backend.core.errors import AppError
 from backend.marketdata.ranking_universe_policy import (
     symbol_allowed_by_ranking_universe_policy,
 )
+from backend.scoring.reversal import calculate_reversal_expectation
 from ui.content import ranking_texts
 from ui.symbol_universe import symbol_universe_csv_rows, symbol_universe_search_rows
 
@@ -92,6 +93,7 @@ RANKING_PURPOSE_VALUE = "value"
 RANKING_PURPOSE_STABILITY = "stability"
 RANKING_PURPOSE_TREND = "trend"
 RANKING_PURPOSE_UPSIDE_SIGNAL = "upside_signal"
+RANKING_PURPOSE_REVERSAL_EXPECTATION = "reversal_expectation"
 RANKING_PURPOSE_SORT_TOTAL_SCORE = "sort_total_score"
 RANKING_PURPOSE_SORT_DIVIDEND_YIELD = "sort_dividend_yield"
 RANKING_PURPOSE_SORT_PER = "sort_per"
@@ -136,6 +138,7 @@ RANKING_SORT_DISPLAY_ORDER = (
 RANKING_POLICY_DISPLAY_ORDER = (
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
+    RANKING_PURPOSE_REVERSAL_EXPECTATION,
     RANKING_PURPOSE_MOMENTUM,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE,
@@ -161,6 +164,7 @@ RANKING_POLICY_PURPOSE_ALIASES = {
 RANKING_PURPOSE_DISPLAY_ORDER = (
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
+    RANKING_PURPOSE_REVERSAL_EXPECTATION,
     RANKING_PURPOSE_MOMENTUM,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE,
@@ -359,6 +363,7 @@ RANKING_PRESET_VALUE = "value_profile"
 RANKING_PRESET_STABILITY = "stability_profile"
 RANKING_PRESET_TREND = "trend_profile"
 RANKING_PRESET_UPSIDE_SIGNAL = "upside_signal_profile"
+RANKING_PRESET_REVERSAL_EXPECTATION = "reversal_expectation_profile"
 RANKING_PRESET_MULTI_FACTOR = "multi_factor_profile"
 RANKING_PRESET_QUALITY_GROWTH = "quality_growth_profile"
 RANKING_PRESET_QUALITY_VALUE = "quality_value_profile"
@@ -383,6 +388,7 @@ RANKING_PRESET_SORT_RISK = "sort_risk"
 RANKING_PRESET_SORT_DATA_QUALITY = "sort_data_quality"
 RANKING_FETCH_LIMIT_PRESET = RANKING_PRESET_MULTI_FACTOR
 RANKING_METRIC_SORT_PRESETS: dict[str, tuple[str, str]] = {
+    RANKING_PRESET_REVERSAL_EXPECTATION: ("reversal_expectation_score", "desc"),
     RANKING_PRESET_SORT_TOTAL_SCORE: ("total_score", "desc"),
     RANKING_PRESET_SORT_DIVIDEND_YIELD: ("dividend_yield_pct", "desc"),
     RANKING_PRESET_SORT_PER: ("per", "asc"),
@@ -648,6 +654,7 @@ RANKING_PURPOSE_WEIGHT_PRESETS = {
     RANKING_PURPOSE_STABILITY: RANKING_PRESET_STABILITY,
     RANKING_PURPOSE_TREND: RANKING_PRESET_TREND,
     RANKING_PURPOSE_UPSIDE_SIGNAL: RANKING_PRESET_UPSIDE_SIGNAL,
+    RANKING_PURPOSE_REVERSAL_EXPECTATION: RANKING_PRESET_REVERSAL_EXPECTATION,
 }
 RANKING_FETCH_LIMIT_FAST = "fast_100"
 RANKING_FETCH_LIMIT_BALANCED = "balanced_300"
@@ -862,6 +869,16 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
         "予測変化率",
         "方向一致",
     ),
+    RANKING_PURPOSE_REVERSAL_EXPECTATION: (
+        "反転期待",
+        "20日高値乖離",
+        "5日騰落率",
+        "予測変化率",
+        "下降警戒",
+        "Risk",
+        "総合スコア",
+        "反転理由",
+    ),
     RANKING_PURPOSE_MOMENTUM: (
         "Screening",
         "上昇気配",
@@ -1005,6 +1022,9 @@ RANKING_PURPOSE_FOCUS_SUMMARIES = {
     ),
     RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・リスク・データ信頼度の偏りを確認します。",
     RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
+    RANKING_PURPOSE_REVERSAL_EXPECTATION: (
+        "直近は調整中でも、予測余地と下落安全性から戻り候補として確認価値がある銘柄を探します。"
+    ),
     RANKING_PURPOSE_MOMENTUM: "足元の価格評価と上昇気配・下降警戒がそろっているか、追随リスクも含めて確認します。",
     RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、上昇気配と品質が伴っているかを確認します。",
     RANKING_PURPOSE_QUALITY_VALUE: "割安に見える候補で、リスクやデータ不足が理由になっていないかを確認します。",
@@ -1903,6 +1923,29 @@ def apply_ranking_metric_sort_preset(
         }
         enriched_row = _ensure_ranking_signal_fields(enriched_row)
         enriched_rows.append((_ranking_metric_sort_value(enriched_row, field), enriched_row))
+    if preset == RANKING_PRESET_REVERSAL_EXPECTATION:
+        ranked = sorted(
+            (row for _, row in enriched_rows),
+            key=lambda row: (
+                -(
+                    _ranking_sort_decimal_from_text(row.get("reversal_expectation_score", ""))
+                    or Decimal("-1")
+                ),
+                -(
+                    _ranking_sort_decimal_from_text(row.get("reversal_safety_score", ""))
+                    or Decimal("-1")
+                ),
+                -(
+                    _ranking_sort_decimal_from_text(row.get("forecast_return_pct", ""))
+                    or Decimal("-999")
+                ),
+                _ranking_sort_decimal_from_text(row.get("downside_signal_score", ""))
+                or Decimal("999"),
+                -(_ranking_sort_decimal_from_text(row.get("total_score", "")) or Decimal("-1")),
+                row.get("symbol", ""),
+            ),
+        )
+        return [{**row, "rank": str(index)} for index, row in enumerate(ranked, start=1)]
     reverse_metric = direction == "desc"
 
     def sort_key(item: tuple[Decimal | None, dict[str, str]]) -> tuple[object, ...]:
@@ -1958,6 +2001,7 @@ def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
         enriched["forecast_return_pct"] = "0"
     if not enriched.get("up_model_count"):
         enriched["up_model_count"] = "0"
+    enriched.update(calculate_reversal_expectation(enriched).as_row())
     if not enriched.get("down_model_count"):
         enriched["down_model_count"] = "0"
     if not enriched.get("flat_model_count"):

@@ -55,6 +55,7 @@ RANKING_MVP_PRODUCT_TYPE_LABELS = {
 }
 
 RANKING_PURPOSE_LABELS = {
+    "reversal_expectation": "反転期待",
     "sort_total_score": "総合スコア順",
     "sort_dividend_yield": "配当利回り順",
     "sort_per": "PER低い順",
@@ -86,6 +87,7 @@ RANKING_PURPOSE_LABELS = {
 }
 
 RANKING_WEIGHT_PRESET_LABELS = {
+    "reversal_expectation_profile": "反転期待",
     "sort_total_score": "総合スコア順",
     "sort_dividend_yield": "配当利回り順",
     "sort_per": "PER低い順",
@@ -600,6 +602,14 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
         "suited_for": "短期から中期の深掘り候補を探す時",
         "main_focus": ("予測・上昇気配", "下振れ警戒", "基礎評価", "データ信頼度"),
         "caution": "上昇気配が強くても、下降警戒が高い候補は値動きの荒さを確認します。",
+    },
+    "reversal_expectation": {
+        "short_summary": (
+            "直近は下落または調整中でも、予測余地と下落安全性がある戻り候補を探す方針です。"
+        ),
+        "suited_for": "押し目・調整中の銘柄から深掘り候補を探す時",
+        "main_focus": ("押し目状態", "予測余地", "下落安全性", "データ品質", "反転初動"),
+        "caution": ("反転期待は買い推奨ではありません。下降警戒と下落理由を必ず確認してください。"),
     },
     "momentum": {
         "short_summary": "足元の価格評価と上昇気配を中心に、追随リスクも見る方針です。",

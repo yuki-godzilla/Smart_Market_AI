@@ -61,6 +61,9 @@ DISPLAY_TO_FIELD = {
     "データ信頼度": "data_quality_score",
     "条件適合度": "condition_fit_score",
     "上昇気配": "upside_signal_score",
+    "反転期待": "reversal_expectation_score",
+    "反転安全性": "reversal_safety_score",
+    "反転理由": "reversal_expectation_reason",
     "下降警戒": "downside_signal_score",
     "予測変化率": "forecast_change_pct",
     "予測確度": "forecast_confidence",
@@ -114,6 +117,12 @@ class RankingHistoryCardView:
 HISTORY_SORT_DEFINITIONS = (
     RankingHistorySortOption("multi_factor", "AI総合", "total_score", True),
     RankingHistorySortOption("upside_signal", "上昇気配", "upside_signal_score", True),
+    RankingHistorySortOption(
+        "reversal_expectation",
+        "反転期待",
+        "reversal_expectation_score",
+        True,
+    ),
     RankingHistorySortOption(
         "downside_low",
         "下振れ警戒が低い順",
@@ -911,6 +920,8 @@ def _history_row(row: Mapping[str, Any], *, rank: int) -> RankingHistoryResultRo
             "confirmation_point",
             "smai_memo",
             "warning",
+            "reversal_expectation_label",
+            "reversal_expectation_reason",
         }:
             values[field] = _text(row.get(label))
         elif field in {"rank", "forecast_days"}:

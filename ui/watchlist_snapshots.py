@@ -39,6 +39,9 @@ class WatchlistSnapshot:
     price_change_1m: float | None = None
     ai_score: float | None = None
     upside_score: float | None = None
+    reversal_expectation_score: float | None = None
+    reversal_expectation_label: str | None = None
+    reversal_expectation_reason: str | None = None
     downside_risk_score: float | None = None
     trend_label: str | None = None
     trend_icon: str | None = None
@@ -272,6 +275,9 @@ def build_watchlist_snapshot_for_symbol(
             "upside",
             "上昇気配",
         ),
+        reversal_expectation_score=_first_float(row, "reversal_expectation_score"),
+        reversal_expectation_label=_first_text(row, "reversal_expectation_label"),
+        reversal_expectation_reason=_first_text(row, "reversal_expectation_reason"),
         downside_risk_score=_first_float(
             row,
             "downside_risk_score",
@@ -384,6 +390,7 @@ def _snapshot_from_mapping(
         "price_change_1m",
         "ai_score",
         "upside_score",
+        "reversal_expectation_score",
         "downside_risk_score",
     ):
         values[key] = _finite_float(values.get(key))

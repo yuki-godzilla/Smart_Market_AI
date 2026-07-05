@@ -340,6 +340,7 @@ from ui.ranking import (
     RANKING_PURPOSE_NISA_LONG_TERM,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE,
+    RANKING_PURPOSE_REVERSAL_EXPECTATION,
     RANKING_PURPOSE_RISK_ADJUSTED,
     RANKING_PURPOSE_SMALL_GROWTH,
     RANKING_PURPOSE_SORT_DATA_QUALITY,
@@ -5753,6 +5754,7 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
     assert ranking_policy_options() == [
         RANKING_PURPOSE_MULTI_FACTOR,
         RANKING_PURPOSE_UPSIDE_SIGNAL,
+        RANKING_PURPOSE_REVERSAL_EXPECTATION,
         RANKING_PURPOSE_MOMENTUM,
         RANKING_PURPOSE_QUALITY_GROWTH,
         RANKING_PURPOSE_QUALITY_VALUE,
@@ -5768,6 +5770,7 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
     assert [ranking_policy_label(option) for option in ranking_policy_options()] == [
         "AI総合",
         "上昇気配重視",
+        "反転期待",
         "モメンタム・トレンド",
         "成長クオリティ",
         "割安クオリティ",
@@ -7771,6 +7774,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "PBR",
         "ROE",
         "上昇気配",
+        "反転期待",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -7824,7 +7828,7 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         include_detail_columns=True,
     )
 
-    assert frame.columns.tolist()[:16] == [
+    assert frame.columns.tolist()[:17] == [
         "順位",
         "銘柄",
         "お気に入り",
@@ -7837,6 +7841,7 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         "PBR",
         "ROE",
         "上昇気配",
+        "反転期待",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -8238,7 +8243,7 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
     )
 
-    assert frame.columns.tolist()[:16] == [
+    assert frame.columns.tolist()[:17] == [
         "順位",
         "銘柄",
         "お気に入り",
@@ -8251,6 +8256,7 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         "PBR",
         "ROE",
         "上昇気配",
+        "反転期待",
         "下降警戒",
         "予測変化率",
         "予測確度",
@@ -8288,7 +8294,7 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
     assert "信頼度/根拠" not in normal_frame.columns
     assert "データ信頼度" not in normal_frame.columns
     assert "信頼度/根拠" in frame.columns
-    assert frame.columns.tolist()[:16] == [
+    assert frame.columns.tolist()[:17] == [
         "順位",
         "銘柄",
         "お気に入り",
@@ -8301,6 +8307,7 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
         "PBR",
         "ROE",
         "上昇気配",
+        "反転期待",
         "下降警戒",
         "予測変化率",
         "予測確度",

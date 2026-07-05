@@ -4404,3 +4404,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 4 viewport Playwright smokeは、既存8501番ではユーザー選択前に留まり、
   専用サーバーではWebSocket切断後に停止したため完走できなかった。
   実機または安定稼働中サーバーでの最終目視確認を残す。
+## 2026-07-05: 反転期待スコア一気通貫実装
+
+- 押し目状態30%、予測上向き余地30%、下落安全性20%、企業・データ品質10%、反転初動10%と危険上限キャップを持つ共通計算を追加。
+- Rankingの評価方針を `AI総合 → 上昇気配 → 反転期待` とし、反転期待、下落安全性、予測変化率、下降警戒、AI総合、銘柄コードの専用ソートを追加。`total_score` は変更しない。
+- Ranking詳細・候補カード、Cockpit KPI/内訳、Myウォッチリストカード/表/状態、Snapshot、Ranking History、Assistant文脈、Decision Reportへ反転期待を接続。
+- 「買い」「底打ち」ではなく、下落理由を確認する深掘り優先度としてUI文言を統一。
+- 対象433 testとRuffは成功。Black helperは今回未変更のserver_ops系3ファイルだけ既存未整形を報告。
+- Responsive Playwrightは既存のユーザー選択gate/ランキング履歴ボタン前提と現在の起動状態が合わず完走できなかったため、実画面の最終確認を残す。

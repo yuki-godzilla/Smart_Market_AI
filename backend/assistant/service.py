@@ -442,6 +442,8 @@ def _question_focus(question: str, context_hint: str) -> str:
         if has("ニュース", "どこ", "流れ", "まず", "見る"):
             return "news_flow"
     if context_hint == "ranking":
+        if has("反転期待", "戻り候補", "押し目"):
+            return "reversal_expectation"
         if has("低信頼", "信頼", "データ"):
             return "ranking_confidence"
         if has("ai総合", "上昇気配", "下降警戒", "読み分け", "違い"):
@@ -467,6 +469,8 @@ def _question_focus(question: str, context_hint: str) -> str:
         if has("キャッシュ", "更新", "古い"):
             return "settings_cache"
     if context_hint == "cockpit":
+        if has("反転期待", "戻り候補", "押し目"):
+            return "reversal_expectation"
         if has("予測", "ai予測", "中心予測", "下振れ", "上振れ"):
             return "cockpit_forecast"
         if has("上昇気配", "下降警戒", "方向"):
@@ -481,6 +485,13 @@ def _question_focus(question: str, context_hint: str) -> str:
 def _focused_answer(question: str, context_hint: str, section_phrase: str) -> str:
     focus = _question_focus(question, context_hint)
     answers = {
+        "reversal_expectation": (
+            f"{section_phrase}の反転期待は、直近下落または調整中の銘柄について、"
+            "押し目状態、予測余地、下落安全性、データ品質、反転初動を分けて確認する指標です。"
+            "上昇気配がすでに上向きの強さを見るのに対し、反転期待は今は弱い銘柄の"
+            "深掘り確認優先度を表します。高スコアでも買い推奨ではなく、下降警戒と"
+            "下落理由をあわせて確認してください。"
+        ),
         "news_flow": (
             f"{section_phrase}では、まずニュースの流れをつかみ、"
             "カテゴリ別材料で論点を分け、気になる銘柄だけ深掘りします。"

@@ -165,11 +165,10 @@ def test_yahoo_adapter_drops_abnormal_dividend_yield(monkeypatch):
     assert fundamentals[0].dividend_yield is None
 
 
-def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys, caplog):
+def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch):
     fake_yfinance = _FakeYFinance()
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
     monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
-    caplog.set_level(logging.WARNING)
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
     )
@@ -185,10 +184,6 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch,
     assert fake_yfinance.download_calls == 1
     assert fake_yfinance.last_download_kwargs["threads"] is False
     assert fake_yfinance.last_download_kwargs["session"] == "shared-session"
-    captured = capsys.readouterr()
-    assert "possibly delisted" not in captured.out
-    assert "possibly delisted" not in captured.err
-    assert "possibly delisted" not in caplog.text
     assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
     assert [bar.close for bar in bars] == [
         Decimal("170.5"),

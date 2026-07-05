@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
-from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from io import StringIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -593,13 +590,7 @@ def _yfinance_available() -> bool:
 
 
 def _call_yfinance_silently(func: Any, *args: object, **kwargs: object) -> Any:
-    previous_logging_disable_level = logging.root.manager.disable
-    logging.disable(logging.CRITICAL)
-    try:
-        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
-            return func(*args, **kwargs)
-    finally:
-        logging.disable(previous_logging_disable_level)
+    return func(*args, **kwargs)
 
 
 def _normalize_symbol(raw_symbol: str) -> Symbol:

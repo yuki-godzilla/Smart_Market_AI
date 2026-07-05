@@ -31,7 +31,7 @@ import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, JsCode
 from zoneinfo import ZoneInfo
 
-from backend.core.config import get_settings
+from backend.core.config import get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
     Bar,
     DailySnapshot,
@@ -42,6 +42,7 @@ from backend.core.data_contracts import (
 )
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
+from backend.forecast.batch import evaluate_advanced_forecasts_for_symbol
 from backend.interpretation import (
     CockpitInterpretationResult,
     CockpitInterpretationServiceResult,
@@ -114,7 +115,7 @@ from backend.research import (
 from backend.scoring import InvestmentScoringService
 from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
-from backend.server_ops.maintenance import MaintenanceManager
+from backend.server_ops.maintenance import MaintenanceManager, maintenance_operation
 from backend.symbols.background import (
     request_symbol_background_refresh,
     start_symbol_background_refresh_worker,
@@ -470,7 +471,10 @@ MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
-RANKING_PIPELINE_COHORT_SIZE = 100
+RANKING_FUNDAMENTAL_CONCURRENCY = 4
+MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
+MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
+MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS = 4_000
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
 MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY = "market_data_ranking_stock_news_reports"
@@ -8983,20 +8987,26 @@ def _render_market_data_ranking() -> None:
 
         try:
             update_progress("ランキング対象と取得条件を確認しています。", 0.04)
-            _run_symbol_database_preflight_refresh(
-                ranking_symbol_db_preflight_symbols(ranking_symbols),
-                context="ranking",
-                max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
-            )
-            rows, error_rows = asyncio.run(
-                _build_market_data_ranking_rows(
-                    ranking_symbols,
-                    start=start_date,
-                    end=end_date,
-                    provider=provider,
-                    progress_callback=update_progress,
+            cached_build = get_cached_ranking_build(cache_key)
+            if cached_build is not None and cached_build[0]:
+                rows, error_rows = cached_build
+                update_progress("同じ条件の完成済みランキングを再利用しています。", 0.98)
+            else:
+                _run_symbol_database_preflight_refresh(
+                    ranking_symbol_db_preflight_symbols(ranking_symbols),
+                    context="ranking",
+                    max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
                 )
-            )
+                with maintenance_operation("ranking_build"):
+                    rows, error_rows = asyncio.run(
+                        _build_market_data_ranking_rows(
+                            ranking_symbols,
+                            start=start_date,
+                            end=end_date,
+                            provider=provider,
+                            progress_callback=update_progress,
+                        )
+                    )
             update_progress("ランキング更新が完了しました。", 1.0)
         finally:
             loading_slot.empty()
@@ -9848,14 +9858,6 @@ async def _build_market_data_ranking_rows(
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    if provider in LIVE_MARKET_DATA_PROVIDERS and len(symbols) > RANKING_PIPELINE_COHORT_SIZE:
-        return await _build_large_market_data_ranking_rows(
-            symbols,
-            start=start,
-            end=end,
-            provider=provider,
-            progress_callback=progress_callback,
-        )
     try:
         return await _build_market_data_ranking_rows_fast(
             symbols,
@@ -9879,50 +9881,6 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
-
-
-async def _build_large_market_data_ranking_rows(
-    symbols: list[str],
-    *,
-    start: date,
-    end: date,
-    provider: str,
-    progress_callback: RankingProgressCallback | None = None,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Build a large live ranking in bounded cohorts to cap peak memory."""
-
-    cohorts = [
-        symbols[index : index + RANKING_PIPELINE_COHORT_SIZE]
-        for index in range(0, len(symbols), RANKING_PIPELINE_COHORT_SIZE)
-    ]
-    rows: list[dict[str, str]] = []
-    error_rows: list[dict[str, str]] = []
-    for cohort_index, cohort in enumerate(cohorts):
-        cohort_start = cohort_index / len(cohorts)
-        cohort_width = 1 / len(cohorts)
-
-        def cohort_progress(message: str, ratio: float) -> None:
-            _report_ranking_progress(
-                progress_callback,
-                f"{message}（{cohort_index + 1}/{len(cohorts)}組）",
-                min(0.99, cohort_start + (cohort_width * ratio)),
-            )
-
-        try:
-            cohort_rows, cohort_errors = await _build_market_data_ranking_rows_fast(
-                cohort,
-                start=start,
-                end=end,
-                provider=provider,
-                progress_callback=cohort_progress,
-            )
-        except AppError as exc:
-            cohort_rows = []
-            cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
-        rows.extend(cohort_rows)
-        error_rows.extend(cohort_errors)
-    _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
-    return rank_investment_score_rows(rows), error_rows
 
 
 async def _build_market_data_ranking_rows_fast(
@@ -10070,7 +10028,6 @@ async def _build_market_data_ranking_rows_fast(
     )
     forecast_horizon_days = default_forecast_horizon_days(start, end)
     forecast_consensus_by_symbol = {}
-    advanced_forecast_fields_by_symbol: dict[str, dict[str, str]] = {}
     for index, symbol in enumerate(available_symbols, start=1):
         forecast_history_bars = bars_by_symbol[symbol]
         forecast_consensus = summarize_forecast_evaluations_for_ui(
@@ -10082,31 +10039,22 @@ async def _build_market_data_ranking_rows_fast(
         )
         if forecast_consensus is not None:
             forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
-        advanced_results = advanced_forecast_results_for_bars(
-            forecast_history_bars,
-            horizon_days=forecast_horizon_days,
-        )
-        advanced_rows = advanced_forecast_rows_for_results(
-            advanced_results,
-            forecast_history_bars,
-        )
-        advanced_consensus_rows = advanced_forecast_consensus_rows_for_results(advanced_results)
-        advanced_fields = _ranking_advanced_forecast_fields(
-            advanced_rows,
-            advanced_consensus_rows,
-        )
-        if advanced_fields:
-            advanced_forecast_fields_by_symbol[symbol.strip().upper()] = advanced_fields
         should_report_progress = index == 1 or index % 10 == 0 or index == len(available_symbols)
         if not should_report_progress:
             continue
-        progress = 0.65 + (0.2 * index / len(available_symbols))
+        progress = 0.65 + (0.05 * index / len(available_symbols))
         _report_ranking_progress(
             progress_callback,
-            f"方向シグナルを計算しています ({index}/{len(available_symbols)})。",
+            f"基本予測を計算しています ({index}/{len(available_symbols)})。",
             progress,
         )
 
+    advanced_forecast_fields_by_symbol = _ranking_advanced_forecast_fields_for_symbols(
+        available_symbols,
+        bars_by_symbol=bars_by_symbol,
+        horizon_days=forecast_horizon_days,
+        progress_callback=progress_callback,
+    )
     _report_ranking_progress(progress_callback, "総合スコアを計算しています。", 0.9)
     screening_scores = ScreeningService().score(
         feature_snapshot,
@@ -10134,6 +10082,91 @@ async def _build_market_data_ranking_rows_fast(
     return ranked_rows, error_rows
 
 
+def _ranking_advanced_forecast_fields_for_symbols(
+    symbols: Sequence[str],
+    *,
+    bars_by_symbol: Mapping[str, list[Bar]],
+    horizon_days: int,
+    progress_callback: RankingProgressCallback | None,
+) -> dict[str, dict[str, str]]:
+    fields_by_symbol: dict[str, dict[str, str]] = {}
+    pending: list[tuple[str, list[Bar]]] = []
+    for symbol in symbols:
+        symbol_bars = bars_by_symbol[symbol]
+        cached = _get_cached_ranking_advanced_forecast(
+            symbol,
+            symbol_bars,
+            horizon_days=horizon_days,
+        )
+        if cached is None:
+            pending.append((symbol, symbol_bars))
+        elif cached:
+            fields_by_symbol[symbol.strip().upper()] = cached
+
+    if not pending:
+        _report_ranking_progress(
+            progress_callback,
+            "高度予測は同日の計算結果を再利用しました。",
+            0.85,
+        )
+        return fields_by_symbol
+
+    def consume(
+        completed: Iterable[tuple[str, list[Any], str | None]],
+    ) -> None:
+        for completed_count, (symbol, results, _error) in enumerate(completed, start=1):
+            symbol_bars = bars_by_symbol[symbol]
+            advanced_fields: dict[str, str] = {}
+            if results:
+                advanced_fields = _ranking_advanced_forecast_fields(
+                    advanced_forecast_rows_for_results(results, symbol_bars),
+                    advanced_forecast_consensus_rows_for_results(results),
+                )
+            _cache_ranking_advanced_forecast(
+                symbol,
+                symbol_bars,
+                advanced_fields,
+                horizon_days=horizon_days,
+            )
+            if advanced_fields:
+                fields_by_symbol[symbol.strip().upper()] = advanced_fields
+            if (
+                completed_count == 1
+                or completed_count % 10 == 0
+                or completed_count == len(pending)
+            ):
+                _report_ranking_progress(
+                    progress_callback,
+                    f"高度予測を計算しています ({completed_count}/{len(pending)})。",
+                    0.70 + (0.15 * completed_count / len(pending)),
+                )
+
+    if len(pending) < 12:
+        consume(
+            evaluate_advanced_forecasts_for_symbol(symbol, bars, horizon_days)
+            for symbol, bars in pending
+        )
+        return fields_by_symbol
+
+    from joblib import Parallel, delayed  # type: ignore[import-untyped]  # noqa: PLC0415
+
+    profile = resolve_performance_profile()
+    workers = max(1, min(4, profile.processing.forecast_workers))
+    os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(workers))
+    completed = Parallel(
+        n_jobs=workers,
+        backend="loky",
+        batch_size=1,
+        pre_dispatch=workers,
+        return_as="generator_unordered",
+    )(
+        delayed(evaluate_advanced_forecasts_for_symbol)(symbol, bars, horizon_days)
+        for symbol, bars in pending
+    )
+    consume(completed)
+    return fields_by_symbol
+
+
 async def _fetch_ranking_ohlcv_tolerant(
     adapter: Any,
     symbol_chunk: list[str],
@@ -10147,24 +10180,57 @@ async def _fetch_ranking_ohlcv_tolerant(
 
     if not symbol_chunk:
         return [], [], set()
+    cached_bars: list[Bar] = []
+    missing_symbols: list[str] = []
+    for provider_symbol in symbol_chunk:
+        cached = _get_cached_ranking_ohlcv(
+            provider,
+            provider_symbol,
+            start=start,
+            end=end,
+        )
+        if cached is None:
+            missing_symbols.append(provider_symbol)
+        else:
+            cached_bars.extend(cached)
+    if not missing_symbols:
+        return cached_bars, [], set()
     try:
-        return await adapter.fetch_ohlcv(symbol_chunk, start=start, end=end), [], set()
+        fetched_bars = await adapter.fetch_ohlcv(missing_symbols, start=start, end=end)
+        _cache_ranking_ohlcv(
+            provider,
+            missing_symbols,
+            fetched_bars,
+            start=start,
+            end=end,
+        )
+        return [*cached_bars, *fetched_bars], [], set()
     except AppError as exc:
-        if len(symbol_chunk) <= 1:
-            display_symbols = display_symbols_by_provider_symbol.get(symbol_chunk[0], symbol_chunk)
+        if len(missing_symbols) <= 1:
+            display_symbols = display_symbols_by_provider_symbol.get(
+                missing_symbols[0], missing_symbols
+            )
             return (
-                [],
+                cached_bars,
                 ranking_provider_error_rows(provider, display_symbols, exc),
                 set(display_symbols),
             )
 
-    bars: list[Bar] = []
+    bars: list[Bar] = list(cached_bars)
     error_rows: list[dict[str, str]] = []
     failed_display_symbols: set[str] = set()
-    for provider_symbol in symbol_chunk:
+    for provider_symbol in missing_symbols:
         display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
-            bars.extend(await adapter.fetch_ohlcv([provider_symbol], start=start, end=end))
+            symbol_bars = await adapter.fetch_ohlcv([provider_symbol], start=start, end=end)
+            bars.extend(symbol_bars)
+            _cache_ranking_ohlcv(
+                provider,
+                [provider_symbol],
+                symbol_bars,
+                start=start,
+                end=end,
+            )
         except AppError as exc:
             error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
             failed_display_symbols.update(display_symbols)
@@ -10181,19 +10247,34 @@ async def _fetch_ranking_fundamentals_tolerant(
 ) -> tuple[list[FundamentalSnapshot], list[dict[str, str]]]:
     """Fetch optional fundamentals without failing an otherwise usable price ranking."""
 
-    try:
-        return await adapter.fetch_fundamentals(provider_symbols, as_of=as_of), []
-    except AppError:
-        pass
-
     fundamentals: list[FundamentalSnapshot] = []
     error_rows: list[dict[str, str]] = []
-    for provider_symbol in provider_symbols:
+    semaphore = asyncio.Semaphore(RANKING_FUNDAMENTAL_CONCURRENCY)
+
+    async def fetch_one(
+        provider_symbol: str,
+    ) -> tuple[list[FundamentalSnapshot], list[dict[str, str]]]:
+        cached = _get_cached_ranking_fundamentals(provider, provider_symbol, as_of=as_of)
+        if cached is not None:
+            return cached, []
         display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
-            fundamentals.extend(await adapter.fetch_fundamentals([provider_symbol], as_of=as_of))
+            async with semaphore:
+                fetched = await adapter.fetch_fundamentals([provider_symbol], as_of=as_of)
+            _cache_ranking_fundamentals(
+                provider,
+                provider_symbol,
+                fetched,
+                as_of=as_of,
+            )
+            return fetched, []
         except AppError as exc:
-            error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
+            return [], ranking_provider_error_rows(provider, display_symbols, exc)
+
+    results = await asyncio.gather(*(fetch_one(symbol) for symbol in provider_symbols))
+    for fetched, errors in results:
+        fundamentals.extend(fetched)
+        error_rows.extend(errors)
     return fundamentals, error_rows
 
 
@@ -10299,6 +10380,172 @@ def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
     """Share completed market-data rankings across reconnecting UI sessions."""
 
     return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_ohlcv_cache() -> dict[tuple[str, str, str, str], list[Bar]]:
+    return {}
+
+
+def _ranking_ohlcv_cache_key(
+    provider: str,
+    symbol: str,
+    *,
+    start: datetime,
+    end: datetime,
+) -> tuple[str, str, str, str]:
+    return (
+        provider.strip().lower(),
+        symbol.strip().upper(),
+        start.isoformat(),
+        end.isoformat(),
+    )
+
+
+def _get_cached_ranking_ohlcv(
+    provider: str,
+    symbol: str,
+    *,
+    start: datetime,
+    end: datetime,
+) -> list[Bar] | None:
+    return _ranking_ohlcv_cache().get(
+        _ranking_ohlcv_cache_key(provider, symbol, start=start, end=end)
+    )
+
+
+def _cache_ranking_ohlcv(
+    provider: str,
+    symbols: Sequence[str],
+    bars: Sequence[Bar],
+    *,
+    start: datetime,
+    end: datetime,
+) -> None:
+    cache = _ranking_ohlcv_cache()
+    bars_by_symbol: dict[str, list[Bar]] = {
+        symbol.strip().upper(): [] for symbol in symbols
+    }
+    for bar in bars:
+        raw_symbol = str(getattr(getattr(bar, "symbol", None), "raw", "")).strip().upper()
+        if raw_symbol:
+            bars_by_symbol.setdefault(raw_symbol, []).append(bar)
+    for symbol in symbols:
+        normalized = symbol.strip().upper()
+        symbol_bars = bars_by_symbol.get(normalized, [])
+        if not symbol_bars:
+            continue
+        key = _ranking_ohlcv_cache_key(provider, normalized, start=start, end=end)
+        cache.pop(key, None)
+        cache[key] = symbol_bars
+    while len(cache) > MAX_RANKING_OHLCV_CACHE_SYMBOLS:
+        cache.pop(next(iter(cache)))
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_fundamental_cache() -> (
+    dict[tuple[str, str, str], list[FundamentalSnapshot]]
+):
+    return {}
+
+
+def _ranking_fundamental_cache_key(
+    provider: str,
+    symbol: str,
+    *,
+    as_of: date,
+) -> tuple[str, str, str]:
+    return provider.strip().lower(), symbol.strip().upper(), as_of.isoformat()
+
+
+def _get_cached_ranking_fundamentals(
+    provider: str,
+    symbol: str,
+    *,
+    as_of: date,
+) -> list[FundamentalSnapshot] | None:
+    return _ranking_fundamental_cache().get(
+        _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
+    )
+
+
+def _cache_ranking_fundamentals(
+    provider: str,
+    symbol: str,
+    fundamentals: list[FundamentalSnapshot],
+    *,
+    as_of: date,
+) -> None:
+    if not fundamentals:
+        return
+    cache = _ranking_fundamental_cache()
+    key = _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
+    cache.pop(key, None)
+    cache[key] = fundamentals
+    while len(cache) > MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS:
+        cache.pop(next(iter(cache)))
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_advanced_forecast_cache() -> (
+    dict[tuple[str, int, int, str, str], dict[str, str]]
+):
+    return {}
+
+
+def _ranking_advanced_forecast_cache_key(
+    symbol: str,
+    bars: Sequence[Bar],
+    *,
+    horizon_days: int,
+) -> tuple[str, int, int, str, str] | None:
+    if not bars:
+        return None
+    latest = bars[-1]
+    return (
+        symbol.strip().upper(),
+        horizon_days,
+        len(bars),
+        latest.ts.isoformat(),
+        str(latest.close),
+    )
+
+
+def _get_cached_ranking_advanced_forecast(
+    symbol: str,
+    bars: Sequence[Bar],
+    *,
+    horizon_days: int,
+) -> dict[str, str] | None:
+    key = _ranking_advanced_forecast_cache_key(
+        symbol,
+        bars,
+        horizon_days=horizon_days,
+    )
+    if key is None:
+        return None
+    return _ranking_advanced_forecast_cache().get(key)
+
+
+def _cache_ranking_advanced_forecast(
+    symbol: str,
+    bars: Sequence[Bar],
+    fields: dict[str, str],
+    *,
+    horizon_days: int,
+) -> None:
+    key = _ranking_advanced_forecast_cache_key(
+        symbol,
+        bars,
+        horizon_days=horizon_days,
+    )
+    if key is None:
+        return
+    cache = _ranking_advanced_forecast_cache()
+    cache.pop(key, None)
+    cache[key] = fields
+    while len(cache) > MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS:
+        cache.pop(next(iter(cache)))
 
 
 def get_cached_ranking_build(

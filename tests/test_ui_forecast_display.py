@@ -6739,13 +6739,11 @@ def test_build_market_data_ranking_rows_does_not_retry_live_batch_failure(monkey
     assert progress_messages[-1] == "Yahoo live data の一括取得に失敗しました。"
 
 
-def test_large_live_ranking_merges_successful_cohorts_after_one_failure(monkeypatch):
+def test_large_live_ranking_uses_one_continuous_pipeline(monkeypatch):
     calls: list[list[str]] = []
 
     async def fake_fast(symbols, **kwargs):
         calls.append(symbols)
-        if symbols[0] == "SYM100":
-            raise DataSourceError("cohort unavailable")
         return (
             [
                 {
@@ -6769,10 +6767,10 @@ def test_large_live_ranking_merges_successful_cohorts_after_one_failure(monkeypa
         )
     )
 
-    assert [len(call) for call in calls] == [100, 100, 5]
-    assert len(rows) == 105
-    assert {row["symbol"] for row in rows} == set(symbols[:100] + symbols[200:])
-    assert len(error_rows) == 1
+    assert [len(call) for call in calls] == [205]
+    assert len(rows) == 205
+    assert {row["symbol"] for row in rows} == set(symbols)
+    assert error_rows == []
 
 
 def test_ranking_provider_error_rows_summarizes_many_symbols():

@@ -4373,3 +4373,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Streamlit 1.38.0で未対応の `disconnectedSessionTTL` と
   `websocketPingInterval` を設定・診断表示から削除した。
 - 対象テスト、Ruff、Streamlit設定表示で警告が出ないことを確認した。
+
+## 2026-07-05: サーバー運用安定化
+
+- 自動起動 launcher に resilient mode とWindows process group分離を追加し、
+  外部 `KeyboardInterrupt` が共有Streamlitサーバーを停止しないようにした。
+- 24時間メンテナンスをWindows全体の再起動からSMAIサービス再起動へ変更した。
+- 自動起動・5分監視タスクを登録し、旧ログオン起動タスクを無効化した。
+- 対象19 test、Ruff、実サーバーhealth、投資レーダーURLアクセス後の生存を確認した。

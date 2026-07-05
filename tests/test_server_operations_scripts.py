@@ -15,6 +15,7 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert "-m backend.server_ops.launcher" in script
     assert "--browser-address %SMAI_LAN_IP%" in script
     assert "--maintenance-startup" in script
+    assert "--resilient" in script
     assert "tailscale ip -4" in script
     assert "websocket compression=enabled" in script
     assert "Duplicate-safe shared launcher: enabled" in script

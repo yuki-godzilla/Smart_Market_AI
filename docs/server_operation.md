@@ -1,5 +1,16 @@
 # SMAI ホームサーバー運用ガイド
 
+## 2026-07 運用更新
+
+- 自動起動は launcher の `--resilient` モードを使い、Streamlit を別の
+  Windows process group で起動します。共有サーバーへ届いたコンソール割り込みは
+  launcher が無視し、意図しない `KeyboardInterrupt` 停止を防ぎます。
+- 手動の `scripts\run_lan_server.bat` は従来どおり Ctrl+C で停止できます。
+- 24時間メンテナンスはWindows PC全体ではなく、SMAI Streamlitサービスだけを
+  再起動します。30秒通知と二段階の安全確認は維持します。
+- 管理者実行ではWindows起動60秒後、通常ユーザー実行ではログオン60秒後に、
+  本体と5分監視の2タスクを登録します。
+
 SMAI を Windows PC 上で常時運用するための手順です。既存の LAN
 （`0.0.0.0:8501`）と Tailscale の接続方法は変更しません。
 

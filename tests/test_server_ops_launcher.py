@@ -8,8 +8,11 @@ import pytest
 
 from backend.server_ops.launcher import (
     ServerLockUnavailable,
+    is_smai_healthy,
     server_lock,
     streamlit_command,
+    streamlit_creation_flags,
+    wait_for_streamlit,
 )
 
 
@@ -36,3 +39,68 @@ def test_server_lock_allows_only_one_launcher_and_is_reusable() -> None:
             pass
     finally:
         lock_path.unlink(missing_ok=True)
+
+
+def test_resilient_wait_ignores_console_interrupt() -> None:
+    class Process:
+        def __init__(self) -> None:
+            self.wait_count = 0
+
+        def wait(self, timeout=None) -> int:
+            self.wait_count += 1
+            if self.wait_count == 1:
+                raise KeyboardInterrupt
+            return 0
+
+    process = Process()
+
+    assert wait_for_streamlit(process, resilient=True) == 0  # type: ignore[arg-type]
+    assert process.wait_count == 2
+
+
+def test_non_resilient_wait_stops_streamlit_after_console_interrupt() -> None:
+    class Process:
+        def __init__(self) -> None:
+            self.wait_count = 0
+            self.terminated = False
+
+        def wait(self, timeout=None) -> int:
+            self.wait_count += 1
+            if self.wait_count == 1:
+                raise KeyboardInterrupt
+            return 130
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+    process = Process()
+
+    assert wait_for_streamlit(process, resilient=False) == 130  # type: ignore[arg-type]
+    assert process.terminated is True
+
+
+def test_resilient_creation_flags_are_windows_only(monkeypatch) -> None:
+    monkeypatch.setattr("backend.server_ops.launcher.sys.platform", "linux")
+
+    assert streamlit_creation_flags(resilient=True) == 0
+
+
+def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"ok"
+
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.urlopen",
+        lambda *_args, **_kwargs: Response(),
+    )
+
+    assert is_smai_healthy() is True

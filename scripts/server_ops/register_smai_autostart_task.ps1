@@ -17,20 +17,29 @@ foreach ($path in @($startScript, $watchScript)) {
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principalCheck = [Security.Principal.WindowsPrincipal]::new($identity)
-if (-not $principalCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    throw "Run this script from an elevated (Administrator) terminal."
-}
-
 $userId = $identity.Name
-$principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
+$isAdministrator = $principalCheck.IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+if ($isAdministrator) {
+    $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $triggerDescription = "Windows startup"
+} else {
+    $principal = New-ScheduledTaskPrincipal `
+        -UserId $userId `
+        -LogonType Interactive `
+        -RunLevel Limited
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+    $triggerDescription = "user logon"
+}
+$trigger.Delay = "PT1M"
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -RestartCount 3 `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit ([TimeSpan]::Zero) `
     -StartWhenAvailable
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$trigger.Delay = "PT1M"
 
 function Register-SmaiTask {
     param([string]$Name, [string]$Script, [string]$Description)
@@ -63,6 +72,5 @@ Register-SmaiTask `
     -Script $watchScript `
     -Description "Monitor Smart Market AI and perform safe maintenance restart checks."
 
-Write-Host "[SMAI] Tasks start 60 seconds after Windows startup and run without an open window."
+Write-Host "[SMAI] Tasks start 60 seconds after $triggerDescription."
 Write-Host "[SMAI] start_smai_server.bat prevents duplicate Streamlit instances."
-

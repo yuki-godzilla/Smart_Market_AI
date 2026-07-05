@@ -55,6 +55,25 @@ function Start-SmaiRecovery {
     }
 }
 
+function Restart-SmaiService {
+    $connection = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -eq $connection) {
+        Write-WatchLog "[INFO] SMAI listener already stopped before maintenance restart."
+    } else {
+        $process = Get-CimInstance Win32_Process `
+            -Filter ("ProcessId=" + $connection.OwningProcess) `
+            -ErrorAction SilentlyContinue
+        if ($null -eq $process -or [string]$process.CommandLine -notmatch "(?i)streamlit.+ui[\\/]+app\.py") {
+            throw "TCP 8501 listener is not the expected SMAI Streamlit process."
+        }
+        Stop-Process -Id $connection.OwningProcess -Force -ErrorAction Stop
+        Write-WatchLog "[INFO] Stopped SMAI Streamlit PID $($connection.OwningProcess)."
+    }
+    & $python -m backend.server_ops.maintenance clear-notice
+    Start-SmaiRecovery
+}
+
 function Invoke-MaintenanceCheck {
     & $python -m backend.server_ops.maintenance evaluate
     $decisionCode = $LASTEXITCODE
@@ -92,12 +111,12 @@ function Invoke-MaintenanceCheck {
     }
     if ($NoRestart) {
         & $python -m backend.server_ops.maintenance clear-notice
-        Write-WatchLog "[TEST] Restart conditions met; Windows restart suppressed by -NoRestart."
+        Write-WatchLog "[TEST] Restart conditions met; SMAI service restart suppressed by -NoRestart."
         return
     }
-    Write-WatchLog "[WARN] All safety checks passed. Restarting Windows for maintenance."
-    Write-MaintenanceLog "[RESTART] All safety checks passed; Windows restart requested."
-    & shutdown.exe /r /t 0 /d p:0:0 /c "SMAI scheduled maintenance restart"
+    Write-WatchLog "[WARN] All safety checks passed. Restarting the SMAI service."
+    Write-MaintenanceLog "[RESTART] All safety checks passed; SMAI service restart requested."
+    Restart-SmaiService
 }
 
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {

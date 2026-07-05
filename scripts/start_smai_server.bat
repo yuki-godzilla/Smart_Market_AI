@@ -41,7 +41,8 @@ call :log "[SMAI] Starting Streamlit..."
 >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Starting SMAI Streamlit server.
 "%SMAI_PYTHON%" -m backend.server_ops.launcher ^
   --browser-address %SMAI_LAN_IP% ^
-  --maintenance-startup >> "%SMAI_LOG_FILE%" 2>&1
+  --maintenance-startup ^
+  --resilient >> "%SMAI_LOG_FILE%" 2>&1
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 call :log "[SMAI] Streamlit stopped with exit code %SMAI_EXIT_CODE%."

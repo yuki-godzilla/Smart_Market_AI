@@ -9,10 +9,13 @@ Last updated: 2026-06-29
 
 Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,
-and a fail-closed 24-hour maintenance-restart manager. Connected Streamlit sessions
+and a fail-closed 24-hour SMAI service-restart manager. Scheduled startup uses a
+resilient Windows process group so a console interrupt cannot stop the shared server.
+Connected Streamlit sessions
 publish one-minute heartbeats; background news/symbol refreshes publish busy markers;
 file locks and unreadable state defer restart. A 30-second UI notice is followed by
-a second safety check, and any new activity cancels restart. See
+a second safety check, and any new activity cancels restart. Maintenance restarts
+Streamlit only; it does not reboot Windows. See
 `docs/server_operation.md`.
 
 ## Project Summary

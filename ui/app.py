@@ -257,6 +257,7 @@ from ui.ranking import (
     RANKING_PRODUCT_MUTUAL_FUND,
     RANKING_PRODUCT_STOCK,
     RANKING_PURPOSE_MULTI_FACTOR,
+    RANKING_PURPOSE_REVERSAL_EXPECTATION,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -6173,20 +6174,47 @@ def _ranking_detail_condition_chips(
 
 def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) -> str:
     description = ranking_policy_description(ranking_policy)
+    if ranking_policy == RANKING_PURPOSE_REVERSAL_EXPECTATION:
+        group_rows = [
+            {"group": row["評価要素"], "weight": row["配点"]}
+            for row in reversal_expectation_component_rows()
+        ]
+        beginner_explanation = (
+            '<div class="smai-ranking-policy-beginner-note">'
+            "<strong>何を計算している？</strong>"
+            "<p>「最近下がった」という理由だけでは上位にしません。"
+            "押し目の深さ、今後の上向き余地、さらに下がる危険の小ささ、"
+            "データの確かさ、反転し始めた兆しを、それぞれ0〜100点で採点します。</p>"
+            "<p><strong>計算式：</strong>"
+            "押し目状態×30% ＋ 予測上向き余地×30% ＋ 下落安全性×20% ＋ "
+            "データ品質×10% ＋ 反転初動×10%</p>"
+            "<p>下降警戒が強い、急落中、データ品質が低い場合は、"
+            "合計が高くても最終スコアに上限をかけます。</p>"
+            "</div>"
+        )
+        caution = (
+            "上位は「反発しそうな銘柄」の断定ではなく、"
+            "下落理由と危険度を詳しく確認する候補です。"
+        )
+    else:
+        group_rows = ranking_weight_group_rows(weight_preset)
+        beginner_explanation = ""
+        caution = "上位銘柄は、まず詳しく確認したい候補として見てください。"
     group_items = "".join(
         "<span>"
         f"{html.escape(row['group'])} <strong>{html.escape(row['weight'])}</strong>"
         "</span>"
-        for row in ranking_weight_group_rows(weight_preset)
+        for row in group_rows
     )
     return (
         '<section class="smai-ranking-policy-builder">'
         '<div class="smai-card-label">選択中のランキング基準</div>'
         f"<h4>{html.escape(ranking_policy_label(ranking_policy))}</h4>"
         f'<p>この基準で候補を並べます。{html.escape(description["short_summary"])}</p>'
+        f"{beginner_explanation}"
         f'<div class="smai-ranking-policy-weight-chips">{group_items}</div>'
         '<p class="smai-ranking-policy-caution">'
-        "上位銘柄は、まず詳しく確認したい候補として見てください。"
+        f"{html.escape(caution)}"
         "</p>"
         "</section>"
     )
@@ -10076,8 +10104,6 @@ async def _fetch_ranking_ohlcv_tolerant(
                 ranking_provider_error_rows(provider, display_symbols, exc),
                 set(display_symbols),
             )
-        if _ranking_batch_failure_is_provider_wide(exc):
-            raise
 
     bars: list[Bar] = []
     error_rows: list[dict[str, str]] = []
@@ -10090,13 +10116,6 @@ async def _fetch_ranking_ohlcv_tolerant(
             error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
             failed_display_symbols.update(display_symbols)
     return bars, error_rows, failed_display_symbols
-
-
-def _ranking_batch_failure_is_provider_wide(exc: AppError) -> bool:
-    return exc.message in {
-        "Yahoo market-data provider batch request failed",
-        "Yahoo market-data provider returned no batch data",
-    }
 
 
 async def _fetch_ranking_fundamentals_tolerant(

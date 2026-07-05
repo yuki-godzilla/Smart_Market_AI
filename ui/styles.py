@@ -5613,6 +5613,26 @@ div[data-testid="stChatInput"] textarea:focus {
     color: #bbf7d0;
 }
 
+.smai-ranking-policy-beginner-note {
+    margin-top: 0.55rem;
+    padding: 0.62rem 0.7rem;
+    border-left: 3px solid #22d3ee;
+    border-radius: 0.45rem;
+    background: rgba(8, 47, 73, 0.34);
+}
+
+.smai-ranking-policy-beginner-note > strong {
+    color: #cffafe;
+    font-size: 0.82rem;
+}
+
+.smai-ranking-policy-beginner-note p {
+    margin: 0.28rem 0 0;
+    color: #cbd5e1;
+    font-size: 0.78rem;
+    line-height: 1.48;
+}
+
 .smai-ranking-condition-chip--policy {
     border-color: rgba(34, 211, 238, 0.52);
     background: rgba(8, 145, 178, 0.22);

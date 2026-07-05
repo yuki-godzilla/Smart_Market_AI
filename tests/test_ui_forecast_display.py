@@ -6752,36 +6752,37 @@ def test_ranking_provider_error_rows_summarizes_many_symbols():
     assert details["request"]["operation"] == "fetch_ohlcv"
 
 
-def test_ranking_batch_provider_outage_stops_without_retrying_every_symbol():
-    class UnavailableAdapter:
+def test_ranking_batch_failure_retries_symbols_and_keeps_partial_results():
+    class PartiallyAvailableAdapter:
         def __init__(self) -> None:
-            self.calls = 0
+            self.calls: list[list[str]] = []
 
         async def fetch_ohlcv(self, symbols, start, end):
-            self.calls += 1
-            raise ProviderUnavailableError(
-                "Yahoo market-data provider returned no batch data",
-                details={"request": {"symbols": symbols}},
-            )
+            self.calls.append(symbols)
+            if len(symbols) > 1 or symbols == ["9432.T"]:
+                raise ProviderUnavailableError(
+                    "Yahoo market-data provider returned no batch data",
+                    details={"request": {"symbols": symbols}},
+                )
+            return [object()]
 
-    adapter = UnavailableAdapter()
+    adapter = PartiallyAvailableAdapter()
     symbols = ["7203.T", "9432.T", "7974.T"]
-    with pytest.raises(
-        ProviderUnavailableError,
-        match="Yahoo market-data provider returned no batch data",
-    ):
-        asyncio.run(
-            _fetch_ranking_ohlcv_tolerant(
-                adapter,
-                symbols,
-                provider="yahoo",
-                start=datetime(2025, 7, 5, tzinfo=UTC),
-                end=datetime(2026, 7, 5, tzinfo=UTC),
-                display_symbols_by_provider_symbol={symbol: [symbol] for symbol in symbols},
-            )
+    bars, errors, failed = asyncio.run(
+        _fetch_ranking_ohlcv_tolerant(
+            adapter,
+            symbols,
+            provider="yahoo",
+            start=datetime(2025, 7, 5, tzinfo=UTC),
+            end=datetime(2026, 7, 5, tzinfo=UTC),
+            display_symbols_by_provider_symbol={symbol: [symbol] for symbol in symbols},
         )
+    )
 
-    assert adapter.calls == 1
+    assert adapter.calls == [symbols, ["7203.T"], ["9432.T"], ["7974.T"]]
+    assert len(bars) == 2
+    assert len(errors) == 1
+    assert failed == {"9432.T"}
 
 
 def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
@@ -8826,6 +8827,22 @@ def test_ranking_policy_builder_card_html_summarizes_policy_weights():
     assert "基礎評価" in markup
     assert "30%" in markup
     assert "上位銘柄は、まず詳しく確認したい候補として見てください。" in markup
+
+
+def test_reversal_policy_builder_card_explains_formula_without_opening_details():
+    markup = ranking_policy_builder_card_html(
+        RANKING_PURPOSE_REVERSAL_EXPECTATION,
+        RANKING_PRESET_REVERSAL_EXPECTATION,
+    )
+
+    assert "何を計算している？" in markup
+    assert "押し目状態×30%" in markup
+    assert "予測上向き余地×30%" in markup
+    assert "下落安全性×20%" in markup
+    assert "データ品質×10%" in markup
+    assert "反転初動×10%" in markup
+    assert "最終スコアに上限" in markup
+    assert "反発しそうな銘柄」の断定ではなく" in markup
 
 
 def test_ranking_creation_target_summary_html_explains_effective_target_count():

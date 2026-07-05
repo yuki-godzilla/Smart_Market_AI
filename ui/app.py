@@ -113,7 +113,7 @@ from backend.research import (
     StockNewsReport,
 )
 from backend.scoring import InvestmentScoringService
-from backend.scoring.reversal import calculate_reversal_expectation, upward_signal_display_label
+from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
 from backend.server_ops.maintenance import MaintenanceManager, maintenance_operation
 from backend.symbols.background import (
@@ -407,6 +407,7 @@ from ui.symbol_universe import (
     symbol_universe_csv_rows,
     symbol_universe_runtime_rows,
 )
+from ui.upward_signal import upward_signal_display_label
 from ui.views.cockpit import (
     cockpit_direction_signal_detail_rows,
     cockpit_direction_signal_summary,

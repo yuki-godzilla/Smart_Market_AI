@@ -145,12 +145,6 @@ def reversal_expectation_label(score: Decimal) -> str:
     return "上向き兆候 低"
 
 
-def upward_signal_display_label(value: object) -> str:
-    """Normalize labels saved before the public-name migration."""
-
-    return str(value or "").replace("反転期待", "上向き兆候")
-
-
 @dataclass(frozen=True)
 class _DividendAssessment:
     safety_score: Decimal

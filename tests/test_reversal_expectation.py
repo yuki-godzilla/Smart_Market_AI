@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from backend.scoring.reversal import calculate_reversal_expectation, upward_signal_display_label
+from backend.scoring.reversal import calculate_reversal_expectation
 from ui.app import (
     _favorite_status_label,
     _investment_score_report_section,
@@ -12,6 +12,7 @@ from ui.app import (
 )
 from ui.ranking import RANKING_PRESET_REVERSAL_EXPECTATION, apply_ranking_weight_preset
 from ui.ranking_history import build_ranking_history_save_request
+from ui.upward_signal import upward_signal_display_label
 from ui.views.cockpit import cockpit_direction_signal_detail_rows, cockpit_kpi_cards
 from ui.watchlist_snapshots import (
     WatchlistSnapshot,

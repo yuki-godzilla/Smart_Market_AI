@@ -4483,3 +4483,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 上向き兆候マップを調整/安定度×上向き余地へ更新し、下落安全性、データ信頼度、形状、配当罠、理由をtooltipへ追加。
 - 評価日時点までの履歴だけをsignal builderへ渡し、20/60/120営業日return、最大下落、benchmark超過、成功/失敗集計と指定4成果物を生成するbacktest契約を追加。
 - deterministic対象450 testとRuffは成功。Black helperは今回未変更の既存4ファイルだけを整形対象として報告。実銘柄10スプリントはYahoo live opt-in確認として `docs/upward_signal_validation.md` に未実行状態を明記。
+
+## 2026-07-06: 上向き兆候ラベルのhot-reload ImportError修正
+
+- 常時起動Streamlitで `ui/app.py` だけが再実行され、旧版の `backend.scoring.reversal` がmodule cacheに残ると、新規helper importが失敗する事象を確認。
+- 保存済み旧ラベルの表示変換helperを新規 `ui/upward_signal.py` へ分離し、既存backend moduleへの新規symbol import依存を除去。サーバー再起動権限がない場合も次回rerunで読める構成に変更。
+- 新規processで `ui.app` import成功、対象14 testとRuff成功。pytest cache directoryの権限warningはテスト結果に影響なし。

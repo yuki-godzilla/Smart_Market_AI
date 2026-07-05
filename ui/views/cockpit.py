@@ -7,7 +7,6 @@ from decimal import Decimal, InvalidOperation
 import streamlit as st
 
 from backend.research import CompanyResearchReport
-from backend.scoring.reversal import upward_signal_display_label
 from ui.content.cockpit_texts import (
     COCKPIT_CARD_MEANINGS,
     COCKPIT_DECISION_VIEW_EVALUATION_TABLE,
@@ -22,6 +21,7 @@ from ui.styles import (
     render_metric_card,
     render_section_heading,
 )
+from ui.upward_signal import upward_signal_display_label
 
 
 def _display_value(value: object, fallback: str = "未取得") -> str:

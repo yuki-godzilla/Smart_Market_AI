@@ -17,6 +17,14 @@
 - 前半rolling originsから候補weightを生成し、後半originの時系列holdoutで現行consensusよりRMSEが改善し方向一致率を維持した場合だけ`adopted`にするgateを追加。
 - gate通過weightも明示関数でのみ適用し、通常Ranking、Forecast API/UI、runtime weightは自動変更しない。
 
+## 2026-07-06 Phase 33 local dataset runner / bounded tuning
+
+- local OHLCV CSVとsymbol metadataから評価case、market、asset type、regime、coverageを組み立てるloaderを追加。
+- `tools/evaluate_forecast_models.py`でnetwork-freeにcoverage、評価、最新予測、error cases、weight調整を一括生成可能にした。
+- linear alpha、conservative tree、regularized GBDT、quantile centerのbounded候補を、前半originと後半holdoutに分けて既定設定と比較するtuningを追加。
+- 現在の同梱OHLCVはAAPL / 7203.T各3 barsで、必要180 barsに対して`0/2 eligible`。精度向上や候補採用は未判定として成果物へ記録。
+- 通常Ranking、Forecast API/UI、runtime parameter / weightは変更しない。
+
 ## 2026-07-06 上向き兆候 / 既存予測モデル改善 / 本気分析モード ドキュメント整備
 
 - 旧「反転期待」を公開名「上向き兆候」とし、下落→上昇、調整→再上昇、横ばい→上放れ、安定→上昇準備を対象に整理。

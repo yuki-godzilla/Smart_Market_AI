@@ -1090,3 +1090,11 @@ market、asset type、regime別集計、最新point-in-time予測、誤差上位
 - `forecast_model_weighting_adjustments.md`
 
 通常RankingやForecast API/UIからは自動実行せず、network providerも呼び出さない。予測モデルの結果は投資助言や将来成果の保証として扱わない。
+
+ローカルCSV評価:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py --output reports\forecast_evaluation
+```
+
+`data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。2026-07-06時点の同梱OHLCVはAAPL / 7203.T各3 barsのため、実行結果は`0/2 eligible`であり、実市場精度やtuning採用を判断できない。

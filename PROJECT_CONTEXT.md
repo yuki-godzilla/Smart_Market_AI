@@ -28,6 +28,8 @@ Normal Ranking remains fast and LLM-independent. `本気分析モード（AI材�
 
 Phase 33 evaluation and guarded improvement flow is implemented as a network-free backend service. It reruns every advanced adapter and the actual current consensus from bars available at each 20/60-day rolling origin, while adapter validation folds retain horizon-sized purge windows. It produces horizon, market, asset type, and regime metrics, latest predictions, and error cases. Candidate weights are built from earlier origins and become adoptable only when a later temporal holdout improves RMSE without reducing direction accuracy. Even adopted profiles require explicit `evaluated_consensus_prediction` use; Ranking, Forecast API/UI, and runtime model weights remain unchanged.
 
+Phase 33 local-data slice adds a CSV dataset loader, coverage report, CLI runner, and bounded candidate tuning for all four existing advanced adapters. The checked-in local OHLCV currently contains only three bars each for AAPL and 7203.T, so the recorded run is correctly `0/2 eligible`; no real-market accuracy improvement or parameter adoption is claimed yet.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

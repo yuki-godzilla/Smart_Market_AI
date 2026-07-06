@@ -1,0 +1,3 @@
+symbol,market,asset_type,bar_count,eligible,regime,reason
+7203.T,jp,stock,3,False,unknown,insufficient_bars:3/180
+AAPL,us,stock,3,False,unknown,insufficient_bars:3/180

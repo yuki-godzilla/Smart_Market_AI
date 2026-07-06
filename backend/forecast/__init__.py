@@ -25,6 +25,12 @@ from backend.forecast.advanced_registry import (
     advanced_forecast_adapter_specs,
     advanced_forecast_supported_horizons,
 )
+from backend.forecast.dataset import (
+    ForecastDatasetCoverageRow,
+    ForecastDatasetLoadResult,
+    load_forecast_evaluation_dataset,
+    write_forecast_dataset_coverage,
+)
 from backend.forecast.evaluation import (
     CONSENSUS_MODEL_NAME,
     DEFAULT_EVALUATION_HORIZONS,
@@ -78,6 +84,11 @@ from backend.forecast.service import (
     summarize_forecast_evaluations,
     volatility_adjusted_edge,
 )
+from backend.forecast.tuning import (
+    ForecastTuningResult,
+    tune_forecast_adapters,
+    write_forecast_tuning_artifacts,
+)
 
 __all__ = [
     "DirectionSignalLabel",
@@ -105,6 +116,8 @@ __all__ = [
     "AdvancedTreeSklearnForecastResult",
     "FeatureContribution",
     "ForecastConsensus",
+    "ForecastDatasetCoverageRow",
+    "ForecastDatasetLoadResult",
     "ForecastEvaluation",
     "ForecastEvaluationCase",
     "ForecastMetrics",
@@ -113,6 +126,7 @@ __all__ = [
     "ForecastPredictionRow",
     "ForecastValidationPoint",
     "ForecastWeightAdjustment",
+    "ForecastTuningResult",
     "ForecastModel",
     "ForecastModelSpec",
     "ForecastPoint",
@@ -146,8 +160,12 @@ __all__ = [
     "forecast_model_display_name",
     "forecast_model_registry_rows",
     "forecast_model_specs",
+    "load_forecast_evaluation_dataset",
     "summarize_advanced_forecast_evaluations",
     "summarize_forecast_evaluations",
+    "tune_forecast_adapters",
     "volatility_adjusted_edge",
     "write_forecast_evaluation_artifacts",
+    "write_forecast_dataset_coverage",
+    "write_forecast_tuning_artifacts",
 ]

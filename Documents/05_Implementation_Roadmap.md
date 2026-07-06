@@ -2656,9 +2656,11 @@ Markdown UTF-8 check:
 
 ## Phase 33: 既存予測モデル評価・ブラッシュアップ
 
+状態: 🟦 **評価・安全改善完了**
+
 `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`、forecast consensusをwalk-forwardで評価し、horizon、market、asset type、regime別のRMSE、MAE、direction accuracy、calibration、model disagreement、上向き兆候への寄与を確認する。consensus weightingとconfidence低下ルールを決め、新規モデルの必要性を判断する。
 
-進捗: 20/60営業日のnetwork-free rolling-origin評価、horizon purge、model/consensus自身のfold-level誤差、最新予測、market / asset type / regime別集計、error cases、時系列holdoutで比較するweighting調整案まで実装済み。local CSV runnerと既存4モデルのbounded tuning候補も実装済み。候補weight / parameterはholdout gate通過時だけ採用候補とし、通常Rankingへは自動反映しない。同梱OHLCVは2銘柄各3 barsで`0/2 eligible`のため、長期実データでの精度評価とcalibrationは後続。
+進捗: 明示live取得した23銘柄・28,529 daily barsで20/60営業日のrolling-origin評価を完了。linear外挿clip v1によりconsensus RMSEは20日24.0%、60日48.4%改善し、方向一致率を維持したため採用。consensus weight候補は1% gate未達または悪化で保留。20日GBDT / quantile parameter候補はaggregate gate通過だがgroup安定性未確認のためshadowに留める。通常Ranking weight、他adapter既定parameter、API/UIは変更しない。
 
 成果物:
 

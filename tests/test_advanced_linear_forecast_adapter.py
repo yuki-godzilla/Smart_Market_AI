@@ -5,6 +5,7 @@ import pytest
 
 from backend.core.data_contracts import Bar, Symbol
 from backend.forecast import (
+    ADVANCED_LINEAR_CLIP_VERSION,
     ADVANCED_LINEAR_ADAPTER_NAME,
     SUPPORTED_ADVANCED_LINEAR_HORIZONS,
     AdvancedLinearForecastAdapter,
@@ -68,6 +69,23 @@ def test_advanced_linear_adapter_tolerates_missing_like_feature_windows():
 
     assert result.validation_metrics.sample_count == 23
     assert result.feature_contribution_summary
+
+
+def test_advanced_linear_adapter_clips_unstable_extrapolation():
+    bars = _bars(120)
+    bars[-1] = bars[-1].model_copy(
+        update={
+            "close": bars[-1].close * Decimal("8"),
+            "high": bars[-1].high * Decimal("8"),
+            "open": bars[-1].open * Decimal("8"),
+            "low": bars[-1].low * Decimal("8"),
+        }
+    )
+
+    result = AdvancedLinearForecastAdapter().forecast(bars, horizon_days=20)
+
+    assert Decimal("-0.75") <= result.predicted_return <= Decimal("0.75")
+    assert ADVANCED_LINEAR_CLIP_VERSION == "robust-linear-clip-v1"
 
 
 def test_advanced_linear_adapter_keeps_default_baseline_forecast_path_unchanged():

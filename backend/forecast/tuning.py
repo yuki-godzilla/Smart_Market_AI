@@ -19,6 +19,8 @@ from backend.forecast.adapters import (
 from backend.forecast.advanced_registry import AdvancedForecastAdapter
 from backend.forecast.evaluation import ForecastEvaluationCase
 
+MIN_RELATIVE_RMSE_IMPROVEMENT = Decimal("0.01")
+
 
 class ForecastTuningResult(StrictBaseModel):
     adapter_name: str = Field(min_length=1)
@@ -85,8 +87,9 @@ def tune_forecast_adapters(
             alternative_holdout_rmse = _rmse(alternative_holdout)
             default_direction = _direction_accuracy(default_holdout)
             alternative_direction = _direction_accuracy(alternative_holdout)
+            required_rmse = default_holdout_rmse * (Decimal("1") - MIN_RELATIVE_RMSE_IMPROVEMENT)
             adopted = bool(alternative_holdout) and (
-                alternative_holdout_rmse < default_holdout_rmse
+                alternative_holdout_rmse <= required_rmse
                 and alternative_direction >= default_direction
             )
             results.append(
@@ -102,7 +105,7 @@ def tune_forecast_adapters(
                     adopted=adopted,
                     parameters=alternative.parameters,
                     reason=(
-                        "時系列holdoutでRMSEが改善し、方向一致率を維持しました。"
+                        "時系列holdoutでRMSEを1%以上改善し、方向一致率を維持しました。"
                         if adopted
                         else "時系列holdoutの採用条件を満たさないため既定設定を維持します。"
                     ),
@@ -120,7 +123,7 @@ def write_forecast_tuning_artifacts(
     markdown_path = output_dir / "forecast_model_tuning_summary.md"
     fieldnames = list(ForecastTuningResult.model_fields)
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for result in results:
             row = result.model_dump(mode="json")
@@ -132,7 +135,7 @@ def write_forecast_tuning_artifacts(
         "# Forecast Model Tuning Summary",
         "",
         "既存4モデルのbounded candidateを時系列holdoutで比較します。",
-        "採用条件未達の候補は通常予測へ反映しません。",
+        "採用条件（RMSE 1%以上改善・方向一致率維持）未達の候補は通常予測へ反映しません。",
         "",
     ]
     for result in results:
@@ -150,7 +153,11 @@ def write_forecast_tuning_artifacts(
                 "",
             ]
         )
-    markdown_path.write_text("\n".join(lines), encoding="utf-8")
+    markdown_path.write_text(
+        "\n".join(lines),
+        encoding="utf-8",
+        newline="\n",
+    )
     return {"tuning_csv": csv_path, "tuning_markdown": markdown_path}
 
 

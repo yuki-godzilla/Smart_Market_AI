@@ -88,7 +88,7 @@ def write_forecast_dataset_coverage(
     markdown_path = output_dir / "forecast_model_dataset_coverage.md"
     fieldnames = list(ForecastDatasetCoverageRow.model_fields)
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in result.coverage:
             writer.writerow(row.model_dump(mode="json"))
@@ -109,7 +109,11 @@ def write_forecast_dataset_coverage(
         f"{row.regime} | {row.reason} |"
         for row in result.coverage
     )
-    markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    markdown_path.write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return {"coverage_csv": csv_path, "coverage_markdown": markdown_path}
 
 

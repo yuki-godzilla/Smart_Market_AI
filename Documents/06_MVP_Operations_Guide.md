@@ -1097,4 +1097,16 @@ market、asset type、regime別集計、最新point-in-time予測、誤差上位
 .\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py --output reports\forecast_evaluation
 ```
 
-`data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。2026-07-06時点の同梱OHLCVはAAPL / 7203.T各3 barsのため、実行結果は`0/2 eligible`であり、実市場精度やtuning採用を判断できない。
+`data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。
+
+明示live評価datasetを更新する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\fetch_forecast_evaluation_data.py --allow-live --years 5
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py `
+  --ohlcv data\forecast_evaluation\ohlcv.csv `
+  --metadata data\forecast_evaluation\symbols.csv `
+  --output reports\forecast_evaluation
+```
+
+live取得は`--allow-live`必須で、通常OHLCVを上書きしない。2026-07-06評価は23銘柄・28,529 bars・23/23 eligible。`robust-linear-clip-v1`だけを採用し、consensus weightと他parameter候補は既定維持またはshadowとした。

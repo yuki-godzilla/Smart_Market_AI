@@ -11,6 +11,7 @@ from pydantic import ConfigDict, Field
 from backend.core.data_contracts import Bar, StrictBaseModel
 
 ADVANCED_LINEAR_ADAPTER_NAME = "advanced_linear"
+ADVANCED_LINEAR_CLIP_VERSION = "robust-linear-clip-v1"
 SUPPORTED_ADVANCED_LINEAR_HORIZONS = tuple(range(1, 61))
 DEFAULT_RANDOM_STATE = 42
 
@@ -133,7 +134,10 @@ class AdvancedLinearForecastAdapter:
             dataset.feature_names,
             alpha=self.alpha,
         )
-        predicted_return = float(fitted.predict(dataset.latest_features.reshape(1, -1))[0])
+        predicted_return = _clip_prediction(
+            float(fitted.predict(dataset.latest_features.reshape(1, -1))[0]),
+            dataset.targets,
+        )
         metrics = _validation_metrics(dataset.targets, validation_predictions)
         confidence = _confidence_from_metrics(metrics)
         warnings = _warnings_for_result(
@@ -303,8 +307,25 @@ def _walk_forward_predictions(
             alpha=alpha,
         )
         predicted = fitted.predict(features[test_start:test_end])
+        predicted = np.asarray(
+            [_clip_prediction(float(value), targets[:train_end]) for value in predicted],
+            dtype=float,
+        )
         predictions.extend(zip(predicted.tolist(), targets[test_start:test_end].tolist()))
     return predictions
+
+
+def _clip_prediction(value: float, targets: np.ndarray) -> float:
+    """Winsorize unstable linear extrapolation from small financial samples."""
+
+    if not np.isfinite(value):
+        return 0.0
+    absolute_targets = np.abs(targets[np.isfinite(targets)])
+    if len(absolute_targets) == 0:
+        return max(-0.10, min(0.10, value))
+    robust_scale = float(np.quantile(absolute_targets, 0.95)) * 1.5
+    limit = max(0.10, min(0.75, robust_scale))
+    return max(-limit, min(limit, value))
 
 
 def _fit_ridge(

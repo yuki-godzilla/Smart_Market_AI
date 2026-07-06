@@ -28,7 +28,7 @@ Normal Ranking remains fast and LLM-independent. `本気分析モード（AI材�
 
 Phase 33 evaluation and guarded improvement flow is implemented as a network-free backend service. It reruns every advanced adapter and the actual current consensus from bars available at each 20/60-day rolling origin, while adapter validation folds retain horizon-sized purge windows. It produces horizon, market, asset type, and regime metrics, latest predictions, and error cases. Candidate weights are built from earlier origins and become adoptable only when a later temporal holdout improves RMSE without reducing direction accuracy. Even adopted profiles require explicit `evaluated_consensus_prediction` use; Ranking, Forecast API/UI, and runtime model weights remain unchanged.
 
-Phase 33 local-data slice adds a CSV dataset loader, coverage report, CLI runner, and bounded candidate tuning for all four existing advanced adapters. The checked-in local OHLCV currently contains only three bars each for AAPL and 7203.T, so the recorded run is correctly `0/2 eligible`; no real-market accuracy improvement or parameter adoption is claimed yet.
+Phase 33 live evaluation completed on an explicitly fetched, isolated dataset of 23 symbols and 28,529 daily bars. `robust-linear-clip-v1` reduced advanced-linear RMSE by 74.2% at 20 days and 89.5% at 60 days; actual consensus RMSE fell by 24.0% and 48.4% respectively without lower direction accuracy. The clipping safety rule is adopted. Consensus-weight candidates failed the new minimum 1% holdout gate or worsened results, so runtime weights remain unchanged. Aggregate 20-day GBDT and quantile candidates remain shadow-only until subgroup stability is demonstrated.
 
 Strategy references:
 

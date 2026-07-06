@@ -22,6 +22,7 @@ from backend.forecast.service import (
 DEFAULT_EVALUATION_HORIZONS = (20, 60)
 CONSENSUS_MODEL_NAME = "forecast_consensus"
 DEFAULT_MAX_ORIGINS = 5
+MIN_RELATIVE_RMSE_IMPROVEMENT = Decimal("0.01")
 
 
 class ForecastEvaluationCase(StrictBaseModel):
@@ -236,16 +237,25 @@ def write_forecast_evaluation_artifacts(
         "error_cases": output_dir / "forecast_model_error_cases.md",
         "weighting_adjustments": output_dir / "forecast_model_weighting_adjustments.md",
     }
-    paths["summary"].write_text(_render_summary(report), encoding="utf-8")
+    paths["summary"].write_text(
+        _render_summary(report),
+        encoding="utf-8",
+        newline="\n",
+    )
     _write_group_csv(paths["by_horizon"], report.rows, group_type="overall")
     _write_group_csv(paths["by_market"], report.rows, group_type="market")
     _write_group_csv(paths["by_asset_type"], report.rows, group_type="asset_type")
     _write_group_csv(paths["by_regime"], report.rows, group_type="regime")
     _write_predictions_csv(paths["predictions"], report.predictions)
-    paths["error_cases"].write_text(_render_error_cases(report.validation_points), encoding="utf-8")
+    paths["error_cases"].write_text(
+        _render_error_cases(report.validation_points),
+        encoding="utf-8",
+        newline="\n",
+    )
     paths["weighting_adjustments"].write_text(
         _render_weight_adjustments(report.weight_adjustments),
         encoding="utf-8",
+        newline="\n",
     )
     return paths
 
@@ -540,13 +550,14 @@ def _build_weight_adjustments(
         candidate_rmse = _points_rmse(candidate_points)
         current_direction = _direction_accuracy(comparable_current)
         candidate_direction = _direction_accuracy(candidate_points)
+        required_rmse = current_rmse * (Decimal("1") - MIN_RELATIVE_RMSE_IMPROVEMENT)
         adopted = bool(candidate_points) and (
-            candidate_rmse < current_rmse and candidate_direction >= current_direction
+            candidate_rmse <= required_rmse and candidate_direction >= current_direction
         )
         reason = (
-            "時系列holdoutでRMSEが改善し、方向一致率を維持したため採用候補です。"
+            "時系列holdoutでRMSEを1%以上改善し、方向一致率を維持したため採用候補です。"
             if adopted
-            else "時系列holdoutでRMSE改善と方向一致率維持を同時に満たさないため保留します。"
+            else "時系列holdoutでRMSE 1%以上改善と方向一致率維持を同時に満たさないため保留します。"
         )
         adjustments.append(
             ForecastWeightAdjustment(
@@ -571,14 +582,18 @@ def _quality_weights(
     raw: dict[str, Decimal] = {}
     for model_name, row in rows.items():
         baseline = row.baseline_zero_rmse
-        improvement_ratio = row.rmse_improvement / baseline if baseline > 0 else Decimal("0")
-        bounded_improvement = max(Decimal("-0.5"), min(Decimal("0.5"), improvement_ratio))
-        quality = (
-            Decimal("0.20")
-            + (row.direction_accuracy * Decimal("0.60"))
-            + ((bounded_improvement + Decimal("0.5")) * Decimal("0.20"))
+        if baseline <= 0 or row.validation_sample_count == 0:
+            raw[model_name] = Decimal("0.01")
+            continue
+        relative_rmse = row.rmse / baseline
+        error_quality = Decimal("1") / max(Decimal("0.25"), relative_rmse)
+        error_quality = min(Decimal("2"), error_quality)
+        direction_quality = Decimal("0.50") + row.direction_accuracy
+        baseline_penalty = Decimal("0.20") if row.rmse_improvement < 0 else Decimal("1")
+        raw[model_name] = max(
+            Decimal("0.01"),
+            error_quality * direction_quality * baseline_penalty,
         )
-        raw[model_name] = max(Decimal("0.10"), quality)
     total = sum(raw.values(), Decimal("0"))
     if total <= 0:
         equal = Decimal("1") / Decimal(len(raw)) if raw else Decimal("0")
@@ -662,7 +677,7 @@ def _write_group_csv(
     selected = [row for row in rows if row.group_type == group_type]
     fieldnames = list(ForecastModelEvaluationRow.model_fields)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in selected:
             writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
@@ -671,7 +686,7 @@ def _write_group_csv(
 def _write_predictions_csv(path: Path, rows: list[ForecastPredictionRow]) -> None:
     fieldnames = list(ForecastPredictionRow.model_fields)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
@@ -688,7 +703,7 @@ def _render_summary(report: ForecastModelEvaluationReport) -> str:
         f"- 評価ケース数: {report.requested_case_count}",
         f"- 対象horizon: {', '.join(str(value) for value in report.horizons)}営業日",
         f"- rolling-origin予測数: {len(report.validation_points)}",
-        "- 改善weightは同一foldで現行consensusと比較し、条件通過時だけ採用候補にします。",
+        "- 改善weightは後半holdoutで現行consensusと比較し、条件通過時だけ採用候補にします。",
         "",
         "| Model | Horizon | Cases | Samples | MAE | RMSE | Direction | "
         "RMSE improvement | Disagreement |",
@@ -738,7 +753,7 @@ def _render_weight_adjustments(
         "# Forecast Model Weighting Adjustments",
         "",
         "同一rolling-origin foldで現行consensusと候補weightを比較します。"
-        "前半originでweightを作り、後半holdoutでRMSE改善かつ方向一致率維持を確認します。",
+        "前半originでweightを作り、後半holdoutでRMSE 1%以上改善かつ方向一致率維持を確認します。",
         "",
     ]
     for adjustment in adjustments:

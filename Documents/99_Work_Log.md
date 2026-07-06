@@ -25,6 +25,15 @@
 - 現在の同梱OHLCVはAAPL / 7203.T各3 barsで、必要180 barsに対して`0/2 eligible`。精度向上や候補採用は未判定として成果物へ記録。
 - 通常Ranking、Forecast API/UI、runtime parameter / weightは変更しない。
 
+## 2026-07-06 Phase 33 live評価・robust linear改善
+
+- `--allow-live`必須の専用Yahoo取得toolで、日本株/米国株/ETF 23銘柄、5年、28,529 daily barsを通常OHLCVと分離取得。
+- 23/23 eligible、20/60日×5 rolling originsで実測評価。
+- linear外挿をtraining targetの95% absolute quantile基準でclipし、linear RMSEを20日74.2%、60日89.5%改善。
+- actual consensus RMSEは20日0.1181→0.0898（24.0%改善）、60日0.3099→0.1598（48.4%改善）。方向一致率は悪化なし。
+- minimum 1% holdout改善gateを追加。consensus weight候補は20日約0.5%改善で保留、60日は悪化で保留。
+- `robust-linear-clip-v1`のみ採用。20日regularized GBDT / lower-center quantileはshadow、他parameterは既定維持。
+
 ## 2026-07-06 上向き兆候 / 既存予測モデル改善 / 本気分析モード ドキュメント整備
 
 - 旧「反転期待」を公開名「上向き兆候」とし、下落→上昇、調整→再上昇、横ばい→上放れ、安定→上昇準備を対象に整理。

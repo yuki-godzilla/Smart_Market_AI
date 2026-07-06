@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-06 上向き兆候 / 既存予測モデル改善 / 本気分析モード ドキュメント整備
+
+- 旧「反転期待」を公開名「上向き兆候」とし、下落→上昇、調整→再上昇、横ばい→上放れ、安定→上昇準備を対象に整理。
+- 上昇気配を「すでに上向きの強さ」、上向き兆候を「まだ大きく上がっていない銘柄の変化兆候」と区別。
+- 実銘柄10スプリントとpoint-in-time backtestを計画。
+- 新規model追加より、advanced linear/tree/GBDT/quantileとconsensusのwalk-forward評価、特徴量、weighting改善を優先。
+- 通常RankingはLLM非依存とし、明示ONの本気分析モードだけ上位候補を材料分析する方針を追加。
+- LLMの順位融合前に性能評価を必須とし、初期はbadge、warning、summaryに限定。
+- `Documents/32_Upward_Signal_Strategy.md`、`33_LLM_Ranking_Fusion_Strategy.md`、`34_Forecast_Model_Improvement_Strategy.md`を追加し、関連要件・設計・roadmap・wording・review文書を同期。
+
 ## 2026-07-05 反転期待スコア v2
 
 - 反転期待を、チャート形状25%・予測25%・安全性20%・押し目15%・企業/データ/配当品質10%・反転材料5%へ再構成。

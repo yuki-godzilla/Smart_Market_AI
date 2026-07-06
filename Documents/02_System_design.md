@@ -414,3 +414,31 @@ scale 550 width
 - **ファイル形式**: 現状は CSV / JSON / Markdown / ZIP。Parquet、XLSX/PDF は future scope
 - **モデリング**: 現状は deterministic baseline。Prophet、XGBoost/LightGBM、LR baseline は future optional
 - **スケジューラ**: cron/Task Scheduler
+
+---
+
+## 17. 上向き兆候・予測評価・LLM材料評価レイヤー
+
+### Upward Signal Scoring Layer
+
+価格、特徴量、既存予測、下落安全性、チャート形状、配当安全性を統合し、下落・調整・横ばいから上向きへ変わる兆しを評価する。AI総合、上昇気配、下降警戒とは独立した探索軸とし、内部の旧keyは互換目的で維持できる。
+
+### Forecast Model Evaluation Layer
+
+model、horizon、market、asset type、regime別のwalk-forward評価、consensus weight調整案、上向き兆候への寄与、model disagreement/confidenceをオフラインまたは明示実行で算出する。通常UI操作を阻害しない。
+
+### LLM Material Assessment / Evaluation Gate
+
+Research RAG、News、TDnet、IR、EDINET、provider profileから好悪材料、カタリスト、配当罠、関連度、鮮度、根拠品質、不確実性を構造化する。初期段階では順位を変えず、LLMなし/ありの効果、latency、failure、cacheを評価して採用・限定採用・不採用を判断する。
+
+### Ranking Analysis Mode Controller
+
+通常ランキングは数値モデルだけで完走する。本気分析モードでは完成後の上位候補だけにLLM材料評価を追加し、失敗時も通常結果を保持する。
+
+データフロー:
+
+1. Universe抽出 → MarketData → Feature Snapshot → Forecast → AI総合/上昇気配/上向き兆候/下降警戒 → 表示
+2. 評価日固定 → point-in-time特徴量 → advanced model評価 → 粒度別集計 → weighting案
+3. 通常Ranking → 上位N件 → source取得/cache → LLM評価 → badge/warning/summary → 評価通過後だけ限定補正
+
+全銘柄同期LLM分析を避け、local LLM workerは初期1並列を基本とし、高度予測とLLMの同時多重実行を制限する。

@@ -1,0 +1,54 @@
+# 34 既存予測モデル改善 戦略
+
+## 1. 目的と方針
+
+モデル数を増やすのではなく、`advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`、forecast consensusとupside/downside/risk signalの予測確度、安定性、説明性、ランキング貢献度を高める。
+
+性能測定、walk-forward強化、特徴量拡充、consensus weighting見直し、上向き兆候への寄与整理の順で進める。時系列Foundation Model、TFT、GNN、追加GBDTライブラリは本線に入れず、既存改善後の実験枠とする。
+
+## 2. 評価設計
+
+重点horizonは20・60営業日、補助は5営業日、120日はバックテストで確認する。direction accuracy、RMSE、MAE、単純予測比RMSE improvement、calibration、ranking貢献度、false positive削減、上向き兆候への寄与、下降警戒との整合、model disagreement、confidence calibrationをmodel、horizon、market、asset type、regime、symbol、期間別に集計する。
+
+評価日後のデータを特徴量に使わず、scaler、imputer、model fittingをfold内に閉じる。horizon相当のpurge windowを検討し、上昇・横ばい・下落相場を含め、static splitだけで採用判断しない。
+
+## 3. モデル別改善候補
+
+- `advanced_linear`: Ridge/ElasticNet alpha、標準化、外れ値clip、market/sector pooling、feature contribution安定性。軽量で説明可能な基準として維持。
+- `advanced_tree_sklearn`: ExtraTreesのestimators/depth/min leaf、小標本の過学習、高ボラへの過剰反応、市場・asset type差。
+- `advanced_gbdt_sklearn`: learning rate、iterations、leaf nodes、L2をhorizonや市場別に軽量調整し、方向一致とconfidenceを重視。
+- `advanced_quantile`: regime/volatility別forward return分布、下振れrangeの下降警戒・安全性接続、extreme outlier抑制。
+
+## 4. Consensus weighting
+
+horizon、market、asset type、validation direction accuracy、RMSE improvementで重みを調整し、model disagreementが大きい場合はconfidenceを下げる。上向き兆候では予測値より方向一致と下振れ安全性を重視する。
+
+出力候補は`consensus_predicted_return`、`consensus_direction_agreement`、`consensus_confidence`、`model_disagreement_warning`、`horizon_specific_weight`、`model_weighting_reason`。
+
+## 5. 特徴量候補
+
+- Chart: RSI、Bollinger、MA gap/slope、recent low break、higher low、60日range、volatility compression、volume spike/dry-up
+- Relative strength: market/sector比20・60日return、sector momentum/reversal、peer group、market regime
+- Fundamentals: dividend yield、payout、ROE、EPS growth、operating CF、FCF、debt/equity、dividend safety/trap
+- Data quality: price/fundamental completeness、material freshness、source reliability
+
+## 6. 上向き兆候への接続
+
+forecast return、up/down model count、consensus confidence、model disagreement、quantile downside rangeを使う。方向一致、下降警戒、下振れrange、上昇済みcapを優先し、単純な高予測return順にしない。
+
+## 7. 評価成果物
+
+- `forecast_model_evaluation_summary.md`
+- `forecast_model_evaluation_by_horizon.csv`
+- `forecast_model_evaluation_by_market.csv`
+- `forecast_model_evaluation_by_asset_type.csv`
+- `forecast_model_evaluation_by_regime.csv`
+- `forecast_model_error_cases.md`
+- `forecast_model_weighting_adjustments.md`
+
+## 8. 新規モデルの採用条件と完了条件
+
+既存評価で明確な弱点があり、特徴量やweightingで改善できず、walk-forwardで安定して上回り、推論時間・配布負荷・保守性が許容され、UIで説明できる場合だけ新規モデルを検討する。
+
+モデルごとの得意・不得意、consensus weight、confidence低下ルール、上向き兆候への寄与を説明でき、新規モデルが必要か既存改善で十分か判断できれば完了とする。
+

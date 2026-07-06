@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-05
+Last updated: 2026-07-06
 
 Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
 as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,
@@ -19,6 +19,18 @@ safety as color, and data quality as point size. A point-in-time backtest contra
 20/60/120-day returns, maximum drawdown, benchmark return, excess return, success/failure
 summaries, and the four requested CSV/Markdown artifacts without exposing future prices to the
 signal-row builder. Live ten-sprint validation remains an explicit opt-in run.
+
+## Upward Signal / Forecast Improvement / Serious Analysis Strategy
+
+Upward Signal is the public name for the backward-compatible Reversal Expectation axis. The next maturity work prioritizes ten-sprint point-in-time validation and existing advanced forecast model evaluation rather than adding models indiscriminately. `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, `advanced_quantile`, and forecast consensus will be compared by walk-forward horizon, market, asset type, regime, ranking contribution, disagreement, and confidence calibration.
+
+Normal Ranking remains fast and LLM-independent. `本気分析モード（AI材料分析つき）` is an explicit opt-in plan for assessing only top candidates. Its initial role is badges, warnings, and summaries for material relevance, adverse news, and dividend traps. Ranking correction requires a prior performance gate and must remain bounded to top candidates.
+
+Strategy references:
+
+- [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)
+- [LLMランキング融合 戦略](Documents/33_LLM_Ranking_Fusion_Strategy.md)
+- [既存予測モデル改善 戦略](Documents/34_Forecast_Model_Improvement_Strategy.md)
 
 Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,

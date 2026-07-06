@@ -670,3 +670,11 @@ research:
 * 日本語/英語資料の同時検索における翻訳・正規化方針。
 * 図表・表・画像PDFの扱い。
 * 著作権・引用量・保存期間の運用ルール。
+
+## 13) LLM Material Assessment and Ranking Fusion
+
+Research RAG、News、TDnet、IR、EDINETはLLM Material Assessmentの入力となり、好材料、悪材料、カタリスト、配当罠リスク、ニュース関連度、材料鮮度、根拠品質、不確実性を構造化する。
+
+初期段階ではランキング順位を変更せず、本気分析モードON時の上位10件へ材料バッジとして表示する。性能評価で有効性が確認された場合だけ、キャッシュ済み評価を上位候補内の軽い補正に使う。
+
+source URL、`published_at`、`fetched_at`、`source_hash`、model name、prompt versionを追跡する。取得本文は既定でtransientとし、archive/saveは別の明示actionにする。LLMは全銘柄へ同期実行せず、source hash不変時はcacheを再利用する。TTL目安はニュース24時間、IR/TDnet 3〜7日、決算・配当安全性7〜30日とし、分析失敗でランキング本体を失敗させない。

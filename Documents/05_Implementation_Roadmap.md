@@ -2644,8 +2644,47 @@ Markdown UTF-8 check:
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
 - PDF / Excel export をいつ入れるか
 - Execution / broker order をどの段階で再開するか
-# Upward Signal / 上向き兆候
+# Phase 32〜37: 上向き兆候・既存予測モデル改善・本気分析モード
 
-- `上向き兆候` is an independent Ranking exploration axis, ordered after `AI総合` and `上昇気配`.
-- The common score, dedicated sort, Ranking/Cockpit/Watchlist display, snapshots, Ranking History, Assistant context, Decision Report, and deterministic regression coverage are implemented together.
-- The score is decision-support information for prioritizing further review; it does not modify AI総合, Investment Score, Forecast, or broker/execution behavior.
+> この戦略トラックのPhase 32〜37は、既存のWatchlist `Phase 32-A〜H` と番号が重なる。履歴を改番せず、正式な番号整理は仕様Issueとして管理する。上向き兆候v3の共通score、専用sort、Ranking/Cockpit/Watchlist、snapshot、履歴、Assistant、Decision Report接続は実装済みであり、以下はその改善・評価計画である。
+
+## Phase 32: 上向き兆候 名称変更・UI整備・ロジックv2
+
+旧「反転期待」を「上向き兆候」へ統一し、下落→上昇だけでなく、安定→上昇、横ばい→上放れも評価する。主要順を `AI総合 → 上昇気配 → 上向き兆候 → 下降警戒` とし、形状、配当罠、落ちるナイフ、上昇済みcap、forecast confidenceを整備する。
+
+完了条件は、旧名称がユーザー向けUIに原則残らず、Ranking、Cockpit、Myウォッチリスト、履歴、Decision Report、Assistantで一貫すること。名称・主要接続は実装済み、実確認と調整は継続する。
+
+## Phase 33: 既存予測モデル評価・ブラッシュアップ
+
+`advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`、forecast consensusをwalk-forwardで評価し、horizon、market、asset type、regime別のRMSE、MAE、direction accuracy、calibration、model disagreement、上向き兆候への寄与を確認する。consensus weightingとconfidence低下ルールを決め、新規モデルの必要性を判断する。
+
+成果物:
+
+- `forecast_model_evaluation_summary.md`
+- `forecast_model_evaluation_by_horizon.csv`
+- `forecast_model_evaluation_by_market.csv`
+- `forecast_model_evaluation_by_asset_type.csv`
+- `forecast_model_evaluation_by_regime.csv`
+- `forecast_model_weighting_adjustments.md`
+
+## Phase 34: 上向き兆候 実確認・バックテストスプリント
+
+日本大型株、高配当、グロース、米国株、ETF、横ばい、落ちるナイフ候補を10スプリントで確認する。既知例と自動抽出例をpoint-in-timeでbacktestし、20・60・120営業日return、最大下落、benchmark差、false positive、先行した既存モデルを記録する。
+
+成果物は`backtest_upward_signal_cases.csv`、`backtest_upward_signal_summary.md`、`upward_signal_false_positive_cases.md`、`upward_signal_logic_adjustments.md`。上位10件中7件以上が目視で納得でき、危険例や上昇済みが上位を占有しない状態を目標とする。
+
+## Phase 35: 既存モデル活用による上向き兆候改善
+
+consensus confidence、model disagreement、advanced quantileの下振れrange、linear/tree/GBDTの方向一致を上向き余地と下落安全性へ接続する。信頼度が低い場合のscore上限、相対強度・チャート形状特徴量を検討し、新規classifierは原則追加しない。
+
+成果物は`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md`。
+
+## Phase 36: LLM材料評価 性能評価試験
+
+上向き兆候上位10件でLLMなし/ありを比較し、悪材料、配当罠、関連度、false positive、latency、failure、cache hitを評価する。`llm_material_eval_cases.csv`、`llm_material_eval_summary.md`、`llm_false_positive_reduction.md`、`llm_ranking_latency_report.md`、`llm_adoption_decision.md`を出力し、順位補正、バッジ限定、不採用を判断する。
+
+## Phase 37: 本気分析モード 実装・限定融合
+
+ランキング作成UIへ初期値OFFの「本気分析モード（AI材料分析つき）」を追加する。ON時だけ上位10件を分析し、初期はバッジ・警告・要約だけを表示する。評価通過後に限り、上位候補内で補正幅を限定する。cacheを再利用し、LLM失敗時も通常ランキングを保持する。
+
+通常ランキングが高速・LLM非依存で完走し、全銘柄リアルタイム分析を行わないことを全Phase共通制約とする。

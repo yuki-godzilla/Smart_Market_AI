@@ -137,6 +137,10 @@ SMAI は以下の思想を重視しています。
 次の重点は Phase 30-C の Assistant confirmable safe action 接続、または Phase 28-B 以降の LLM 解釈拡張を、既存の Assistant / LLM Factor / Decision Report 境界を壊さずに段階化することです。Phase 30-A / 30-B の Tool Plan は提案表示と安全な画面遷移であり、外部取得・ランキング作成・確認レポート作成を自動実行しません。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
+ランキングでは旧「反転期待」をユーザー向けに「上向き兆候」と再整理し、下落・調整・横ばいから上向きへ変わる兆しを探す探索軸として強化します。予測精度は新規モデルの追加より、既存advanced forecast群のwalk-forward評価、特徴量、consensus weightingを優先します。
+
+通常ランキングの速度を維持し、明示ON時だけ上位候補へAI材料分析を追加する「本気分析モード」を段階導入します。LLMを順位へ本格融合する前に性能評価試験を必須とし、初期はバッジ・警告・要約に限定します。
+
 ## ドキュメント
 
 - [プロジェクト現在地](./PROJECT_CONTEXT.md)
@@ -145,6 +149,9 @@ SMAI は以下の思想を重視しています。
 - [Phase 27-B LLM Factor Live Smoke](./Documents/27B_LLM_Factor_Live_Smoke.md)
 - [Phase 28-A Cockpit LLM Interpretation](./Documents/28A_Cockpit_LLM_Interpretation.md)
 - [Phase 30 Assistant Agent Roadmap](./Documents/30_Assistant_Agent_Roadmap.md)
+- [上向き兆候 戦略](./Documents/32_Upward_Signal_Strategy.md)
+- [LLMランキング融合 戦略](./Documents/33_LLM_Ranking_Fusion_Strategy.md)
+- [既存予測モデル改善 戦略](./Documents/34_Forecast_Model_Improvement_Strategy.md)
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Phase 16 UI 改善計画](./Documents/08_Phase16_UI_Improvement_Plan.md)
 - [SBI 銘柄ユニバース方針](./Documents/09_SBI_Symbol_Universe_Policy.md)

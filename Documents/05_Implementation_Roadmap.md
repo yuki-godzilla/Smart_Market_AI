@@ -2658,7 +2658,7 @@ Markdown UTF-8 check:
 
 `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`、forecast consensusをwalk-forwardで評価し、horizon、market、asset type、regime別のRMSE、MAE、direction accuracy、calibration、model disagreement、上向き兆候への寄与を確認する。consensus weightingとconfidence低下ルールを決め、新規モデルの必要性を判断する。
 
-進捗: 20/60営業日のnetwork-free評価service、horizon purge、model/consensus集約、summary Markdownとhorizon CSV出力まで実装済み。初期consensus指標は構成modelの`component_metric_proxy`。consensus自身のfold-level誤差、market / asset type / regime別成果物、calibration、weighting調整案は後続。
+進捗: 20/60営業日のnetwork-free rolling-origin評価、horizon purge、model/consensus自身のfold-level誤差、最新予測、market / asset type / regime別集計、error cases、時系列holdoutで比較するweighting調整案まで実装済み。候補weightは前半originで作り、後半holdoutでRMSE改善かつ方向一致率維持の場合だけ明示適用できる。通常Rankingへは自動反映しない。calibrationと実データ評価は後続。
 
 成果物:
 

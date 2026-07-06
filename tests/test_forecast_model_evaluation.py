@@ -1,88 +1,176 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 
 import pytest
 
 from backend.core.data_contracts import Bar, Symbol
 from backend.forecast import (
     ForecastEvaluationCase,
+    ForecastWeightAdjustment,
+    evaluate_advanced_forecast,
     evaluate_forecast_models,
+    evaluated_consensus_prediction,
     write_forecast_evaluation_artifacts,
 )
 
 
-def test_evaluate_forecast_models_aggregates_twenty_and_sixty_day_metrics():
+def test_evaluation_runs_real_consensus_folds_and_group_summaries():
     report = evaluate_forecast_models(
         [
             ForecastEvaluationCase(
                 symbol="AAPL",
-                bars=_bars("AAPL", 260, drift=Decimal("0.30")),
+                bars=_bars("AAPL", 180, drift=Decimal("0.30")),
                 market="US",
                 asset_type="stock",
                 regime="uptrend",
             ),
             ForecastEvaluationCase(
-                symbol="MSFT",
-                bars=_bars("MSFT", 260, drift=Decimal("0.12")),
-                market="US",
-                asset_type="stock",
+                symbol="1306.T",
+                bars=_bars("1306.T", 180, drift=Decimal("0.08"), currency="JPY"),
+                market="JP",
+                asset_type="etf",
                 regime="sideways",
             ),
-        ]
+        ],
+        max_origins=2,
     )
 
     assert report.horizons == [20, 60]
     assert report.requested_case_count == 2
-    assert len(report.rows) == 10
-    assert {row.model_name for row in report.rows} == {
-        "advanced_linear",
-        "advanced_tree_sklearn",
-        "advanced_gbdt_sklearn",
-        "advanced_quantile",
-        "forecast_consensus",
-    }
-    assert all(row.evaluated_case_count == 2 for row in report.rows)
-    assert all(row.validation_sample_count > 0 for row in report.rows)
-    assert all(Decimal("0") <= row.direction_accuracy <= Decimal("1") for row in report.rows)
-    consensus_rows = [row for row in report.rows if row.model_name == "forecast_consensus"]
-    assert all(row.evaluation_method == "component_metric_proxy" for row in consensus_rows)
+    assert report.validation_points
+    assert report.predictions
+    assert len(report.weight_adjustments) == 2
+    overall = [row for row in report.rows if row.group_type == "overall"]
+    assert len(overall) == 10
+    consensus_rows = [row for row in overall if row.model_name == "forecast_consensus"]
+    assert all(row.evaluation_method == "rolling_origin" for row in consensus_rows)
+    assert all(row.validation_sample_count == 4 for row in consensus_rows)
     assert all(row.mean_model_disagreement is not None for row in consensus_rows)
-    assert all(
-        row.low_confidence_count + row.medium_confidence_count + row.high_confidence_count == 2
-        for row in consensus_rows
+    assert {row.group_value for row in report.rows if row.group_type == "market"} == {
+        "JP",
+        "US",
+    }
+    assert {row.group_value for row in report.rows if row.group_type == "asset_type"} == {
+        "etf",
+        "stock",
+    }
+    assert {row.group_value for row in report.rows if row.group_type == "regime"} == {
+        "sideways",
+        "uptrend",
+    }
+    assert all(Decimal("0") <= row.direction_accuracy <= Decimal("1") for row in report.rows)
+
+
+def test_rolling_origin_uses_only_history_available_at_origin():
+    original = _bars("AAPL", 120, drift=Decimal("0.20"))
+    changed_future = [
+        bar.model_copy(update={"close": bar.close * Decimal("5")}) if index >= 100 else bar
+        for index, bar in enumerate(original)
+    ]
+    first = evaluate_forecast_models(
+        [ForecastEvaluationCase(symbol="AAPL", bars=original)],
+        horizons=(20,),
+        adapter_names=("advanced_linear",),
+        max_origins=1,
+    )
+    second = evaluate_forecast_models(
+        [ForecastEvaluationCase(symbol="AAPL", bars=changed_future)],
+        horizons=(20,),
+        adapter_names=("advanced_linear",),
+        max_origins=1,
     )
 
+    first_point = next(
+        point for point in first.validation_points if point.model_name == "advanced_linear"
+    )
+    second_point = next(
+        point for point in second.validation_points if point.model_name == "advanced_linear"
+    )
+    assert first_point.origin_at == second_point.origin_at
+    assert first_point.predicted_return == second_point.predicted_return
+    assert first_point.actual_return != second_point.actual_return
 
-def test_evaluate_forecast_models_records_short_history_as_skipped():
+
+def test_short_history_is_recorded_as_skipped():
     report = evaluate_forecast_models(
         [
             ForecastEvaluationCase(
                 symbol="AAPL",
-                bars=_bars("AAPL", 90, drift=Decimal("0.20")),
+                bars=_bars("AAPL", 70, drift=Decimal("0.20")),
             )
         ],
         horizons=(20, 60),
         adapter_names=("advanced_linear",),
+        max_origins=2,
     )
 
     twenty_day = next(
-        row for row in report.rows if row.model_name == "advanced_linear" and row.horizon_days == 20
+        row
+        for row in report.rows
+        if row.group_type == "overall"
+        and row.model_name == "advanced_linear"
+        and row.horizon_days == 20
     )
     sixty_day = next(
-        row for row in report.rows if row.model_name == "advanced_linear" and row.horizon_days == 60
+        row
+        for row in report.rows
+        if row.group_type == "overall"
+        and row.model_name == "advanced_linear"
+        and row.horizon_days == 60
     )
-    assert twenty_day.evaluated_case_count == 1
-    assert sixty_day.evaluated_case_count == 0
+    assert twenty_day.validation_sample_count > 0
+    assert sixty_day.validation_sample_count == 0
     assert sixty_day.skipped_case_count == 1
     assert report.warnings
 
 
-def test_write_forecast_evaluation_artifacts_is_deterministic(tmp_path):
+def test_weight_adjustment_gate_and_explicit_prediction():
+    bars = _bars("AAPL", 140, drift=Decimal("0.25"))
+    evaluations = [
+        evaluate_advanced_forecast(
+            bars,
+            adapter_name=name,
+            horizon_days=20,
+        )
+        for name in ("advanced_linear", "advanced_quantile")
+    ]
+    adopted = ForecastWeightAdjustment(
+        horizon_days=20,
+        model_weights={
+            "advanced_linear": Decimal("0.7500"),
+            "advanced_quantile": Decimal("0.2500"),
+        },
+        tuning_sample_count=3,
+        holdout_sample_count=2,
+        current_consensus_rmse=Decimal("0.1000"),
+        candidate_consensus_rmse=Decimal("0.0900"),
+        current_direction_accuracy=Decimal("0.5000"),
+        candidate_direction_accuracy=Decimal("0.6000"),
+        adopted=True,
+        reason="test",
+    )
+
+    predicted = evaluated_consensus_prediction(evaluations, adopted)
+
+    expected = (
+        evaluations[0].predicted_return * Decimal("0.7500")
+        + evaluations[1].predicted_return * Decimal("0.2500")
+    ).quantize(Decimal("0.0001"))
+    assert predicted == expected
+    with pytest.raises(ValueError, match="not passed"):
+        evaluated_consensus_prediction(
+            evaluations,
+            adopted.model_copy(update={"adopted": False}),
+        )
+
+
+def test_artifacts_cover_groups_predictions_errors_and_weights(tmp_path):
     report = evaluate_forecast_models(
         [
             ForecastEvaluationCase(
                 symbol="AAPL",
-                bars=_bars("AAPL", 90, drift=Decimal("0.25")),
+                bars=_bars("AAPL", 120, drift=Decimal("0.25")),
                 market="US",
                 asset_type="stock",
                 regime="uptrend",
@@ -90,24 +178,33 @@ def test_write_forecast_evaluation_artifacts_is_deterministic(tmp_path):
         ],
         horizons=(20,),
         adapter_names=("advanced_linear", "advanced_quantile"),
+        max_origins=2,
     )
 
     paths = write_forecast_evaluation_artifacts(report, tmp_path)
 
-    assert set(paths) == {"summary", "by_horizon"}
-    summary = paths["summary"].read_text(encoding="utf-8")
-    csv_text = paths["by_horizon"].read_text(encoding="utf-8")
-    assert "Forecast Model Evaluation Summary" in summary
-    assert "advanced_linear" in summary
-    assert "forecast_consensus" in summary
-    assert "投資助言" in summary
-    assert "model_name,evaluation_method,horizon_days" in csv_text
-    assert "advanced_quantile,adapter_walk_forward,20" in csv_text
+    assert set(paths) == {
+        "summary",
+        "by_horizon",
+        "by_market",
+        "by_asset_type",
+        "by_regime",
+        "predictions",
+        "error_cases",
+        "weighting_adjustments",
+    }
+    assert "rolling-origin" in paths["summary"].read_text(encoding="utf-8")
+    assert "group_type,group_value" in paths["by_market"].read_text(encoding="utf-8")
+    assert "forecast_consensus" in paths["predictions"].read_text(encoding="utf-8")
+    assert "Absolute error" in paths["error_cases"].read_text(encoding="utf-8")
+    assert "holdout" in paths["weighting_adjustments"].read_text(encoding="utf-8")
 
 
-def test_evaluate_forecast_models_rejects_unknown_adapter():
+def test_evaluation_rejects_invalid_options():
     with pytest.raises(ValueError, match="registered"):
         evaluate_forecast_models([], adapter_names=("missing",))
+    with pytest.raises(ValueError, match="max_origins"):
+        evaluate_forecast_models([], max_origins=0)
 
 
 def _bars(
@@ -115,12 +212,13 @@ def _bars(
     count: int,
     *,
     drift: Decimal,
+    currency: Literal["JPY", "USD"] = "USD",
 ) -> list[Bar]:
     symbol = Symbol(
         raw=raw_symbol,
-        exchange="NASDAQ",
+        exchange="NASDAQ" if currency == "USD" else "TSE",
         code=raw_symbol,
-        currency="USD",
+        currency=currency,
     )
     start = datetime(2025, 1, 1, tzinfo=UTC)
     close = Decimal("100")

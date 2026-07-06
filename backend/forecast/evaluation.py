@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from backend.forecast.service import (
 
 DEFAULT_EVALUATION_HORIZONS = (20, 60)
 CONSENSUS_MODEL_NAME = "forecast_consensus"
+DEFAULT_MAX_ORIGINS = 5
 
 
 class ForecastEvaluationCase(StrictBaseModel):
@@ -34,13 +36,50 @@ class ForecastEvaluationCase(StrictBaseModel):
     regime: str = Field(default="unknown", min_length=1)
 
 
-class ForecastModelEvaluationRow(StrictBaseModel):
-    """Aggregated walk-forward metrics for one model and horizon."""
+class ForecastValidationPoint(StrictBaseModel):
+    """One future-safe rolling-origin prediction and observed return."""
 
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
+    symbol: str = Field(min_length=1)
+    market: str = Field(min_length=1)
+    asset_type: str = Field(min_length=1)
+    regime: str = Field(min_length=1)
     model_name: str = Field(min_length=1)
-    evaluation_method: str = Field(min_length=1)
+    horizon_days: int = Field(ge=1)
+    origin_at: datetime
+    target_at: datetime
+    predicted_return: Decimal
+    actual_return: Decimal
+    model_disagreement: Decimal | None = Field(default=None, ge=0)
+
+
+class ForecastPredictionRow(StrictBaseModel):
+    """Latest point-in-time prediction kept separate from validation results."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    symbol: str = Field(min_length=1)
+    market: str = Field(min_length=1)
+    asset_type: str = Field(min_length=1)
+    regime: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    horizon_days: int = Field(ge=1)
+    as_of: datetime
+    predicted_return: Decimal
+    confidence: str = Field(min_length=1)
+    model_disagreement: Decimal | None = Field(default=None, ge=0)
+
+
+class ForecastModelEvaluationRow(StrictBaseModel):
+    """Aggregated rolling-origin metrics for one model, group, and horizon."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    group_type: str = Field(min_length=1)
+    group_value: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    evaluation_method: str = "rolling_origin"
     horizon_days: int = Field(ge=1)
     evaluated_case_count: int = Field(ge=0)
     skipped_case_count: int = Field(ge=0)
@@ -49,21 +88,39 @@ class ForecastModelEvaluationRow(StrictBaseModel):
     mae: Decimal = Field(ge=0)
     rmse: Decimal = Field(ge=0)
     direction_accuracy: Decimal = Field(ge=0, le=1)
-    rmse_improvement: Decimal | None = None
+    baseline_zero_rmse: Decimal = Field(ge=0)
+    rmse_improvement: Decimal
     mean_model_disagreement: Decimal | None = Field(default=None, ge=0)
-    low_confidence_count: int = Field(default=0, ge=0)
-    medium_confidence_count: int = Field(default=0, ge=0)
-    high_confidence_count: int = Field(default=0, ge=0)
+
+
+class ForecastWeightAdjustment(StrictBaseModel):
+    """Offline candidate weights and their same-fold comparison."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    horizon_days: int = Field(ge=1)
+    model_weights: dict[str, Decimal]
+    tuning_sample_count: int = Field(ge=0)
+    holdout_sample_count: int = Field(ge=0)
+    current_consensus_rmse: Decimal = Field(ge=0)
+    candidate_consensus_rmse: Decimal = Field(ge=0)
+    current_direction_accuracy: Decimal = Field(ge=0, le=1)
+    candidate_direction_accuracy: Decimal = Field(ge=0, le=1)
+    adopted: bool
+    reason: str = Field(min_length=1)
 
 
 class ForecastModelEvaluationReport(StrictBaseModel):
-    """Deterministic Phase 33 evaluation result."""
+    """Deterministic Phase 33 evaluation, prediction, and tuning result."""
 
     model_config = ConfigDict(extra="forbid")
 
     horizons: list[int]
     requested_case_count: int = Field(ge=0)
     rows: list[ForecastModelEvaluationRow]
+    validation_points: list[ForecastValidationPoint]
+    predictions: list[ForecastPredictionRow]
+    weight_adjustments: list[ForecastWeightAdjustment]
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -72,75 +129,93 @@ def evaluate_forecast_models(
     *,
     horizons: tuple[int, ...] = DEFAULT_EVALUATION_HORIZONS,
     adapter_names: tuple[str, ...] | None = None,
+    max_origins: int = DEFAULT_MAX_ORIGINS,
 ) -> ForecastModelEvaluationReport:
-    """Evaluate registered advanced models without network or future-data access."""
+    """Run future-safe rolling-origin evaluation and latest predictions."""
 
     resolved_horizons = _validated_horizons(horizons)
     resolved_adapters = _validated_adapters(adapter_names or advanced_forecast_adapter_keys())
-    evaluations: dict[tuple[str, int], list[AdvancedForecastEvaluation]] = defaultdict(list)
-    skipped: dict[tuple[str, int], int] = defaultdict(int)
-    consensus_by_horizon: dict[int, list[tuple[list[AdvancedForecastEvaluation], Decimal]]] = (
-        defaultdict(list)
-    )
+    if max_origins < 1:
+        raise ValueError("max_origins must be at least 1")
 
+    points: list[ForecastValidationPoint] = []
+    predictions: list[ForecastPredictionRow] = []
+    skipped: dict[tuple[str, int], int] = defaultdict(int)
     for case in cases:
         bars = sorted(case.bars, key=lambda bar: bar.ts)
         for horizon in resolved_horizons:
-            case_evaluations: list[AdvancedForecastEvaluation] = []
-            for adapter_name in resolved_adapters:
-                try:
-                    evaluation = evaluate_advanced_forecast(
-                        bars,
-                        adapter_name=adapter_name,
-                        horizon_days=horizon,
-                    )
-                except ValueError:
-                    skipped[(adapter_name, horizon)] += 1
-                    continue
-                if evaluation.validation_metrics.fold_count <= 0:
-                    skipped[(adapter_name, horizon)] += 1
-                    continue
-                evaluations[(adapter_name, horizon)].append(evaluation)
-                case_evaluations.append(evaluation)
-            consensus = summarize_advanced_forecast_evaluations(case_evaluations)
-            if consensus is not None:
-                consensus_by_horizon[horizon].append(
-                    (case_evaluations, consensus.predicted_return_range)
-                )
-            else:
-                skipped[(CONSENSUS_MODEL_NAME, horizon)] += 1
-
-    rows: list[ForecastModelEvaluationRow] = []
-    for horizon in resolved_horizons:
-        for adapter_name in resolved_adapters:
-            rows.append(
-                _aggregate_model_rows(
-                    adapter_name,
-                    horizon,
-                    evaluations[(adapter_name, horizon)],
-                    skipped_case_count=skipped[(adapter_name, horizon)],
+            case_points = _evaluate_case_origins(
+                case,
+                bars,
+                horizon_days=horizon,
+                adapter_names=resolved_adapters,
+                max_origins=max_origins,
+            )
+            points.extend(case_points)
+            present_models = {point.model_name for point in case_points}
+            for model_name in (*resolved_adapters, CONSENSUS_MODEL_NAME):
+                if model_name not in present_models:
+                    skipped[(model_name, horizon)] += 1
+            predictions.extend(
+                _latest_predictions(
+                    case,
+                    bars,
+                    horizon_days=horizon,
+                    adapter_names=resolved_adapters,
                 )
             )
-        rows.append(
-            _aggregate_consensus_rows(
-                horizon,
-                consensus_by_horizon[horizon],
-                skipped_case_count=skipped[(CONSENSUS_MODEL_NAME, horizon)],
-            )
-        )
 
+    rows = _aggregate_all_groups(
+        points,
+        cases=cases,
+        horizons=resolved_horizons,
+        model_names=(*resolved_adapters, CONSENSUS_MODEL_NAME),
+        skipped=skipped,
+    )
+    adjustments = _build_weight_adjustments(
+        points,
+        horizons=resolved_horizons,
+        adapter_names=resolved_adapters,
+    )
     warnings: list[str] = []
     if not cases:
         warnings.append("評価ケースがありません。")
-    if any(row.skipped_case_count for row in rows):
+    if any(value > 0 for value in skipped.values()):
         warnings.append(
             "履歴不足などで評価できないケースがあります。skipped_case_countを確認してください。"
         )
+    if any(not adjustment.adopted for adjustment in adjustments):
+        warnings.append("改善候補weightは同一fold比較を通過していないため、自動採用されません。")
     return ForecastModelEvaluationReport(
         horizons=list(resolved_horizons),
         requested_case_count=len(cases),
         rows=rows,
+        validation_points=points,
+        predictions=predictions,
+        weight_adjustments=adjustments,
         warnings=warnings,
+    )
+
+
+def evaluated_consensus_prediction(
+    evaluations: list[AdvancedForecastEvaluation],
+    adjustment: ForecastWeightAdjustment,
+) -> Decimal:
+    """Apply an adopted offline weight profile to matching evaluations."""
+
+    if not adjustment.adopted:
+        raise ValueError("weight adjustment has not passed the adoption gate")
+    matching = [
+        evaluation
+        for evaluation in evaluations
+        if evaluation.horizon_days == adjustment.horizon_days
+        and evaluation.adapter_name in adjustment.model_weights
+    ]
+    if len(matching) != len(adjustment.model_weights):
+        raise ValueError("evaluations do not match the adopted weight profile")
+    return _weighted_prediction(
+        {evaluation.adapter_name: evaluation.predicted_return for evaluation in matching},
+        adjustment.model_weights,
     )
 
 
@@ -148,110 +223,420 @@ def write_forecast_evaluation_artifacts(
     report: ForecastModelEvaluationReport,
     output_dir: Path,
 ) -> dict[str, Path]:
-    """Write the first Phase 33 Markdown and horizon CSV artifacts."""
+    """Write Phase 33 evaluation, prediction, error, and tuning artifacts."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = output_dir / "forecast_model_evaluation_summary.md"
-    horizon_path = output_dir / "forecast_model_evaluation_by_horizon.csv"
-    summary_path.write_text(_render_summary(report), encoding="utf-8")
-    with horizon_path.open("w", encoding="utf-8", newline="") as handle:
-        fieldnames = [
-            "model_name",
-            "evaluation_method",
-            "horizon_days",
-            "evaluated_case_count",
-            "skipped_case_count",
-            "validation_sample_count",
-            "fold_count",
-            "mae",
-            "rmse",
-            "direction_accuracy",
-            "rmse_improvement",
-            "mean_model_disagreement",
-            "low_confidence_count",
-            "medium_confidence_count",
-            "high_confidence_count",
-        ]
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in report.rows:
-            writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
-    return {
-        "summary": summary_path,
-        "by_horizon": horizon_path,
+    paths = {
+        "summary": output_dir / "forecast_model_evaluation_summary.md",
+        "by_horizon": output_dir / "forecast_model_evaluation_by_horizon.csv",
+        "by_market": output_dir / "forecast_model_evaluation_by_market.csv",
+        "by_asset_type": output_dir / "forecast_model_evaluation_by_asset_type.csv",
+        "by_regime": output_dir / "forecast_model_evaluation_by_regime.csv",
+        "predictions": output_dir / "forecast_model_predictions.csv",
+        "error_cases": output_dir / "forecast_model_error_cases.md",
+        "weighting_adjustments": output_dir / "forecast_model_weighting_adjustments.md",
     }
+    paths["summary"].write_text(_render_summary(report), encoding="utf-8")
+    _write_group_csv(paths["by_horizon"], report.rows, group_type="overall")
+    _write_group_csv(paths["by_market"], report.rows, group_type="market")
+    _write_group_csv(paths["by_asset_type"], report.rows, group_type="asset_type")
+    _write_group_csv(paths["by_regime"], report.rows, group_type="regime")
+    _write_predictions_csv(paths["predictions"], report.predictions)
+    paths["error_cases"].write_text(_render_error_cases(report.validation_points), encoding="utf-8")
+    paths["weighting_adjustments"].write_text(
+        _render_weight_adjustments(report.weight_adjustments),
+        encoding="utf-8",
+    )
+    return paths
 
 
-def _aggregate_model_rows(
+def _evaluate_case_origins(
+    case: ForecastEvaluationCase,
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+    adapter_names: tuple[str, ...],
+    max_origins: int,
+) -> list[ForecastValidationPoint]:
+    points: list[ForecastValidationPoint] = []
+    for origin_index in _rolling_origins(
+        len(bars),
+        horizon_days=horizon_days,
+        max_origins=max_origins,
+    ):
+        history = bars[: origin_index + 1]
+        evaluations = _safe_evaluations(
+            history,
+            horizon_days=horizon_days,
+            adapter_names=adapter_names,
+        )
+        actual_return = _forward_return(bars, origin_index, horizon_days)
+        target = bars[origin_index + horizon_days]
+        for evaluation in evaluations:
+            points.append(
+                ForecastValidationPoint(
+                    symbol=case.symbol,
+                    market=case.market,
+                    asset_type=case.asset_type,
+                    regime=case.regime,
+                    model_name=evaluation.adapter_name,
+                    horizon_days=horizon_days,
+                    origin_at=bars[origin_index].ts,
+                    target_at=target.ts,
+                    predicted_return=evaluation.predicted_return,
+                    actual_return=actual_return,
+                )
+            )
+        consensus = summarize_advanced_forecast_evaluations(evaluations)
+        if consensus is not None:
+            points.append(
+                ForecastValidationPoint(
+                    symbol=case.symbol,
+                    market=case.market,
+                    asset_type=case.asset_type,
+                    regime=case.regime,
+                    model_name=CONSENSUS_MODEL_NAME,
+                    horizon_days=horizon_days,
+                    origin_at=bars[origin_index].ts,
+                    target_at=target.ts,
+                    predicted_return=consensus.consensus_predicted_return,
+                    actual_return=actual_return,
+                    model_disagreement=consensus.predicted_return_range,
+                )
+            )
+    return points
+
+
+def _latest_predictions(
+    case: ForecastEvaluationCase,
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+    adapter_names: tuple[str, ...],
+) -> list[ForecastPredictionRow]:
+    if not bars:
+        return []
+    evaluations = _safe_evaluations(
+        bars,
+        horizon_days=horizon_days,
+        adapter_names=adapter_names,
+    )
+    rows = [
+        ForecastPredictionRow(
+            symbol=case.symbol,
+            market=case.market,
+            asset_type=case.asset_type,
+            regime=case.regime,
+            model_name=evaluation.adapter_name,
+            horizon_days=horizon_days,
+            as_of=bars[-1].ts,
+            predicted_return=evaluation.predicted_return,
+            confidence=evaluation.confidence,
+        )
+        for evaluation in evaluations
+    ]
+    consensus = summarize_advanced_forecast_evaluations(evaluations)
+    if consensus is not None:
+        rows.append(
+            ForecastPredictionRow(
+                symbol=case.symbol,
+                market=case.market,
+                asset_type=case.asset_type,
+                regime=case.regime,
+                model_name=CONSENSUS_MODEL_NAME,
+                horizon_days=horizon_days,
+                as_of=bars[-1].ts,
+                predicted_return=consensus.consensus_predicted_return,
+                confidence=consensus.confidence,
+                model_disagreement=consensus.predicted_return_range,
+            )
+        )
+    return rows
+
+
+def _safe_evaluations(
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+    adapter_names: tuple[str, ...],
+) -> list[AdvancedForecastEvaluation]:
+    evaluations: list[AdvancedForecastEvaluation] = []
+    for adapter_name in adapter_names:
+        try:
+            evaluations.append(
+                evaluate_advanced_forecast(
+                    bars,
+                    adapter_name=adapter_name,
+                    horizon_days=horizon_days,
+                )
+            )
+        except ValueError:
+            continue
+    return evaluations
+
+
+def _rolling_origins(
+    bar_count: int,
+    *,
+    horizon_days: int,
+    max_origins: int,
+) -> list[int]:
+    minimum_history = max(40, horizon_days + 24)
+    first = minimum_history - 1
+    last = bar_count - horizon_days - 1
+    if last < first:
+        return []
+    available = list(range(first, last + 1))
+    if len(available) <= max_origins:
+        return available
+    if max_origins == 1:
+        return [available[-1]]
+    selected = {
+        available[round(index * (len(available) - 1) / (max_origins - 1))]
+        for index in range(max_origins)
+    }
+    return sorted(selected)
+
+
+def _forward_return(bars: list[Bar], origin_index: int, horizon_days: int) -> Decimal:
+    origin = bars[origin_index].close
+    target = bars[origin_index + horizon_days].close
+    if origin <= 0:
+        return Decimal("0.0000")
+    return _decimal((target / origin) - Decimal("1"))
+
+
+def _aggregate_all_groups(
+    points: list[ForecastValidationPoint],
+    *,
+    cases: list[ForecastEvaluationCase],
+    horizons: tuple[int, ...],
+    model_names: tuple[str, ...],
+    skipped: dict[tuple[str, int], int],
+) -> list[ForecastModelEvaluationRow]:
+    rows: list[ForecastModelEvaluationRow] = []
+    group_values = {
+        "overall": ("all",),
+        "market": tuple(sorted({case.market for case in cases})),
+        "asset_type": tuple(sorted({case.asset_type for case in cases})),
+        "regime": tuple(sorted({case.regime for case in cases})),
+    }
+    for group_type, values in group_values.items():
+        for group_value in values:
+            for horizon in horizons:
+                for model_name in model_names:
+                    selected = [
+                        point
+                        for point in points
+                        if point.horizon_days == horizon
+                        and point.model_name == model_name
+                        and _point_group_value(point, group_type) == group_value
+                    ]
+                    rows.append(
+                        _aggregate_points(
+                            selected,
+                            group_type=group_type,
+                            group_value=group_value,
+                            model_name=model_name,
+                            horizon_days=horizon,
+                            skipped_case_count=(
+                                skipped[(model_name, horizon)] if group_type == "overall" else 0
+                            ),
+                        )
+                    )
+    return rows
+
+
+def _aggregate_points(
+    points: list[ForecastValidationPoint],
+    *,
+    group_type: str,
+    group_value: str,
     model_name: str,
     horizon_days: int,
-    evaluations: list[AdvancedForecastEvaluation],
-    *,
     skipped_case_count: int,
 ) -> ForecastModelEvaluationRow:
-    sample_count = sum(row.validation_metrics.sample_count for row in evaluations)
-    return ForecastModelEvaluationRow(
-        model_name=model_name,
-        evaluation_method="adapter_walk_forward",
-        horizon_days=horizon_days,
-        evaluated_case_count=len(evaluations),
-        skipped_case_count=skipped_case_count,
-        validation_sample_count=sample_count,
-        fold_count=sum(row.validation_metrics.fold_count for row in evaluations),
-        mae=_weighted_metric(evaluations, "mae"),
-        rmse=_pooled_rmse(evaluations),
-        direction_accuracy=_weighted_metric(evaluations, "direction_accuracy"),
-        rmse_improvement=_weighted_optional_metric(evaluations, "rmse_improvement"),
-        low_confidence_count=_confidence_count(evaluations, "low"),
-        medium_confidence_count=_confidence_count(evaluations, "medium"),
-        high_confidence_count=_confidence_count(evaluations, "high"),
-    )
-
-
-def _aggregate_consensus_rows(
-    horizon_days: int,
-    groups: list[tuple[list[AdvancedForecastEvaluation], Decimal]],
-    *,
-    skipped_case_count: int,
-) -> ForecastModelEvaluationRow:
-    case_weights = [_case_weight(group) for group, _disagreement in groups]
-    case_mae = [_case_metric(group, "mae") for group, _disagreement in groups]
-    case_rmse = [_case_rmse(group) for group, _disagreement in groups]
-    case_direction = [_case_metric(group, "direction_accuracy") for group, _disagreement in groups]
-    case_improvements = [
-        _case_optional_metric(group, "rmse_improvement") for group, _disagreement in groups
+    errors = [point.predicted_return - point.actual_return for point in points]
+    actuals = [point.actual_return for point in points]
+    mae = _mean([abs(error) for error in errors])
+    rmse = _root_mean_square(errors)
+    baseline_rmse = _root_mean_square(actuals)
+    direction_accuracy = _direction_accuracy(points)
+    disagreements = [
+        point.model_disagreement for point in points if point.model_disagreement is not None
     ]
-    consensus_confidences: list[str] = []
-    for group, _disagreement in groups:
-        consensus = summarize_advanced_forecast_evaluations(group)
-        if consensus is not None:
-            consensus_confidences.append(consensus.confidence)
-    total_weight = sum(case_weights)
-    disagreements = [disagreement for _group, disagreement in groups]
     return ForecastModelEvaluationRow(
-        model_name=CONSENSUS_MODEL_NAME,
-        evaluation_method="component_metric_proxy",
+        group_type=group_type,
+        group_value=group_value,
+        model_name=model_name,
         horizon_days=horizon_days,
-        evaluated_case_count=len(groups),
+        evaluated_case_count=len({point.symbol for point in points}),
         skipped_case_count=skipped_case_count,
-        validation_sample_count=total_weight,
-        fold_count=sum(
-            max(row.validation_metrics.fold_count for row in group)
-            for group, _disagreement in groups
-        ),
-        mae=_weighted_values(case_weights, case_mae),
-        rmse=_weighted_values(case_weights, case_rmse),
-        direction_accuracy=_weighted_values(case_weights, case_direction),
-        rmse_improvement=_weighted_optional_values(case_weights, case_improvements),
-        mean_model_disagreement=(
-            _decimal(sum(disagreements, Decimal("0")) / Decimal(len(disagreements)))
-            if disagreements
-            else Decimal("0.0000")
-        ),
-        low_confidence_count=consensus_confidences.count("low"),
-        medium_confidence_count=consensus_confidences.count("medium"),
-        high_confidence_count=consensus_confidences.count("high"),
+        validation_sample_count=len(points),
+        fold_count=len({(point.symbol, point.origin_at) for point in points}),
+        mae=mae,
+        rmse=rmse,
+        direction_accuracy=direction_accuracy,
+        baseline_zero_rmse=baseline_rmse,
+        rmse_improvement=_decimal(baseline_rmse - rmse),
+        mean_model_disagreement=(_mean(disagreements) if disagreements else None),
     )
+
+
+def _build_weight_adjustments(
+    points: list[ForecastValidationPoint],
+    *,
+    horizons: tuple[int, ...],
+    adapter_names: tuple[str, ...],
+) -> list[ForecastWeightAdjustment]:
+    adjustments: list[ForecastWeightAdjustment] = []
+    for horizon in horizons:
+        horizon_points = [point for point in points if point.horizon_days == horizon]
+        origins = sorted({point.origin_at for point in horizon_points})
+        split_index = max(1, int(len(origins) * 0.6)) if len(origins) >= 2 else len(origins)
+        tuning_origins = set(origins[:split_index])
+        holdout_origins = set(origins[split_index:])
+        tuning_points = [point for point in horizon_points if point.origin_at in tuning_origins]
+        holdout_points = [point for point in horizon_points if point.origin_at in holdout_origins]
+        model_rows = {
+            model_name: _aggregate_points(
+                [point for point in tuning_points if point.model_name == model_name],
+                group_type="overall",
+                group_value="all",
+                model_name=model_name,
+                horizon_days=horizon,
+                skipped_case_count=0,
+            )
+            for model_name in adapter_names
+        }
+        weights = _quality_weights(model_rows)
+        current_points = {
+            (point.symbol, point.origin_at): point
+            for point in holdout_points
+            if point.model_name == CONSENSUS_MODEL_NAME
+        }
+        model_points: dict[tuple[str, datetime], dict[str, Decimal]] = defaultdict(dict)
+        for point in holdout_points:
+            if point.model_name in adapter_names:
+                model_points[(point.symbol, point.origin_at)][
+                    point.model_name
+                ] = point.predicted_return
+        candidate_points: list[ForecastValidationPoint] = []
+        comparable_current: list[ForecastValidationPoint] = []
+        for key, predictions in model_points.items():
+            current = current_points.get(key)
+            if current is None or set(predictions) != set(weights):
+                continue
+            comparable_current.append(current)
+            candidate_points.append(
+                current.model_copy(
+                    update={
+                        "model_name": "candidate_consensus",
+                        "predicted_return": _weighted_prediction(predictions, weights),
+                    }
+                )
+            )
+        current_rmse = _points_rmse(comparable_current)
+        candidate_rmse = _points_rmse(candidate_points)
+        current_direction = _direction_accuracy(comparable_current)
+        candidate_direction = _direction_accuracy(candidate_points)
+        adopted = bool(candidate_points) and (
+            candidate_rmse < current_rmse and candidate_direction >= current_direction
+        )
+        reason = (
+            "時系列holdoutでRMSEが改善し、方向一致率を維持したため採用候補です。"
+            if adopted
+            else "時系列holdoutでRMSE改善と方向一致率維持を同時に満たさないため保留します。"
+        )
+        adjustments.append(
+            ForecastWeightAdjustment(
+                horizon_days=horizon,
+                model_weights=weights,
+                tuning_sample_count=len(tuning_origins),
+                holdout_sample_count=len(holdout_origins),
+                current_consensus_rmse=current_rmse,
+                candidate_consensus_rmse=candidate_rmse,
+                current_direction_accuracy=current_direction,
+                candidate_direction_accuracy=candidate_direction,
+                adopted=adopted,
+                reason=reason,
+            )
+        )
+    return adjustments
+
+
+def _quality_weights(
+    rows: dict[str, ForecastModelEvaluationRow],
+) -> dict[str, Decimal]:
+    raw: dict[str, Decimal] = {}
+    for model_name, row in rows.items():
+        baseline = row.baseline_zero_rmse
+        improvement_ratio = row.rmse_improvement / baseline if baseline > 0 else Decimal("0")
+        bounded_improvement = max(Decimal("-0.5"), min(Decimal("0.5"), improvement_ratio))
+        quality = (
+            Decimal("0.20")
+            + (row.direction_accuracy * Decimal("0.60"))
+            + ((bounded_improvement + Decimal("0.5")) * Decimal("0.20"))
+        )
+        raw[model_name] = max(Decimal("0.10"), quality)
+    total = sum(raw.values(), Decimal("0"))
+    if total <= 0:
+        equal = Decimal("1") / Decimal(len(raw)) if raw else Decimal("0")
+        return {name: _decimal(equal) for name in raw}
+    return {name: _decimal(value / total) for name, value in raw.items()}
+
+
+def _weighted_prediction(
+    predictions: dict[str, Decimal],
+    weights: dict[str, Decimal],
+) -> Decimal:
+    total_weight = sum(weights.values(), Decimal("0"))
+    if total_weight <= 0:
+        return Decimal("0.0000")
+    return _decimal(
+        sum(predictions[name] * weight for name, weight in weights.items() if name in predictions)
+        / total_weight
+    )
+
+
+def _point_group_value(point: ForecastValidationPoint, group_type: str) -> str:
+    if group_type == "overall":
+        return "all"
+    return str(getattr(point, group_type))
+
+
+def _direction_accuracy(points: list[ForecastValidationPoint]) -> Decimal:
+    if not points:
+        return Decimal("0.0000")
+    matches = sum(
+        1 for point in points if _sign(point.predicted_return) == _sign(point.actual_return)
+    )
+    return _decimal(Decimal(matches) / Decimal(len(points)))
+
+
+def _points_rmse(points: list[ForecastValidationPoint]) -> Decimal:
+    return _root_mean_square([point.predicted_return - point.actual_return for point in points])
+
+
+def _root_mean_square(values: list[Decimal]) -> Decimal:
+    if not values:
+        return Decimal("0.0000")
+    mean_square = sum((value * value for value in values), Decimal("0")) / Decimal(len(values))
+    return _decimal(mean_square.sqrt())
+
+
+def _mean(values: list[Decimal]) -> Decimal:
+    if not values:
+        return Decimal("0.0000")
+    return _decimal(sum(values, Decimal("0")) / Decimal(len(values)))
+
+
+def _sign(value: Decimal) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
 
 
 def _validated_horizons(horizons: tuple[int, ...]) -> tuple[int, ...]:
@@ -268,160 +653,113 @@ def _validated_adapters(adapter_names: tuple[str, ...]) -> tuple[str, ...]:
     return normalized
 
 
-def _weighted_metric(
-    evaluations: list[AdvancedForecastEvaluation],
-    field: str,
-) -> Decimal:
-    total_weight = sum(row.validation_metrics.sample_count for row in evaluations)
-    if total_weight <= 0:
-        return Decimal("0.0000")
-    total = sum(
-        getattr(row.validation_metrics, field) * Decimal(row.validation_metrics.sample_count)
-        for row in evaluations
-    )
-    return _decimal(total / Decimal(total_weight))
+def _write_group_csv(
+    path: Path,
+    rows: list[ForecastModelEvaluationRow],
+    *,
+    group_type: str,
+) -> None:
+    selected = [row for row in rows if row.group_type == group_type]
+    fieldnames = list(ForecastModelEvaluationRow.model_fields)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in selected:
+            writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
 
 
-def _pooled_rmse(evaluations: list[AdvancedForecastEvaluation]) -> Decimal:
-    total_weight = sum(row.validation_metrics.sample_count for row in evaluations)
-    if total_weight <= 0:
-        return Decimal("0.0000")
-    squared = sum(
-        (row.validation_metrics.rmse**2) * Decimal(row.validation_metrics.sample_count)
-        for row in evaluations
-    )
-    return _decimal((squared / Decimal(total_weight)).sqrt())
-
-
-def _weighted_optional_metric(
-    evaluations: list[AdvancedForecastEvaluation],
-    field: str,
-) -> Decimal | None:
-    available = [row for row in evaluations if getattr(row.validation_metrics, field) is not None]
-    if not available:
-        return None
-    return _weighted_metric(available, field)
-
-
-def _confidence_count(
-    evaluations: list[AdvancedForecastEvaluation],
-    confidence: str,
-) -> int:
-    return sum(1 for row in evaluations if row.confidence == confidence)
-
-
-def _case_weight(evaluations: list[AdvancedForecastEvaluation]) -> int:
-    if not evaluations:
-        return 0
-    return max(row.validation_metrics.sample_count for row in evaluations)
-
-
-def _case_metric(
-    evaluations: list[AdvancedForecastEvaluation],
-    field: str,
-) -> Decimal:
-    if not evaluations:
-        return Decimal("0.0000")
-    return _decimal(
-        sum(
-            (getattr(row.validation_metrics, field) for row in evaluations),
-            Decimal("0"),
-        )
-        / Decimal(len(evaluations))
-    )
-
-
-def _case_rmse(evaluations: list[AdvancedForecastEvaluation]) -> Decimal:
-    if not evaluations:
-        return Decimal("0.0000")
-    mean_square = sum(
-        (row.validation_metrics.rmse**2 for row in evaluations),
-        Decimal("0"),
-    ) / Decimal(len(evaluations))
-    return _decimal(mean_square.sqrt())
-
-
-def _case_optional_metric(
-    evaluations: list[AdvancedForecastEvaluation],
-    field: str,
-) -> Decimal | None:
-    values = [
-        getattr(row.validation_metrics, field)
-        for row in evaluations
-        if getattr(row.validation_metrics, field) is not None
-    ]
-    if not values:
-        return None
-    return _decimal(sum(values, Decimal("0")) / Decimal(len(values)))
-
-
-def _weighted_values(
-    weights: list[int],
-    values: list[Decimal],
-) -> Decimal:
-    total_weight = sum(weights)
-    if total_weight <= 0:
-        return Decimal("0.0000")
-    return _decimal(
-        sum(
-            (value * Decimal(weight) for weight, value in zip(weights, values, strict=True)),
-            Decimal("0"),
-        )
-        / Decimal(total_weight)
-    )
-
-
-def _weighted_optional_values(
-    weights: list[int],
-    values: list[Decimal | None],
-) -> Decimal | None:
-    available = [
-        (weight, value) for weight, value in zip(weights, values, strict=True) if value is not None
-    ]
-    if not available:
-        return None
-    total_weight = sum(weight for weight, _value in available)
-    if total_weight <= 0:
-        return Decimal("0.0000")
-    return _decimal(
-        sum(
-            (value * Decimal(weight) for weight, value in available),
-            Decimal("0"),
-        )
-        / Decimal(total_weight)
-    )
+def _write_predictions_csv(path: Path, rows: list[ForecastPredictionRow]) -> None:
+    fieldnames = list(ForecastPredictionRow.model_fields)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
 
 
 def _render_summary(report: ForecastModelEvaluationReport) -> str:
+    overall = [row for row in report.rows if row.group_type == "overall"]
     lines = [
         "# Forecast Model Evaluation Summary",
         "",
-        "既存advanced forecastモデルのwalk-forward評価です。"
+        "未来情報を使わないrolling-origin評価です。"
         "予測は投資助言や将来成果の保証ではありません。",
         "",
         f"- 評価ケース数: {report.requested_case_count}",
         f"- 対象horizon: {', '.join(str(value) for value in report.horizons)}営業日",
-        "- 通常ランキングとは分離した、明示実行のオフライン評価です。",
+        f"- rolling-origin予測数: {len(report.validation_points)}",
+        "- 改善weightは同一foldで現行consensusと比較し、条件通過時だけ採用候補にします。",
         "",
-        "| Model | Method | Horizon | Cases | Skipped | Samples | MAE | RMSE | Direction | "
-        "RMSE improvement | Disagreement | Confidence (L/M/H) |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| Model | Horizon | Cases | Samples | MAE | RMSE | Direction | "
+        "RMSE improvement | Disagreement |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for row in report.rows:
+    for row in overall:
         lines.append(
-            f"| {row.model_name} | {row.evaluation_method} | {row.horizon_days} | "
-            f"{row.evaluated_case_count} | "
-            f"{row.skipped_case_count} | {row.validation_sample_count} | {row.mae} | "
-            f"{row.rmse} | {row.direction_accuracy} | "
-            f"{_display_optional(row.rmse_improvement)} | "
-            f"{_display_optional(row.mean_model_disagreement)} | "
-            f"{row.low_confidence_count}/{row.medium_confidence_count}/"
-            f"{row.high_confidence_count} |"
+            f"| {row.model_name} | {row.horizon_days} | {row.evaluated_case_count} | "
+            f"{row.validation_sample_count} | {row.mae} | {row.rmse} | "
+            f"{row.direction_accuracy} | {row.rmse_improvement} | "
+            f"{_display_optional(row.mean_model_disagreement)} |"
         )
     if report.warnings:
         lines.extend(["", "## 注意", ""])
         lines.extend(f"- {warning}" for warning in report.warnings)
     return "\n".join(lines) + "\n"
+
+
+def _render_error_cases(points: list[ForecastValidationPoint]) -> str:
+    sorted_points = sorted(
+        points,
+        key=lambda point: abs(point.predicted_return - point.actual_return),
+        reverse=True,
+    )[:20]
+    lines = [
+        "# Forecast Model Error Cases",
+        "",
+        "誤差が大きいrolling-origin例です。売買判断ではなくモデル改善用です。",
+        "",
+        "| Symbol | Model | Horizon | Origin | Predicted | Actual | Absolute error |",
+        "| --- | --- | ---: | --- | ---: | ---: | ---: |",
+    ]
+    for point in sorted_points:
+        error = abs(point.predicted_return - point.actual_return)
+        lines.append(
+            f"| {point.symbol} | {point.model_name} | {point.horizon_days} | "
+            f"{point.origin_at.date().isoformat()} | {point.predicted_return} | "
+            f"{point.actual_return} | {_decimal(error)} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_weight_adjustments(
+    adjustments: list[ForecastWeightAdjustment],
+) -> str:
+    lines = [
+        "# Forecast Model Weighting Adjustments",
+        "",
+        "同一rolling-origin foldで現行consensusと候補weightを比較します。"
+        "前半originでweightを作り、後半holdoutでRMSE改善かつ方向一致率維持を確認します。",
+        "",
+    ]
+    for adjustment in adjustments:
+        lines.extend(
+            [
+                f"## {adjustment.horizon_days}営業日",
+                "",
+                f"- 判定: {'採用候補' if adjustment.adopted else '保留'}",
+                f"- tuning origin数: {adjustment.tuning_sample_count}",
+                f"- holdout origin数: {adjustment.holdout_sample_count}",
+                f"- 現行RMSE: {adjustment.current_consensus_rmse}",
+                f"- 候補RMSE: {adjustment.candidate_consensus_rmse}",
+                f"- 現行方向一致率: {adjustment.current_direction_accuracy}",
+                f"- 候補方向一致率: {adjustment.candidate_direction_accuracy}",
+                f"- 理由: {adjustment.reason}",
+                "- 候補weight:",
+            ]
+        )
+        lines.extend(f"  - `{name}`: {weight}" for name, weight in adjustment.model_weights.items())
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _display_optional(value: Decimal | None) -> str:

@@ -9,6 +9,14 @@
 - `forecast_model_evaluation_summary.md`と`forecast_model_evaluation_by_horizon.csv`のdeterministic writerを追加。
 - 通常Ranking、Forecast API/UI、model weightingは変更しない。
 
+## 2026-07-06 Phase 33 rolling-origin評価・予測・weight改善gate
+
+- 各評価起点までのbarsだけでadvanced 4モデルと現行forecast consensusを再予測し、20/60営業日後の実績と比較する外側rolling-origin評価へ拡張。
+- horizon、market、asset type、regime別のMAE、RMSE、方向一致率、zero-return baseline比改善を出力。
+- 最新point-in-time予測CSV、誤差上位Markdown、weighting調整Markdownを追加し、成果物を8種へ拡張。
+- 前半rolling originsから候補weightを生成し、後半originの時系列holdoutで現行consensusよりRMSEが改善し方向一致率を維持した場合だけ`adopted`にするgateを追加。
+- gate通過weightも明示関数でのみ適用し、通常Ranking、Forecast API/UI、runtime weightは自動変更しない。
+
 ## 2026-07-06 上向き兆候 / 既存予測モデル改善 / 本気分析モード ドキュメント整備
 
 - 旧「反転期待」を公開名「上向き兆候」とし、下落→上昇、調整→再上昇、横ばい→上放れ、安定→上昇準備を対象に整理。

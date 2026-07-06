@@ -52,3 +52,11 @@ forecast return、up/down model count、consensus confidence、model disagreemen
 
 モデルごとの得意・不得意、consensus weight、confidence低下ルール、上向き兆候への寄与を説明でき、新規モデルが必要か既存改善で十分か判断できれば完了とする。
 
+## 9. 実装済み評価・改善gate
+
+- 20/60営業日の外側rolling-originで、各起点時点までのbarsだけからmodelとconsensusを再予測する。
+- adapter内部validationにはhorizon相当のpurge windowを適用する。
+- horizon、market、asset type、regime別の実測指標と最新予測を分離して出力する。
+- 過去foldのdirection accuracyとzero-return baseline比RMSE improvementから保守的な候補weightを作る。
+- 前半rolling originsで候補weightを作り、後半originを時系列holdoutとして現行consensusと比較する。holdoutでRMSE改善かつ方向一致率維持の場合だけ採用候補にする。
+- gate未通過weightは通常Rankingや通常Forecastへ適用できない。

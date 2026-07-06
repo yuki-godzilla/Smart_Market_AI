@@ -1074,8 +1074,19 @@ LAN URLとTailscale URLは別々に確認します。
 
 ## Phase 33 Forecast Model Evaluation
 
-`backend.forecast.evaluate_forecast_models` は、登録済みadvanced adapterとforecast consensusを明示的・オフラインに評価する。既定horizonは20/60営業日で、fold境界にはhorizon相当のpurge windowを置く。validation sample数で集約したMAE、方向一致率、RMSE improvement、sample-weighted mean squareから求めたRMSE、履歴不足skip、confidence件数、consensus disagreementを返す。初期のconsensus行は構成modelのwalk-forward指標をまとめた`component_metric_proxy`であり、consensus自身のfold予測誤差ではない。後続でfold-level consensus評価へ置き換える。
+`backend.forecast.evaluate_forecast_models` は、登録済みadvanced adapterとforecast consensusを明示的・オフラインに評価する。既定horizonは20/60営業日で、各rolling originではその時点までのbarsだけを渡し、adapter内部のvalidation fold境界にもhorizon相当のpurge windowを置く。modelとconsensus自身のMAE、RMSE、方向一致率、zero-return baseline比RMSE improvement、履歴不足skip、consensus disagreementを実測する。
 
-`write_forecast_evaluation_artifacts` は`forecast_model_evaluation_summary.md`と`forecast_model_evaluation_by_horizon.csv`を出力する。
+market、asset type、regime別集計、最新point-in-time予測、誤差上位例も保持する。前半rolling originsから候補weightを作り、後半originを時系列holdoutとして現行consensusと比較する。holdoutでRMSE改善かつ方向一致率維持の場合だけ`adopted=true`になる。`evaluated_consensus_prediction`は採用gateを通ったweightだけを明示適用できる。通常Rankingのweightは自動変更しない。
+
+`write_forecast_evaluation_artifacts` は次を出力する。
+
+- `forecast_model_evaluation_summary.md`
+- `forecast_model_evaluation_by_horizon.csv`
+- `forecast_model_evaluation_by_market.csv`
+- `forecast_model_evaluation_by_asset_type.csv`
+- `forecast_model_evaluation_by_regime.csv`
+- `forecast_model_predictions.csv`
+- `forecast_model_error_cases.md`
+- `forecast_model_weighting_adjustments.md`
 
 通常RankingやForecast API/UIからは自動実行せず、network providerも呼び出さない。予測モデルの結果は投資助言や将来成果の保証として扱わない。

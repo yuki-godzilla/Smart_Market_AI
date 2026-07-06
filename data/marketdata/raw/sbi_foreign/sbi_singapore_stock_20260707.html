@@ -1,0 +1,1427 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ja">
+
+<head>
+  <script type="text/javascript" src="https://sbisec.akamaized.net/sbisec/js/aa2ga1.0.0.min.js"
+    charset="UTF-8"></script>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <title>SBI証券</title>
+  <script type='text/javascript' src='https://www.sbisec.co.jp/JavaScript/WPLCommon.js'></script>
+
+  <link rel="stylesheet" href="https://cdn.datatables.net/t/bs-3.3.6/jqc-1.12.0,dt-1.10.11/datatables.min.css" />
+  <script src="https://cdn.datatables.net/t/bs-3.3.6/jqc-1.12.0,dt-1.10.11/datatables.min.js"></script>
+  <script>
+    jQuery(function ($) {
+      $.extend($.fn.dataTable.defaults, {
+        language: {
+          url: "https://cdn.datatables.net/plug-ins/9dcbecd42ad/i18n/Japanese.json"
+        }
+      });
+
+      $('.foo_table').DataTable({
+        "paging": "true",
+        "pageLength": 10,//初期表示件数
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全件"]],//表示件数メニュー,
+        "order": [],
+        //"columnDefs": [{ "orderable": false, "targets": 2 }],//5列目をソート不可に
+      });
+    });
+  </script>
+
+  <script language="JavaScript">chgStyleSheet();</script>
+</head>
+
+<body>
+  <!--▽hedder-->
+  <table border="0" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif" align="left"><img
+          src="//sbisec.akamaized.net/sbisec/images/common/common/logo_pop_lgray.gif" width="105" height="29"
+          border="0"></td>
+      <td background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif" align="right"><a
+          href="javascript:window.close();"><img src="//sbisec.akamaized.net/sbisec/popwin/images/gr_close.gif"
+            width="43" height="11" border="0" alt="閉じる"></a></td>
+      <td width="10" background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif"><img
+          src="//sbisec.akamaized.net/sbisec/images/common/common/trans.gif" width="1" height="1"></td>
+    </tr>
+  </table>
+  <!--△hedder-->
+  <!--▽-->
+  <div style="width:690px;text-align:left;" id="main">
+    <!------------------------▽contents start▽----------------------------->
+    <!--▽タブ-->
+    <div class="tab02 mgt10">
+      <div class="tab02T">
+        <table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <tr valign="top">
+            <td><span><a href="pop6040_usequity_list.html">米国株式</a></span></td>
+            <td><span><a href="pop6040_usequity_margin_list.html">米国株式（信用）</a></span></td>
+            <td><span><a href="pop6040_hk_list.html">中国株式</a></span></td>
+            <td><span><a href="pop6040_kr_list.html">韓国株式</a></span></td>
+            <td><span><a href="pop6040_ru_list.html">ロシア株式</a></span></td>
+            <td><span><a href="pop6040_vn_list.html">ベトナム株式</a></span></td>
+            <td><span><a href="pop6040_id_list.html">インドネシア株式</a></span></td>
+          </tr>
+          <tr class="tab02B">
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+          </tr>
+        </table>
+      </div>
+      <div class="tab02T">
+        <table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <tr valign="top">
+            <td class="act" style="width: 20%;"><span><a href="pop6040_sg_list.html">シンガポール株式</a></span></td>
+            <td style="width: 20%;"><span><a href="pop6040_th_list.html">タイ株式</a></span></td>
+            <td style="width: 20%;"><span><a href="pop6040_my_list.html">マレーシア株式</a></span></td>
+            <td class="Rm" style="width: 20%;"><span><a href="pop6040_etf.html">海外ETF</a></span></td>
+            <td class="Rr" style="width: 20%;">
+              <div class="tab02RrM">&nbsp;</div>
+            </td>
+          </tr>
+          <tr class="tab02B">
+            <td class="act"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td class="Rm"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+            <td class="Rr"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <!--△タブ-->
+    <!--▽タイトル-->
+    <div class="mgt10">
+      <div class="headC01">
+        <div class="headC01T">
+          <div class="headC01B">
+            <h2 class="ttl">シンガポール株式取扱銘柄一覧</h2>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!--△タイトル-->
+    <!--▼ページ内リンク--
+<div class="mgt20">
+<div class="boxBgBl01"><div class="boxBgBl01T"><div class="boxBgBl01B">
+<div class="boxBgBl01C">
+<div class="mgt10">
+<table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 660px;">
+<!--↓--
+<tr class="vaT" valign="top">
+<td class="boxBgBl01C2" style="width: 325px;"><div class="boxBgBl01C2M4"><img src="//sbisec.akamaized.net/sbisec/images/base/g_sg_list_i01.gif" width="70" height="70" alt="" align="left" style="margin:5 10 10 3; border:1px solid #eaeac1;">
+<p class="fl01 mgt3"><span class="bold"><a href="#sg">シンガポール株式</a></span></p>
+<div class="mgt3">
+<p class="fm01N01"><span class="fGray01">シンガポール証券取引所（SGX）上場の銘柄</span></p></div>
+</div>
+</td>
+<td style="width: 10px;"><img src="//sbisec.akamaized.net/sbisec/images/base/trans.gif" width="10" height="1" alt=""></td>
+<td class="boxBgBl01C2" style="width: 325px;"><div class="boxBgBl01C2M4"><img src="//sbisec.akamaized.net/sbisec/images/base/g_sg_list_i02.gif" width="70" height="70" alt="" align="left" style="margin:5 10 10 3; border:1px solid #eaeac1;">
+<p class="fl01 mgt3"><span class="bold"><a href="#sgetf">シンガポールETF</a></span></p>
+<div class="mgt3">
+<p class="fm01N01"><span class="fGray01">シンガポール証券取引所（SGX）上場のETF銘柄</span></p></div>
+</div>
+</td>
+</tr>
+<!--↑--
+</table>
+</div>
+<!--/*--
+</div>
+</div></div></div>
+</div>
+
+<!--▲ページ内リンク-->
+    <style>
+      .ttlM {
+        font-size: 16px !important;
+      }
+    </style>
+    <a name="sg" id="sg"></a>
+    <!--▼-->
+    <!--▽-->
+    <div class="mgt20">
+      <div class="headBl01">
+        <h3 class="ttlM">普通株式一覧</h3>
+      </div>
+    </div>
+    <!--△-->
+    <!--▽-->
+    <div class="mgl5 mgt5">
+      <ul class="liNote01 alR">
+        <li class="fm01">SGX：シンガポール証券取引所</li>
+      </ul>
+    </div>
+    <!--△-->
+    <!--▽表-->
+    <div class="mgt10">
+      <div class="accTbl01">
+        <table border="0" class="foo_table" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <thead>
+            <tr>
+              <th style="width: 13%;">
+                <div class="thM">
+                  <p class="fm01">ティッカー</p>
+                </div>
+              </th>
+              <th style="width: 30%;">
+                <div class="thM">
+                  <p class="fm01">銘柄（英語）</p>
+                </div>
+              </th>
+              <th>
+                <div class="thM">
+                  <p class="fm01">事業内容</p>
+                </div>
+              </th>
+              <th style="width: 15%;">
+                <div class="thM">
+                  <p class="fm01">市場</p>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CAPN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">キャピタランド インベストメント<br>Capitaland Investment</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">不動産運営会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CMDG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">コンフォートデルグロ<br>ComfortDelGro CorporationLimited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールのタクシー最大手会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CTDM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シティ デベロップメンツ<br>City Developments Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">大手不動産開発会社。ホテルの所有・運営や不動産投資を行う。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">DBSM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">DBSグループ<br>DBS Group Holdings Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">DBS銀行を展開するシンガポールを代表する金融サービス会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">DELF</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">デルフィ<br>
+                    Delfi Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">チョコレート菓子の製造と東南アジア市場への輸出販売</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">FRNM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">フレーザー アンド ニーブ<br>Fraser and Neave Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールの複合企業。地域飲料最大手メーカー。不動産開発。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">FRPL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">フレーザーズ プロパティ<br>Frazers Property</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">総合不動産投資、開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GAGR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ゴールデン アグリリソーシズ<br>Golden Agri-Resources Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヤシの栽培、パームオイル加工、流通販売までを手掛けるアグリビジネス企業。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">OLAG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オーラム グループ<br>Olam Group</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">1989年設立の農業総合商社。農産物、農産原料の調達から、加工、貯蔵、流通、貿易、販売まで総合的に扱っている。また、保険関連サービスも手掛ける。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GENS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ゲンティン シンガポール<br>Genting Singapore</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">マレーシアのゲンティンの傘下。リゾート開発およびカジノ経営。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">IFAR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドフード アグリ リソーシズ<br>Indofood Agri Resources Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アブラヤシ栽培。マーガリン、食用油などのパーム油製品の製造販売会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">JCYC</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ジャーディン サイクル アンド キャリッジ<br>Jardine Cycle &amp; Carriage Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">自動車部品メーカー。ジャーディングループ企業。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KPLM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ケッペル<br>Keppel Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールを代表する複合企業。リグ(油井掘削装置）製造、造船、インフラ・不動産開発など。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">日興AM中国EV フューチャーモビリティ ETF<br>CN EV and Future Mobility ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">成長が期待される中国の電気自動車やフューチャーモビリティの大手企業で構成される、MSCI中国全株指数IMIフューチャーモビリティ上位50指数への連動を目指す</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">NOBG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ノーブル グループ<br>Noble Group Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">農産物等のバルクコモディティーに特化したサプライチェーン・マネジメント企業。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">OCBC</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オーバーシー チャイニーズ銀行(OCBC)<br>Oversea-Chinese BankingCorporation Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール3大商業銀行のひとつ。OCBCの略称で知られる。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">OVES</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オーバーシーズ ユニオン エンタープライズ<br>Overseas Union Enterprise Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">不動産投資開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SATS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">SATS<br>SATS Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールの空港エアターミナルサービス会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SCIL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">セムコープ インダストリーズ<br>SembCorp Industries Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールの複合企業。海洋エンジニアリング、造船、インフラ整備、ロジスティックス、不動産開発など。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SEAT</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シートリウム<br>Seatrium Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">セムコープの子会社。リグ(油井掘削装置）製造、造船。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SGXL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール取引所(SGX)<br>Singapore Exchange Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">株式及び派生商品の取引所及び、クリアリングハウスを所有、運営する。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SIAE</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">SIAエンジニアリング<br>SIA Engineering Company</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールエアラインの保守部門子会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SIAL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール航空<br>Singapore Airlines Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポールのフラッグキャリア。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SIND</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール ランド グループ<br>Singapore Land Group Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ＵＯＬグループの 不動産の開発、投資会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SPOS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール ポスト<br>Singapore Post Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">国内及び国際郵便サービス会社。国内で宅配サービスも展開。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SPRM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール プレス<br>Singapore Press Holdings Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">新聞社。シンガポール最大の新聞ストレートタイムズを発行するほか、不動産投資なども手がける。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">STAR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">スターハブ<br>StarHub Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ケーブルTV会社。携帯電話、インターネットプロバイダーでも大手。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">STEG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール テクノロジーズ エンジニアリング<br>Singapore Technologies Engineering Limited（ST Eng）</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール政府持株会社テマセク系のエンジニアリング会社。<br />
+                    防衛・民間用航空機、車両の生産、保守整備。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">STEL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール テレコム<br>Singapore Telecommunications Limited (SingTel)</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">東南アジア最大の通信会社。携帯電話、インターネットプロバイダー最大手。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UOBH</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ユナイテッド オーバーシーズ銀行(UOB)<br>United Overseas Bank Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール4大商業銀行のひとつ。UOBの略称で知られる。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UTOS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">UOLグループ<br>UOL Group Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">不動産開発及び投資会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">VENM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ベンチャー<br>Venture Corporation Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">世界中のエレクトロニクス企業に対して受託製造業務を行う電子部品メーカー。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">WLIL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ウィルマー インターナショナル<br>Wilmar International Ltd.</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">油ヤシ栽培、パームオイル加工・販売等を行うアグリビジネス企業。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">YAZG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヤンジジャン シップビルディング<br>Yangzijiang Shipbuilding Holdings Limited</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">造船会社。商船、小型バラ積み船、多目的貨物船、コンテナ船、ケミカルタンカーなど</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">YNLG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヤンロード ランド グループ<br>Yanlord Land Group Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">中国で高級住宅を開発する不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">YOMA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヨマ ストラテジック ホールディングス<br>Yoma Strategic Holdings Ltd</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ミャンマーにおける不動産開発/販売、プランテーション事業、百貨店経営、トラック販売。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!--△表-->
+    <!--▲-->
+    <!--▲-->
+    <!--▼-->
+    <!--▽-->
+    <a name="reitlist" id="reitlist"></a>
+    <div class="mgt30">
+      <div class="headBl01">
+        <h3 class="ttlM">ETF銘柄一覧</h3>
+      </div>
+    </div>
+    <!--△-->
+    <!--▽表-->
+    <div class="mgt10">
+      <div class="accTbl01">
+        <table summary="layout" class="foo_table" style="width: 690px;" border="0" cellpadding="0" cellspacing="0">
+          <thead>
+            <tr>
+              <th style="width: 13%;">
+                <div class="thM">
+                  <p class="fm01">コード<br>（取引所コード）</p>
+                </div>
+              </th>
+              <th style="width: 30%;">
+                <div class="thM">
+                  <p class="fm01">銘柄</p>
+                </div>
+              </th>
+              <th>
+                <div class="thM">
+                  <p class="fm01">連動指数</p>
+                </div>
+              </th>
+              <th style="width: 15%;">
+                <div class="thM">
+                  <p class="fm01">市場</p>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOG<br>（A35）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ABF Singapore Bond Index Fund<br>ABFシンガポール債券インデックス・ファンド</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ターゲット・トラッキングエラー年率40ベーシスポイントで、iBoxx ABFシンガポール債券インデックスの運用実績（経費控除前）に連動するリタ ーンを目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+             <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMON<br>（CFA）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Amova StraitsTradingAsia exJP REIT ETF<br>アモーヴァStraitsTradingAsiaexJP REITETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">FTSE EPRA/NAREIT アジア(除く日本)リート10%キャップ指数に連動するよう運用する。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CSOP<br>（SRT)</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">CSOP iEdge SREIT Leaders Index ETF<br>CSOP iEdge S-REITリーダーズインデックスETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール取引所が提供しているiEdge
+                    S-REITリーダーズインデックスに連動する投資成果を目指す。26の厳選されたS-REITにアクセスする事が可能であり、リート投資対象地域もシンガポール以外には、米国、オーストラリア、東南アジア等バランスよく含まれる。
+                  </p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">DCSX<br>（KV4）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エックス・トラッカーズⅡ－シンガポール国債UCITS ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シティ シンガポール国債インデックスの運用成績に概ね連動する投資成果を目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ICGB<br>（CYC）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ICBC CSOP FTSE Chinese Govern Bond ETF<br>ICBC　CSOP　FTSE中国国債インデックスETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">
+                    CSOPがマネージャーを務め、中国4大銀行の中国工商銀行（ICBC）と協業して提供している中国国債のみに投資。世界的にみても安全性格付けの割にイールドが高めの国債である中国国債を投資対象に、FTSE中国国債インデックスという世界で代表的な中国国債インデックスを複製して運用を行う。
+                  </p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">INDI-D<br>（QK9）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01"> iシェアーズ MSCIインディア 気候変動 ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">MSCI インディア・インデックスの運用成績に概ね連動する投資成果を目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LIOP<br>（CLR）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Lion Phillip S-REIT ETF<br>ライオンフィリップS-REIT ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">モーニングスター・シンガポールのREIT利回りインデックスの運用成績に概ね連動する投資成果を目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LISC<br>（HST）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Lion-OCBC SG Low Carbon ETF<br>ライオン-OCBC　SG　ローカーボン</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">iEdge-OCBC・シンガポール・低炭素・セレクト50指数への連動を目指します。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOM<br>（ZHS）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Amova ICBCSG CHINA BOND ETF<br>アモーヴァ ICBCSG 中国債券ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">チャイナボンドICBC 1-10年国債・政策銀行債指数に連動する運用成果により信託財産の長期的な成長を目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOL<br>（EVS）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Amova CN EV and Future Mobility ETF<br>
+                    アモーヴァ中国フューチャーモビリティETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">成長が期待される中国の電気自動車やフューチャーモビリティの大手企業で構成される、MSCI中国全株指数IMIフューチャーモビリティ上位50指数への連動を目指す</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOT<br>（MBH）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Amova SGD Inv Gr Co B ETF<br>アモーヴァ SGD建て投資適格社債ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">主としてiBoxx シンガポール・ドル建て非ソブリン・ラージキャップ投資適格指数に連動することを目指すETF。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AMOE<br>（G3B）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">Amova Singapore STI ETF<br>アモーヴァ シンガポール STI ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">FTSEストレーツタイムズ指数にほぼ連動する投資成果（経費控除前）を目指す。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UOBA<br>（GRN）</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01"> UOB APAC Green REIT ETF<br>
+                    UOB APAC グリーン REIT ETF</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シンガポール証券取引所（SGX）とUOBアセットマネジメントが共同開発した「iEdge-UOB APAC Yield Focus Green REIT
+                    Index」に連動する投資成果を目指します。アジア・太平洋地域のグリーン･リートに特化した世界初のETF。PROFIT(利益)
+                    とPURPOSE（目的：APACの不動産セクターの「グリーン化」を推進）。ふたつのPを同時に追求する、ユニークなETFです。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">メインボード</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!--△表-->
+    <ul class="liNote01 mgt10 mgl10">
+      <li class="fm01" style="color:#FF0000">※シンガポールETFの呼び値は、銘柄により異なり、0.01もしくは0.001シンガポールドルとなります。<br>
+        銘柄ごとの呼び値はシンガポール取引所のWEBサイトの「<a href="https://www.sgx.com/securities/etf-screener">ETF
+          Screener</a>」よりご確認ください。（銘柄のティッカーは取引所コードをご参照ください。）<br>なお当社では、銘柄にかかわらず、0.001シンガポールドルの呼び値で指値注文を受付いたします。
+      </li>
+    </ul>
+    <!--▽表-->
+    <!--<div class="mgt10">
+<div class="accTbl01">
+<table summary="layout" style="width: 690px;" border="0" cellpadding="0" cellspacing="0">
+<thead>
+<tr>
+<th style="width: 13%;"><div class="thM"><p class="fm01">コード</p></div></th>
+<th style="width: 87%;"><div class="thM"><p class="fm01">銘柄</p></div></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th><div class="thM alC"><p class="fm01">DCSX</p></div></th>
+<td><div class="tdM"><p class="fm01">Xtrackers II Singapore Government<br>エックス・トラッカーズⅡ－シンガポール国債UCITS ETF</p></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>-->
+    <!--△表-->
+    <!--▲-->
+    <!--▽ページトップへ-->
+    <div class="stext" style="text-align:right;margin-top:20px;margin-bottom:20px;"><img
+        src="//sbisec.akamaized.net/sbisec/images/common/common/i_top.gif" border="0" width="5" height="9">&nbsp;<a
+        href="#top">ページトップへ</a></div>
+    <!--△ページトップへ-->
+    <!------------------------△contents  end △----------------------------->
+  </div>
+  <!--△-->
+
+
+  <script type="text/javascript">_satellite.pageBottom();</script>
+
+  <!-- Google Tag Manager/// -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-7SZV');</script>
+  <!-- ///End Google Tag Manager/// -->
+  <!-- Google Tag Manager (noscript)/// -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-7SZV" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- ///End Google Tag Manager (noscript) -->
+
+  <!-- yahoo/// -->
+  <script type="text/javascript">
+    (function () {
+      var tagjs = document.createElement("script");
+      var s = document.getElementsByTagName("script")[0];
+      tagjs.async = true;
+      tagjs.src = "//s.yjtag.jp/tag.js#site=hAyydFq";
+      s.parentNode.insertBefore(tagjs, s);
+    }());
+  </script>
+  <noscript>
+    <iframe src="//s.thebrighttag.com/iframe?c=hAyydFq" width="1" height="1" frameborder="0" scrolling="no"
+      marginheight="0" marginwidth="0"></iframe>
+  </noscript>
+  <!-- ///yahoo -->
+
+</body>
+
+</html>

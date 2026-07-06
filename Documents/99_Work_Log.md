@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-06 Phase 33 既存予測モデル評価 foundation
+
+- `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`とforecast consensusを20/60営業日で明示評価するnetwork-free serviceを追加。
+- 各adapter内のwalk-forward評価へhorizon相当のpurge windowを追加し、validation sample数でMAE、方向一致率、RMSE改善を集約。RMSEはsample-weighted mean squareから集約。
+- 履歴不足のskip、confidence件数、consensus model disagreementを記録。
+- 初期consensus指標は構成modelのwalk-forward指標をまとめた`component_metric_proxy`と明示し、consensus自身のfold-level誤差は後続とした。
+- `forecast_model_evaluation_summary.md`と`forecast_model_evaluation_by_horizon.csv`のdeterministic writerを追加。
+- 通常Ranking、Forecast API/UI、model weightingは変更しない。
+
 ## 2026-07-06 上向き兆候 / 既存予測モデル改善 / 本気分析モード ドキュメント整備
 
 - 旧「反転期待」を公開名「上向き兆候」とし、下落→上昇、調整→再上昇、横ばい→上放れ、安定→上昇準備を対象に整理。

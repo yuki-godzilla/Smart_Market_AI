@@ -125,6 +125,7 @@ class AdvancedLinearForecastAdapter:
             dataset.targets,
             alpha=self.alpha,
             min_train_size=max(6, min(self.min_samples, len(dataset.targets) // 2)),
+            purge_window=horizon_days,
         )
         fitted = _fit_ridge(
             dataset.features,
@@ -283,6 +284,7 @@ def _walk_forward_predictions(
     *,
     alpha: float,
     min_train_size: int,
+    purge_window: int,
 ) -> list[tuple[float, float]]:
     sample_count = len(targets)
     test_size = max(1, sample_count // 6)
@@ -291,11 +293,12 @@ def _walk_forward_predictions(
     for fold in range(fold_count, 0, -1):
         test_start = sample_count - (fold * test_size)
         test_end = min(test_start + test_size, sample_count)
-        if test_start < min_train_size or test_start >= test_end:
+        train_end = test_start - purge_window
+        if train_end < min_train_size or test_start >= test_end:
             continue
         fitted = _fit_ridge(
-            features[:test_start],
-            targets[:test_start],
+            features[:train_end],
+            targets[:train_end],
             _feature_names(),
             alpha=alpha,
         )

@@ -26,6 +26,8 @@ Upward Signal is the public name for the backward-compatible Reversal Expectatio
 
 Normal Ranking remains fast and LLM-independent. `本気分析モード（AI材料分析つき）` is an explicit opt-in plan for assessing only top candidates. Its initial role is badges, warnings, and summaries for material relevance, adverse news, and dividend traps. Ranking correction requires a prior performance gate and must remain bounded to top candidates.
 
+Phase 33 first evaluation slice is implemented as a network-free backend service. It runs registered advanced adapters at 20/60-day horizons by default, applies a horizon-sized purge window at validation fold boundaries, aggregates validation-sample-weighted MAE, pooled RMSE, direction accuracy, RMSE improvement, skipped cases, confidence counts, and consensus disagreement, then writes the summary Markdown and by-horizon CSV artifacts. The initial consensus row is explicitly labeled `component_metric_proxy`; fold-level consensus error evaluation remains follow-up scope. This path does not change Ranking, Forecast API, UI, or model weights.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

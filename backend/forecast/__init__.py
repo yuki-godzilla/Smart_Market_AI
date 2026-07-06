@@ -25,6 +25,15 @@ from backend.forecast.advanced_registry import (
     advanced_forecast_adapter_specs,
     advanced_forecast_supported_horizons,
 )
+from backend.forecast.evaluation import (
+    CONSENSUS_MODEL_NAME,
+    DEFAULT_EVALUATION_HORIZONS,
+    ForecastEvaluationCase,
+    ForecastModelEvaluationReport,
+    ForecastModelEvaluationRow,
+    evaluate_forecast_models,
+    write_forecast_evaluation_artifacts,
+)
 from backend.forecast.registry import (
     ForecastModelSpec,
     available_forecast_models,
@@ -68,6 +77,8 @@ from backend.forecast.service import (
 
 __all__ = [
     "DirectionSignalLabel",
+    "CONSENSUS_MODEL_NAME",
+    "DEFAULT_EVALUATION_HORIZONS",
     "ADVANCED_GBDT_SKLEARN_ADAPTER_NAME",
     "ADVANCED_LINEAR_ADAPTER_NAME",
     "ADVANCED_QUANTILE_ADAPTER_NAME",
@@ -91,7 +102,10 @@ __all__ = [
     "FeatureContribution",
     "ForecastConsensus",
     "ForecastEvaluation",
+    "ForecastEvaluationCase",
     "ForecastMetrics",
+    "ForecastModelEvaluationReport",
+    "ForecastModelEvaluationRow",
     "ForecastModel",
     "ForecastModelSpec",
     "ForecastPoint",
@@ -117,6 +131,7 @@ __all__ = [
     "evaluate_advanced_forecast",
     "evaluate_advanced_linear_forecast",
     "evaluate_models",
+    "evaluate_forecast_models",
     "forecast_direction_signal",
     "forecast_model_signal_weight",
     "safe_signal_volatility",
@@ -126,4 +141,5 @@ __all__ = [
     "summarize_advanced_forecast_evaluations",
     "summarize_forecast_evaluations",
     "volatility_adjusted_edge",
+    "write_forecast_evaluation_artifacts",
 ]

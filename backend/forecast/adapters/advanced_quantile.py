@@ -80,6 +80,7 @@ class AdvancedQuantileForecastAdapter:
             targets,
             quantile=self.center_quantile,
             min_train_size=max(6, min(self.min_samples, len(targets) // 2)),
+            purge_window=horizon_days,
         )
         metrics = _validation_metrics(targets, validation_predictions)
         confidence = _confidence_from_metrics(metrics)
@@ -118,10 +119,12 @@ def _expanding_quantile_predictions(
     *,
     quantile: float,
     min_train_size: int,
+    purge_window: int,
 ) -> list[tuple[float, float]]:
     predictions: list[tuple[float, float]] = []
-    for index in range(min_train_size, len(targets)):
-        predicted = _quantile(targets[:index], quantile)
+    for index in range(min_train_size + purge_window, len(targets)):
+        train_end = index - purge_window
+        predicted = _quantile(targets[:train_end], quantile)
         predictions.append((predicted, float(targets[index])))
     return predictions
 

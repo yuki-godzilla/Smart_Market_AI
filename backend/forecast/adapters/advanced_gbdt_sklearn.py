@@ -119,6 +119,7 @@ class AdvancedGbdtSklearnForecastAdapter:
             max_features=self.max_features,
             random_state=self.random_state,
             min_train_size=min_train_size,
+            purge_window=horizon_days,
         )
         fitted = _fit_gbdt_pipeline(
             dataset.features,
@@ -172,6 +173,7 @@ def _walk_forward_predictions(
     max_features: float,
     random_state: int,
     min_train_size: int,
+    purge_window: int,
 ) -> list[tuple[float, float]]:
     sample_count = len(targets)
     test_size = max(1, sample_count // 6)
@@ -180,11 +182,12 @@ def _walk_forward_predictions(
     for fold in range(fold_count, 0, -1):
         test_start = sample_count - (fold * test_size)
         test_end = min(test_start + test_size, sample_count)
-        if test_start < min_train_size or test_start >= test_end:
+        train_end = test_start - purge_window
+        if train_end < min_train_size or test_start >= test_end:
             continue
         fitted = _fit_gbdt_pipeline(
-            features[:test_start],
-            targets[:test_start],
+            features[:train_end],
+            targets[:train_end],
             max_iter=max_iter,
             learning_rate=learning_rate,
             max_leaf_nodes=max_leaf_nodes,

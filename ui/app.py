@@ -286,10 +286,10 @@ from ui.ranking import (
     ranking_policy_options,
     ranking_product_type_label,
     ranking_provider_error_rows,
+    ranking_purpose_context_cards,
     ranking_purpose_focus_summary,
     ranking_purpose_label,
     ranking_purpose_primary_columns,
-    ranking_purpose_weight_summary,
     ranking_region_label,
     ranking_symbol_chunks,
     ranking_symbols_state_key,
@@ -4966,18 +4966,19 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
     render_section_heading("ランキングの見方")
     st.caption(ranking_purpose_focus_summary(ranking_purpose))
-    weight_items = ranking_purpose_weight_summary(ranking_purpose, limit=4)
-    columns = st.columns(max(1, min(4, len(weight_items))))
-    for index, item in enumerate(weight_items):
-        label, _, value = item.partition(" ")
+    context_cards = ranking_purpose_context_cards(ranking_purpose, limit=4)
+    columns = st.columns(max(1, min(4, len(context_cards))))
+    for index, card in enumerate(context_cards):
+        value = card.get("value", "")
+        progress = metric_progress_from_value(value) if value.endswith("%") else None
         with columns[index % len(columns)]:
             render_metric_card(
-                label,
-                value or item,
-                caption="このランキング基準で重視する指標",
-                badges=(badge_html("重み", "info"),),
+                card.get("label", ""),
+                value,
+                caption=card.get("help", ""),
+                badges=(badge_html(card.get("badge", "重み"), "info"),),
                 tone="info",
-                progress=metric_progress_from_value(value),
+                progress=progress,
             )
     st.caption(
         f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
@@ -10896,8 +10897,6 @@ def _render_my_watchlist_page() -> None:
         item["radar_reasons"] = " / ".join(radar_item.reasons)
         item["radar_next_action"] = radar_item.next_action
     _request_watchlist_background_refresh_once(enriched)
-    refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
-
     _header_spacer, update_col = st.columns([4.0, 1.35])
     with update_col:
         st.markdown(
@@ -10910,11 +10909,7 @@ def _render_my_watchlist_page() -> None:
             use_container_width=True,
         ):
             checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
-            targets = _watchlist_snapshot_refresh_targets(
-                enriched,
-                snapshots,
-                max_items=min(WATCHLIST_MANUAL_REFRESH_MAX_ITEMS, len(enriched)),
-            )
+            targets = _watchlist_all_refresh_targets(enriched)
             refresh_result = asyncio.run(
                 _refresh_watchlist_snapshots(
                     targets,
@@ -10927,22 +10922,12 @@ def _render_my_watchlist_page() -> None:
             success_symbols = refresh_result["success_symbols"]
             failed_symbols = refresh_result["failed_symbols"]
             previous_data_symbols = refresh_result["previous_data_symbols"]
-            skipped_symbols = [item["symbol"] for item in enriched if item["symbol"] not in targets]
-            for symbol in success_symbols:
-                update_favorite_refresh_metadata(
-                    symbol,
-                    refresh_status="fresh",
-                    refresh_error="",
-                    last_checked_at=checked_at,
-                    last_price_checked_at=checked_at,
-                )
-            for symbol in failed_symbols:
-                update_favorite_refresh_metadata(
-                    symbol,
-                    refresh_status="failed",
-                    refresh_error="snapshot update failed",
-                    last_checked_at=checked_at,
-                )
+            skipped_symbols: list[str] = []
+            _update_watchlist_refresh_metadata_from_result(
+                refresh_result,
+                checked_at=checked_at,
+                favorites=favorites,
+            )
             st.session_state["watchlist_refresh_summary"] = {
                 "updated_at": checked_at,
                 "success_count": len(success_symbols),
@@ -10950,7 +10935,7 @@ def _render_my_watchlist_page() -> None:
                 "skipped_count": len(skipped_symbols),
                 "next_candidates_count": max(
                     0,
-                    refresh_attention_count - len(success_symbols),
+                    len(enriched) - len(success_symbols) - len(failed_symbols),
                 ),
                 "success_symbols": success_symbols,
                 "failed_symbols": failed_symbols,
@@ -11187,17 +11172,69 @@ def _render_favorite_next_action_hint() -> None:
         )
 
 
+def _watchlist_all_refresh_targets(rows: Sequence[Mapping[str, object]]) -> list[str]:
+    targets: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        symbol = normalize_favorite_symbol(str(row.get("symbol") or ""))
+        if not symbol or symbol in seen:
+            continue
+        seen.add(symbol)
+        targets.append(symbol)
+    return targets
+
+
+def _watchlist_refresh_target_fingerprint(targets: Sequence[str]) -> str:
+    return "|".join(normalize_favorite_symbol(symbol) for symbol in targets)
+
+
+def _update_watchlist_refresh_metadata_from_result(
+    refresh_result: Mapping[str, Sequence[str]],
+    *,
+    checked_at: str,
+    favorites: Sequence[FavoriteStock],
+) -> None:
+    favorite_symbols = {favorite.symbol for favorite in favorites}
+    if not favorite_symbols:
+        return
+    for symbol in refresh_result.get("success_symbols", []):
+        normalized = normalize_favorite_symbol(str(symbol))
+        if normalized not in favorite_symbols:
+            continue
+        update_favorite_refresh_metadata(
+            normalized,
+            refresh_status="fresh",
+            refresh_error="",
+            last_checked_at=checked_at,
+            last_price_checked_at=checked_at,
+        )
+    for symbol in refresh_result.get("failed_symbols", []):
+        normalized = normalize_favorite_symbol(str(symbol))
+        if normalized not in favorite_symbols:
+            continue
+        update_favorite_refresh_metadata(
+            normalized,
+            refresh_status="failed",
+            refresh_error="snapshot update failed",
+            last_checked_at=checked_at,
+        )
+
+
 def _render_watchlist_refresh_summary() -> None:
     summary = st.session_state.get("watchlist_refresh_summary")
     if not isinstance(summary, Mapping):
         return
-    st.info(
-        "ウォッチリスト更新結果: "
-        f"成功 {summary.get('success_count', 0)}件 / "
-        f"失敗 {summary.get('failed_count', 0)}件 / "
-        f"スキップ {summary.get('skipped_count', 0)}件 / "
-        f"次回候補 {summary.get('next_candidates_count', 0)}件"
-    )
+    result_parts = [
+        f"成功 {summary.get('success_count', 0)}件",
+        f"失敗 {summary.get('failed_count', 0)}件",
+    ]
+    skipped_count = int(summary.get("skipped_count", 0) or 0)
+    next_candidates_count = int(summary.get("next_candidates_count", 0) or 0)
+    if skipped_count:
+        result_parts.append(f"見送り {skipped_count}件")
+    if next_candidates_count:
+        result_parts.append(f"次回候補 {next_candidates_count}件")
+    st.info("ウォッチリスト更新結果: " + " / ".join(result_parts))
     success_symbols = summary.get("success_symbols") or []
     skipped_symbols = summary.get("skipped_symbols") or []
     if success_symbols:
@@ -11216,7 +11253,13 @@ def _run_watchlist_auto_snapshot_once(
     computed_rows: Mapping[str, Mapping[str, Any]],
     snapshots: Mapping[str, WatchlistSnapshot],
 ) -> bool:
-    if WATCHLIST_AUTO_SNAPSHOT_STATE_KEY in st.session_state:
+    targets = _watchlist_all_refresh_targets(rows)
+    target_fingerprint = _watchlist_refresh_target_fingerprint(targets)
+    existing = st.session_state.get(WATCHLIST_AUTO_SNAPSHOT_STATE_KEY)
+    if (
+        isinstance(existing, Mapping)
+        and existing.get("target_fingerprint") == target_fingerprint
+    ):
         return False
     if _background_workers_disabled():
         st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
@@ -11224,18 +11267,16 @@ def _run_watchlist_auto_snapshot_once(
             "requested": 0,
             "success": 0,
             "failed": 0,
+            "target_fingerprint": target_fingerprint,
         }
         return False
-    targets = _watchlist_background_refresh_candidates(
-        rows,
-        max_items=WATCHLIST_AUTO_SNAPSHOT_MAX_ITEMS,
-    )
     if not targets:
         st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
             "status": "no_targets",
             "requested": 0,
             "success": 0,
             "failed": 0,
+            "target_fingerprint": target_fingerprint,
         }
         return False
     st.session_state["watchlist_auto_snapshot_started"] = True
@@ -11243,8 +11284,8 @@ def _run_watchlist_auto_snapshot_once(
     with loading_slot.container():
         render_mascot_loading(
             "guide",
-            title="ウォッチ銘柄を確認中",
-            message="お気に入り銘柄の価格・値動きを軽量取得しています。",
+            title="ウォッチ銘柄を全件確認中",
+            message=f"Myウォッチリスト {len(targets)}件の価格・スコアを更新しています。",
             tone="info",
         )
     result = asyncio.run(
@@ -11259,6 +11300,11 @@ def _run_watchlist_auto_snapshot_once(
     if hasattr(loading_slot, "empty"):
         loading_slot.empty()
     completed_at = datetime.now().astimezone().isoformat(timespec="seconds")
+    _update_watchlist_refresh_metadata_from_result(
+        result,
+        checked_at=completed_at,
+        favorites=favorites,
+    )
     st.session_state["watchlist_auto_snapshot_completed_at"] = completed_at
     st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
         "status": "completed",
@@ -11267,6 +11313,7 @@ def _run_watchlist_auto_snapshot_once(
         "failed": len(result["failed_symbols"]),
         "previous_data": len(result["previous_data_symbols"]),
         "completed_at": completed_at,
+        "target_fingerprint": target_fingerprint,
     }
     return True
 
@@ -11304,19 +11351,81 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                     "ai_score": str(
                         raw_row.get("ai_score")
                         or raw_row.get("investment_score")
+                        or raw_row.get("total_score")
                         or raw_row.get("総合スコア")
                         or ""
                     ),
                     "upside_score": str(
-                        raw_row.get("upside_score") or raw_row.get("上昇気配") or ""
+                        raw_row.get("upside_score")
+                        or raw_row.get("upside_signal_score")
+                        or raw_row.get("上昇気配")
+                        or ""
+                    ),
+                    "reversal_expectation_score": str(
+                        raw_row.get("reversal_expectation_score")
+                        or raw_row.get("上向き兆候")
+                        or ""
+                    ),
+                    "reversal_expectation_label": str(
+                        raw_row.get("reversal_expectation_label")
+                        or raw_row.get("上向き兆候ラベル")
+                        or ""
+                    ),
+                    "reversal_expectation_reason": str(
+                        raw_row.get("reversal_expectation_reason")
+                        or raw_row.get("上向き兆候理由")
+                        or ""
+                    ),
+                    "reversal_chart_shape_label": str(
+                        raw_row.get("reversal_chart_shape_label")
+                        or raw_row.get("チャート形状")
+                        or ""
                     ),
                     "downside_risk_score": str(
-                        raw_row.get("downside_risk_score") or raw_row.get("下降警戒") or ""
+                        raw_row.get("downside_risk_score")
+                        or raw_row.get("downside_signal_score")
+                        or raw_row.get("下降警戒")
+                        or raw_row.get("下振れ警戒")
+                        or ""
+                    ),
+                    "forecast_return_pct": str(
+                        raw_row.get("forecast_return_pct")
+                        or raw_row.get("予測変化率")
+                        or ""
+                    ),
+                    "up_model_count": str(raw_row.get("up_model_count") or ""),
+                    "down_model_count": str(raw_row.get("down_model_count") or ""),
+                    "flat_model_count": str(raw_row.get("flat_model_count") or ""),
+                    "risk_signal_score": str(
+                        raw_row.get("risk_signal_score")
+                        or raw_row.get("risk_score")
+                        or raw_row.get("Risk")
+                        or ""
+                    ),
+                    "data_quality_score": str(
+                        raw_row.get("data_quality_score")
+                        or raw_row.get("データ品質")
+                        or ""
+                    ),
+                    "drawdown_20d": str(
+                        raw_row.get("drawdown_20d")
+                        or raw_row.get("20日高値乖離")
+                        or ""
+                    ),
+                    "momentum_5d": str(
+                        raw_row.get("momentum_5d")
+                        or raw_row.get("return_5d")
+                        or raw_row.get("5日騰落率")
+                        or ""
                     ),
                 }
             )
     preview = st.session_state.get(MARKET_DATA_PREVIEW_STATE_KEY)
     if isinstance(preview, MarketDataPreview):
+        for feature_row in preview.feature_rows:
+            symbol = str(feature_row.get("symbol") or "").strip().upper()
+            if symbol:
+                rows.setdefault(symbol, {"symbol": symbol}).update(feature_row)
         for score_row in preview.investment_score_rows:
             symbol = str(score_row.get("symbol") or "").strip().upper()
             if symbol:
@@ -11345,6 +11454,23 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                     ),
                     "price_change_1m": _watchlist_optional_number_text(
                         local_snapshot.price_change_1m
+                    ),
+                    "reversal_expectation_score": _watchlist_optional_number_text(
+                        local_snapshot.reversal_expectation_score
+                    ),
+                    "reversal_expectation_label": local_snapshot.reversal_expectation_label
+                    or "",
+                    "reversal_expectation_reason": local_snapshot.reversal_expectation_reason
+                    or "",
+                    "reversal_chart_shape_label": local_snapshot.reversal_chart_shape_label
+                    or "",
+                    "reversal_trap_warning": local_snapshot.reversal_trap_warning or "",
+                    "dividend_trap_warning": local_snapshot.dividend_trap_warning or "",
+                    "dividend_safety_score": _watchlist_optional_number_text(
+                        local_snapshot.dividend_safety_score
+                    ),
+                    "downside_risk_score": _watchlist_optional_number_text(
+                        local_snapshot.downside_risk_score
                     ),
                 }
             )
@@ -11446,7 +11572,15 @@ async def _refresh_watchlist_snapshots(
                         ),
                         {},
                     )
-                    row = {**row, **score_row}
+                    feature_row = next(
+                        (
+                            item
+                            for item in preview.feature_rows
+                            if str(item.get("symbol") or "").upper() == normalized
+                        ),
+                        {},
+                    )
+                    row = {**row, **feature_row, **score_row}
                 else:
                     provider_symbol = symbol_provider_symbol(normalized, provider)
                     provider_bars = await adapter.fetch_ohlcv(

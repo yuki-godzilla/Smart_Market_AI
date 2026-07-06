@@ -1032,7 +1032,19 @@ def test_refresh_watchlist_snapshots_reuses_cockpit_preview_for_scores(monkeypat
     assert saved["6367.T"].downside_risk_score == 38.0
 
 
-def test_run_watchlist_auto_snapshot_once_limits_targets_and_runs_once(monkeypatch):
+def test_watchlist_all_refresh_targets_keeps_all_unique_symbols_in_display_order():
+    rows = [
+        {"symbol": " aaa "},
+        {"symbol": "BBB"},
+        {"symbol": "AAA"},
+        {"symbol": ""},
+        {"symbol": "ccc"},
+    ]
+
+    assert app_module._watchlist_all_refresh_targets(rows) == ["AAA", "BBB", "CCC"]
+
+
+def test_run_watchlist_auto_snapshot_once_refreshes_all_targets_and_runs_once(monkeypatch):
     session_state = {}
     refresh_calls: list[list[str]] = []
     slot = SimpleNamespace(container=lambda: nullcontext(), empty=lambda: None)
@@ -1048,22 +1060,18 @@ def test_run_watchlist_auto_snapshot_once_limits_targets_and_runs_once(monkeypat
     monkeypatch.setattr(app_module.st, "session_state", session_state)
     monkeypatch.setattr(app_module.st, "empty", lambda: slot)
     monkeypatch.setattr(app_module, "_background_workers_disabled", lambda: False)
-    monkeypatch.setattr(
-        app_module,
-        "_watchlist_background_refresh_candidates",
-        lambda *_, **__: ["AAA", "BBB", "CCC"],
-    )
     monkeypatch.setattr(app_module, "_refresh_watchlist_snapshots", fake_refresh)
     monkeypatch.setattr(app_module, "render_mascot_loading", lambda *_, **__: None)
 
+    rows = [{"symbol": symbol} for symbol in ["AAA", "BBB", "CCC", "DDD"]]
     first = app_module._run_watchlist_auto_snapshot_once(
-        [],
+        rows,
         favorites=[],
         computed_rows={},
         snapshots={},
     )
     second = app_module._run_watchlist_auto_snapshot_once(
-        [],
+        rows,
         favorites=[],
         computed_rows={},
         snapshots={},
@@ -1071,8 +1079,8 @@ def test_run_watchlist_auto_snapshot_once_limits_targets_and_runs_once(monkeypat
 
     assert first is True
     assert second is False
-    assert refresh_calls == [["AAA", "BBB", "CCC"]]
-    assert session_state[app_module.WATCHLIST_AUTO_SNAPSHOT_STATE_KEY]["requested"] == 3
+    assert refresh_calls == [["AAA", "BBB", "CCC", "DDD"]]
+    assert session_state[app_module.WATCHLIST_AUTO_SNAPSHOT_STATE_KEY]["requested"] == 4
     assert session_state[app_module.WATCHLIST_AUTO_SNAPSHOT_STATE_KEY]["success"] == 2
 
 

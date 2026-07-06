@@ -65,6 +65,87 @@ def test_snapshot_store_round_trip_update_remove_and_prune(tmp_path):
     assert load_watchlist_snapshots(path) == {}
 
 
+def test_build_snapshot_calculates_reversal_from_raw_score_and_bars():
+    start = datetime(2026, 5, 1, tzinfo=UTC)
+    prices = [
+        100,
+        99,
+        98,
+        97,
+        96,
+        95,
+        94,
+        93,
+        92,
+        91,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+    ]
+    bars = [
+        Bar(
+            symbol=Symbol(code="TEST", exchange="TSE", raw="TEST", currency="JPY"),
+            ts=start + timedelta(days=index),
+            open=Decimal(str(price)),
+            high=Decimal(str(price + 1)),
+            low=Decimal(str(price - 1)),
+            close=Decimal(str(price)),
+            volume=1000,
+            interval="1d",
+            provider="mock",
+        )
+        for index, price in enumerate(prices)
+    ]
+
+    snapshot = build_watchlist_snapshot_for_symbol(
+        "TEST",
+        row={
+            "upside_signal_score": "66",
+            "downside_signal_score": "30",
+            "forecast_return_pct": "4",
+            "up_model_count": "2",
+            "down_model_count": "0",
+            "data_quality_score": "85",
+            "risk_signal_score": "70",
+        },
+        bars=bars,
+        now=datetime(2026, 6, 27, tzinfo=UTC),
+        source="mock",
+    )
+
+    assert snapshot.status == "ok"
+    assert snapshot.reversal_expectation_score is not None
+    assert snapshot.reversal_expectation_label
+    assert snapshot.reversal_expectation_reason
+    assert snapshot.last_score_at is not None
+
+
+def test_build_snapshot_keeps_japanese_reversal_alias_from_ranking_display_row():
+    snapshot = build_watchlist_snapshot_for_symbol(
+        "7203.T",
+        row={
+            "上向き兆候": "62.5",
+            "上向き兆候ラベル": "観察候補",
+            "上向き兆候理由": "下落安全性と予測を確認します。",
+        },
+        now=datetime(2026, 6, 27, tzinfo=UTC),
+    )
+
+    assert snapshot.status == "ok"
+    assert snapshot.reversal_expectation_score == 62.5
+    assert snapshot.reversal_expectation_label == "観察候補"
+    assert snapshot.reversal_expectation_reason == "下落安全性と予測を確認します。"
+
+
 def test_snapshot_store_missing_and_broken_json_are_safe(tmp_path):
     path = tmp_path / "watchlist_snapshots.json"
     assert load_watchlist_snapshots(path) == {}

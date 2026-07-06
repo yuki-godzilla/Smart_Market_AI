@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from backend.core.data_contracts import Bar
+from backend.scoring.reversal import calculate_reversal_expectation
 from ui.favorites import FavoriteStock, normalize_favorite_symbol
 from ui.user_data import (
     is_default_session_user,
@@ -249,10 +250,16 @@ def build_watchlist_snapshot_for_symbol(
     change_1d = _price_change(closes, 1) if closes else _first_float(row, "price_change_1d")
     change_5d = _price_change(closes, 5) if closes else _first_float(row, "price_change_5d")
     change_1m = _price_change(closes, 20) if closes else _first_float(row, "price_change_1m")
+    drawdown_20d = _price_drawdown_percent(sorted_bars, 20) if sorted_bars else None
     trend_status, trend_label, trend_icon = classify_watchlist_trend(
         price_change_1d=change_1d,
         price_change_5d=change_5d,
         price_change_1m=change_1m,
+    )
+    score_row = _watchlist_row_with_reversal_expectation(
+        row,
+        price_change_5d=change_5d,
+        drawdown_20d=drawdown_20d,
     )
     snapshot = WatchlistSnapshot(
         symbol=normalized,
@@ -268,30 +275,30 @@ def build_watchlist_snapshot_for_symbol(
         price_change_5d=change_5d,
         price_change_1m=change_1m,
         ai_score=_first_float(
-            row,
+            score_row,
             "ai_score",
             "investment_score",
             "total_score",
             "総合スコア",
         ),
         upside_score=_first_float(
-            row,
+            score_row,
             "upside_score",
             "upside_signal_score",
             "upside",
             "上昇気配",
         ),
-        reversal_expectation_score=_first_float(row, "reversal_expectation_score"),
-        reversal_expectation_label=_first_text(row, "reversal_expectation_label"),
-        reversal_expectation_reason=_first_text(row, "reversal_expectation_reason"),
-        reversal_chart_shape_label=_first_text(row, "reversal_chart_shape_label"),
-        reversal_trap_warning=_first_text(row, "reversal_trap_warning"),
-        dividend_trap_warning=_first_text(row, "dividend_trap_warning"),
-        dividend_safety_score=_first_float(row, "dividend_safety_score"),
-        dividend_yield_spike_flag=_first_bool(row, "dividend_yield_spike_flag"),
-        dividend_sustainability_label=_first_text(row, "dividend_sustainability_label"),
+        reversal_expectation_score=_first_float(score_row, "reversal_expectation_score"),
+        reversal_expectation_label=_first_text(score_row, "reversal_expectation_label"),
+        reversal_expectation_reason=_first_text(score_row, "reversal_expectation_reason"),
+        reversal_chart_shape_label=_first_text(score_row, "reversal_chart_shape_label"),
+        reversal_trap_warning=_first_text(score_row, "reversal_trap_warning"),
+        dividend_trap_warning=_first_text(score_row, "dividend_trap_warning"),
+        dividend_safety_score=_first_float(score_row, "dividend_safety_score"),
+        dividend_yield_spike_flag=_first_bool(score_row, "dividend_yield_spike_flag"),
+        dividend_sustainability_label=_first_text(score_row, "dividend_sustainability_label"),
         downside_risk_score=_first_float(
-            row,
+            score_row,
             "downside_risk_score",
             "downside_signal_score",
             "downside",
@@ -312,21 +319,22 @@ def build_watchlist_snapshot_for_symbol(
                 value is not None
                 for value in (
                     _first_float(
-                        row,
+                        score_row,
                         "ai_score",
                         "investment_score",
                         "total_score",
                         "総合スコア",
                     ),
                     _first_float(
-                        row,
+                        score_row,
                         "upside_score",
                         "upside_signal_score",
                         "upside",
                         "上昇気配",
                     ),
+                    _first_float(score_row, "reversal_expectation_score", "上向き兆候"),
                     _first_float(
-                        row,
+                        score_row,
                         "downside_risk_score",
                         "downside_signal_score",
                         "downside",
@@ -342,13 +350,116 @@ def build_watchlist_snapshot_for_symbol(
         last_score_at=(
             timestamp
             if any(
-                _first_float(row, key) is not None
-                for key in ("ai_score", "investment_score", "total_score", "総合スコア")
+                _first_float(score_row, key) is not None
+                for key in (
+                    "ai_score",
+                    "investment_score",
+                    "total_score",
+                    "総合スコア",
+                    "reversal_expectation_score",
+                    "上向き兆候",
+                )
             )
             else None
         ),
     )
     return _merge_snapshots(previous, snapshot) if previous is not None else snapshot
+
+
+def _watchlist_row_with_reversal_expectation(
+    row: Mapping[str, Any],
+    *,
+    price_change_5d: float | None,
+    drawdown_20d: float | None,
+) -> dict[str, Any]:
+    """Return a row with stable reversal fields for watchlist snapshots.
+
+    The watchlist refresh path receives raw investment score rows, while the ranking
+    table displays Japanese aliases such as ``上向き兆候``. Normalize both shapes
+    here so cards do not fall back to ``未計算`` after refresh.
+    """
+
+    enriched = dict(row)
+    _copy_first_available(enriched, "reversal_expectation_score", "上向き兆候")
+    _copy_first_available(enriched, "reversal_expectation_label", "上向き兆候ラベル")
+    _copy_first_available(enriched, "reversal_expectation_reason", "上向き兆候理由")
+    _copy_first_available(enriched, "upside_signal_score", "upside_score", "upside", "上昇気配")
+    _copy_first_available(
+        enriched,
+        "downside_signal_score",
+        "downside_risk_score",
+        "downside",
+        "下降警戒",
+        "下振れ警戒",
+    )
+    _copy_first_available(enriched, "forecast_return_pct", "予測変化率")
+    _copy_first_available(enriched, "risk_signal_score", "risk_score", "Risk")
+    _copy_first_available(enriched, "data_quality_score", "データ品質")
+    _copy_first_available(enriched, "drawdown_20d", "20日高値乖離")
+    _copy_first_available(enriched, "momentum_5d", "return_5d", "5日騰落率")
+    if not _has_value(enriched.get("momentum_5d")) and price_change_5d is not None:
+        enriched["momentum_5d"] = str(price_change_5d)
+    if not _has_value(enriched.get("drawdown_20d")) and drawdown_20d is not None:
+        enriched["drawdown_20d"] = str(drawdown_20d)
+
+    if _has_reversal_calculation_inputs(enriched):
+        calculated = calculate_reversal_expectation(enriched).as_row()
+        for key, value in calculated.items():
+            if not _has_value(enriched.get(key)):
+                enriched[key] = value
+    return enriched
+
+
+def _has_reversal_calculation_inputs(row: Mapping[str, Any]) -> bool:
+    return any(
+        _has_value(row.get(key))
+        for key in (
+            "reversal_expectation_score",
+            "upside_signal_score",
+            "downside_signal_score",
+            "forecast_return_pct",
+            "up_model_count",
+            "down_model_count",
+            "risk_signal_score",
+            "data_quality_score",
+            "momentum_5d",
+            "drawdown_20d",
+        )
+    )
+
+
+def _copy_first_available(row: dict[str, Any], target_key: str, *source_keys: str) -> None:
+    if _has_value(row.get(target_key)):
+        return
+    for key in source_keys:
+        value = row.get(key)
+        if _has_value(value):
+            row[target_key] = value
+            return
+
+
+def _has_value(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return True
+    text = str(value).strip()
+    return text not in {"", "-", "N/A", "None", "null", "nan", "NaN", "未取得", "未計算"}
+
+
+def _price_drawdown_percent(bars: Sequence[Bar], window: int) -> float | None:
+    selected = sorted(bars, key=lambda bar: bar.ts)[-window:]
+    if not selected:
+        return None
+    try:
+        peak = max(Decimal(str(bar.high)) for bar in selected)
+        latest_close = Decimal(str(selected[-1].close))
+    except Exception:  # noqa: BLE001
+        return None
+    if peak <= 0:
+        return None
+    drawdown = (peak - latest_close) / peak * Decimal("100")
+    return float(drawdown.quantize(Decimal("0.0001")))
 
 
 def mark_watchlist_snapshot_failed(

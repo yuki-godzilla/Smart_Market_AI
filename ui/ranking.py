@@ -1237,11 +1237,31 @@ def ranking_purpose_focus_summary(purpose: str) -> str:
     )
 
 
+def _ranking_metric_sort_primary_summary(purpose: str, preset: str) -> str:
+    label = ranking_purpose_label(purpose)
+    _, direction = RANKING_METRIC_SORT_PRESETS[preset]
+    direction_label = "高い順" if direction == "desc" else "低い順"
+    if purpose == RANKING_PURPOSE_REVERSAL_EXPECTATION:
+        return f"{label} {direction_label}"
+    if "順" in label:
+        return label
+    return f"{label} {direction_label}"
+
+
+def _ranking_metric_sort_tie_breaker_summary(preset: str) -> str:
+    if preset == RANKING_PRESET_REVERSAL_EXPECTATION:
+        return "下落安全性・予測変化率・下降警戒で補助"
+    return "総合スコアで補助"
+
+
 def ranking_purpose_weight_summary(purpose: str, *, limit: int = 4) -> tuple[str, ...]:
     preset = ranking_weight_preset_for_purpose(purpose)
     if preset in RANKING_METRIC_SORT_PRESETS:
-        label = ranking_purpose_label(purpose)
-        return (f"{label} 100%", "N/A 末尾", "同値は総合スコア補助")[:limit]
+        return (
+            f"主指標 {_ranking_metric_sort_primary_summary(purpose, preset)}",
+            "欠損データ N/Aは末尾",
+            f"同点補正 {_ranking_metric_sort_tie_breaker_summary(preset)}",
+        )[:limit]
     weights = RANKING_WEIGHT_PRESETS.get(preset, RANKING_WEIGHT_PRESETS[RANKING_PRESET_BALANCED])
     ranked_weights = sorted(weights.items(), key=lambda item: (-item[1], item[0]))
     return tuple(
@@ -1249,6 +1269,46 @@ def ranking_purpose_weight_summary(purpose: str, *, limit: int = 4) -> tuple[str
         for field, weight in ranked_weights[:limit]
         if weight > 0
     )
+
+
+def ranking_purpose_context_cards(purpose: str, *, limit: int = 4) -> list[dict[str, str]]:
+    """Return structured cards for the ranking-purpose guide UI."""
+
+    preset = ranking_weight_preset_for_purpose(purpose)
+    if preset in RANKING_METRIC_SORT_PRESETS:
+        return [
+            {
+                "label": "主指標",
+                "value": _ranking_metric_sort_primary_summary(purpose, preset),
+                "help": "このランキング基準で最初に見る指標",
+                "badge": "並び替え",
+            },
+            {
+                "label": "欠損データ",
+                "value": "N/Aは末尾",
+                "help": "値が取れない候補は下位に回します",
+                "badge": "データ",
+            },
+            {
+                "label": "同点補正",
+                "value": _ranking_metric_sort_tie_breaker_summary(preset),
+                "help": "同点時は補助指標で順序を安定させます",
+                "badge": "補助",
+            },
+        ][:limit]
+
+    weights = RANKING_WEIGHT_PRESETS.get(preset, RANKING_WEIGHT_PRESETS[RANKING_PRESET_BALANCED])
+    ranked_weights = sorted(weights.items(), key=lambda item: (-item[1], item[0]))
+    return [
+        {
+            "label": RANKING_SCORE_FIELD_LABELS.get(field, field),
+            "value": f"{weight * Decimal('100'):.0f}%",
+            "help": "このランキング基準で重視する指標",
+            "badge": "重み",
+        }
+        for field, weight in ranked_weights[:limit]
+        if weight > 0
+    ]
 
 
 def ranking_detail_filters_for_category(region: str, product_type: str) -> list[str]:

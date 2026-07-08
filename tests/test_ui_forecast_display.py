@@ -8804,22 +8804,21 @@ def test_reversal_condition_card_explains_formula_and_guardrails():
     caps = reversal_expectation_cap_rows()
 
     assert "上向き兆候をひとことで" in markup
-    assert "チャート形状 30%" in markup
+    assert "チャート形状 35%" in markup
     assert "予測上向き余地 25%" in markup
-    assert "スコア上限" in markup
+    assert "上限固定ではなく段階的に減点" in markup
     assert [row["配点"] for row in components] == [
-        "30%",
+        "35%",
         "25%",
         "20%",
         "10%",
         "10%",
-        "5%",
     ]
     assert next(row for row in pullbacks if row["基礎点"] == "90")["20日高値からの下落"] == (
         "6%以上〜12%未満"
     )
-    assert any(row["危険条件"] == "下降警戒 80以上" and row["スコア上限"] == "45" for row in caps)
-    assert any(row["危険条件"] == "データ品質BLOCK" and row["スコア上限"] == "0" for row in caps)
+    assert any(row["危険条件"] == "下降警戒 70以上" and row["扱い"] == "-6〜-18点" for row in caps)
+    assert any(row["危険条件"] == "データ品質BLOCK" and row["扱い"] == "未評価" for row in caps)
 
 
 def test_ranking_condition_summary_chips_show_default_builder_state():

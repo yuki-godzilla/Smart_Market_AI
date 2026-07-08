@@ -42,12 +42,21 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
     drawdown_60d = abs(_number(row, "drawdown_60d", "high_60d_gap_pct", default=drawdown))
     momentum = _number(row, "momentum_5d", "return_5d", "price_change_5d", default=Decimal("0"))
     forecast_return = _number(row, "forecast_return_pct", default=Decimal("0"))
-    up_models = _number(row, "up_model_count", default=Decimal("0"))
-    down_models = _number(row, "down_model_count", default=Decimal("0"))
+    up_models_value = _optional_number(row, "up_model_count")
+    down_models_value = _optional_number(row, "down_model_count")
+    # Some ranking/watchlist rows do not carry model-count metadata even when
+    # forecast_return_pct is available. Treating that absence as 0 upward models
+    # made nearly every candidate hit the hard cap. Missing counts are therefore
+    # neutral, while an explicit 0 still works as a guardrail.
+    up_models = up_models_value if up_models_value is not None else Decimal("1")
+    down_models = down_models_value if down_models_value is not None else Decimal("1")
     upside = _number(row, "upside_signal_score", default=Decimal("50"))
     downside = _number(row, "downside_signal_score", default=Decimal("50"))
     risk = _number(row, "risk_signal_score", "risk_score", default=Decimal("50"))
-    data_quality = _number(row, "data_quality_score", default=Decimal("50"))
+    data_quality_value = _optional_number(row, "data_quality_score")
+    # Data-quality metadata is a reliability note, not investment attractiveness.
+    # Keep it out of the score except for explicit block-level warnings.
+    data_quality = data_quality_value if data_quality_value is not None else Decimal("70")
 
     shape_scores = _chart_shape_scores(
         row,
@@ -76,41 +85,56 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
     material = _material_score(row, forecast_return, up_models, upside)
 
     raw = (
-        chart_shape * Decimal("0.30")
+        chart_shape * Decimal("0.35")
         + forecast * Decimal("0.25")
         + safety * Decimal("0.20")
         + pullback * Decimal("0.10")
-        + quality * Decimal("0.10")
-        + material * Decimal("0.05")
+        + material * Decimal("0.10")
     )
-    caps: list[Decimal] = []
-    warnings = str(row.get("warnings") or "").lower()
-    if "data_quality:block" in warnings or "data quality block" in warnings:
-        caps.append(Decimal("0"))
-    if data_quality < 60:
-        caps.append(Decimal("55"))
-    if downside >= 80:
-        caps.append(Decimal("45"))
-    elif downside >= 70:
-        caps.append(Decimal("60"))
-    if risk < 40 or drawdown >= 35:
-        caps.append(Decimal("45"))
-    if forecast_return <= 0 or up_models <= 0:
-        caps.append(Decimal("50"))
-    if shape_label == "落ちるナイフ注意":
-        caps.append(Decimal("45"))
-    elif shape_label in {"上昇済み・兆候薄め", "反転材料弱め"}:
-        caps.append(Decimal("55"))
-    if dividend.score_cap is not None:
-        caps.append(dividend.score_cap)
 
-    score = _clamp(min([raw, *caps]) if caps else raw).quantize(Decimal("0.01"))
-    trap_warning = _trap_warning(shape_label, downside, risk, data_quality)
+    if _data_is_insufficient(row):
+        score = Decimal("0.00")
+        total_penalty = Decimal("0")
+        trap_warning = "評価材料不足"
+        expectation_label = "未評価"
+    else:
+        price_action_penalty = _price_action_penalty(
+            row, drawdown=drawdown, momentum=momentum, downside=downside, risk=risk
+        )
+        penalties = [
+            _downside_penalty(downside),
+            _risk_penalty(risk),
+            price_action_penalty,
+            _chase_penalty(row, drawdown=drawdown, momentum=momentum),
+            _forecast_penalty(
+                forecast_return=forecast_return,
+                up_models_value=up_models_value,
+                down_models_value=down_models_value,
+            ),
+            _dividend_penalty(dividend),
+        ]
+        penalty_cap = Decimal("45") if price_action_penalty >= Decimal("25") else Decimal("35")
+        total_penalty = min(sum(penalties, Decimal("0")), penalty_cap)
+        score = _clamp(raw - total_penalty).quantize(Decimal("0.01"))
+        trap_warning = _trap_warning(
+            shape_label,
+            downside,
+            risk,
+            data_quality,
+            total_penalty=total_penalty,
+            dividend_warning=dividend.warning,
+        )
+        expectation_label = reversal_expectation_label(score)
     return ReversalExpectation(
         reversal_expectation_score=score,
-        reversal_expectation_label=reversal_expectation_label(score),
+        reversal_expectation_label=expectation_label,
         reversal_expectation_reason=_reason(
-            shape_label, forecast_return, safety, data_quality, dividend.warning
+            shape_label,
+            forecast_return,
+            safety,
+            data_quality,
+            dividend.warning,
+            total_penalty=total_penalty,
         ),
         reversal_chart_shape_score=_rounded(chart_shape),
         reversal_forecast_score=_rounded(forecast),
@@ -166,20 +190,18 @@ def _chart_shape_label(
     risk: Decimal,
 ) -> str:
     recent_low_break = _truthy(row, "recent_low_break", "new_low_flag")
-    if (
-        drawdown >= 35
-        or downside >= 80
-        or risk < 40
-        or (recent_low_break and momentum <= -3)
-        or momentum <= -8
-    ):
-        return "落ちるナイフ注意"
     if _data_is_insufficient(row):
         return "データ不足・要確認"
+    if (
+        (drawdown >= 20 and momentum <= -8)
+        or momentum <= -12
+        or (recent_low_break and momentum <= -5)
+        or (downside >= 80 and momentum <= -8)
+        or (risk < 40 and drawdown >= 20 and momentum <= -5)
+    ):
+        return "落ちるナイフ注意"
     if drawdown < 3 and momentum > 3:
         return "上昇済み・兆候薄め"
-    if forecast_return <= 0 or up_models <= 0:
-        return "反転材料弱め"
     if drawdown >= 20 and momentum <= 0:
         return "売られすぎ反発狙い"
     candidates = {
@@ -238,16 +260,14 @@ def _chart_shape_scores(
     if higher_low:
         accumulation += 5
 
-    dangerous = Decimal("0")
-    if drawdown >= 35 or downside >= 80 or risk < 40 or momentum <= -8:
-        dangerous = Decimal("45")
-    elif drawdown >= 25 or downside >= 70 or momentum <= -5:
-        dangerous = Decimal("20")
+    dangerous = _price_action_penalty(
+        row, drawdown=drawdown, momentum=momentum, downside=downside, risk=risk
+    )
     return {
-        "押し目反発待ち": _clamp(pullback - dangerous),
-        "底打ち接近": _clamp(bottoming - dangerous),
-        "横ばい上放れ候補": _clamp(range_breakout - dangerous),
-        "蓄積上昇準備": _clamp(accumulation - dangerous),
+        "押し目反発待ち": _clamp(pullback),
+        "底打ち接近": _clamp(bottoming),
+        "横ばい上放れ候補": _clamp(range_breakout),
+        "蓄積上昇準備": _clamp(accumulation),
         "dangerous_penalty": dangerous,
     }
 
@@ -298,7 +318,8 @@ def _forecast_score(
             default=_scale(forecast_return, Decimal("-5"), Decimal("12")),
         )
         * Decimal("0.15")
-        + _number(row, "advanced_forecast_quality_score", default=quality) * Decimal("0.10")
+        + _number(row, "advanced_forecast_quality_score", default=Decimal("50"))
+        * Decimal("0.10")
         + upside * Decimal("0.10")
     )
 
@@ -392,15 +413,15 @@ def _dividend_assessment(row: Mapping[str, object], drawdown_60d: Decimal) -> _D
         score -= 20
     score = _clamp(score)
     if danger:
-        return _DividendAssessment(score, "減配リスク高", spike, "維持に強い注意", Decimal("45"))
+        return _DividendAssessment(score, "減配リスク高", spike, "維持に強い注意", None)
     if spike:
         return _DividendAssessment(
-            score, "株価下落による利回り急上昇", True, "要確認", Decimal("55")
+            score, "株価下落による利回り急上昇", True, "要確認", None
         )
     if not known:
-        return _DividendAssessment(score, "配当安全性未確認", False, "材料不足", Decimal("60"))
+        return _DividendAssessment(score, "配当安全性未確認", False, "材料不足", None)
     if score < 55:
-        return _DividendAssessment(score, "配当維持に注意", False, "要確認", Decimal("60"))
+        return _DividendAssessment(score, "配当維持に注意", False, "要確認", None)
     return _DividendAssessment(score, "目立つ警告なし", False, "おおむね安定", None)
 
 
@@ -440,14 +461,126 @@ def _model_direction_score(up: Decimal, down: Decimal) -> Decimal:
     return Decimal("50") if total <= 0 else _clamp(up / total * 100)
 
 
-def _trap_warning(shape_label: str, downside: Decimal, risk: Decimal, data_quality: Decimal) -> str:
+def _downside_penalty(downside: Decimal) -> Decimal:
+    if downside >= 90:
+        return Decimal("18")
+    if downside >= 80:
+        return Decimal("12")
+    if downside >= 70:
+        return Decimal("6")
+    return Decimal("0")
+
+
+def _risk_penalty(risk: Decimal) -> Decimal:
+    if risk < 25:
+        return Decimal("16")
+    if risk < 40:
+        return Decimal("10")
+    if risk < 50:
+        return Decimal("5")
+    return Decimal("0")
+
+
+def _price_action_penalty(
+    row: Mapping[str, object],
+    *,
+    drawdown: Decimal,
+    momentum: Decimal,
+    downside: Decimal,
+    risk: Decimal,
+) -> Decimal:
+    recent_low_break = _truthy(row, "recent_low_break", "new_low_flag")
+    momentum_penalty = Decimal("0")
+    if momentum <= -12:
+        momentum_penalty = Decimal("18")
+    elif momentum <= -8:
+        momentum_penalty = Decimal("12")
+    elif momentum <= -5:
+        momentum_penalty = Decimal("6")
+
+    drawdown_penalty = Decimal("0")
+    if drawdown >= 50:
+        drawdown_penalty = Decimal("14")
+    elif drawdown >= 35:
+        drawdown_penalty = Decimal("10")
+    elif drawdown >= 25:
+        drawdown_penalty = Decimal("6")
+
+    combo_penalty = Decimal("0")
+    if drawdown >= 20 and momentum <= -8:
+        combo_penalty = Decimal("22")
+    if recent_low_break and momentum <= -5:
+        combo_penalty = max(combo_penalty, Decimal("22"))
+    if downside >= 80 and momentum <= -8:
+        combo_penalty = max(combo_penalty, Decimal("25"))
+    if combo_penalty > 0 and risk < 40:
+        combo_penalty = max(combo_penalty, Decimal("30"))
+
+    return max(momentum_penalty, drawdown_penalty, combo_penalty)
+
+
+def _chase_penalty(
+    row: Mapping[str, object], *, drawdown: Decimal, momentum: Decimal
+) -> Decimal:
+    if drawdown >= 3 or momentum <= 3:
+        return Decimal("0")
+    penalty = Decimal("8") if momentum > 6 else Decimal("5")
+    rsi = _optional_number(row, "rsi_14", "rsi")
+    if rsi is not None and rsi > 75:
+        penalty += Decimal("3")
+    return min(penalty, Decimal("11"))
+
+
+def _forecast_penalty(
+    *,
+    forecast_return: Decimal,
+    up_models_value: Decimal | None,
+    down_models_value: Decimal | None,
+) -> Decimal:
+    penalty = Decimal("0")
+    if forecast_return <= -8:
+        penalty += Decimal("10")
+    elif forecast_return <= -3:
+        penalty += Decimal("6")
+    elif forecast_return <= 0:
+        penalty += Decimal("3")
+    if up_models_value is not None and up_models_value <= 0 and forecast_return <= 0:
+        penalty += Decimal("4")
+    if (
+        up_models_value is not None
+        and down_models_value is not None
+        and down_models_value > up_models_value
+    ):
+        penalty += Decimal("3")
+    return min(penalty, Decimal("12"))
+
+
+def _dividend_penalty(dividend: _DividendAssessment) -> Decimal:
+    if dividend.warning == "減配リスク高":
+        return Decimal("8")
+    if dividend.warning in {"株価下落による利回り急上昇", "配当維持に注意"}:
+        return Decimal("5")
+    return Decimal("0")
+
+
+def _trap_warning(
+    shape_label: str,
+    downside: Decimal,
+    risk: Decimal,
+    data_quality: Decimal,
+    *,
+    total_penalty: Decimal = Decimal("0"),
+    dividend_warning: str = "",
+) -> str:
     reasons: list[str] = []
     if shape_label == "落ちるナイフ注意":
         reasons.append("下落継続")
     if downside >= 70 or risk < 40:
         reasons.append("下落安全性")
-    if data_quality < 60:
-        reasons.append("データ品質")
+    if total_penalty > 0:
+        reasons.append(f"減点 {total_penalty.normalize()}点")
+    if dividend_warning not in {"", "該当なし", "目立つ警告なし"}:
+        reasons.append(dividend_warning)
     return "・".join(reasons) if reasons else "目立つ警告なし"
 
 
@@ -457,12 +590,16 @@ def _reason(
     safety: Decimal,
     data_quality: Decimal,
     dividend_warning: str,
+    *,
+    total_penalty: Decimal = Decimal("0"),
 ) -> str:
     parts = [f"形状は「{shape_label}」"]
     parts.append("予測は上向き" if forecast_return > 0 else "予測の上向き材料は不足")
     parts.append("下落安全性を確認" if safety < 55 else "下落安全性は相対的に良好")
+    if total_penalty > 0:
+        parts.append(f"危険条件は上限固定ではなく{total_penalty.normalize()}点減点")
     if data_quality < 60:
-        parts.append("データ品質が低いため上限あり")
+        parts.append("一部データは要確認")
     if dividend_warning not in {"該当なし", "目立つ警告なし"}:
         parts.append(dividend_warning)
     return (
@@ -473,8 +610,18 @@ def _reason(
 
 def _data_is_insufficient(row: Mapping[str, object]) -> bool:
     warnings = str(row.get("warnings") or "").lower()
-    data_quality = _number(row, "data_quality_score", default=Decimal("50"))
-    return data_quality < 40 or "data_quality:block" in warnings or "insufficient" in warnings
+    critical_tokens = (
+        "data_quality:block",
+        "data quality block",
+        "price_data:block",
+        "price data block",
+        "price_history:block",
+        "ohlcv:block",
+        "insufficient_ohlcv_rows",
+        "insufficient_price_history",
+        "price_history:insufficient",
+    )
+    return any(token in warnings for token in critical_tokens)
 
 
 def _truthy(row: Mapping[str, object], *keys: str) -> bool:

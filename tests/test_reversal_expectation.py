@@ -52,21 +52,55 @@ def test_healthy_pullback_with_positive_forecast_scores_highly():
     assert result.reversal_material_score > 0
 
 
-def test_reversal_caps_cover_falling_knife_and_missing_up_models():
+def test_reversal_penalties_cover_falling_knife_without_flat_caps():
+    base = calculate_reversal_expectation(_candidate())
     falling_knife = calculate_reversal_expectation(
         _candidate(drawdown_20d="-38", momentum_5d="-10", downside_signal_score="86")
     )
     no_up_models = calculate_reversal_expectation(_candidate(up_model_count="0"))
-    assert falling_knife.reversal_expectation_score <= Decimal("45")
-    assert no_up_models.reversal_expectation_score <= Decimal("50")
+
+    assert falling_knife.reversal_chart_shape_label == "落ちるナイフ注意"
+    assert falling_knife.reversal_expectation_score < base.reversal_expectation_score
+    assert "減点" in falling_knife.reversal_trap_warning
+    assert no_up_models.reversal_expectation_score > Decimal("55")
 
 
-def test_already_rising_candidate_is_capped_and_total_score_is_not_changed():
+def test_already_rising_candidate_is_penalized_and_total_score_is_not_changed():
     row = _candidate(drawdown_20d="-1", momentum_5d="5")
     result = calculate_reversal_expectation(row)
     ranked = apply_ranking_weight_preset([row], RANKING_PRESET_REVERSAL_EXPECTATION, {"AAA": row})
-    assert result.reversal_expectation_score <= Decimal("55")
+    assert result.reversal_chart_shape_label == "上昇済み・兆候薄め"
+    assert "減点" in result.reversal_expectation_reason
     assert ranked[0]["total_score"] == "71"
+
+
+def test_reversal_missing_quality_and_model_counts_do_not_force_mass_cap():
+    row = _candidate(drawdown_20d="-2", momentum_5d="1")
+    row.pop("data_quality_score")
+    row.pop("up_model_count")
+    row.pop("down_model_count")
+
+    result = calculate_reversal_expectation(row)
+
+    assert result.reversal_expectation_score > Decimal("55")
+    assert result.reversal_trap_warning == "目立つ警告なし"
+
+
+def test_reversal_low_but_available_data_quality_does_not_change_score():
+    base = calculate_reversal_expectation(_candidate(data_quality_score="82"))
+    result = calculate_reversal_expectation(_candidate(data_quality_score="55"))
+
+    assert result.reversal_expectation_score == base.reversal_expectation_score
+    assert "一部データは要確認" in result.reversal_expectation_reason
+    assert "上限あり" not in result.reversal_expectation_reason
+
+
+def test_reversal_data_quality_block_is_unevaluated():
+    result = calculate_reversal_expectation(_candidate(warnings="data_quality:block"))
+
+    assert result.reversal_expectation_score == Decimal("0.00")
+    assert result.reversal_expectation_label == "未評価"
+    assert result.reversal_trap_warning == "評価材料不足"
 
 
 def test_falling_knife_and_bottoming_shape_are_distinguished():
@@ -83,7 +117,7 @@ def test_falling_knife_and_bottoming_shape_are_distinguished():
     assert bottoming.reversal_expectation_score > falling.reversal_expectation_score
 
 
-def test_dividend_trap_caps_high_yield_created_by_price_drop():
+def test_dividend_trap_is_warning_and_small_penalty_not_score_cap():
     result = calculate_reversal_expectation(
         _candidate(
             dividend_yield_pct="8.5",
@@ -98,7 +132,8 @@ def test_dividend_trap_caps_high_yield_created_by_price_drop():
     assert result.dividend_yield_spike_flag is True
     assert result.dividend_safety_score < Decimal("50")
     assert result.dividend_trap_warning == "減配リスク高"
-    assert result.reversal_expectation_score <= Decimal("45")
+    assert "減点" in result.reversal_trap_warning
+    assert result.reversal_expectation_score > Decimal("45")
 
 
 def test_reversal_ranking_uses_safety_before_total_score_for_ties():

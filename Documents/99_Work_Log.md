@@ -3702,7 +3702,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py tools\playwright_assistant_action_smoke.py --no-cache`.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py tools\playwright_assistant_action_smoke.py`.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d`.
-- passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d_app --app-url http://localhost:8517`.
+- passed after setting `PYTHONPATH=C:\Users\user\workspace\SMAI_Projects\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d_app --app-url http://localhost:8517`.
 
 ## 2026-06-19 Phase 30-E - LLM Tool Planner Safety MVP
 
@@ -3733,7 +3733,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Ruff for parent Assistant/UI/config/tests and Gateway app/tool-plan tests.
 - passed: targeted Black helper for 20 changed Python files.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30e_playwright_static`.
-- passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit on `http://127.0.0.1:8511`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8511 --output-dir outputs\work\phase30e_playwright_app`.
+- passed after setting `PYTHONPATH=C:\Users\user\workspace\SMAI_Projects\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit on `http://127.0.0.1:8511`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8511 --output-dir outputs\work\phase30e_playwright_app`.
 
 ## 2026-06-19 Phase 30-F - Agent Evaluation Harness MVP
 

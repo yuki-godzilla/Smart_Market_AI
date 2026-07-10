@@ -76,6 +76,11 @@ call :log "[SMAI] Finished at: %DATE% %TIME%"
 call :log "[SMAI] Maintenance exit code: %SMAI_MAINTENANCE_EXIT%"
 call :log "[SMAI] Reports: reports\YYYY-MM-DD_HHMM\"
 call :log "[SMAI] Backups: data\marketdata\backup\"
+if "%SMAI_MAINTENANCE_EXIT%"=="0" (
+    call :log "[SMAI] Committing and pushing approved symbol artifacts..."
+    "%SMAI_PYTHON%" tools\auto_commit_symbol_updates.py --push >> "%SMAI_LOG_FILE%" 2>&1
+    if errorlevel 1 call :log "[WARN] Automatic symbol artifact push failed; inspect the log and repository status."
+)
 exit /b %SMAI_MAINTENANCE_EXIT%
 
 :log

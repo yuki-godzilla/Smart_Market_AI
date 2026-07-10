@@ -10,6 +10,10 @@ echo ====================
 call :check_url "SMAI Streamlit" "http://localhost:8501/_stcore/health"
 set "SMAI_STATUS=%ERRORLEVEL%"
 
+if exist "%USERPROFILE%\workspace\SMAI_Server_Analytics\run_health.bat" (
+    call "%USERPROFILE%\workspace\SMAI_Server_Analytics\run_health.bat"
+)
+
 if not "%SMAI_LAN_IP%"=="" (
     echo [INFO] iPhone/iPad URL: http://%SMAI_LAN_IP%:8501
 ) else (

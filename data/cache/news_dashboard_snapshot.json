@@ -1,7 +1,7 @@
 {
   "schema_version": "news-dashboard-snapshot-v1",
-  "generated_at": "2026-07-10T09:27:17.776651Z",
-  "fetched_at": "2026-07-10T09:27:17.776651Z",
+  "generated_at": "2026-07-10T13:41:04.760865Z",
+  "fetched_at": "2026-07-10T13:41:04.760865Z",
   "freshness_status": "latest",
   "stream_headlines": [
     {
@@ -11,7 +11,7 @@
       "source_name": "PR TIMES",
       "source_type": "news",
       "published_at": "2026-07-10T07:30:01Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -77,7 +77,7 @@
       "source_name": "ニコニコニュース",
       "source_type": "news",
       "published_at": "2026-07-09T06:48:35Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -101,7 +101,7 @@
       "source_name": "グノシー",
       "source_type": "news",
       "published_at": "2026-07-09T01:52:16Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -119,35 +119,43 @@
       ]
     },
     {
-      "title": "ＴＯＮＥ、今期経常は9％増で2期連続最高益更新へ - 株探",
-      "summary": "ＴＯＮＥ、今期経常は9％増で2期連続最高益更新へ 株探",
-      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9yZWg0NzIxaUZXLWVFMXowdFdsQTVfZktJdl9ORnBkVnZQeVRJOFQ3bHRneUUwaFBhS0xoZm91VFdLcWF6UWRzdGpkYnByeHNEQmc?oc=5",
-      "source_name": "株探",
+      "title": "【決算速報】Ｊテック・Ｃ、前期経常を一転17％減益に下方修正(株探ニュース) - Yahoo!ファイナンス",
+      "summary": "【決算速報】Ｊテック・Ｃ、前期経常を一転17％減益に下方修正(株探ニュース) Yahoo!ファイナンス",
+      "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOXzl4U01WUEp6Z1VXUnRzd1B6aGxVUnRLSEF6aDM3bmJzT09VN3Q0NW5Na2RKTkRBbzk1SVlsUC1Ld1BtelpSbVNBRk1EbjFwQkRodDlVa2dsWVVGTlA0RF9oWW5nSTFiTFBSSkdhVGFzT2J5RWNBMVRjbm1ubW91LXhqbjY0UDA?oc=5",
+      "source_name": "Yahoo!ファイナンス",
       "source_type": "news",
-      "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "published_at": "2026-07-10T06:33:00Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
-      "related_symbols": [
-        "5967.T"
-      ],
+      "related_symbols": [],
       "inferred_symbols": [
+        "QQQ",
+        "SPY",
         "6758.T",
-        "9432.T",
-        "9984.T"
+        "9432.T"
       ],
       "macro_proxy_symbols": [],
       "symbol_matches": [
         {
-          "symbol": "5967.T",
-          "name": null,
-          "kind": "alias_match",
-          "confidence": 0.95,
-          "evidence_text": "ＴＯＮＥ",
-          "evidence_field": "body",
-          "reason": "本文または見出しに出た銘柄として抽出"
+          "symbol": "QQQ",
+          "name": "Invesco QQQ Trust",
+          "kind": "category_inferred",
+          "confidence": 0.45,
+          "evidence_text": null,
+          "evidence_field": "category",
+          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+        },
+        {
+          "symbol": "SPY",
+          "name": "SPDR S&P 500 ETF",
+          "kind": "category_inferred",
+          "confidence": 0.45,
+          "evidence_text": null,
+          "evidence_field": "category",
+          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
         },
         {
           "symbol": "6758.T",
@@ -166,33 +174,24 @@
           "evidence_text": null,
           "evidence_field": "category",
           "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-        },
-        {
-          "symbol": "9984.T",
-          "name": null,
-          "kind": "category_inferred",
-          "confidence": 0.45,
-          "evidence_text": null,
-          "evidence_field": "category",
-          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
         }
       ],
       "is_official_source": false,
-      "ai_comment": "決算・業績材料です。 決算・業績修正を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "ai_comment": "決算・業績材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-        "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
-      "title": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 - 株探",
-      "summary": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 株探",
+      "title": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 - かぶたん",
+      "summary": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBqNERlMEN5eFNyTVJyYVdpZi1mdy1YejY0d29IQlVIMGZETk4tNUppTTJ3UmpUUmlZVjlZSEN4MUVKWmI0US1UQ3plRTN4dTFCaGc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -248,17 +247,17 @@
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
         "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
-      "title": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 - 株探",
-      "summary": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 株探",
+      "title": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 - かぶたん",
+      "summary": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9abnliamV4Z3dNR2t4SmRLbTVmS1NnRDZWYkpIZUVvMUJXM3JHYWJlaFBJUDZqSDVJQ1p1TnRBanpoTUtSNkhVNXdGdWd3TWk4bWc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -318,13 +317,13 @@
       ]
     },
     {
-      "title": "ＨＫＳ、今期経常を一転31％増益に上方修正 - 株探",
-      "summary": "ＨＫＳ、今期経常を一転31％増益に上方修正 株探",
+      "title": "ＨＫＳ、今期経常を一転31％増益に上方修正 - かぶたん",
+      "summary": "ＨＫＳ、今期経常を一転31％増益に上方修正 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9kYVo1anRxMlM3UWk1OU9sRDN0MWVpOXQzYmYtUENOX2QybXJoX3BxZHdndVZxNnlaLXNDWGNETVpweWR0MlhGZEJ3V2VIYVlzSGc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -384,13 +383,13 @@
       ]
     },
     {
-      "title": "４℃ホールデ、上期経常を36％上方修正、通期も増額 - 株探",
-      "summary": "４℃ホールデ、上期経常を36％上方修正、通期も増額 株探",
+      "title": "４℃ホールデ、上期経常を36％上方修正、通期も増額 - かぶたん",
+      "summary": "４℃ホールデ、上期経常を36％上方修正、通期も増額 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE00X09DVFJZUjlqZzk3RnhER0FTZjlOY2hRek1abTJ3dmRPS21OcVFjd0E1dXFTU2MyRzNtRFZmOUplVTdPNjNpN2JlSXB6UlljS0VF?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -446,17 +445,17 @@
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
         "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
-      "title": "良品計画、今期経常を13％上方修正・最高益予想を上乗せ - 株探",
-      "summary": "良品計画、今期経常を13％上方修正・最高益予想を上乗せ 株探",
+      "title": "良品計画、今期経常を13％上方修正・最高益予想を上乗せ - かぶたん",
+      "summary": "良品計画、今期経常を13％上方修正・最高益予想を上乗せ かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9xRkFIVVhsLTQtOXJocGkwVHhydjdOUFJuaTItcGthTTZuVVhqZTJSNXBwSzlGRlZ0NFZGelBFQVFBUGdoR25STnlYNVk2WnpWSXc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -516,79 +515,13 @@
       ]
     },
     {
-      "title": "技研製、9-5月期(3Q累計)経常が42％増益で着地・3-5月期も4.6倍増益 - 株探",
-      "summary": "技研製、9-5月期(3Q累計)経常が42％増益で着地・3-5月期も4.6倍増益 株探",
-      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0zY3B2NkFYZ1p1a25IVHprSy16U2d3ZFhjQlR4R3hFWHpUaU9zeEFodW1MZjBxY3lJbzRpREpjUFFJQnN5eDZKMzdiQUpwc2pKSUE?oc=5",
-      "source_name": "株探",
-      "source_type": "news",
-      "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
-      "freshness_status": "latest",
-      "category": "決算・業績修正",
-      "region": "日本",
-      "material_type": "earnings",
-      "related_symbols": [],
-      "inferred_symbols": [
-        "6758.T",
-        "9432.T",
-        "9984.T",
-        "7974.T"
-      ],
-      "macro_proxy_symbols": [],
-      "symbol_matches": [
-        {
-          "symbol": "6758.T",
-          "name": "Sony Group",
-          "kind": "category_inferred",
-          "confidence": 0.45,
-          "evidence_text": null,
-          "evidence_field": "category",
-          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-        },
-        {
-          "symbol": "9432.T",
-          "name": null,
-          "kind": "category_inferred",
-          "confidence": 0.45,
-          "evidence_text": null,
-          "evidence_field": "category",
-          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-        },
-        {
-          "symbol": "9984.T",
-          "name": null,
-          "kind": "category_inferred",
-          "confidence": 0.45,
-          "evidence_text": null,
-          "evidence_field": "category",
-          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-        },
-        {
-          "symbol": "7974.T",
-          "name": null,
-          "kind": "category_inferred",
-          "confidence": 0.45,
-          "evidence_text": null,
-          "evidence_field": "category",
-          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-        }
-      ],
-      "is_official_source": false,
-      "ai_comment": "決算・業績材料です。 決算・業績修正を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-      "investment_checkpoints": [
-        "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-        "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
-      ]
-    },
-    {
-      "title": "井筒屋、3-5月期(1Q)経常は98％減益で着地 - 株探",
-      "summary": "井筒屋、3-5月期(1Q)経常は98％減益で着地 株探",
+      "title": "井筒屋、3-5月期(1Q)経常は98％減益で着地 - かぶたん",
+      "summary": "井筒屋、3-5月期(1Q)経常は98％減益で着地 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE80dDhiZ0ZpSll3Wk1nV3FiMDZtc1pibmEtc04wbzhLZEp5XzZqdklfMGJKcllWR2o2dTQxQ3BzRzYweG1aZV8zSHF3VHA1UzFYZVE?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -645,17 +578,17 @@
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
         "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
-      "title": "メディ一光Ｇ、3-5月期(1Q)経常は18％増益で着地 - 株探",
-      "summary": "メディ一光Ｇ、3-5月期(1Q)経常は18％増益で着地 株探",
+      "title": "メディ一光Ｇ、3-5月期(1Q)経常は18％増益で着地 - かぶたん",
+      "summary": "メディ一光Ｇ、3-5月期(1Q)経常は18％増益で着地 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBaaW1sai1lSzVnM0VDVHdVZGlRdElLWm11cEVwZ01sSXZNV3luazlOeDlxVnBQMnotMXE3SXNXNnA1UEx3MUEyTUEwLW1aQlZ1ZWc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -715,13 +648,13 @@
       ]
     },
     {
-      "title": "テーオーＨＤ、前期最終を一転赤字に下方修正 - 株探",
-      "summary": "テーオーＨＤ、前期最終を一転赤字に下方修正 株探",
+      "title": "テーオーＨＤ、前期最終を一転赤字に下方修正 - かぶたん",
+      "summary": "テーオーＨＤ、前期最終を一転赤字に下方修正 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFB3NXg3WVZMMjBCaWNDQmdTcFFKcUlCa1ZxcDFXVF9YTkc4U1pZLVNNRVI0dmZOUkp1R0I3RTQ1bVJodnNVdzVDLWIzV09scTBNVmc?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -781,13 +714,80 @@
       ]
     },
     {
-      "title": "グランド、上期経常は36％増益・通期計画を超過 - 株探",
-      "summary": "グランド、上期経常は36％増益・通期計画を超過 株探",
-      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5vcGtOVGhfWEdBTjJ1c3dwdWk4Nm5sTjVSOFlUWTZ0eDVoNXFZMnU1WnJxRndvNG9SOUp6ZjA4VmoyUlN6WE9LNlZoTWxPNEx5cmc?oc=5",
-      "source_name": "株探",
+      "title": "サインポスト、今期経常を41％上方修正、配当も5円で7期ぶり復配へ - かぶたん",
+      "summary": "サインポスト、今期経常を41％上方修正、配当も5円で7期ぶり復配へ かぶたん",
+      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBaZ2ZEaEVpQ3pJbTIzdkE5YzlteGNfUV9DQmQwRGhrVGM5SG50cHUzcEJVeWhlVmpzczZTTC1rUjhtZWhsR1R2M24tTFd6R0pDVmc?oc=5",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
+      "freshness_status": "latest",
+      "category": "決算・業績修正",
+      "region": "日本",
+      "material_type": "earnings",
+      "related_symbols": [
+        "3996.T"
+      ],
+      "inferred_symbols": [
+        "8306.T",
+        "8058.T",
+        "2914.T"
+      ],
+      "macro_proxy_symbols": [],
+      "symbol_matches": [
+        {
+          "symbol": "3996.T",
+          "name": null,
+          "kind": "alias_match",
+          "confidence": 0.95,
+          "evidence_text": "サインポスト",
+          "evidence_field": "body",
+          "reason": "本文または見出しに出た銘柄として抽出"
+        },
+        {
+          "symbol": "8306.T",
+          "name": "Mitsubishi UFJ",
+          "kind": "category_inferred",
+          "confidence": 0.45,
+          "evidence_text": null,
+          "evidence_field": "category",
+          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+        },
+        {
+          "symbol": "8058.T",
+          "name": null,
+          "kind": "category_inferred",
+          "confidence": 0.45,
+          "evidence_text": null,
+          "evidence_field": "category",
+          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+        },
+        {
+          "symbol": "2914.T",
+          "name": null,
+          "kind": "category_inferred",
+          "confidence": 0.45,
+          "evidence_text": null,
+          "evidence_field": "category",
+          "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+        }
+      ],
+      "is_official_source": false,
+      "ai_comment": "決算・業績材料です。 株主還元を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "investment_checkpoints": [
+        "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
+        "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
+      ]
+    },
+    {
+      "title": "グランド、上期経常は36％増益・通期計画を超過 - かぶたん",
+      "summary": "グランド、上期経常は36％増益・通期計画を超過 かぶたん",
+      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5vcGtOVGhfWEdBTjJ1c3dwdWk4Nm5sTjVSOFlUWTZ0eDVoNXFZMnU1WnJxRndvNG9SOUp6ZjA4VmoyUlN6WE9LNlZoTWxPNEx5cmc?oc=5",
+      "source_name": "かぶたん",
+      "source_type": "news",
+      "published_at": "2026-07-10T06:30:00Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -847,13 +847,13 @@
       ]
     },
     {
-      "title": "イオン、3-5月期(1Q)経常は32％増益で着地 - 株探",
-      "summary": "イオン、3-5月期(1Q)経常は32％増益で着地 株探",
+      "title": "イオン、3-5月期(1Q)経常は32％増益で着地 - かぶたん",
+      "summary": "イオン、3-5月期(1Q)経常は32％増益で着地 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE1sN1JFcEt1VjdhYVJvNXo2MWZ2YkFZdGlUallKalJEUTlDYjM0Q096Ym5FQmNCTEJEc0hVWjFCQXN4WVlfelZUZjhIRkZSU1R2b0E?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -910,17 +910,17 @@
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
         "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
-      "title": "アジア航、今期経常を一転12％減益に下方修正 - 株探",
-      "summary": "アジア航、今期経常を一転12％減益に下方修正 株探",
+      "title": "アジア航、今期経常を一転12％減益に下方修正 - かぶたん",
+      "summary": "アジア航、今期経常を一転12％減益に下方修正 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE1DT0ZNNmkyZDlNU3NROWRPSGdtZWFHUFBvcmw5OEViTjNUcTRZbW9kT2J6a3JNeWwwWkVyTXd2eU5vNEZlSTlnN18wdlFoVjl4a0E?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -980,13 +980,13 @@
       ]
     },
     {
-      "title": "アイドマＨＤ、今期経常を一転31％減益に下方修正 - 株探",
-      "summary": "アイドマＨＤ、今期経常を一転31％減益に下方修正 株探",
+      "title": "アイドマＨＤ、今期経常を一転31％減益に下方修正 - かぶたん",
+      "summary": "アイドマＨＤ、今期経常を一転31％減益に下方修正 かぶたん",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5zY2t3aGFRbjJJLUVxYzYwQk5FcjZWZEwtNE1EX2lBTG94dWptaFBsVXJpX2tuRjNJSXQ3SWVQOHduMFB5eHVCc3p3U3VxcnRnU3c?oc=5",
-      "source_name": "株探",
+      "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-07-10T06:30:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -1042,7 +1042,7 @@
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
         "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
     {
@@ -1052,7 +1052,7 @@
       "source_name": "Moomoo",
       "source_type": "news",
       "published_at": "2026-07-09T02:22:02Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -1112,13 +1112,13 @@
       ]
     },
     {
-      "title": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ - トウシル",
-      "summary": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ トウシル",
-      "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1OMEFzdVhTQ2xsUWMwMTA5S0gtQWg5Y3VGd0tKSVlsN1ZObVFqaEZZMVFZdHRDTlNiYVBIU3R6SXhZTlBhallsYThwdHdZcm9seV9IWmlTRW9kQQ?oc=5",
-      "source_name": "トウシル",
+      "title": "投資家調査：日経平均は強気一服、円安予想55％に上昇(トウシル) - Yahoo!ファイナンス",
+      "summary": "投資家調査：日経平均は強気一服、円安予想55％に上昇(トウシル) Yahoo!ファイナンス",
+      "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOUTBYVE1OYnpITm1yNmxycWF1QW1uQ3haQlZ4enlaT3NCNUlwejNOVWRzY280SFZVUGtFZmlJNVByZXVKZ0Rsd21CMV9LdXdtb3F2eHdnTndzTklyT3RyeW05aHE5dmlGT3lUc0FpOTlCeGVPRjlaeENFbURmbVdERHR2eE1HMlk?oc=5",
+      "source_name": "Yahoo!ファイナンス",
       "source_type": "news",
-      "published_at": "2026-07-10T07:00:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "published_at": "2026-07-10T07:15:00Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
@@ -1188,20 +1188,18 @@
       ]
     },
     {
-      "title": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め(フィスコ) - Yahoo!ファイナンス",
-      "summary": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め(フィスコ) Yahoo!ファイナンス",
-      "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQcTgxa29Ga0Iwa21fTEZscWk3OGhrNTUyMm1URWFCdHhhX0FOUkd2azVJV01taXVIdXRseC1DaUl2c0JROXJ1M29RT1BZekR5eXZCTklfcVpKcXpzUmhqSnNqUmxDb3d5cXNGbmJUNXJ3VFZDX24tZ3hZOUdpM3dYYXM4QTZ5M1U?oc=5",
-      "source_name": "Yahoo!ファイナンス",
+      "title": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ - トウシル",
+      "summary": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ トウシル",
+      "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE5QUnVOWUNsTF81LVZHOFVKcjVOWjB4Q1NwaVFUUThkWlZoQkRRcGpFbENIMmg0X284M2prSU5NUHdpMUdjZDZsdDNYRy12cFZFS3NnWUdHNWFiMjJaZlJCZXlyRQ?oc=5",
+      "source_name": "トウシル",
       "source_type": "news",
-      "published_at": "2026-07-10T04:54:00Z",
-      "fetched_at": "2026-07-10T09:27:17.776651Z",
+      "published_at": "2026-07-10T07:00:00Z",
+      "fetched_at": "2026-07-10T13:41:04.760865Z",
       "freshness_status": "latest",
-      "category": "米国株",
+      "category": "為替・金利",
       "region": "米国",
       "material_type": "macro",
-      "related_symbols": [
-        "3807.T"
-      ],
+      "related_symbols": [],
       "inferred_symbols": [],
       "macro_proxy_symbols": [
         "TLT",
@@ -1211,15 +1209,6 @@
         "US10Y"
       ],
       "symbol_matches": [
-        {
-          "symbol": "3807.T",
-          "name": null,
-          "kind": "alias_match",
-          "confidence": 0.95,
-          "evidence_text": "フィスコ",
-          "evidence_field": "body",
-          "reason": "本文または見出しに出た銘柄として抽出"
-        },
         {
           "symbol": "TLT",
           "name": "iShares 20+ Year Treasury Bond ETF",
@@ -1267,11 +1256,11 @@
         }
       ],
       "is_official_source": false,
-      "ai_comment": "マクロ環境の材料です。 業績と見通しを中心に、本文に出た銘柄を優先して確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "ai_comment": "マクロ環境の材料です。 為替・金利を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
       "investment_checkpoints": [
         "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-        "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-        "米国株全体の温度感と、個別企業の材料を分けて確認します。"
+        "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+        "為替・金利全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     }
   ],
@@ -1307,13 +1296,26 @@
       "region": "グローバル",
       "price_change_pct": 2.4,
       "volume_activity_score": 1.8,
-      "news_count": 11,
+      "news_count": 12,
       "risk_count": 0,
-      "positive_count": 11,
+      "positive_count": 12,
       "official_source_count": 0,
       "freshness_ratio": 0.77,
-      "heat_score": 26.22,
+      "heat_score": 28.34,
       "dominant_material_type": "theme"
+    },
+    {
+      "category": "配当・株主還元",
+      "region": "日本",
+      "price_change_pct": 1.2,
+      "volume_activity_score": 1.35,
+      "news_count": 15,
+      "risk_count": 0,
+      "positive_count": 0,
+      "official_source_count": 0,
+      "freshness_ratio": 0.81,
+      "heat_score": 24.18,
+      "dominant_material_type": "shareholder_return"
     },
     {
       "category": "為替・金利",
@@ -1337,48 +1339,35 @@
       "risk_count": 0,
       "positive_count": 0,
       "official_source_count": 0,
-      "freshness_ratio": 0.81,
-      "heat_score": 22.7,
+      "freshness_ratio": 0.85,
+      "heat_score": 23.26,
       "dominant_material_type": "macro"
-    },
-    {
-      "category": "配当・株主還元",
-      "region": "日本",
-      "price_change_pct": 1.2,
-      "volume_activity_score": 1.35,
-      "news_count": 14,
-      "risk_count": 0,
-      "positive_count": 0,
-      "official_source_count": 0,
-      "freshness_ratio": 0.8,
-      "heat_score": 22.48,
-      "dominant_material_type": "shareholder_return"
     },
     {
       "category": "米国株",
       "region": "米国",
       "price_change_pct": null,
       "volume_activity_score": null,
-      "news_count": 13,
+      "news_count": 11,
       "risk_count": 0,
       "positive_count": 0,
       "official_source_count": 0,
-      "freshness_ratio": 0.81,
-      "heat_score": 19.58,
+      "freshness_ratio": 0.82,
+      "heat_score": 16.74,
       "dominant_material_type": "macro"
     },
     {
-      "category": "金融",
-      "region": "日本",
-      "price_change_pct": 0.9,
-      "volume_activity_score": 1.3,
-      "news_count": 1,
+      "category": "ETF",
+      "region": "グローバル",
+      "price_change_pct": 0.6,
+      "volume_activity_score": 1.2,
+      "news_count": 2,
       "risk_count": 0,
-      "positive_count": 1,
+      "positive_count": 0,
       "official_source_count": 0,
-      "freshness_ratio": 0.72,
-      "heat_score": 3.44,
-      "dominant_material_type": "earnings"
+      "freshness_ratio": 0.86,
+      "heat_score": 4.23,
+      "dominant_material_type": "fund_flow"
     },
     {
       "category": "政策・規制",
@@ -1392,19 +1381,6 @@
       "freshness_ratio": 0.72,
       "heat_score": 2.84,
       "dominant_material_type": "policy"
-    },
-    {
-      "category": "ETF",
-      "region": "グローバル",
-      "price_change_pct": 0.6,
-      "volume_activity_score": 1.2,
-      "news_count": 1,
-      "risk_count": 0,
-      "positive_count": 0,
-      "official_source_count": 0,
-      "freshness_ratio": 0.72,
-      "heat_score": 2.53,
-      "dominant_material_type": "fund_flow"
     }
   ],
   "category_lanes": [
@@ -1418,7 +1394,7 @@
           "source_name": "PR TIMES",
           "source_type": "news",
           "published_at": "2026-07-10T07:30:01Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1484,7 +1460,7 @@
           "source_name": "ニコニコニュース",
           "source_type": "news",
           "published_at": "2026-07-09T06:48:35Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1508,7 +1484,7 @@
           "source_name": "グノシー",
           "source_type": "news",
           "published_at": "2026-07-09T01:52:16Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1532,7 +1508,7 @@
           "source_name": "ニコニコニュース",
           "source_type": "news",
           "published_at": "2026-07-08T03:00:21Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1556,7 +1532,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-07-07T09:26:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1591,35 +1567,43 @@
       "category": "決算・業績修正",
       "headlines": [
         {
-          "title": "ＴＯＮＥ、今期経常は9％増で2期連続最高益更新へ - 株探",
-          "summary": "ＴＯＮＥ、今期経常は9％増で2期連続最高益更新へ 株探",
-          "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9yZWg0NzIxaUZXLWVFMXowdFdsQTVfZktJdl9ORnBkVnZQeVRJOFQ3bHRneUUwaFBhS0xoZm91VFdLcWF6UWRzdGpkYnByeHNEQmc?oc=5",
-          "source_name": "株探",
+          "title": "【決算速報】Ｊテック・Ｃ、前期経常を一転17％減益に下方修正(株探ニュース) - Yahoo!ファイナンス",
+          "summary": "【決算速報】Ｊテック・Ｃ、前期経常を一転17％減益に下方修正(株探ニュース) Yahoo!ファイナンス",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOXzl4U01WUEp6Z1VXUnRzd1B6aGxVUnRLSEF6aDM3bmJzT09VN3Q0NW5Na2RKTkRBbzk1SVlsUC1Ld1BtelpSbVNBRk1EbjFwQkRodDlVa2dsWVVGTlA0RF9oWW5nSTFiTFBSSkdhVGFzT2J5RWNBMVRjbm1ubW91LXhqbjY0UDA?oc=5",
+          "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
-          "published_at": "2026-07-10T06:30:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "published_at": "2026-07-10T06:33:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
-          "related_symbols": [
-            "5967.T"
-          ],
+          "related_symbols": [],
           "inferred_symbols": [
+            "QQQ",
+            "SPY",
             "6758.T",
-            "9432.T",
-            "9984.T"
+            "9432.T"
           ],
           "macro_proxy_symbols": [],
           "symbol_matches": [
             {
-              "symbol": "5967.T",
-              "name": null,
-              "kind": "alias_match",
-              "confidence": 0.95,
-              "evidence_text": "ＴＯＮＥ",
-              "evidence_field": "body",
-              "reason": "本文または見出しに出た銘柄として抽出"
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
             },
             {
               "symbol": "6758.T",
@@ -1638,33 +1622,24 @@
               "evidence_text": null,
               "evidence_field": "category",
               "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "9984.T",
-              "name": null,
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
             }
           ],
           "is_official_source": false,
-          "ai_comment": "決算・業績材料です。 決算・業績修正を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "決算・業績材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
             "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-            "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         },
         {
-          "title": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 - 株探",
-          "summary": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 株探",
+          "title": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 - かぶたん",
+          "summary": "Ｊテック・Ｃ、前期経常を一転17％減益に下方修正 かぶたん",
           "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBqNERlMEN5eFNyTVJyYVdpZi1mdy1YejY0d29IQlVIMGZETk4tNUppTTJ3UmpUUmlZVjlZSEN4MUVKWmI0US1UQ3plRTN4dTFCaGc?oc=5",
-          "source_name": "株探",
+          "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-07-10T06:30:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -1720,17 +1695,17 @@
           "investment_checkpoints": [
             "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+            "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         },
         {
-          "title": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 - 株探",
-          "summary": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 株探",
+          "title": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 - かぶたん",
+          "summary": "Ｊグループ、3-5月期(1Q)経常は49％減益で着地 かぶたん",
           "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9abnliamV4Z3dNR2t4SmRLbTVmS1NnRDZWYkpIZUVvMUJXM3JHYWJlaFBJUDZqSDVJQ1p1TnRBanpoTUtSNkhVNXdGdWd3TWk4bWc?oc=5",
-          "source_name": "株探",
+          "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-07-10T06:30:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -1790,13 +1765,13 @@
           ]
         },
         {
-          "title": "ＨＫＳ、今期経常を一転31％増益に上方修正 - 株探",
-          "summary": "ＨＫＳ、今期経常を一転31％増益に上方修正 株探",
+          "title": "ＨＫＳ、今期経常を一転31％増益に上方修正 - かぶたん",
+          "summary": "ＨＫＳ、今期経常を一転31％増益に上方修正 かぶたん",
           "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9kYVo1anRxMlM3UWk1OU9sRDN0MWVpOXQzYmYtUENOX2QybXJoX3BxZHdndVZxNnlaLXNDWGNETVpweWR0MlhGZEJ3V2VIYVlzSGc?oc=5",
-          "source_name": "株探",
+          "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-07-10T06:30:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -1856,13 +1831,13 @@
           ]
         },
         {
-          "title": "４℃ホールデ、上期経常を36％上方修正、通期も増額 - 株探",
-          "summary": "４℃ホールデ、上期経常を36％上方修正、通期も増額 株探",
+          "title": "４℃ホールデ、上期経常を36％上方修正、通期も増額 - かぶたん",
+          "summary": "４℃ホールデ、上期経常を36％上方修正、通期も増額 かぶたん",
           "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE00X09DVFJZUjlqZzk3RnhER0FTZjlOY2hRek1abTJ3dmRPS21OcVFjd0E1dXFTU2MyRzNtRFZmOUplVTdPNjNpN2JlSXB6UlljS0VF?oc=5",
-          "source_name": "株探",
+          "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-07-10T06:30:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -1918,7 +1893,7 @@
           "investment_checkpoints": [
             "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+            "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         }
       ]
@@ -1933,7 +1908,7 @@
           "source_name": "BigGo ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-09T18:48:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -2010,7 +1985,7 @@
           "source_name": "BigGo ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-09T04:45:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -2076,7 +2051,7 @@
           "source_name": "BigGo ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-07T15:35:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -2153,7 +2128,7 @@
           "source_name": "TradingKey",
           "source_type": "news",
           "published_at": "2026-07-07T05:15:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -2220,7 +2195,7 @@
           "source_name": "BigGo ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-07T02:25:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -2282,16 +2257,430 @@
       ]
     },
     {
+      "category": "配当・株主還元",
+      "headlines": [
+        {
+          "title": "アトラエ（6194）「減益ショック」の裏で進む増配と6.3億円の自社株買い。配当利回り4.6%は仕込み場のサインなのか - Note.com",
+          "summary": "アトラエ（6194）「減益ショック」の裏で進む増配と6.3億円の自社株買い。配当利回り4.6%は仕込み場のサインなのか Note.com",
+          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE1LQkw5OUZFMHA3VkhHQ25SbkhxOEpzNEMtaXFJNTJ6YWhrYXVURGlybGpzTWlrZ0VnYlBSdjBiR3RJeUFaOTRSVXhLOWlKdVQtb1pmRDZwd2JSTjg?oc=5",
+          "source_name": "Note.com",
+          "source_type": "news",
+          "published_at": "2026-07-10T09:37:52Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "配当・株主還元",
+          "region": "日本",
+          "material_type": "shareholder_return",
+          "related_symbols": [
+            "6194.T"
+          ],
+          "inferred_symbols": [
+            "TLT",
+            "JPM",
+            "SPY"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "6194.T",
+              "name": null,
+              "kind": "code_match",
+              "confidence": 0.98,
+              "evidence_text": "（6194）",
+              "evidence_field": "body",
+              "reason": "本文または見出しに出た銘柄として抽出"
+            },
+            {
+              "symbol": "TLT",
+              "name": "iShares 20+ Year Treasury Bond ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "JPM",
+              "name": "JPMorgan Chase",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "配当・株主還元の材料です。 株主還元を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
+            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "極東貿易 Research Memo（7）：株主還元を重視し、累進配当と機動的な⾃⼰株式取得を実施 - ｄメニューニュース",
+          "summary": "極東貿易 Research Memo（7）：株主還元を重視し、累進配当と機動的な⾃⼰株式取得を実施 ｄメニューニュース",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPSzdMeGtITHA2WGdJeHFjc0Vva3dCRDE1akRNT1MxYk5rVUs2UGJlVmpiX3BPeUY2Wkp1bVQzTm9VdG9YSzVjT0Q2ajhRVVk2d2txX3EyZE1QVGJXTFFtY1FZeVdhUHoyRy1ObnRNMEN0RGVTNFltOGJHSXBVclNrbnRlcXRHaHgzd2pzQtIBjAFBVV95cUxPSzdMeGtITHA2WGdJeHFjc0Vva3dCRDE1akRNT1MxYk5rVUs2UGJlVmpiX3BPeUY2Wkp1bVQzTm9VdG9YSzVjT0Q2ajhRVVk2d2txX3EyZE1QVGJXTFFtY1FZeVdhUHoyRy1ObnRNMEN0RGVTNFltOGJHSXBVclNrbnRlcXRHaHgzd2pzQg?oc=5",
+          "source_name": "ｄメニューニュース",
+          "source_type": "news",
+          "published_at": "2026-07-10T03:07:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "配当・株主還元",
+          "region": "日本",
+          "material_type": "shareholder_return",
+          "related_symbols": [
+            "8093.T"
+          ],
+          "inferred_symbols": [
+            "8306.T",
+            "8058.T",
+            "2914.T"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "8093.T",
+              "name": null,
+              "kind": "alias_match",
+              "confidence": 0.95,
+              "evidence_text": "極東貿易",
+              "evidence_field": "body",
+              "reason": "本文または見出しに出た銘柄として抽出"
+            },
+            {
+              "symbol": "8306.T",
+              "name": "Mitsubishi UFJ",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "8058.T",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "2914.T",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "配当・株主還元の材料です。 株主還元を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
+            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "なぜ今、賢い投資家は\"地味な内需株\"を静かに仕込むのか。決算シーズンに動く「本物のお金」の流れを読む - Note.com",
+          "summary": "なぜ今、賢い投資家は\"地味な内需株\"を静かに仕込むのか。決算シーズンに動く「本物のお金」の流れを読む Note.com",
+          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9ybVJSOTVWUUU4UGp1dTZOZ0FIS05qblVMQUpsSWNQeWJlYlA5Szd4bUtacGxWeFlWNHFDV2ZJcVNHOHJBN09saGswbUdIVE10Z0JwRHlvbHMyRUU?oc=5",
+          "source_name": "Note.com",
+          "source_type": "news",
+          "published_at": "2026-07-10T02:00:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "配当・株主還元",
+          "region": "日本",
+          "material_type": "shareholder_return",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "QQQ",
+            "SPY",
+            "6758.T",
+            "7203.T"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "6758.T",
+              "name": "Sony Group",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "7203.T",
+              "name": "Toyota Motor",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "配当・株主還元の材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "成長投資の資金戦略、再考へ JALは2000億円 社債型種類株が拡大 - 日経ビジネス電子版",
+          "summary": "成長投資の資金戦略、再考へ JALは2000億円 社債型種類株が拡大 日経ビジネス電子版",
+          "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE9PTWRPbnozWHdFakU1ZGZhMzY5eXVnQ0kzUndUMnZrbmxHM3hLdllNeDZGY2lTZmloM2d0MU16ZmhkcWdtQkU0MlVTNWpqNUxld2YzUzdPSXpVZk90Nk1KNWxKbjg?oc=5",
+          "source_name": "日経ビジネス電子版",
+          "source_type": "news",
+          "published_at": "2026-07-09T15:00:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "配当・株主還元",
+          "region": "日本",
+          "material_type": "shareholder_return",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "7203.T",
+            "8306.T",
+            "8316.T",
+            "9432.T"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "7203.T",
+              "name": "Toyota Motor",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "8306.T",
+              "name": "Mitsubishi UFJ",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "8316.T",
+              "name": "Sumitomo Mitsui FG",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "9432.T",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "配当・株主還元の材料です。 配当・株主還元を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "丸紅（8002）【最速】決算短信をAIが解説 Jack Ahcan (uPtGpCwI2s) - Mshale",
+          "summary": "丸紅（8002）【最速】決算短信をAIが解説 Jack Ahcan (uPtGpCwI2s) Mshale",
+          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE1qTHMtNXU4OVF3V0lSbjZOOFFBdkdRZ3BhX2dCVkpoLTRiNDNvTnMtdF9TZ3AyZVFSSm9mbnM0cnlJaVVDa0RBSF9ldVBVV2QtYVQ5OGY3OEtPUm8?oc=5",
+          "source_name": "Mshale",
+          "source_type": "news",
+          "published_at": "2026-07-09T01:23:36Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "配当・株主還元",
+          "region": "日本",
+          "material_type": "shareholder_return",
+          "related_symbols": [
+            "8002.T"
+          ],
+          "inferred_symbols": [
+            "QQQ",
+            "SPY",
+            "6758.T"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "8002.T",
+              "name": null,
+              "kind": "code_match",
+              "confidence": 0.98,
+              "evidence_text": "（8002）",
+              "evidence_field": "body",
+              "reason": "本文または見出しに出た銘柄として抽出"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "6758.T",
+              "name": "Sony Group",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "配当・株主還元の材料です。 業績と見通しを中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
+            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        }
+      ]
+    },
+    {
       "category": "為替・金利",
       "headlines": [
         {
+          "title": "投資家調査：日経平均は強気一服、円安予想55％に上昇(トウシル) - Yahoo!ファイナンス",
+          "summary": "投資家調査：日経平均は強気一服、円安予想55％に上昇(トウシル) Yahoo!ファイナンス",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOUTBYVE1OYnpITm1yNmxycWF1QW1uQ3haQlZ4enlaT3NCNUlwejNOVWRzY280SFZVUGtFZmlJNVByZXVKZ0Rsd21CMV9LdXdtb3F2eHdnTndzTklyT3RyeW05aHE5dmlGT3lUc0FpOTlCeGVPRjlaeENFbURmbVdERHR2eE1HMlk?oc=5",
+          "source_name": "Yahoo!ファイナンス",
+          "source_type": "news",
+          "published_at": "2026-07-10T07:15:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "為替・金利",
+          "region": "米国",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [],
+          "macro_proxy_symbols": [
+            "TLT",
+            "SPY",
+            "QQQ",
+            "USDJPY",
+            "US10Y"
+          ],
+          "symbol_matches": [
+            {
+              "symbol": "TLT",
+              "name": "iShares 20+ Year Treasury Bond ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "USDJPY",
+              "name": "ドル円",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "US10Y",
+              "name": "米10年金利",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 為替・金利を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+            "為替・金利全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
           "title": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ - トウシル",
           "summary": "1カ月後の日経平均株価の見通し…個人投資家「2,863人」の回答は？ トウシル",
-          "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1OMEFzdVhTQ2xsUWMwMTA5S0gtQWg5Y3VGd0tKSVlsN1ZObVFqaEZZMVFZdHRDTlNiYVBIU3R6SXhZTlBhallsYThwdHdZcm9seV9IWmlTRW9kQQ?oc=5",
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE5QUnVOWUNsTF81LVZHOFVKcjVOWjB4Q1NwaVFUUThkWlZoQkRRcGpFbENIMmg0X284M2prSU5NUHdpMUdjZDZsdDNYRy12cFZFS3NnWUdHNWFiMjJaZlJCZXlyRQ?oc=5",
           "source_name": "トウシル",
           "source_type": "news",
           "published_at": "2026-07-10T07:00:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -2367,7 +2756,7 @@
           "source_name": "四季報オンライン",
           "source_type": "news",
           "published_at": "2026-07-10T03:10:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -2437,89 +2826,13 @@
           ]
         },
         {
-          "title": "FX・為替相場の注目指標や予想を解説 - 7月10日(金)■『米ドル、日本円、ユーロの方向性』と『主要な株式市場及び米国債利回りの動向』、そして『米国の金融政策への思惑』に注目！ - ザイFX！",
-          "summary": "FX・為替相場の注目指標や予想を解説 - 7月10日(金)■『米ドル、日本円、ユーロの方向性』と『主要な株式市場及び米国債利回りの動向』、そして『米国の金融政策への思惑』に注目！ ザイFX！",
-          "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5HTUo4dWdsZ3pDdkY5WXV3dUFCY0hlZEpxMFB0NXN3VTZTTEhqWURtbUZDLW5uWXZaNmtZdHJWalI5bGRlTUFxWWgwbmUyaU56Mmc?oc=5",
-          "source_name": "ザイFX！",
-          "source_type": "news",
-          "published_at": "2026-07-09T21:47:01Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "為替・金利",
-          "region": "米国",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [],
-          "macro_proxy_symbols": [
-            "TLT",
-            "SPY",
-            "QQQ",
-            "USDJPY",
-            "US10Y"
-          ],
-          "symbol_matches": [
-            {
-              "symbol": "TLT",
-              "name": "iShares 20+ Year Treasury Bond ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "QQQ",
-              "name": "Invesco QQQ Trust",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "USDJPY",
-              "name": "ドル円",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "US10Y",
-              "name": "米10年金利",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 金利・為替を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
-            "為替・金利全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
           "title": "米国株は続落、イラン情勢を警戒し原油高も重荷 (朝の材料チェック) - QUICK Money World",
           "summary": "米国株は続落、イラン情勢を警戒し原油高も重荷 (朝の材料チェック) QUICK Money World",
           "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE8wdUczYVpYMFAxSlRpVjV0TVFoTHhTY1JMUW13dTYzQ0ljdTVmNU4zX0J3V21ZNmRhQk1nelBDZGd2NU9ud0k4N0ZpTXdPbEVoRWJjdDln?oc=5",
           "source_name": "QUICK Money World",
           "source_type": "news",
           "published_at": "2026-07-08T22:20:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "為替・金利",
           "region": "米国",
@@ -2636,7 +2949,7 @@
           "source_name": "外為どっとコム",
           "source_type": "news",
           "published_at": "2026-07-08T11:00:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "為替・金利",
           "region": "米国",
@@ -2717,7 +3030,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-07-10T02:50:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -2833,11 +3146,141 @@
         {
           "title": "日経平均株価が続伸 終値は813円高の6万8557円 - 日本経済新聞",
           "summary": "日経平均株価が続伸 終値は813円高の6万8557円 日本経済新聞",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQNmhTV1REZHpQemJlSUZVZFZHM09TNmZ0ZkplWnZqYTdlazFzZGtFUWlBX0lPMFBQSUp4X3pzQkQtbmRRei02Q3BjdkduRGpsWlF4OGlaRHV0NkFjWkp6YzBzdWVzcmdELUlRWEhDb1VTX1hoeTJuXzhZQlpIQ3FVdGxWdXV1WlBpR2lDWTBTRkcwV1hROVp4em8wNnozMF9PRGc?oc=5",
+          "source_name": "日本経済新聞",
+          "source_type": "news",
+          "published_at": "2026-07-10T00:04:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [],
+          "macro_proxy_symbols": [
+            "TLT",
+            "SPY",
+            "QQQ",
+            "USDJPY",
+            "US10Y"
+          ],
+          "symbol_matches": [
+            {
+              "symbol": "TLT",
+              "name": "iShares 20+ Year Treasury Bond ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "USDJPY",
+              "name": "ドル円",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "US10Y",
+              "name": "米10年金利",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "7203.T",
+              "name": "Toyota Motor",
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
+            {
+              "symbol": "8306.T",
+              "name": "Mitsubishi UFJ",
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
+            {
+              "symbol": "6758.T",
+              "name": "Sony Group",
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
+            {
+              "symbol": "9984.T",
+              "name": null,
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
+            {
+              "symbol": "7974.T",
+              "name": null,
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
+            {
+              "symbol": "6861.T",
+              "name": null,
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "日経平均株価が続伸 終値は813円高の6万8557円 - 日本経済新聞",
+          "summary": "日経平均株価が続伸 終値は813円高の6万8557円 日本経済新聞",
           "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPMjZCV3ZxZk1sV1hnWld4TURwMjRnMDN3ejE2N1Y1YllmM3FfbjZhZ3dmZHBzLXhjVEdicFNiOGlJSk5Yd1g3dDdmN2J4M1h1d0xWRWUzZ1BDTVg3R1RrbVJiMTJ3c1VBN0EzblVpOTlUZWxqZFZTQ3dBbzRZN29OUzFkOHhtbFB1N05LSy1RdjBteXl5X1ZFYmNSMzY0VklSWWc?oc=5",
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-07-10T00:04:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -2961,253 +3404,13 @@
           ]
         },
         {
-          "title": "【投資部門別売買動向】海外勢が2週ぶりに買い越す一方、個人は2週ぶりに売り越す (7月第1週) - 株探",
-          "summary": "【投資部門別売買動向】海外勢が2週ぶりに買い越す一方、個人は2週ぶりに売り越す (7月第1週) 株探",
-          "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9hRGZEb0tqX0NEbVZRbWdqeGVMRzhUZHhtTE8ycnVmVGNOcjN0ekVOR1NmODRyTW5jT1MxYVZTcmNXamVWUE40a1NETlRGUUJzMGc?oc=5",
-          "source_name": "株探",
-          "source_type": "news",
-          "published_at": "2026-07-09T11:00:30Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [],
-          "macro_proxy_symbols": [
-            "1306.T",
-            "USDJPY",
-            "1488.T",
-            "SPY"
-          ],
-          "symbol_matches": [
-            {
-              "symbol": "1306.T",
-              "name": "NEXT FUNDS TOPIX ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "USDJPY",
-              "name": "ドル円",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "1488.T",
-              "name": "iFreeETF 東証REIT指数",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "7203.T",
-              "name": "Toyota Motor",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "8306.T",
-              "name": "Mitsubishi UFJ",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "6758.T",
-              "name": "Sony Group",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "9984.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "7974.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "6861.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "東証投資部門別売買動向：７月第１週、外国人・現物は３６６２億円と２週ぶり買い越し - 株探",
-          "summary": "東証投資部門別売買動向：７月第１週、外国人・現物は３６６２億円と２週ぶり買い越し 株探",
-          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE9TTzFrOWNCZVBtZHdmaU1mcjlyNXZMZHhpRHo4U1hTd0VKVW9XdGszVHBVTHdwQXRrSHI1bmFZU1BBR0M4Uk5CUmVkWXQ3U0lHc1Fnb2ZCYWZFbEh6SDQ1UElR?oc=5",
-          "source_name": "株探",
-          "source_type": "news",
-          "published_at": "2026-07-09T07:16:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [],
-          "macro_proxy_symbols": [
-            "1306.T",
-            "USDJPY",
-            "1488.T",
-            "SPY"
-          ],
-          "symbol_matches": [
-            {
-              "symbol": "1306.T",
-              "name": "NEXT FUNDS TOPIX ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "USDJPY",
-              "name": "ドル円",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "1488.T",
-              "name": "iFreeETF 東証REIT指数",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "7203.T",
-              "name": "Toyota Motor",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "8306.T",
-              "name": "Mitsubishi UFJ",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "6758.T",
-              "name": "Sony Group",
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "9984.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "7974.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            },
-            {
-              "symbol": "6861.T",
-              "name": null,
-              "kind": "rejected",
-              "confidence": 0.12,
-              "evidence_text": null,
-              "evidence_field": "fallback",
-              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "日経平均株価、4日ぶり反発 終値は924円高の6万7743円 - 日本経済新聞",
-          "summary": "日経平均株価、4日ぶり反発 終値は924円高の6万7743円 日本経済新聞",
-          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPck1XR21xWW9Gam1FWFpwc0RtUTJ4TFd2Vm1xTWhtZTZIdW9Rd05hOHlMZzN6UXNVaUFWZUlpVzg3OG9zX3Y5eU94Y3BmOWR0NDU4WmdjaFBUZWM2bXgzdDllMmc2YVlUSjlYdnJERmFUc0NfdFJQX2Q4VFFyMXpvbnoyOXZoZC04S1BzanpGZHRKYWlxUmpKTmJoNGNiSkNoaUFfa0JCbkE?oc=5",
+          "title": "日経平均株価、一時1100円高 AI・半導体関連に買い - 日本経済新聞",
+          "summary": "日経平均株価、一時1100円高 AI・半導体関連に買い 日本経済新聞",
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPb2pBcFVkU25XYWJjLUJHRnlvNmpwemZ4N29EZVVpNDM2cHNtaThwWDN1dlV5U2c4LUxhajNza3pjNTI1OU8wZlk3UkNoU3EtemJ2RTVtR21YM3JNYmx5VFdyY1ptOXlsN2pTeVB1UEY0ZUV2RUNOb1ZBWUsxOVkwR1E3cS0xaVMwQnBud0tweDVULXR5RWo0c25ySHJyb0o1Wi1KRzBNSFY?oc=5",
           "source_name": "日本経済新聞",
           "source_type": "news",
-          "published_at": "2026-07-09T00:07:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "published_at": "2026-07-10T00:04:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -3323,349 +3526,131 @@
             }
           ],
           "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "マクロ環境の材料です。 半導体需要と供給を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
             "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
             "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
             "日本株全体の温度感と、個別企業の材料を分けて確認します。"
           ]
-        }
-      ]
-    },
-    {
-      "category": "配当・株主還元",
-      "headlines": [
-        {
-          "title": "極東貿易 Research Memo（7）：株主還元を重視し、累進配当と機動的な⾃⼰株式取得を実施 - ｄメニューニュース",
-          "summary": "極東貿易 Research Memo（7）：株主還元を重視し、累進配当と機動的な⾃⼰株式取得を実施 ｄメニューニュース",
-          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPSzdMeGtITHA2WGdJeHFjc0Vva3dCRDE1akRNT1MxYk5rVUs2UGJlVmpiX3BPeUY2Wkp1bVQzTm9VdG9YSzVjT0Q2ajhRVVk2d2txX3EyZE1QVGJXTFFtY1FZeVdhUHoyRy1ObnRNMEN0RGVTNFltOGJHSXBVclNrbnRlcXRHaHgzd2pzQtIBjAFBVV95cUxPSzdMeGtITHA2WGdJeHFjc0Vva3dCRDE1akRNT1MxYk5rVUs2UGJlVmpiX3BPeUY2Wkp1bVQzTm9VdG9YSzVjT0Q2ajhRVVk2d2txX3EyZE1QVGJXTFFtY1FZeVdhUHoyRy1ObnRNMEN0RGVTNFltOGJHSXBVclNrbnRlcXRHaHgzd2pzQg?oc=5",
-          "source_name": "ｄメニューニュース",
-          "source_type": "news",
-          "published_at": "2026-07-10T03:07:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "配当・株主還元",
-          "region": "日本",
-          "material_type": "shareholder_return",
-          "related_symbols": [
-            "8093.T"
-          ],
-          "inferred_symbols": [
-            "8306.T",
-            "8058.T",
-            "2914.T"
-          ],
-          "macro_proxy_symbols": [],
-          "symbol_matches": [
-            {
-              "symbol": "8093.T",
-              "name": null,
-              "kind": "alias_match",
-              "confidence": 0.95,
-              "evidence_text": "極東貿易",
-              "evidence_field": "body",
-              "reason": "本文または見出しに出た銘柄として抽出"
-            },
-            {
-              "symbol": "8306.T",
-              "name": "Mitsubishi UFJ",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "8058.T",
-              "name": null,
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "2914.T",
-              "name": null,
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "配当・株主還元の材料です。 株主還元を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
-            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
         },
         {
-          "title": "なぜ今、賢い投資家は\"地味な内需株\"を静かに仕込むのか。決算シーズンに動く「本物のお金」の流れを読む - Note.com",
-          "summary": "なぜ今、賢い投資家は\"地味な内需株\"を静かに仕込むのか。決算シーズンに動く「本物のお金」の流れを読む Note.com",
-          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9ybVJSOTVWUUU4UGp1dTZOZ0FIS05qblVMQUpsSWNQeWJlYlA5Szd4bUtacGxWeFlWNHFDV2ZJcVNHOHJBN09saGswbUdIVE10Z0JwRHlvbHMyRUU?oc=5",
-          "source_name": "Note.com",
+          "title": "【投資部門別売買動向】海外勢が2週ぶりに買い越す一方、個人は2週ぶりに売り越す (7月第1週) - かぶたん",
+          "summary": "【投資部門別売買動向】海外勢が2週ぶりに買い越す一方、個人は2週ぶりに売り越す (7月第1週) かぶたん",
+          "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9hRGZEb0tqX0NEbVZRbWdqeGVMRzhUZHhtTE8ycnVmVGNOcjN0ekVOR1NmODRyTW5jT1MxYVZTcmNXamVWUE40a1NETlRGUUJzMGc?oc=5",
+          "source_name": "かぶたん",
           "source_type": "news",
-          "published_at": "2026-07-10T02:00:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "published_at": "2026-07-09T11:00:30Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
-          "category": "配当・株主還元",
+          "category": "日本株",
           "region": "日本",
-          "material_type": "shareholder_return",
+          "material_type": "macro",
           "related_symbols": [],
-          "inferred_symbols": [
-            "QQQ",
-            "SPY",
-            "6758.T",
-            "7203.T"
+          "inferred_symbols": [],
+          "macro_proxy_symbols": [
+            "1306.T",
+            "USDJPY",
+            "1488.T",
+            "SPY"
           ],
-          "macro_proxy_symbols": [],
           "symbol_matches": [
             {
-              "symbol": "QQQ",
-              "name": "Invesco QQQ Trust",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "symbol": "1306.T",
+              "name": "NEXT FUNDS TOPIX ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
               "evidence_text": null,
               "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "USDJPY",
+              "name": "ドル円",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "1488.T",
+              "name": "iFreeETF 東証REIT指数",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
             },
             {
               "symbol": "SPY",
               "name": "SPDR S&P 500 ETF",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "kind": "macro_proxy",
+              "confidence": 0.62,
               "evidence_text": null,
               "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "6758.T",
-              "name": "Sony Group",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
             },
             {
               "symbol": "7203.T",
               "name": "Toyota Motor",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "kind": "rejected",
+              "confidence": 0.12,
               "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "配当・株主還元の材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "成長投資の資金戦略、再考へ JALは2000億円 社債型種類株が拡大 - 日経ビジネス電子版",
-          "summary": "成長投資の資金戦略、再考へ JALは2000億円 社債型種類株が拡大 日経ビジネス電子版",
-          "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE9PTWRPbnozWHdFakU1ZGZhMzY5eXVnQ0kzUndUMnZrbmxHM3hLdllNeDZGY2lTZmloM2d0MU16ZmhkcWdtQkU0MlVTNWpqNUxld2YzUzdPSXpVZk90Nk1KNWxKbjg?oc=5",
-          "source_name": "日経ビジネス電子版",
-          "source_type": "news",
-          "published_at": "2026-07-09T15:00:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "配当・株主還元",
-          "region": "日本",
-          "material_type": "shareholder_return",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "7203.T",
-            "8306.T",
-            "8316.T",
-            "9432.T"
-          ],
-          "macro_proxy_symbols": [],
-          "symbol_matches": [
-            {
-              "symbol": "7203.T",
-              "name": "Toyota Motor",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
             },
             {
               "symbol": "8306.T",
               "name": "Mitsubishi UFJ",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "kind": "rejected",
+              "confidence": 0.12,
               "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "8316.T",
-              "name": "Sumitomo Mitsui FG",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "9432.T",
-              "name": null,
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "配当・株主還元の材料です。 配当・株主還元を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "丸紅（8002）【最速】決算短信をAIが解説 Jack Ahcan (uPtGpCwI2s) - Mshale",
-          "summary": "丸紅（8002）【最速】決算短信をAIが解説 Jack Ahcan (uPtGpCwI2s) Mshale",
-          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE1qTHMtNXU4OVF3V0lSbjZOOFFBdkdRZ3BhX2dCVkpoLTRiNDNvTnMtdF9TZ3AyZVFSSm9mbnM0cnlJaVVDa0RBSF9ldVBVV2QtYVQ5OGY3OEtPUm8?oc=5",
-          "source_name": "Mshale",
-          "source_type": "news",
-          "published_at": "2026-07-09T01:23:36Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "配当・株主還元",
-          "region": "日本",
-          "material_type": "shareholder_return",
-          "related_symbols": [
-            "8002.T"
-          ],
-          "inferred_symbols": [
-            "QQQ",
-            "SPY",
-            "6758.T"
-          ],
-          "macro_proxy_symbols": [],
-          "symbol_matches": [
-            {
-              "symbol": "8002.T",
-              "name": null,
-              "kind": "code_match",
-              "confidence": 0.98,
-              "evidence_text": "（8002）",
-              "evidence_field": "body",
-              "reason": "本文または見出しに出た銘柄として抽出"
-            },
-            {
-              "symbol": "QQQ",
-              "name": "Invesco QQQ Trust",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
             },
             {
               "symbol": "6758.T",
               "name": "Sony Group",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "kind": "rejected",
+              "confidence": 0.12,
               "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "配当・株主還元の材料です。 業績と見通しを中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
-            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "日本特殊陶業【5334】株価5倍の大躍進、EV減速でプラグに“残存者利益”の一方で「半導体関連株」に？ 注目の実力と見通し - Yahoo!ニュース",
-          "summary": "日本特殊陶業【5334】株価5倍の大躍進、EV減速でプラグに“残存者利益”の一方で「半導体関連株」に？ 注目の実力と見通し Yahoo!ニュース",
-          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5aTVFHbklrUGJENExreTYzN0lOVnRMQ2Nhb1FQTVEyUGZGc2pOeDNtYmtTSFlmTy01bkNzRl9xaEFCWFRHVG9fdU9tTlFpQjFhQjdIcUVkTUpzUFNxcUJHQUZBek5hZ3hXbnJhcjlUR05HMGJLUUV4cTB0UDVmbVk?oc=5",
-          "source_name": "Yahoo!ニュース",
-          "source_type": "news",
-          "published_at": "2026-07-08T08:30:24Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "recent",
-          "category": "配当・株主還元",
-          "region": "日本",
-          "material_type": "shareholder_return",
-          "related_symbols": [
-            "5334.T"
-          ],
-          "inferred_symbols": [
-            "NVDA",
-            "TSM",
-            "ASML"
-          ],
-          "macro_proxy_symbols": [],
-          "symbol_matches": [
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
+            },
             {
-              "symbol": "5334.T",
+              "symbol": "9984.T",
               "name": null,
-              "kind": "code_match",
-              "confidence": 0.98,
-              "evidence_text": "【5334】",
-              "evidence_field": "body",
-              "reason": "本文または見出しに出た銘柄として抽出"
+              "kind": "rejected",
+              "confidence": 0.12,
+              "evidence_text": null,
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
             },
             {
-              "symbol": "NVDA",
-              "name": "NVIDIA",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "symbol": "7974.T",
+              "name": null,
+              "kind": "rejected",
+              "confidence": 0.12,
               "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
             },
             {
-              "symbol": "TSM",
-              "name": "Taiwan Semiconductor",
-              "kind": "category_inferred",
-              "confidence": 0.45,
+              "symbol": "6861.T",
+              "name": null,
+              "kind": "rejected",
+              "confidence": 0.12,
               "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "ASML",
-              "name": "ASML",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+              "evidence_field": "fallback",
+              "reason": "カテゴリseedだけでは個別銘柄候補として弱いため非表示"
             }
           ],
           "is_official_source": false,
-          "ai_comment": "配当・株主還元の材料です。 半導体需要と供給を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。増配、自社株買い、資本効率、財務余力を合わせて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
-            "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
-            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-            "配当・株主還元全体の温度感と、個別企業の材料を分けて確認します。"
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         }
       ]
@@ -3674,13 +3659,89 @@
       "category": "米国株",
       "headlines": [
         {
+          "title": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め - かぶたん",
+          "summary": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め かぶたん",
+          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE1KS3RTZzNkVklNMlJzdGFHRjBIX3p6bFBqZlZ2b1RTTmtWS0dTbTZCTXo1OHVleFozaG5wazhqd2tMbHhRbksyNXpHQ2ZwUUVUNGE1ZE10d0ZBV1lUdF8tUTRn?oc=5",
+          "source_name": "かぶたん",
+          "source_type": "news",
+          "published_at": "2026-07-10T04:54:42Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "米国株",
+          "region": "米国",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [],
+          "macro_proxy_symbols": [
+            "TLT",
+            "SPY",
+            "QQQ",
+            "USDJPY",
+            "US10Y"
+          ],
+          "symbol_matches": [
+            {
+              "symbol": "TLT",
+              "name": "iShares 20+ Year Treasury Bond ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "SPY",
+              "name": "SPDR S&P 500 ETF",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "USDJPY",
+              "name": "ドル円",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            },
+            {
+              "symbol": "US10Y",
+              "name": "米10年金利",
+              "kind": "macro_proxy",
+              "confidence": 0.62,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 業績と見通しを中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
           "title": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め(フィスコ) - Yahoo!ファイナンス",
           "summary": "米国株見通し：下げ渋りか、来週のインフレ指標や決算を見極め(フィスコ) Yahoo!ファイナンス",
           "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQcTgxa29Ga0Iwa21fTEZscWk3OGhrNTUyMm1URWFCdHhhX0FOUkd2azVJV01taXVIdXRseC1DaUl2c0JROXJ1M29RT1BZekR5eXZCTklfcVpKcXpzUmhqSnNqUmxDb3d5cXNGbmJUNXJ3VFZDX24tZ3hZOUdpM3dYYXM4QTZ5M1U?oc=5",
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-10T04:54:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -3767,7 +3828,7 @@
           "source_name": "外為どっとコム",
           "source_type": "news",
           "published_at": "2026-07-10T04:37:30Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -3837,89 +3898,13 @@
           ]
         },
         {
-          "title": "中東リスクでも半導体ラリー継続、S&P500・ナスダックがそろって上昇 - BigGo ファイナンス",
-          "summary": "中東リスクでも半導体ラリー継続、S&P500・ナスダックがそろって上昇 BigGo ファイナンス",
-          "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTE1rclJSR29YWlkzVjdBMmlET24xd2pCbkVTU2o3SDFxZjRZbmc1TDV3ZHpFVUxaejZNSkdlb1g2OGlHWFIyeWFtV1hDMlJxNVgxNzVPSHJ1bVlPVFJNT2RxYzAxRGNqWTdMOXY5VURvd3B3N0l0?oc=5",
-          "source_name": "BigGo ファイナンス",
-          "source_type": "news",
-          "published_at": "2026-07-09T21:25:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "latest",
-          "category": "米国株",
-          "region": "米国",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [],
-          "macro_proxy_symbols": [
-            "SPY",
-            "QQQ",
-            "TLT",
-            "US10Y",
-            "VTI"
-          ],
-          "symbol_matches": [
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "QQQ",
-              "name": "Invesco QQQ Trust",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "TLT",
-              "name": "iShares 20+ Year Treasury Bond ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "US10Y",
-              "name": "米10年金利",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            },
-            {
-              "symbol": "VTI",
-              "name": "Vanguard Total Stock Market ETF",
-              "kind": "macro_proxy",
-              "confidence": 0.62,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "個別銘柄ではなく市場環境を確認するための代理指標"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 半導体需要と供給を中心に、個別銘柄ではなく市場確認指標で背景を確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
-            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
           "title": "米国株反発、金は1.3%高で4100ドル突破 ペプシコは決算下振れで急落 - BigGo ファイナンス",
           "summary": "米国株反発、金は1.3%高で4100ドル突破 ペプシコは決算下振れで急落 BigGo ファイナンス",
           "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTE1JV0k2VUlhLWpOMkdHSmxJc1BHdllpRU5lc3NvV1dfeEZtcGhSUGNFTjl3b2FwRjBPNzI0NzdwV083STdNdFhqU3dEaHJrZWx1SG5tMFlnZDR6Snl4TGhEMEsxMDcyNG9ORlMwdWcxeWthYUN1?oc=5",
           "source_name": "BigGo ファイナンス",
           "source_type": "news",
           "published_at": "2026-07-09T18:47:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -3995,7 +3980,7 @@
           "source_name": "ｄメニューニュース",
           "source_type": "news",
           "published_at": "2026-07-08T04:55:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
@@ -4067,32 +4052,32 @@
       ]
     },
     {
-      "category": "金融",
+      "category": "ETF",
       "headlines": [
         {
-          "title": "地銀ETFが下落、金利観測の揺れが金融株に波及【今日の市場はどう動いた？】 - Yahoo!ファイナンス",
-          "summary": "地銀ETFが下落、金利観測の揺れが金融株に波及【今日の市場はどう動いた？】 Yahoo!ファイナンス",
-          "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE1DYk8tXzQzdWJNYks2SDRJLTVvWmdDU3RxdjZZV3kzb1RpMG50RDdJX093MGY4R01nSlRKVkxFZl9hMUhmaWNGck1qWVYtQjRZaEJjMGhUdTdUUXpJZko5U3lGTGU?oc=5",
+          "title": "SBI 日本高配当株式(分配)ファンド(年4回決算型)【8931123C】：基準価格・投資信託情報 - Yahoo!ファイナンス",
+          "summary": "SBI 日本高配当株式(分配)ファンド(年4回決算型)【8931123C】：基準価格・投資信託情報 Yahoo!ファイナンス",
+          "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE5SSUtzaEVHVU1va2E1TWg5LV9PYUo0U0Vkb0pKbkRHN3hwMm51SEdIT1NnN2tDVE5DOUk3dlR3d3dxc3htcjhqZmtqUDgxNWloanp2cw?oc=5",
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
-          "published_at": "2026-07-08T02:56:24Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "recent",
-          "category": "金融",
-          "region": "日本",
-          "material_type": "earnings",
+          "published_at": "2026-07-10T13:01:49Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "latest",
+          "category": "ETF",
+          "region": "グローバル",
+          "material_type": "fund_flow",
           "related_symbols": [],
           "inferred_symbols": [
-            "TLT",
-            "JPM",
-            "SPY",
-            "BAC"
+            "8306.T",
+            "8058.T",
+            "2914.T",
+            "QQQ"
           ],
           "macro_proxy_symbols": [],
           "symbol_matches": [
             {
-              "symbol": "TLT",
-              "name": "iShares 20+ Year Treasury Bond ETF",
+              "symbol": "8306.T",
+              "name": "Mitsubishi UFJ",
               "kind": "category_inferred",
               "confidence": 0.45,
               "evidence_text": null,
@@ -4100,8 +4085,83 @@
               "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
             },
             {
-              "symbol": "JPM",
-              "name": "JPMorgan Chase",
+              "symbol": "8058.T",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "2914.T",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            }
+          ],
+          "is_official_source": false,
+          "ai_comment": "資金フロー材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "基準価額、出来高、コスト、連動対象の変化を確認します。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "ETF全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "6月のETF市場は活発な動きを示し、資本流入と新規上場が予想を上回りました - KuCoin",
+          "summary": "6月のETF市場は活発な動きを示し、資本流入と新規上場が予想を上回りました KuCoin",
+          "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPNVhZMkw1MDJOc2JrcnhUQk5MY200cWVuT1JpV0s0eWZEczF0R0hFMDlCVkNjYTVXdlctSUpuVzhSN3NCdjZoRGJhNzhleTM1bHF1ZkdyV3ZPeGFvdVZwY3lrbzhUNkRFeGc4UVItVjFtXzhnX0RIRlFGbTRCaXlSdDJUWDE3LW9hN3BwNGllUEpfUzM1elNBSlgzTEpuTjFyVThENDF6b3JlLWxzZE11WFRGdFlmSmYtTGthMWhBcHJwTTBuYVFV?oc=5",
+          "source_name": "KuCoin",
+          "source_type": "news",
+          "published_at": "2026-07-07T07:56:00Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
+          "freshness_status": "recent",
+          "category": "ETF",
+          "region": "グローバル",
+          "material_type": "fund_flow",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "VOO",
+            "2558.T",
+            "QQQ",
+            "SPY"
+          ],
+          "macro_proxy_symbols": [],
+          "symbol_matches": [
+            {
+              "symbol": "VOO",
+              "name": null,
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "2558.T",
+              "name": "MAXIS S&P500 ETF",
+              "kind": "category_inferred",
+              "confidence": 0.45,
+              "evidence_text": null,
+              "evidence_field": "category",
+              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
+            },
+            {
+              "symbol": "QQQ",
+              "name": "Invesco QQQ Trust",
               "kind": "category_inferred",
               "confidence": 0.45,
               "evidence_text": null,
@@ -4116,23 +4176,14 @@
               "evidence_text": null,
               "evidence_field": "category",
               "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "BAC",
-              "name": "Bank of America",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
             }
           ],
           "is_official_source": false,
-          "ai_comment": "決算・業績材料です。 金利・為替を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "資金フロー材料です。 ETFを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
-            "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
+            "基準価額、出来高、コスト、連動対象の変化を確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "金融全体の温度感と、個別企業の材料を分けて確認します。"
+            "ETF全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         }
       ]
@@ -4147,7 +4198,7 @@
           "source_name": "매일경제",
           "source_type": "news",
           "published_at": "2026-07-05T09:02:52Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "政策・規制",
           "region": "グローバル",
@@ -4213,7 +4264,7 @@
           "source_name": "매일경제",
           "source_type": "news",
           "published_at": "2026-07-04T21:02:11Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
+          "fetched_at": "2026-07-10T13:41:04.760865Z",
           "freshness_status": "recent",
           "category": "政策・規制",
           "region": "グローバル",
@@ -4270,77 +4321,6 @@
             "公式発表の有無、対象地域、企業ごとの影響差を確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
             "政策・規制全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        }
-      ]
-    },
-    {
-      "category": "ETF",
-      "headlines": [
-        {
-          "title": "6月のETF市場は活発な動きを示し、資本流入と新規上場が予想を上回りました - KuCoin",
-          "summary": "6月のETF市場は活発な動きを示し、資本流入と新規上場が予想を上回りました KuCoin",
-          "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPNVhZMkw1MDJOc2JrcnhUQk5MY200cWVuT1JpV0s0eWZEczF0R0hFMDlCVkNjYTVXdlctSUpuVzhSN3NCdjZoRGJhNzhleTM1bHF1ZkdyV3ZPeGFvdVZwY3lrbzhUNkRFeGc4UVItVjFtXzhnX0RIRlFGbTRCaXlSdDJUWDE3LW9hN3BwNGllUEpfUzM1elNBSlgzTEpuTjFyVThENDF6b3JlLWxzZE11WFRGdFlmSmYtTGthMWhBcHJwTTBuYVFV?oc=5",
-          "source_name": "KuCoin",
-          "source_type": "news",
-          "published_at": "2026-07-07T07:56:00Z",
-          "fetched_at": "2026-07-10T09:27:17.776651Z",
-          "freshness_status": "recent",
-          "category": "ETF",
-          "region": "グローバル",
-          "material_type": "fund_flow",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "VOO",
-            "2558.T",
-            "QQQ",
-            "SPY"
-          ],
-          "macro_proxy_symbols": [],
-          "symbol_matches": [
-            {
-              "symbol": "VOO",
-              "name": null,
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "2558.T",
-              "name": "MAXIS S&P500 ETF",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "QQQ",
-              "name": "Invesco QQQ Trust",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            },
-            {
-              "symbol": "SPY",
-              "name": "SPDR S&P 500 ETF",
-              "kind": "category_inferred",
-              "confidence": 0.45,
-              "evidence_text": null,
-              "evidence_field": "category",
-              "reason": "ニュースカテゴリと本文キーワードからのSMAI推測候補"
-            }
-          ],
-          "is_official_source": false,
-          "ai_comment": "資金フロー材料です。 ETFを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "基準価額、出来高、コスト、連動対象の変化を確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "ETF全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         }
       ]

@@ -1,0 +1,11 @@
+group_type,group_value,model_name,evaluation_method,horizon_days,evaluated_case_count,skipped_case_count,validation_sample_count,fold_count,mae,rmse,direction_accuracy,baseline_zero_rmse,rmse_improvement,mean_model_disagreement
+overall,all,advanced_linear,rolling_origin,20,22,0,110,110,0.0645,0.0906,0.5545,0.0719,-0.0187,
+overall,all,advanced_tree_sklearn,rolling_origin,20,22,0,110,110,0.0512,0.0692,0.6000,0.0719,0.0027,
+overall,all,advanced_gbdt_sklearn,rolling_origin,20,22,0,110,110,0.0561,0.0768,0.6273,0.0719,-0.0049,
+overall,all,advanced_quantile,rolling_origin,20,22,0,110,110,0.0489,0.0676,0.6636,0.0719,0.0043,
+overall,all,forecast_consensus,rolling_origin,20,22,0,110,110,0.0521,0.0710,0.6182,0.0719,0.0009,0.0428
+overall,all,advanced_linear,rolling_origin,60,22,0,110,110,0.1240,0.1796,0.5636,0.1949,0.0153,
+overall,all,advanced_tree_sklearn,rolling_origin,60,22,0,110,110,0.1149,0.1788,0.6091,0.1949,0.0161,
+overall,all,advanced_gbdt_sklearn,rolling_origin,60,22,0,110,110,0.1270,0.1921,0.5364,0.1949,0.0028,
+overall,all,advanced_quantile,rolling_origin,60,22,0,110,110,0.1193,0.1815,0.5273,0.1949,0.0134,
+overall,all,forecast_consensus,rolling_origin,60,22,0,110,110,0.1186,0.1794,0.5636,0.1949,0.0155,0.0681

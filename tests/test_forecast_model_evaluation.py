@@ -190,10 +190,16 @@ def test_artifacts_cover_groups_predictions_errors_and_weights(tmp_path):
         "by_asset_type",
         "by_regime",
         "predictions",
+        "validation_points",
         "error_cases",
         "weighting_adjustments",
     }
     assert "rolling-origin" in paths["summary"].read_text(encoding="utf-8")
+    assert (
+        paths["validation_points"]
+        .read_text(encoding="utf-8")
+        .startswith("symbol,market,asset_type,regime,model_name")
+    )
     assert "group_type,group_value" in paths["by_market"].read_text(encoding="utf-8")
     assert "forecast_consensus" in paths["predictions"].read_text(encoding="utf-8")
     assert "Absolute error" in paths["error_cases"].read_text(encoding="utf-8")

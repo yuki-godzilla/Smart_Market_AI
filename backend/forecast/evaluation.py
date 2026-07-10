@@ -234,6 +234,7 @@ def write_forecast_evaluation_artifacts(
         "by_asset_type": output_dir / "forecast_model_evaluation_by_asset_type.csv",
         "by_regime": output_dir / "forecast_model_evaluation_by_regime.csv",
         "predictions": output_dir / "forecast_model_predictions.csv",
+        "validation_points": output_dir / "forecast_model_validation_points.csv",
         "error_cases": output_dir / "forecast_model_error_cases.md",
         "weighting_adjustments": output_dir / "forecast_model_weighting_adjustments.md",
     }
@@ -247,6 +248,7 @@ def write_forecast_evaluation_artifacts(
     _write_group_csv(paths["by_asset_type"], report.rows, group_type="asset_type")
     _write_group_csv(paths["by_regime"], report.rows, group_type="regime")
     _write_predictions_csv(paths["predictions"], report.predictions)
+    _write_validation_points_csv(paths["validation_points"], report.validation_points)
     paths["error_cases"].write_text(
         _render_error_cases(report.validation_points),
         encoding="utf-8",
@@ -685,6 +687,15 @@ def _write_group_csv(
 
 def _write_predictions_csv(path: Path, rows: list[ForecastPredictionRow]) -> None:
     fieldnames = list(ForecastPredictionRow.model_fields)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(getattr(row, field)) for field in fieldnames})
+
+
+def _write_validation_points_csv(path: Path, rows: list[ForecastValidationPoint]) -> None:
+    fieldnames = list(ForecastValidationPoint.model_fields)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()

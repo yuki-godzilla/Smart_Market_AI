@@ -204,6 +204,23 @@ def _chart_shape_label(
         return "上昇済み・兆候薄め"
     if drawdown >= 20 and momentum <= 0:
         return "売られすぎ反発狙い"
+    confirmed = _truthy(row, "higher_low_flag", "recent_higher_low") or _truthy(
+        row, "volume_recovery_flag", "reversal_volume_confirmed"
+    )
+    if drawdown >= 10 and Decimal("-3") <= momentum <= Decimal("3") and confirmed:
+        return "底打ち接近"
+    return_20d = _number(row, "return_20d", "price_change_20d", default=momentum)
+    volatility = _number(row, "volatility_20d", "volatility", default=Decimal("25"))
+    if (
+        abs(return_20d) <= 4
+        and drawdown <= 8
+        and volatility <= 20
+        and forecast_return > 0
+        and downside < 60
+        and risk >= 55
+        and confirmed
+    ):
+        return "蓄積上昇準備"
     candidates = {
         label: score for label, score in shape_scores.items() if label != "dangerous_penalty"
     }
@@ -232,8 +249,12 @@ def _chart_shape_scores(
         pullback += 8
 
     bottoming = Decimal("30")
-    if drawdown >= 10 and Decimal("-3") <= momentum <= Decimal("3"):
-        bottoming = Decimal("84")
+    if (
+        drawdown >= 10
+        and Decimal("-3") <= momentum <= Decimal("3")
+        and (higher_low or volume_recovery)
+    ):
+        bottoming = Decimal("65")
     if higher_low:
         bottoming += 10
     if volume_recovery:
@@ -255,8 +276,9 @@ def _chart_shape_scores(
         and forecast_return > 0
         and downside < 60
         and risk >= 55
+        and (higher_low or volume_recovery)
     ):
-        accumulation = Decimal("86")
+        accumulation = Decimal("60")
     if higher_low:
         accumulation += 5
 
@@ -318,8 +340,7 @@ def _forecast_score(
             default=_scale(forecast_return, Decimal("-5"), Decimal("12")),
         )
         * Decimal("0.15")
-        + _number(row, "advanced_forecast_quality_score", default=Decimal("50"))
-        * Decimal("0.10")
+        + _number(row, "advanced_forecast_quality_score", default=Decimal("50")) * Decimal("0.10")
         + upside * Decimal("0.10")
     )
 
@@ -415,9 +436,7 @@ def _dividend_assessment(row: Mapping[str, object], drawdown_60d: Decimal) -> _D
     if danger:
         return _DividendAssessment(score, "減配リスク高", spike, "維持に強い注意", None)
     if spike:
-        return _DividendAssessment(
-            score, "株価下落による利回り急上昇", True, "要確認", None
-        )
+        return _DividendAssessment(score, "株価下落による利回り急上昇", True, "要確認", None)
     if not known:
         return _DividendAssessment(score, "配当安全性未確認", False, "材料不足", None)
     if score < 55:
@@ -519,9 +538,7 @@ def _price_action_penalty(
     return max(momentum_penalty, drawdown_penalty, combo_penalty)
 
 
-def _chase_penalty(
-    row: Mapping[str, object], *, drawdown: Decimal, momentum: Decimal
-) -> Decimal:
+def _chase_penalty(row: Mapping[str, object], *, drawdown: Decimal, momentum: Decimal) -> Decimal:
     if drawdown >= 3 or momentum <= 3:
         return Decimal("0")
     penalty = Decimal("8") if momentum > 6 else Decimal("5")

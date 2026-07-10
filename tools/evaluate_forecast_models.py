@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", default="reports/forecast_evaluation")
     parser.add_argument("--required-bars", type=int, default=180)
     parser.add_argument("--max-origins", type=int, default=5)
+    parser.add_argument(
+        "--skip-tuning",
+        action="store_true",
+        help="Write evaluation artifacts without repeating bounded adapter tuning.",
+    )
     args = parser.parse_args(argv)
 
     output_dir = Path(args.output)
@@ -43,13 +48,15 @@ def main(argv: list[str] | None = None) -> int:
         max_origins=args.max_origins,
     )
     evaluation_paths = write_forecast_evaluation_artifacts(report, output_dir)
-    tuning_paths = write_forecast_tuning_artifacts(
-        tune_forecast_adapters(
-            dataset.cases,
-            max_origins=args.max_origins,
-        ),
-        output_dir,
-    )
+    tuning_paths = {}
+    if not args.skip_tuning:
+        tuning_paths = write_forecast_tuning_artifacts(
+            tune_forecast_adapters(
+                dataset.cases,
+                max_origins=args.max_origins,
+            ),
+            output_dir,
+        )
     eligible = len(dataset.cases)
     print(f"forecast evaluation dataset: {eligible}/{len(dataset.coverage)} symbols eligible")
     for name, path in {**coverage_paths, **evaluation_paths, **tuning_paths}.items():

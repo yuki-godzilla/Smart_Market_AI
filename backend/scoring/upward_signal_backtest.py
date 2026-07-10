@@ -117,19 +117,34 @@ def evaluate_upward_signal_case(
 
 def summarize_upward_signal_cases(
     cases: Sequence[UpwardSignalBacktestCase],
-) -> dict[str, Decimal | int]:
+) -> dict[str, Decimal | int | None]:
     successful = [case for case in cases if case.success_flag]
     failed = [case for case in cases if not case.success_flag]
     measured = [case for case in cases if case.forward_return_60d is not None]
     excess = [case for case in cases if case.excess_return is not None]
+    top_ten = sorted(cases, key=lambda case: case.upward_signal_score, reverse=True)[:10]
+    intended_shapes = {
+        "押し目反発待ち",
+        "底打ち接近",
+        "横ばい上放れ候補",
+        "蓄積上昇準備",
+    }
     return {
         "case_count": len(cases),
         "success_count": len(successful),
         "failure_count": len(failed),
         "success_rate_pct": _ratio(len(successful), len(measured)),
-        "market_outperformance_rate_pct": _ratio(
-            sum(case.excess_return > 0 for case in excess if case.excess_return is not None),
-            len(excess),
+        "market_outperformance_rate_pct": (
+            _ratio(
+                sum(case.excess_return > 0 for case in excess if case.excess_return is not None),
+                len(excess),
+            )
+            if excess
+            else None
+        ),
+        "top_ten_success_count": sum(case.success_flag for case in top_ten),
+        "top_ten_intended_shape_count": sum(
+            case.chart_shape_label in intended_shapes for case in top_ten
         ),
         "success_average_score": _average([case.upward_signal_score for case in successful]),
         "failure_average_score": _average([case.upward_signal_score for case in failed]),
@@ -148,7 +163,7 @@ def write_upward_signal_backtest_outputs(
     rows = [case.as_row() for case in cases]
     fieldnames = list(UpwardSignalBacktestCase.__dataclass_fields__)
     with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     summary = summarize_upward_signal_cases(cases)
@@ -158,11 +173,14 @@ def write_upward_signal_backtest_outputs(
         f"- 成功数: {summary['success_count']}\n"
         f"- 失敗数: {summary['failure_count']}\n"
         f"- 勝率: {summary['success_rate_pct']}%\n"
-        f"- 市場平均超過率: {summary['market_outperformance_rate_pct']}%\n"
+        f"- 市場平均超過率: {_display_rate(summary['market_outperformance_rate_pct'])}\n"
+        f"- Top10成功数: {summary['top_ten_success_count']} / {min(10, len(cases))}\n"
+        f"- Top10の狙い形状数: {summary['top_ten_intended_shape_count']} / {min(10, len(cases))}\n"
         f"- 成功例の平均スコア: {summary['success_average_score']}\n"
         f"- 失敗例の平均スコア: {summary['failure_average_score']}\n\n"
         "上向き兆候は売買推奨ではなく、深掘り確認の優先度です。\n",
         encoding="utf-8",
+        newline="\n",
     )
     false_positives = [case for case in cases if case.false_positive_flag]
     false_positive_path.write_text(
@@ -179,6 +197,7 @@ def write_upward_signal_backtest_outputs(
         )
         + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     adjustments_path.write_text(
         "# 上向き兆候 ロジック調整メモ\n\n"
@@ -186,6 +205,7 @@ def write_upward_signal_backtest_outputs(
         "- 偽陽性は落ちるナイフ、上昇済み、高配当罠、材料不足の横ばいに分類する。\n"
         "- 調整後は同じ評価日で再計算し、未来リターンの閾値を後付けしない。\n",
         encoding="utf-8",
+        newline="\n",
     )
     return csv_path, summary_path, false_positive_path, adjustments_path
 
@@ -213,7 +233,10 @@ def _benchmark_return(
         or future[days - 1].benchmark_close is None
     ):
         return None
-    return ((future[days - 1].benchmark_close / base.benchmark_close) - 1) * 100
+    target_benchmark = future[days - 1].benchmark_close
+    if target_benchmark is None:
+        return None
+    return ((target_benchmark / base.benchmark_close) - 1) * 100
 
 
 def _maximum_drawdown(
@@ -250,3 +273,7 @@ def _average(values: Sequence[Decimal]) -> Decimal:
     if not values:
         return Decimal("0")
     return (sum(values) / Decimal(len(values))).quantize(Decimal("0.01"))
+
+
+def _display_rate(value: object) -> str:
+    return "未計測（benchmark未接続）" if value is None else f"{value}%"

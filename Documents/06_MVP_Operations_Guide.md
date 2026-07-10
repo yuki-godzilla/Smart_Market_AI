@@ -1110,3 +1110,20 @@ market、asset type、regime別集計、最新point-in-time予測、誤差上位
 ```
 
 live取得は`--allow-live`必須で、通常OHLCVを上書きしない。2026-07-06評価は23銘柄・28,529 bars・23/23 eligible。`robust-linear-clip-v1`だけを採用し、consensus weightと他parameter候補は既定維持またはshadowとした。
+
+Phase 34の追加銘柄評価では、`prepare_phase34_dataset.py`でmarket / asset type内の固定hashによるtuning / validation / audit分割を作る。`evaluate_forecast_models.py --skip-tuning`は評価成果物とrolling-origin生予測点を出力し、bounded adapter tuningの重複再計算を省く。単日絶対騰落率55%超を含むsymbolは、分割調整不整合の可能性があるため`extreme_price_jump`として評価対象外にする。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\prepare_phase34_dataset.py
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py `
+  --ohlcv data\phase34_evaluation\splits\audit\ohlcv.csv `
+  --metadata data\phase34_evaluation\splits\audit\symbols.csv `
+  --output reports\phase34_forecast_audit --required-bars 500 --max-origins 5 --skip-tuning
+.\venv_SMAI\Scripts\python.exe .\tools\run_phase34_upward_signal_backtest.py `
+  --ohlcv data\phase34_evaluation\splits\audit\ohlcv.csv `
+  --metadata data\phase34_evaluation\splits\audit\symbols.csv `
+  --validation-points reports\phase34_forecast_audit\forecast_model_validation_points.csv `
+  --output reports\phase34_upward_signal_audit
+```
+
+監査groupは最終1回だけ確認し、結果を見たthreshold調整には使わない。Phase 34ではconsensus weightと予測幅校正が採用gateを通らなかったため、runtime予測は変更していない。

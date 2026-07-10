@@ -4533,3 +4533,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 常時起動Streamlitで `ui/app.py` だけが再実行され、旧版の `backend.scoring.reversal` がmodule cacheに残ると、新規helper importが失敗する事象を確認。
 - 保存済み旧ラベルの表示変換helperを新規 `ui/upward_signal.py` へ分離し、既存backend moduleへの新規symbol import依存を除去。サーバー再起動権限がない場合も次回rerunで読める構成に変更。
 - 新規processで `ui.app` import成功、対象14 testとRuff成功。pytest cache directoryの権限warningはテスト結果に影響なし。
+
+## 2026-07-10: Phase 34 上向き兆候・既存予測モデル実測スプリント
+
+- Phase 33の23銘柄と非重複の66銘柄、最大10年、160,555日足を明示Yahoo live取得し、market / asset type内の固定hashで調整23、検証22、監査19へ銘柄分離。
+- 2558.T / 1655.Tの株式分割由来とみられる単日900%超不連続を発見し、55%超の単日不連続を評価対象外にする一般品質gateを追加。
+- rolling-origin生予測点CSV、評価のみを実行する`--skip-tuning`、固定split作成、実チャート形状backtest、bounded consensus校正評価を追加。
+- 底打ち・蓄積形状にhigher-lowまたは出来高回復確認を要求し、形状基礎点を保守化。監査群で成功平均63.96、失敗平均51.37、Top10狙い形状10/10、Top10成功3/10。
+- consensus weight、予測幅校正は時間順または銘柄holdout gate未通過。runtime forecast weight / predictionは変更なし。Top10 7/10未達だが、監査群への過学習を避けるため追加調整を停止。
+- 対象35 testとRuff成功。大きい一括評価runはcoverage後に長時間化したため2回明示停止し、split別・評価/調整分離へ変更して完走。

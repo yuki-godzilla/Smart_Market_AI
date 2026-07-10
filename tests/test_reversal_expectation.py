@@ -108,13 +108,35 @@ def test_falling_knife_and_bottoming_shape_are_distinguished():
         _candidate(drawdown_20d="-38", momentum_5d="-9", downside_signal_score="82")
     )
     bottoming = calculate_reversal_expectation(
-        _candidate(drawdown_20d="-16", momentum_5d="-1", downside_signal_score="48")
+        _candidate(
+            drawdown_20d="-16",
+            momentum_5d="-1",
+            downside_signal_score="48",
+            higher_low_flag=True,
+        )
     )
 
     assert falling.reversal_chart_shape_label == "落ちるナイフ注意"
     assert falling.reversal_trap_warning != "目立つ警告なし"
     assert bottoming.reversal_chart_shape_label == "底打ち接近"
     assert bottoming.reversal_expectation_score > falling.reversal_expectation_score
+
+
+def test_bottoming_and_accumulation_require_price_or_volume_confirmation():
+    unconfirmed = calculate_reversal_expectation(
+        _candidate(drawdown_20d="-12", momentum_5d="0", return_20d="-2")
+    )
+    confirmed = calculate_reversal_expectation(
+        _candidate(
+            drawdown_20d="-12",
+            momentum_5d="0",
+            return_20d="-2",
+            higher_low_flag=True,
+        )
+    )
+
+    assert confirmed.bottoming_score > unconfirmed.bottoming_score
+    assert confirmed.reversal_chart_shape_label == "底打ち接近"
 
 
 def test_dividend_trap_is_warning_and_small_penalty_not_score_cap():
@@ -266,7 +288,7 @@ def test_range_breakout_and_accumulation_shapes_are_supported():
     assert breakout.reversal_chart_shape_label == "横ばい上放れ候補"
     assert breakout.range_breakout_score >= Decimal("80")
     assert accumulation.reversal_chart_shape_label == "蓄積上昇準備"
-    assert accumulation.accumulation_setup_score >= Decimal("75")
+    assert accumulation.accumulation_setup_score >= Decimal("60")
 
 
 def test_etf_does_not_apply_individual_stock_dividend_trap_cap():

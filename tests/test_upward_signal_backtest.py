@@ -80,6 +80,7 @@ def test_backtest_summary_separates_success_and_failure_scores():
     assert summary["success_count"] == 1
     assert summary["failure_count"] == 1
     assert summary["success_rate_pct"] == Decimal("50.00")
+    assert summary["top_ten_success_count"] == 1
     assert failure.false_positive_flag
 
 

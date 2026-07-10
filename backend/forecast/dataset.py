@@ -23,6 +23,9 @@ class ForecastDatasetCoverageRow(StrictBaseModel):
     reason: str = Field(min_length=1)
 
 
+MAX_ABSOLUTE_DAILY_RETURN = Decimal("0.55")
+
+
 class ForecastDatasetLoadResult(StrictBaseModel):
     cases: list[ForecastEvaluationCase]
     coverage: list[ForecastDatasetCoverageRow]
@@ -49,8 +52,14 @@ def load_forecast_evaluation_dataset(
         asset_type = row.get("asset_type") or "unknown"
         bars = sorted(bars_by_symbol.get(raw_symbol, []), key=lambda bar: bar.ts)
         regime = _classify_regime(bars)
-        eligible = len(bars) >= required_bar_count
-        reason = "eligible" if eligible else f"insufficient_bars:{len(bars)}/{required_bar_count}"
+        extreme_jump = _maximum_absolute_daily_return(bars)
+        eligible = len(bars) >= required_bar_count and extreme_jump <= MAX_ABSOLUTE_DAILY_RETURN
+        if len(bars) < required_bar_count:
+            reason = f"insufficient_bars:{len(bars)}/{required_bar_count}"
+        elif extreme_jump > MAX_ABSOLUTE_DAILY_RETURN:
+            reason = f"extreme_price_jump:{extreme_jump}"
+        else:
+            reason = "eligible"
         coverage.append(
             ForecastDatasetCoverageRow(
                 symbol=raw_symbol,
@@ -207,3 +216,12 @@ def _classify_regime(bars: list[Bar]) -> str:
     if period_return <= Decimal("-0.08"):
         return "downtrend"
     return "sideways"
+
+
+def _maximum_absolute_daily_return(bars: list[Bar]) -> Decimal:
+    maximum = Decimal("0")
+    for previous, current in zip(bars, bars[1:]):
+        if previous.close <= 0:
+            continue
+        maximum = max(maximum, abs((current.close / previous.close) - Decimal("1")))
+    return maximum.quantize(Decimal("0.0001"))

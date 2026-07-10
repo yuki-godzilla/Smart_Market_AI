@@ -2673,9 +2673,13 @@ Markdown UTF-8 check:
 
 ## Phase 34: 上向き兆候 実確認・バックテストスプリント
 
+状態: 🟨 **実測スプリント完了 / Top10精度は継続課題**
+
 日本大型株、高配当、グロース、米国株、ETF、横ばい、落ちるナイフ候補を10スプリントで確認する。既知例と自動抽出例をpoint-in-timeでbacktestし、20・60・120営業日return、最大下落、benchmark差、false positive、先行した既存モデルを記録する。
 
 成果物は`backtest_upward_signal_cases.csv`、`backtest_upward_signal_summary.md`、`upward_signal_false_positive_cases.md`、`upward_signal_logic_adjustments.md`。上位10件中7件以上が目視で納得でき、危険例や上昇済みが上位を占有しない状態を目標とする。
+
+2026-07-10実績: Phase 33と非重複の66銘柄・最大10年・160,555日足を、固定hashで調整23 / 検証22 / 監査19へ銘柄分離した。極端な価格不連続2銘柄を品質gateで除外し、底打ち・蓄積形状へhigher-lowまたは出来高回復確認を追加した。封印監査群では成功平均63.96、失敗平均51.37、Top10狙い形状10/10だったが、Top10成功3/10で目標未達。追加調整は監査群への過学習となるため停止し、次回は新規銘柄・新規期間で継続する。詳細は`reports/phase34_sprint_summary.md`。
 
 ## Phase 35: 既存モデル活用による上向き兆候改善
 

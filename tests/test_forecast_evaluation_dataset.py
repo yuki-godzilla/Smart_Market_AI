@@ -99,6 +99,28 @@ def test_tuning_compares_bounded_candidate_for_all_existing_adapters(tmp_path):
     assert "既存4モデル" in paths["tuning_markdown"].read_text(encoding="utf-8")
 
 
+def test_dataset_excludes_extreme_price_discontinuity(tmp_path):
+    metadata_path = tmp_path / "symbols.csv"
+    ohlcv_path = tmp_path / "ohlcv.csv"
+    _write_metadata(metadata_path)
+    _write_ohlcv(ohlcv_path, {"AAPL": 100})
+    rows = ohlcv_path.read_text(encoding="utf-8").splitlines()
+    fields = rows[51].split(",")
+    fields[2:6] = ["10", "10", "10", "10"]
+    rows[51] = ",".join(fields)
+    ohlcv_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    result = load_forecast_evaluation_dataset(
+        ohlcv_path,
+        metadata_path,
+        required_bar_count=80,
+    )
+
+    assert result.cases == []
+    assert result.coverage[0].eligible is False
+    assert result.coverage[0].reason.startswith("extreme_price_jump:")
+
+
 def _write_metadata(path):
     path.write_text(
         "symbol,market,asset_type,currency,exchange,local_symbol\n"

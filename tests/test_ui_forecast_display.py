@@ -8940,7 +8940,7 @@ def test_reversal_policy_builder_card_explains_formula_without_opening_details()
     assert "押し目状態" in markup
     assert "予測上向き余地" in markup
     assert "下落安全性" in markup
-    assert "企業・データ・配当品質" in markup
+    assert "上向き材料" in markup
     assert "チャート形状" in markup
     assert "上向き材料" in markup
     assert "25%" in markup

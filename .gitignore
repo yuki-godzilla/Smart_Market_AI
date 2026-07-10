@@ -37,6 +37,8 @@ Thumbs.db
 data/marketdata/live_checks/
 data/marketdata/backup/
 data/marketdata/raw/*.pdf
+data/marketdata/raw/sbi_foreign/*.html
+data/marketdata/raw/sbi_overseas_etf/*.html
 data/marketdata/**/*.tmp
 data/marketdata/**/*.bak
 data/marketdata/manual_metadata_patches/metadata_gap_candidates*.csv
@@ -73,5 +75,6 @@ data/ops/symbol_maintenance_state.json
 data/ops/symbol_maintenance_state.json.tmp
 data/ops/symbol_maintenance.lock
 data/ops/server_ops/
+reports/
 data/user_state/last_session.json
 data/user_state/clients/

@@ -1,9 +1,0 @@
-adapter_name,horizon_days,candidate_name,tuning_rmse,holdout_rmse,default_holdout_rmse,holdout_direction_accuracy,default_holdout_direction_accuracy,adopted,parameters,reason
-advanced_linear,20,ridge_alpha_4,0.1165,0.0887,0.0888,0.4130,0.4130,False,alpha=4.0,時系列holdoutの採用条件を満たさないため既定設定を維持します。
-advanced_linear,60,ridge_alpha_4,0.1534,0.1786,0.1786,0.7455,0.7455,False,alpha=4.0,時系列holdoutの採用条件を満たさないため既定設定を維持します。
-advanced_tree_sklearn,20,conservative_tree,0.0945,0.0803,0.0805,0.3261,0.3261,False,"n_estimators=96,max_depth=3,min_samples_leaf=6",時系列holdoutの採用条件を満たさないため既定設定を維持します。
-advanced_tree_sklearn,60,conservative_tree,0.1426,0.1799,0.1813,0.6909,0.6364,False,"n_estimators=96,max_depth=3,min_samples_leaf=6",時系列holdoutの採用条件を満たさないため既定設定を維持します。
-advanced_gbdt_sklearn,20,regularized_gbdt,0.0978,0.0775,0.0791,0.4565,0.4348,True,"max_iter=64,min_samples_leaf=8,l2_regularization=0.1",時系列holdoutでRMSEを1%以上改善し、方向一致率を維持しました。
-advanced_gbdt_sklearn,60,regularized_gbdt,0.1500,0.1907,0.1862,0.5091,0.5273,False,"max_iter=64,min_samples_leaf=8,l2_regularization=0.1",時系列holdoutの採用条件を満たさないため既定設定を維持します。
-advanced_quantile,20,lower_center_quantile,0.0952,0.0798,0.0810,0.3913,0.3913,True,center_quantile=0.45,時系列holdoutでRMSEを1%以上改善し、方向一致率を維持しました。
-advanced_quantile,60,lower_center_quantile,0.1442,0.1867,0.1814,0.6727,0.6909,False,center_quantile=0.45,時系列holdoutの採用条件を満たさないため既定設定を維持します。

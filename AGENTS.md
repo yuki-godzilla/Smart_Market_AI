@@ -2,342 +2,295 @@
 
 ## Purpose / 目的
 
-Shared operating guide for contributors and coding agents.
-開発者と coding agent 向けの共通作業ガイドです。
+Smart Market AI（SMAI）の開発者・coding agent向け共通作業ガイドです。
 
-Keep this file short and action-oriented. Read long context only when needed.
-このファイルは短く、作業判断に直結する内容だけにします。長い文脈は必要な場合だけ読みます。
+このファイルには、長期間変わりにくい原則、作業開始時の最短経路、責務境界、最低限の完了条件だけを記載します。現在地、フェーズ、個別障害、詳細手順は別資料へ置きます。
 
-- `AGENTS.md`: stable rules and fast paths / 安定ルールと最短手順
-- `PROJECT_CONTEXT.md`: compact current-state summary / 軽量な現在地サマリ
-- `Documents/99_Work_Log.md`: historical work log / 過去作業ログ
-- `Documents/98_Codex_Task_Template.md`: reusable Codex task template / Codex 用タスクテンプレート
-- `Documents/05_Implementation_Roadmap.md`: phase plan / フェーズ計画
-- `Documents/06_MVP_Operations_Guide.md`: API, UI, CSV, provider, runbook / 運用ガイド
+- `AGENTS.md`: 安定ルールと最短手順
+- `PROJECT_CONTEXT.md`: 現在の実装状況と直近優先順位
+- `Documents/05_Implementation_Roadmap.md`: フェーズ計画と完了条件
+- `Documents/06_MVP_Operations_Guide.md`: 起動、Provider、検証、運用、障害対応
+- `Documents/99_Work_Log.md`: 過去の作業履歴
+- `Documents/98_Codex_Task_Template.md`: 実装指示テンプレート
 
-## Core Guardrails / 守る線
+変動するフェーズ番号、一時的な優先順位、個別障害の詳細をAGENTS.mdへ追加しないでください。
 
-Smart Market AI is a local-first Python investment-support app using FastAPI, Streamlit, deterministic MarketData, Feature Store Lite, Screening Score, Forecast baseline, Risk, and Portfolio MVP modules.
-Smart Market AI は、FastAPI、Streamlit、deterministic MarketData、Feature Store Lite、Screening Score、Forecast baseline、Risk、Portfolio MVP を持つ local-first な Python 投資判断支援アプリです。
+## Core Principles / 基本原則
 
-Default path:
-- local and deterministic
-- no network dependency in normal checks
-- MarketData / broker / execution external providers only by explicit opt-in; Research RAG external source search is a standard AI Research flow but still network-free in normal checks
-- investment outputs are decision support, not buy/sell advice
-- Research RAG / News RAG product behavior prioritizes current external sources because freshness matters; normal checks still use fake/local fixtures and must not depend on network. Treat `AI調査を更新` as the intended standard external-source search action, keep fetched source text transient by default, and require a separate explicit archive/save action for persistence.
+SMAIは、Python、Streamlit、FastAPIを中心に構成されたlocal-firstの個人向け投資判断支援システムです。
 
-既定経路:
-- local / deterministic
-- 通常確認は network 非依存
-- MarketData / broker / execution の外部 provider は明示 opt-in のみ。Research RAG の外部 source 探索は AI調査の標準導線だが、通常確認は network 非依存
-- 投資出力は売買推奨ではなく判断補助
-- Research RAG / News RAG は鮮度が重要なため、プロダクト挙動では最新外部 source を優先する。通常確認は fake/local fixture で network 非依存を維持する。`AI調査を更新` は外部 source 探索の標準導線とし、取得本文は既定では保持せず、永続化は別の明示 archive/save action とする。
+### Local-first
 
-## Implementation Maturity / 実装成熟の考え方
+ユーザーデータ、設定、分析状態、主要処理、LLM利用の主導権をローカル環境に置きます。市場データ、ニュース、開示情報、通知には外部通信を利用できますが、外部障害でローカル状態や保存データを破損させてはいけません。
 
-- Initial implementation should be MVP-first: validate contracts, UX, and risk with the smallest useful slice.
-- Full implementation should deepen the feature by researching relevant market practice, Web/source behavior, and comparable user experiences when useful, then expand scope within reasonable cost, performance, and safety bounds.
-- Keep normal verification deterministic and network-free. Live market / Web checks are explicit opt-in, separated from CI, and documented when they affect product behavior.
+### Decision support
 
-基本理念:
-- 初期実装は MVP として、契約、UX、リスクを小さく検証する。
-- 本格実装では、市場や Web の情報、類似アプリの見せ方を必要に応じて調べ、妥当なコスト、負荷、安全性の範囲で実装を深める。
-- 通常確認は deterministic / network-free を維持し、live 市場 / Web 確認は明示 opt-in として CI から分離する。
+SMAIの出力は投資判断を支援する情報であり、売買推奨、利益保証、確定的な将来予測ではありません。必要に応じて根拠、不確実性、データ品質、更新日時を示します。
 
-## Fast Start / 最初に見るもの
+### Deterministic core
 
-Use the smallest context set that can safely solve the task.
-安全に解ける最小文脈だけを読む。
+市場データ、財務指標、特徴量、スクリーニング、スコア、ランキング、リスク、ポートフォリオ計算、Forecast数値は原則としてdeterministicな処理を正とします。
 
-| Task type | Read first | Usually inspect | Avoid first |
-| --- | --- | --- | --- |
-| Small bug / test fix | failing test or error | target module + matching tests | all docs |
-| API change | `backend/app/main.py` | request/response models + API tests + operations guide | UI docs unless UI changes |
-| Streamlit UI change | `ui/app.py` | UI helpers/tests + operations guide | unrelated backend docs |
-| MarketData/provider | `backend/marketdata/` | provider tests + config docs | live network smoke unless requested |
-| Feature/Screening/Forecast/Scoring | target service | contracts + service tests + roadmap phase | Execution docs |
-| Research RAG | `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` | `backend/research` + fake adapters / fixtures + roadmap R phases | live scraping / external LLM smoke unless requested |
-| Docs-only change | target doc | `PROJECT_CONTEXT.md` if status changes | code scan unless needed |
-| New implementation task | `PROJECT_CONTEXT.md` + relevant doc | related service + tests | `Documents/99_Work_Log.md` unless history is needed |
-| New phase work | roadmap current phase + `PROJECT_CONTEXT.md` | related service + tests | broad refactor |
+LLMは説明、要約、調査整理、対話支援、レポート生成に使います。LLMの自由文だけで基礎数値、ランキング、スコア、保存状態、売買判断を暗黙に上書きしてはいけません。
+
+LLM出力を後続処理へ渡す場合は、typed contract、schema検証、timeout、fallback、sanitizationを用意します。
+
+### Verification
+
+通常の自動テスト、lint、型確認、CIはnetwork-freeかつdeterministicにします。Live MarketData、Web、外部LLM、通知配送は通常確認から分離したlive smokeとして扱います。
 
 ## Source Of Truth / 判断優先順位
 
-1. User request / ユーザー要求
-2. Actual code in `backend/`, `ui/`, and `tests/` / 実コード
+1. ユーザーの明示要求
+2. `backend/`、`ui/`、各subproject、`tests/`の実コードとテスト
 3. `PROJECT_CONTEXT.md`
 4. `Documents/05_Implementation_Roadmap.md`
-5. Other design docs / その他設計資料
+5. その他の設計・運用資料
 
-If docs and code disagree, trust code for current behavior and record material current-state mismatches in `PROJECT_CONTEXT.md`.
-ドキュメントとコードがズレる場合、現在挙動はコードを優先し、現在地に関わる重要な差分だけ `PROJECT_CONTEXT.md` に記録します。
+ドキュメントと実コードが異なる場合、現在挙動は実コードと通過テストを優先します。重要な不一致は対象文書へ反映してください。
 
-## Current Direction / 現在の方向性
+## Fast Start / 最初に見るもの
 
-Follow the Multi-Model Investment Intelligence roadmap unless the user says otherwise.
-通常は Multi-Model Investment Intelligence の流れに沿います。
+安全に作業できる最小限のコード、テスト、資料だけを確認します。
 
-Near-term priority:
-1. improve project maturity before feature expansion: clarify specs, UX wording, review checklists, and role boundaries
-2. keep Phase 16 cockpit / ranking / rebalance flows stable and run final Streamlit browser smoke when available
-3. keep Investment Score, Screening, Forecast, Risk, Research Evidence, and Portfolio explanations consistent across API/UI/docs
-4. prepare or maintain Decision Report context from existing cockpit/ranking/rebalance outputs
-5. move Research RAG external-source search into the standard AI Research flow while keeping normal checks network-free; keep Assistant as planned/future unless explicitly assigned
+| タスク | 最初に確認 | 主な追加確認先 |
+|---|---|---|
+| 小規模バグ | エラー、失敗テスト | 対象moduleと対応テスト |
+| FastAPI | `backend/app/` | contract、domain service、APIテスト |
+| Streamlit UI | 対象`ui/` module | view、component、state、CSS、UIテスト |
+| MarketData | `backend/marketdata/` | Provider、adapter、fixture |
+| 銘柄DB・検索 | `backend/symbols/` | import/refresh tool、cache、検索テスト |
+| Ranking / Scoring | 対象service | 特徴量、contract、回帰テスト |
+| Forecast | `backend/forecast/` | adapter、evaluation、時系列検証 |
+| Research / News | `backend/research/`、`backend/news/` | source trace、archive、cache |
+| Assistant / LLM | `backend/assistant/`、`backend/llm_factor/` | Gateway contract、sanitizer、scenario test |
+| Watchlist / Radar | 対象UIとrepository | `user_id`境界、保存、session state |
+| Notification | `backend/notifications/` | gateway、設定、履歴、scheduler |
+| External access | `backend/server_ops/`、`scripts/` | server operation docs、session、security |
+| 新規フェーズ | `PROJECT_CONTEXT.md` | Roadmap、対象設計、対象service |
+| 文書のみ | 対象文書 | 現在地変更時のみ`PROJECT_CONTEXT.md` |
 
-Execution and broker order sending stay lower priority unless explicitly requested.
-Execution と broker order 送信は、明示依頼がない限り優先度を下げます。
+履歴調査が不要なら、最初から`Documents/99_Work_Log.md`全体を読まないでください。
 
-## Responsive Design Plan / レスポンシブデザイン計画
+## Architecture Boundaries / 責務境界
 
-Improve the existing Streamlit UI for LAN use without changing investment, ranking, forecast, data acquisition, AI, RAG, Decision Report, or symbol-refresh logic.
-既存の投資判断、ランキング、予測、データ取得、AI、RAG、Decision Report、銘柄更新ロジックを変えず、LAN利用時のStreamlit UIを改善します。
+### Main application
 
-- Target viewports: iPhone 13 mini `375x812`, iPad portrait `810x1080`, iPad landscape `1080x810`, and PC `1366x768` or larger.
-- Shared breakpoints: smartphone `max-width: 767px`, tablet `768px–1024px`, desktop `1025px` or larger. Treat 1080px iPad landscape as compact desktop and avoid overly dense rows.
-- Phase order: R-0 shared CSS foundation -> R-1 Cockpit -> R-2 Ranking -> R-3 My Radar -> R-4 Investment Radar -> R-5 SMAI Assistant.
-- Prefer shared `smai-responsive-*`, `smai-mobile-*`, `smai-tablet-*`, and `smai-card-grid-*` classes; avoid duplicate page-local CSS.
-- Prevent page-level horizontal scrolling. Allow component-local horizontal scrolling only for tables, heatmaps, charts, or other content that genuinely needs it.
-- Keep mobile CTAs easy to tap, stack crowded Streamlit columns when needed, and preserve desktop information density.
-- Use deterministic/network-free checks. Optional Playwright smoke tests live under `tests/ui/test_responsive_*_smoke.py`; screenshots live under `docs/responsive/screenshots/<screen>/`.
-- Read `docs/responsive/README.md` and `docs/responsive_checklist.md` before responsive UI work. Verify one screen at a time and record durable results in `Documents/99_Work_Log.md`.
+- `backend/app`: FastAPI entrypoint、routing、dependency wiring
+- `backend/core`: 共通contract、設定、error
+- domain packages: 計算、取得、評価、保存などの業務ロジック
+- `ui/views`: 画面構成
+- `ui/components`: 再利用UI部品
+- `ui/content`: ユーザー向け文言
+- `ui/state.py`など: Streamlit session state境界
 
-## Speed Rules / 実装速度を上げるルール
+FastAPI entrypointやStreamlit描画コードに、複雑なdomain logic、永続化、Provider固有処理を埋め込まないでください。UIのみの変更でMarketData、Forecast、Ranking、Scoringの計算結果を変えてはいけません。
 
-- Prefer one narrow vertical slice: contract -> service -> API/UI -> test -> docs only if needed.
-- Reuse existing models, helpers, fixtures, and error types before creating new ones.
-- Add the smallest test that proves the changed behavior; do not overbuild test matrices early.
-- Run targeted checks first; full local checks only after meaningful code changes or before handoff.
-- Do not reread long docs after every step. Cache the relevant conclusion in your work summary.
-- Treat generated symbol cache JSON files under `data/cache/` as commit and push targets when they change, especially `symbols_cache.json`, `symbol_refresh_queue.json`, and `symbol_refresh_status.json`.
-- Do not update `PROJECT_CONTEXT.md` for typo-only or internal refactor-only changes with no status/assumption change.
-- Append work-log entries to `Documents/99_Work_Log.md`, not to `PROJECT_CONTEXT.md`.
-- Read `Documents/99_Work_Log.md` only when historical investigation is needed.
-- Keep user-facing labels beginner-friendly Japanese when exposing scores, warnings, reasons, or reports.
-- For SMAI maturity work, avoid adding new features unless explicitly requested. Prefer clarifying specs, UX wording, and review checklists before changing implementation behavior.
-- Treat Ranking, Investment Score, Research Evidence, Rebalance, Forecast, Risk, and Decision Report outputs as decision-support information, not investment advice.
-- For Research Summary maturity work, prefer local rule-based `ResearchBrief` / readable memo shaping before external LLM integration; keep provider raw fields out of the normal UI and reserve them for detail data.
-- Before changing behavior that affects Ranking / Cockpit / Rebalance / Decision Report / Research / scoring wording, check `Documents/96_Manual_UX_Review_Checklist.md` and `Documents/97_Functional_Spec_Issues.md`.
-- Keep Execution / Broker integration deferred unless explicitly assigned.
-- Treat Research RAG external evidence freshness as a product priority while preserving network-free normal checks. Keep Assistant as planned / future scope unless explicitly assigned.
+### SMAI AI Gateway
 
-実装速度の基本:
-- 小さな縦切りで進める: contract -> service -> API/UI -> test -> 必要な文書
-- 新規作成より既存 model/helper/fixture/error の再利用を優先
-- 変更を証明する最小テストを追加
-- まず対象を絞った確認、引き渡し前に必要なら全体確認
-- 長い文書を毎回読み直さない
-- 状態や前提が変わらない typo/refactor では `PROJECT_CONTEXT.md` を更新しない
-- 作業ログは `PROJECT_CONTEXT.md` ではなく `Documents/99_Work_Log.md` に追記する
-- 履歴調査が必要な場合だけ `Documents/99_Work_Log.md` を読む
-- スコア・警告・理由・レポートは初心者向け日本語を意識する
-- 銘柄キャッシュ生成で更新される `data/cache/` 配下の JSON はコミット＆プッシュ対象とする。特に `symbols_cache.json`、`symbol_refresh_queue.json`、`symbol_refresh_status.json` を含める。
+`smai-ai-gateway`はSMAI本体から分離された汎用HTTP API Gatewayです。
+
+- SMAI本体のPython moduleをimportしない
+- request/response contractで接続する
+- Provider固有処理を本体へ漏らさない
+- Gateway停止時も主要なdeterministic機能を利用可能にする
+- model名や能力を固定せず、discoveryと設定を尊重する
+- prompt、schema、routing変更はGateway側でもテストする
+
+### Notification Gateway
+
+`smai-notification-gateway`は通知配送とchannel差異を分離します。
+
+- SMAI本体は通知イベントと設定を管理し、配送実装へ密結合しない
+- channel固有のcredentialやpayload変換を本体UIへ漏らさない
+- 配送失敗を成功扱いしない
+- duplicate、quiet hours、severity、retryの意味を層間で一致させる
+
+## User Data And Persistence / ユーザーデータと保存
+
+Watchlist、Radar、通知設定、履歴、メモ、タグ、保存レポート、ユーザー設定は必ず`user_id`単位で分離します。
+
+- defaultユーザーとカスタムユーザーを暗黙に共有しない
+- ユーザー切替時に前ユーザーのstateやcacheを表示しない
+- rerun、再読込、session timeout、logoutを区別する
+- UIの一時状態と永続データを混同しない
+- 保存失敗を成功扱いしない
+- migrationでは既存データの互換性とfallbackを考慮する
+- 複数ファイル更新は可能な限りatomicに行う
+- 読み込み不能データは安全にfallbackし、診断情報を残す
+- 保存時刻と表示timezoneを分離する
+
+具体的なtimeout、復元条件、保存先は設定とOperations Guideを参照します。
+
+## External Access And Security / 外部接続と安全性
+
+- インターネットへの直接公開を既定にしない
+- 外部アクセスはTailscaleなど認証されたprivate networkを優先する
+- API key、token、credentialをrepositoryへcommitしない
+- secretをUI state、ログ、例外、通知本文へ出力しない
+- 外部応答、URL、HTML、ニュース本文、LLM出力を信頼済み入力として扱わない
+- timeout、response size、content type、schemaを検証する
+- 外部取得失敗時にDB、cache、sessionを破損させない
+- server binding、CORS、allowed host変更は影響を確認する
+
+## Implementation Rules / 実装ルール
+
+- 小さく一貫したvertical sliceで変更する
+- 無関係なリファクタを同じ差分へ混ぜない
+- 既存contract、helper、fixture、error、repositoryを再利用する
+- Pythonはsimple、explicit、typedを基本とする
+- 既存のPydantic v2などproject patternに合わせる
+- hidden global stateを増やさない
+- Provider、model、user、timezone選択を暗黙化しない
+- fallbackの原因と採用経路を追跡可能にする
+- errorを握りつぶして正常値や空データに見せない
+- 変更した振る舞いを証明する最小テストを追加する
+- performance改善で正しさと観測可能性を失わない
+- generated cacheやruntime artifactは既存の追跡方針を確認してcommitする
+- typoや内部refactorだけで文書を大量更新しない
+
+## High-Risk Changes / 高リスク変更
+
+以下は差分量にかかわらず、追加の設計確認と回帰検証を行います。
+
+- Forecast、Ranking、Scoring、Risk
+- 学習・検証データ、特徴量、評価指標
+- 銘柄DB、symbol mapping、通貨、市場区分
+- ユーザー別保存、session復元、migration
+- 外部公開、認証、secret、Gateway contract
+- 通知配送、quiet hours、重複抑制
+- destructive operation、大量更新、history rewrite
+
+高リスク変更では、通常実装より深い推論・レビュー手段を選びます。モデル固有名ではなく、影響範囲と失敗時の損害で判断してください。
+
+### Forecast, scoring and ranking
+
+変更時は可能な範囲で以下を確認します。
+
+- future data leakageがない
+- 学習、調整、検証、最終監査の境界を維持している
+- horizonに応じたpurgeがある
+- temporal holdoutまたはrolling-originで評価している
+- 単一銘柄・単一期間だけで改善判定していない
+- market、asset type、regime別の大幅劣化がない
+- 異常な外挿値と非現実的returnを制御している
+- 目的に合う誤差、方向、分離指標を確認している
+- tuning未使用の監査群で最終確認している
+- 改善gateを満たさない変更を採用しない
+- API、UI、exportで意味と単位を一致させる
+
+評価閾値、baseline、採用モデルは`PROJECT_CONTEXT.md`とForecast関連資料を参照します。
+
+### Data quality
+
+データ品質は投資魅力度と原則別軸です。欠損、stale、Provider失敗を根拠なく上昇・下落スコアへ加点・減点せず、confidence、coverage、quality warning、unavailableとして扱います。
+
+## UI And Responsive Design / UI設計
+
+正式な利用対象はPC、iPhone、iPadです。
+
+- ページ全体の不要な横スクロールを発生させない
+- 表、ヒートマップ、チャートは必要時のみcomponent内スクロールを許可する
+- 共通CSS、component、文言を優先する
+- page-local CSSと画面固有stateを増やしすぎない
+- スマホでは主要判断を先に、詳細を後に配置する
+- touch targetを小さくしすぎない
+- 空、未取得、取得中、失敗、N/A、staleを区別する
+- 取得日時はtimezoneが分かる形式で表示する
+- rerunでsession、user selection、入力中stateを失わない
+- clickable cardと内部buttonのevent競合を避ける
+- 同一指標の名称、単位、色、警告を画面間で統一する
+- UI変更ではスマホ、タブレット、PCを確認する
+
+詳細は`docs/responsive/README.md`と`docs/responsive_checklist.md`を参照します。
 
 ## Command Approval Policy / コマンド確認方針
 
-For operations fully contained within this project workspace, such as reading/editing files, running local checks, updating local caches, committing, and pushing, do not ask for extra UI confirmation unless the user explicitly requests it or the operation is destructive/outside the project.
+本project workspace内に閉じる通常作業は、原則として追加確認なしで進めて構いません。
 
-本プロジェクトの workspace 内に閉じる操作（ファイル参照・編集、ローカル確認、キャッシュ更新、コミット、プッシュなど）は、ユーザーが明示的に求めた場合や破壊的操作・プロジェクト外操作を除き、追加の UI 確認を求めずに実行します。
+確認不要の例：ファイル参照、依頼範囲内の編集、ローカル確認、fixtureやcache更新、`git status`、`git diff`、通常commit、通常push。
+
+ユーザーが明示的に不要としない限り、完了した実装はcommitとpushまで行います。
+
+以下は追加確認または明示指示を必要とします。
+
+- `git push --force`、history rewrite
+- repository、大量ファイル、ユーザーデータの復元困難な削除
+- 破壊的DB migration
+- secretやcredentialの作成・変更・送信
+- workspace外の変更
+- OS、BIOS、firewall、network、scheduled taskの大きな変更
+- 依頼範囲を超える外部サービスへの書き込み
+
+通常のcommit、push、cache更新を過度に確認待ちにしないでください。
 
 ## Work Loop / 作業手順
 
-For implementation work:
-1. Identify the task type from Fast Start.
-2. Inspect the smallest relevant code/tests.
-3. State intended diff when practical.
-4. Make one small coherent change.
-5. Run targeted verification.
-6. Update docs/context only when behavior, API/UI, commands, assumptions, or phase status changed.
-7. Commit and push the completed task unless the user explicitly says not to.
-8. Report changed/why/how to use/verification/commit and push result.
+1. 要求と完了条件を確認する
+2. 最小限の関連コード、テスト、資料を確認する
+3. 変更予定と影響範囲を短く整理する
+4. 小さく一貫した差分を実装する
+5. targeted verificationを実行する
+6. 挙動、契約、運用、現在地が変わった場合だけ文書を更新する
+7. `git diff`と`git status`で不要差分とruntime artifactを確認する
+8. 原則としてcommit、pushまで完了する
+9. 変更、検証、未確認事項、残リスクを報告する
 
-Diff review and verification are checkpoints, not automatic stopping points. If direction is already approved, continue to the next logical small task unless a new decision or risk needs review.
-差分確認と検証はチェックポイントであり、自動停止地点ではありません。方針承認済みなら、新しい判断やリスク確認が必要な場合を除き、次の自然な小タスクへ進みます。
-本プロジェクトでは、ユーザーが明示的に不要と言わない限り、作業ごとにコミット＆プッシュまで実施します。
+テスト成功は自動的な停止地点ではありません。方向性が承認済みで新たな重大判断がなければ、依頼された完了状態まで進めます。
 
-## Command Hang Policy / コマンド停止時の扱い
+## Verification / 確認
 
-If a verification command appears to hang:
-- do not wait indefinitely
-- report the command name and last visible output
-- prefer stopping the command and running a narrower diagnostic
-- never treat a hung command as success
-- if the same command completes manually, trust the manual result and continue with `git status` / `git diff` verification
-
-確認コマンドが停止しているように見える場合:
-- 無期限に待ち続けない
-- コマンド名と最後に見えている出力を報告する
-- 停止して、より小さい確認コマンドに切り替える
-- 停止したコマンドを成功扱いしない
-- 同じコマンドが手動で完了した場合は、手動結果を優先し、`git status` / `git diff` で作業状態を確認する
-
-## Handoff Summary Format / 作業完了サマリ
-
-At handoff, report:
-- changed files
-- purpose of each change
-- commands run and results
-- commands not run and why
-- remaining risks or TODOs
-- suggested commit message
-
-作業完了時は以下を報告します:
-- 変更ファイル
-- 各変更の目的
-- 実行した確認コマンドと結果
-- 実行しなかった確認と理由
-- 残リスク / TODO
-- 推奨コミットメッセージ
-
-## Implementation Conventions / 実装規約
-
-Python:
-- simple, explicit, typed
-- follow existing Pydantic v2 patterns
-- reuse `backend/core/data_contracts.py`, `backend/core/config.py`, `backend/core/errors.py`
-- avoid hidden global state and implicit provider selection
-
-Architecture:
-- `backend/app`: FastAPI entrypoints and wiring only
-- `backend/core`: shared contracts, config, errors
-- `backend/marketdata`: providers, adapters, feature construction
-- `backend/risk`, `backend/portfolio`, `backend/screening`, `backend/forecast`, `backend/scoring`: implemented domain services
-- `backend/research`: Research RAG/evidence/search service for external fresh sources, local fixtures/archives, and Research Score
-- `backend/execution`: deferred future broker execution module; do not assume it exists
-
-Testing:
-- add/update tests for behavior changes whenever practical
-- prefer deterministic tests using `mock`, `csv`, fixtures, or fake providers
-- keep live provider smoke separate from normal local/CI checks
-- UI-impacting roadmap phases need UI-level confirmation criteria
-
-Docs:
-- human-facing docs: Japanese-first
-- AI-facing docs (`AGENTS.md`, `PROJECT_CONTEXT.md`): concise bilingual where useful
-- keep `AGENTS.md` stable; keep volatile history in `Documents/99_Work_Log.md`
-- update `PROJECT_CONTEXT.md` only when current state, assumptions, phase, or verification baseline changes
-- When changing LLM / Assistant / Gateway behavior, API, setup, architecture, or roadmap, keep parent SMAI docs and child Gateway docs aligned: check `Documents/05_Implementation_Roadmap.md`, `Documents/06_MVP_Operations_Guide.md`, `PROJECT_CONTEXT.md` when state changes, `Documents/99_Work_Log.md`, plus `smai-ai-gateway/README.md`, `smai-ai-gateway/SETUP.md`, and `smai-ai-gateway/docs/*.md`.
-- Keep the parent / child boundary explicit in docs: `smai-ai-gateway` is a generic HTTP API Gateway with no SMAI Python imports; SMAI calls it through request / response contracts, and existing SMAI RAG stays in the parent unless explicitly moved.
-- use `Documents/98_Codex_Task_Template.md` when a new implementation task needs a reusable prompt shape
-- update `Documents/06_MVP_Operations_Guide.md` for API/UI/CSV/provider/runbook changes
-- use `Documents/07_UI_Wording_Policy.md` when changing user-facing UI/report wording
-- use `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` when adding research/RAG/evidence behavior
-- use `Documents/04_Detail_Design/04-9_Onepager_Investment_Scoring_UI.md` when changing Investment Score or Phase 16 scoring UI behavior
-- update `Documents/05_Implementation_Roadmap.md` for phase/scope/completion changes
-- LLM / Assistant / Gateway の挙動、API、セットアップ、構成、ロードマップを変える場合は、親モジュール SMAI 側の文書と子モジュール `smai-ai-gateway` 側の文書を同期する。
-- 文書上でも境界を明確にする。`smai-ai-gateway` は汎用 HTTP API Gateway とし、SMAI Python module を import しない。SMAI は request / response contract 経由で接続し、既存 SMAI RAG は明示移動まで親側に残す。
-
-Encoding:
-- Markdown files should be UTF-8 without BOM
-- if Japanese looks garbled in terminal output, verify bytes with strict UTF-8 before assuming corruption
-
-## Windows Shell Note
-
-If PowerShell fails with 8009001d:
-- first try a direct Python UTF-8 read, then fallback to cmd.exe
-- avoid relying on PowerShell-only commands
-- prefer:
-  - `python -c "from pathlib import Path; print(Path('AGENTS.md').read_text(encoding='utf-8'))"`
-  - `py -3 -c "from pathlib import Path; print(Path('AGENTS.md').read_text(encoding='utf-8'))"`
-  - `cmd /c type AGENTS.md`
-  - `cmd /c dir`
-  - `cmd /c findstr`
-- Git Bash may not be installed; do not assume `bash` is available
-
-## Task Checklists / タスク別チェックリスト
-
-API endpoint:
-- request/response contract is typed
-- domain logic stays outside `backend/app`
-- structured domain errors map to expected status codes
-- API test covers success and at least one meaningful failure
-- operations guide updated if usage changed
-
-Service logic:
-- uses existing contracts/config/errors
-- deterministic fixture or fake provider test exists
-- edge cases cover missing data, invalid input, or quality warning where relevant
-- no network call in default path
-
-Streamlit UI:
-- helper logic is testable outside Streamlit when practical
-- user-facing text explains reason/warning, not only raw numbers
-- configured default provider remains safe/local; any UI live-provider selection must opt in explicitly and keep tests deterministic
-- manual UI confirmation point is documented when phase completion depends on UI
-- responsive changes verify the four target viewports, page-level overflow, touch targets, and Streamlit error absence without changing domain logic
-
-Provider/live data:
-- adapter is explicit opt-in
-- provider failures become domain errors with useful details
-- normal tests use fake provider or fixtures
-- live smoke is documented separately and not required for CI
-
-Forecast/scoring/report:
-- output includes reason, metric, or breakdown where user-visible
-- data quality and uncertainty are visible when relevant
-- do not present model output as investment advice
-- export/API/UI use consistent field names
-
-## Verification Commands / 確認コマンド
-
-Use the project virtual environment when available.
-利用可能であればプロジェクト仮想環境を使います。
+小さな変更ではtargeted checkを優先し、handoff前に影響範囲に応じたproject checkを行います。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```
 
-Do not use direct multi-file `python -m black --check .` as a routine check in this Windows environment; use `tools/run_black_check.py` or `tools/run_local_checks.py` instead.
-この Windows 環境では、通常確認として複数ファイル対象の `python -m black --check .` を直接使わず、`tools/run_black_check.py` または `tools/run_local_checks.py` を使います。
+WindowsではBlack CLIを直接実行せずproject helperを使います。Subprojectを変更した場合は、そのsubprojectのtestsも確認します。
 
-Black hang workaround:
-- Do not run `python -m black ...` directly in this Windows workspace, even for a single file, unless the user explicitly asks for it.
-- Known symptom: the command stops responding after printing little or no output, and child `python.exe` processes may remain active with high CPU.
-- Likely cause: the Black CLI path can leave worker/subprocess state stuck in this local PowerShell/Windows environment; direct CLI behavior is less reliable than the project helper.
-- Preferred check: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
-- If the helper reports `would reformat`, make the small formatting edit manually with `apply_patch`, then rerun the helper.
-- If a direct Black command was accidentally started and appears hung, stop waiting, report the command, inspect lingering Python processes, and ask before stopping any suspected leftover process if it cannot be identified safely.
+コマンドが停止した場合は無期限に待たず、成功扱いせず、最後の出力を記録して小さいdiagnosticへ切り替えます。
 
-Black 停止回避:
-- この Windows workspace では、単一ファイルでも `python -m black ...` を直接実行しない。明示依頼がある場合だけ例外。
-- 既知症状: 出力がほぼないまま停止し、子 `python.exe` が高 CPU のまま残ることがある。
-- 推定原因: この local PowerShell / Windows 環境では Black CLI 経路の worker/subprocess 状態が固まることがあり、project helper より不安定。
-- 推奨確認: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
-- helper が `would reformat` を出した場合は、`apply_patch` で小さく手動整形してから helper を再実行する。
-- 誤って direct Black を起動して停止した場合は、待ち続けず、実行コマンドを報告し、残存 Python process を確認する。安全に特定できない process 停止はユーザー確認を取る。
+## Definition Of Done / 完了条件
 
-Targeted examples:
+適用可能な範囲で以下を満たします。
 
-```powershell
-.\venv_SMAI\Scripts\python.exe -m pytest tests/test_health.py -q
-.\venv_SMAI\Scripts\python.exe -m pytest tests -q -k forecast
-.\venv_SMAI\Scripts\python.exe -m ruff check backend/forecast tests --no-cache
-```
+- ユーザー要求と完了条件を満たす
+- 対象外の挙動を不用意に変えない
+- 変更した振る舞いにテストがある
+- 通常テストがnetwork依存でない
+- error、warning、fallback、採用経路を追跡できる
+- API、UI、export、保存形式の意味が一致する
+- ユーザー別データ境界を破らない
+- 金融ロジック変更では時系列回帰を確認する
+- UI変更では対象viewportを確認する
+- 必要な文書だけ更新する
+- `git diff`にsecret、不要生成物、偶発変更がない
+- 未実行確認を実行済みとして報告しない
+- commit、push結果を確認する
 
-Use targeted checks for small changes. Avoid broad or network-dependent checks unless the task needs them.
-小さな変更では対象を絞った確認を優先します。必要がない限り、広範囲・network 依存の確認は避けます。
+## Documentation Rules / 文書更新
 
-## When To Read More / 詳細参照の目安
+- `PROJECT_CONTEXT.md`: 現在地、重要前提、完了フェーズ、優先順位、verification baseline、architecture boundaryが変わった場合
+- `Documents/99_Work_Log.md`: 作業履歴と過去判断
+- Roadmap: フェーズ、scope、完了条件、優先順位が変わった場合
+- Operations Guide: 起動、API、保存形式、Provider、Gateway、検証、運用、障害対応が変わった場合
+- AI / Notification Gateway資料: contract、setup、architecture変更時に本体とsubprojectを同期
+- `Documents/07_UI_Wording_Policy.md`と`ui/content/`: ラベル、警告、説明、凡例、レポート文言変更時
 
-Read `PROJECT_CONTEXT.md` first for new implementation tasks, together with the relevant design or operation document.
-新しい実装タスクでは、まず `PROJECT_CONTEXT.md` と該当する設計・運用ドキュメントを読む。
+人向け文書とUI文言は日本語を基本とし、MarkdownはUTF-8 without BOMとします。
 
-Read `Documents/99_Work_Log.md` only when historical investigation or past decision tracing is needed.
-履歴調査や過去判断の追跡が必要な場合だけ `Documents/99_Work_Log.md` を読む。
+## Handoff Report / 完了報告
 
-Read `Documents/98_Codex_Task_Template.md` when shaping a new Codex task request.
-新しい Codex 向けタスク依頼の形を整える場合に `Documents/98_Codex_Task_Template.md` を読む。
+以下を簡潔に報告します。
 
-Read `Documents/05_Implementation_Roadmap.md` when choosing/changing phase work or completion criteria.
-フェーズ作業や完了条件を選ぶ/変える場合に読む。
+- 変更ファイルと目的
+- 実行した確認と結果
+- 実行していない確認と理由
+- 残リスク、TODO
+- commit hash
+- push結果
 
-Read `Documents/06_MVP_Operations_Guide.md` when changing API behavior, CSV formats, provider setup, Streamlit workflow, exports, or verification commands.
-API、CSV、provider、Streamlit、export、確認コマンドを変える場合に読む。
-
-Read `Documents/07_UI_Wording_Policy.md` when changing labels, chart legends, metric explanations, warnings, summaries, or report wording.
-ラベル、チャート凡例、指標説明、警告、要約、レポート文言を変える場合に読む。
-
-Read component detail docs only when touching that component.
-該当コンポーネントを触る場合だけ個別詳細設計を読む。
+推測、未確認、失敗した確認は、その状態を明示してください。

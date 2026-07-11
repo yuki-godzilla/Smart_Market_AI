@@ -2683,7 +2683,9 @@ Markdown UTF-8 check:
 
 ## Phase 35: 既存モデル活用による上向き兆候改善
 
-consensus confidence、model disagreement、advanced quantileの下振れrange、linear/tree/GBDTの方向一致を上向き余地と下落安全性へ接続する。信頼度が低い場合のscore上限、相対強度・チャート形状特徴量を検討し、新規classifierは原則追加しない。
+状態: 🟨 **Phase 35-A 評価専用slice実装 / runtime採用保留**
+
+consensus confidence、model disagreement、advanced quantileの下振れrange、linear/tree/GBDTの方向一致を上向き余地と下落安全性へ接続する。信頼度が低い場合のscore上限、相対強度・チャート形状特徴量を検討し、新規classifierは原則追加しない。Phase 35-Aでは、既存のForecast consensusまたはRanking行からこれらの根拠を読み取り、上向き兆候との比較用スコア、警告、confidence ceiling候補を評価専用contractとして出力する。通常Ranking、Forecast API/UI、runtime weightは変更しない。
 
 成果物は`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md`。
 

@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-07-11: Phase 35-A 上向き兆候 Forecast根拠の評価専用slice
+
+- `backend/scoring/upward_signal_forecast_integration.py` に、既存のAdvanced Forecast consensusまたはRanking行から予測上向き余地、quantile下振れ安全性、方向一致、confidence、model disagreementを抽出するtyped contractを追加。
+- low / unknown confidenceのscore ceiling、high disagreement、negative quantile downside、model数不足を評価用warningとして記録。Forecast根拠を現行上向き兆候スコアと比較するcase評価と、`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md` の出力を追加。
+- 通常Ranking、Forecast API/UI、runtime consensus weightは変更していない。新規銘柄・新規期間でのwalk-forward holdout採用判定は後続。
+- 対象37 test、Ruff、対象2ファイルのBlack checkが成功。
+
 ## 2026-07-11 上向き兆候スコア分布・補助マップ改善
 
 - 55点近辺へ密集していた上向き兆候を、形状30%・予測25%・安全性20%・押し目10%・企業/配当品質10%・材料5%へ再配分し、危険減点後に50点近辺を滑らかに広げる0〜100点化へ変更。

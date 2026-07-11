@@ -468,7 +468,7 @@ def _select_user(
                     f'<div class="smai-profile-card{selected_class}" '
                     f'data-user-id="{html.escape(candidate.user_id)}" '
                     f'data-selected="{selected_value}">'
-                    f'<img src="{html.escape(source)}" alt="">'
+                    f'<img src="{html.escape(source)}" alt="" loading="lazy">'
                     f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
                     "</div></a>",
                     unsafe_allow_html=True,
@@ -652,7 +652,7 @@ def _render_notification_center(repository: NotificationHistoryRepository, user:
         notification_icon_source = user_icon_browser_source(notification_icon)
         icon_html = (
             f'<img class="smai-notification-asset" src="{html.escape(notification_icon_source)}" '
-            'alt="">'
+            'alt="" loading="lazy">'
             if notification_icon_source
             else ""
         )
@@ -944,7 +944,7 @@ def _render_icon_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
                     selected_class = " selected" if asset.icon_id == selected_icon else ""
                     st.markdown(
                         f'<div class="smai-icon-card{selected_class}">'
-                        f'<img src="{html.escape(source)}" alt="">'
+                        f'<img src="{html.escape(source)}" alt="" loading="lazy">'
                         f'<div class="smai-icon-label">{html.escape(asset.display_name)}</div>'
                         "</div>",
                         unsafe_allow_html=True,

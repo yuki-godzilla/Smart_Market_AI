@@ -1,4 +1,6 @@
 from ui.components.connection_status import (
+    _config_values,
+    _optimized_asset_stats,
     build_connection_diagnostic,
     estimate_session_state_size,
     infer_connection_type,
@@ -27,3 +29,24 @@ def test_connection_diagnostic_reads_external_access_config() -> None:
     assert diagnostic.static_serving is True
     assert diagnostic.websocket_compression is True
     assert diagnostic.optimized_asset_count >= 12
+
+
+def test_connection_diagnostic_reuses_static_asset_inventory() -> None:
+    _config_values.cache_clear()
+    _optimized_asset_stats.cache_clear()
+
+    first = build_connection_diagnostic(client_address="127.0.0.1", session_state={})
+    cache_after_first = _optimized_asset_stats.cache_info()
+    config_after_first = _config_values.cache_info()
+    second = build_connection_diagnostic(client_address="127.0.0.1", session_state={})
+    cache_after_second = _optimized_asset_stats.cache_info()
+    config_after_second = _config_values.cache_info()
+
+    assert (first.optimized_asset_count, first.optimized_asset_bytes) == (
+        second.optimized_asset_count,
+        second.optimized_asset_bytes,
+    )
+    assert cache_after_first.misses == 1
+    assert cache_after_second.hits == 1
+    assert config_after_first.misses == 1
+    assert config_after_second.hits == 1

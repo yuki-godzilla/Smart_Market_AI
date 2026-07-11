@@ -172,6 +172,11 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '[data-testid="stVegaLiteChart"] canvas' in SMAI_GLOBAL_CSS
     assert "contain: inline-size;" in SMAI_GLOBAL_CSS
     assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
+    assert "content-visibility: auto;" in SMAI_GLOBAL_CSS
+    assert "contain-intrinsic-size: auto 18rem;" in SMAI_GLOBAL_CSS
+    assert "Keep compact, scan-oriented KPI rows at two columns on a phone." in SMAI_GLOBAL_CSS
+    assert "Two mutually exclusive actions stay together" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stMetric"]' in SMAI_GLOBAL_CSS
     assert "@media (max-width: 767px)" in SMAI_GLOBAL_CSS
     assert "@media (min-width: 1025px)" in SMAI_GLOBAL_CSS
     assert "repeat(3, minmax(0, 1fr))" in SMAI_GLOBAL_CSS

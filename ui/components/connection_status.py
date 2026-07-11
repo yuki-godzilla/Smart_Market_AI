@@ -5,6 +5,7 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -49,7 +50,15 @@ def infer_connection_type(client_address: str | None) -> str:
     return "不明"
 
 
+@lru_cache(maxsize=1)
 def _config_values() -> dict[str, Any]:
+    """Read the server configuration once for the rerun-driven diagnostic view.
+
+    Streamlit applies its server configuration at process start.  Keeping this
+    diagnostic aligned with that lifecycle avoids a disk read on each Settings
+    rerun without hiding a configuration change that the running server could
+    not apply anyway.
+    """
     try:
         import tomllib
 
@@ -58,6 +67,22 @@ def _config_values() -> dict[str, Any]:
         return {}
     server = payload.get("server")
     return server if isinstance(server, dict) else {}
+
+
+@lru_cache(maxsize=1)
+def _optimized_asset_stats() -> tuple[int, int]:
+    """Return static-asset totals once per server process.
+
+    The diagnostic panel is rendered on every Settings rerun.  Its asset
+    inventory is deployment metadata, so repeatedly walking the same static
+    directory only adds filesystem work and does not make the diagnosis more
+    accurate during a running server.
+    """
+
+    optimized_files = tuple(
+        path for path in (PROJECT_ROOT / "ui/static/assets").rglob("*") if path.is_file()
+    )
+    return len(optimized_files), sum(path.stat().st_size for path in optimized_files)
 
 
 def estimate_session_state_size(state: Mapping[str, Any]) -> tuple[int, int]:
@@ -76,8 +101,7 @@ def build_connection_diagnostic(
     session_state: Mapping[str, Any],
 ) -> ConnectionDiagnostic:
     config = _config_values()
-    optimized_assets = list((PROJECT_ROOT / "ui/static/assets").rglob("*"))
-    optimized_files = [path for path in optimized_assets if path.is_file()]
+    optimized_asset_count, optimized_asset_bytes = _optimized_asset_stats()
     key_count, estimated_bytes = estimate_session_state_size(session_state)
     return ConnectionDiagnostic(
         connection_type=infer_connection_type(client_address),
@@ -85,8 +109,8 @@ def build_connection_diagnostic(
         lightweight_mode=os.getenv("SMAI_LIGHTWEIGHT_MODE", "0") == "1",
         static_serving=bool(config.get("enableStaticServing", False)),
         websocket_compression=bool(config.get("enableWebsocketCompression", False)),
-        optimized_asset_count=len(optimized_files),
-        optimized_asset_bytes=sum(path.stat().st_size for path in optimized_files),
+        optimized_asset_count=optimized_asset_count,
+        optimized_asset_bytes=optimized_asset_bytes,
         session_key_count=key_count,
         estimated_session_bytes=estimated_bytes,
     )

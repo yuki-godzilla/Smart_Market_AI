@@ -7738,6 +7738,20 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     word-break: break-word;
 }
 
+/*
+ * Long result feeds are common on phones.  Reserving a realistic card size
+ * lets the browser defer paint/layout work for cards outside the viewport
+ * without changing the data, ordering, or accessibility of the feed.
+ */
+.smai-watchlist-card,
+.investment-news-card,
+.smai-ranking-history-card,
+.research-evidence-item,
+.smai-notification-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 18rem;
+}
+
 [data-testid="stPlotlyChart"],
 [data-testid="stVegaLiteChart"],
 [data-testid="stDataFrame"],
@@ -7919,6 +7933,25 @@ div[data-testid="stDialog"] div[role="dialog"] {
         flex: 1 1 100% !important;
         min-width: 100% !important;
         width: 100% !important;
+    }
+
+    /* Keep compact, scan-oriented KPI rows at two columns on a phone. */
+    [data-testid="stMainBlockContainer"]
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"] [data-testid="stMetric"])
+        > [data-testid="column"] {
+        flex: 1 1 calc(50% - 0.35rem) !important;
+        min-width: calc(50% - 0.35rem) !important;
+        width: calc(50% - 0.35rem) !important;
+    }
+
+    /* Two mutually exclusive actions stay together instead of creating a
+       long one-button-per-row detour.  Input-bearing rows still stack. */
+    [data-testid="stMainBlockContainer"]
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:first-child [data-testid="stButton"]):has(> [data-testid="column"]:nth-child(2) [data-testid="stButton"]):not(:has(> [data-testid="column"]:nth-child(3))):not(:has([data-testid="stTextInput"], [data-testid="stTextArea"], [data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stNumberInput"]))
+        > [data-testid="column"] {
+        flex: 1 1 calc(50% - 0.35rem) !important;
+        min-width: calc(50% - 0.35rem) !important;
+        width: calc(50% - 0.35rem) !important;
     }
 
     .smai-responsive-grid,

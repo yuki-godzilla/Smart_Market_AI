@@ -11,12 +11,42 @@ from backend.server_ops.launcher import (
     ServerLockUnavailable,
     consume_supervisor_stop_request,
     is_smai_healthy,
+    optimized_child_environment,
+    resilient_restart_delay,
     server_lock,
+    should_leave_resilient_launcher,
     streamlit_command,
     streamlit_creation_flags,
     supervise_streamlit,
     wait_for_streamlit,
 )
+
+
+def test_optimized_child_environment_bounds_nested_numerical_threads() -> None:
+    environment = optimized_child_environment({"PATH": "test"})
+
+    assert environment["OPENBLAS_NUM_THREADS"] == "1"
+    assert environment["OMP_NUM_THREADS"] == "1"
+    assert environment["MKL_NUM_THREADS"] == "1"
+    assert environment["NUMEXPR_MAX_THREADS"] == "4"
+
+
+def test_optimized_child_environment_preserves_operator_override() -> None:
+    environment = optimized_child_environment({"OPENBLAS_NUM_THREADS": "2"})
+
+    assert environment["OPENBLAS_NUM_THREADS"] == "2"
+
+
+def test_resilient_restart_delay_uses_bounded_exponential_backoff() -> None:
+    assert [resilient_restart_delay(index) for index in range(7)] == [
+        2.0,
+        4.0,
+        8.0,
+        16.0,
+        32.0,
+        60.0,
+        60.0,
+    ]
 
 
 def test_streamlit_command_uses_expected_lan_settings() -> None:
@@ -143,7 +173,7 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
     )
     monkeypatch.setattr(
         "backend.server_ops.launcher.consume_supervisor_stop_request",
-        lambda: consume_supervisor_stop_request(request_path),
+        lambda *_args, **_kwargs: consume_supervisor_stop_request(request_path),
     )
 
     assert supervise_streamlit("localhost", resilient=True) == 0
@@ -152,6 +182,45 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
 
 def test_missing_supervisor_stop_request_is_not_consumed(tmp_path: Path) -> None:
     assert consume_supervisor_stop_request(tmp_path / "missing.stop") is False
+
+
+def test_manual_stop_intent_suppresses_resilient_restart(tmp_path: Path) -> None:
+    request_path = tmp_path / "streamlit.stop"
+    intent_path = tmp_path / "service_intent.json"
+    request_path.write_text("manual_stop", encoding="ascii")
+    intent_path.write_text(
+        '{"schema_version": 1, "mode": "manual_stop", "status": "requested"}',
+        encoding="utf-8",
+    )
+
+    assert should_leave_resilient_launcher(
+        stop_path=request_path,
+        intent_path=intent_path,
+    ) is True
+    assert not request_path.exists()
+
+
+def test_unexpected_exit_intent_allows_resilient_restart(tmp_path: Path) -> None:
+    intent_path = tmp_path / "service_intent.json"
+    intent_path.write_text(
+        '{"schema_version": 1, "mode": "unexpected_exit", "status": "requested"}',
+        encoding="utf-8",
+    )
+
+    assert should_leave_resilient_launcher(
+        stop_path=tmp_path / "missing.stop",
+        intent_path=intent_path,
+    ) is False
+
+
+def test_unknown_intent_is_fail_closed_for_resilient_restart(tmp_path: Path) -> None:
+    intent_path = tmp_path / "service_intent.json"
+    intent_path.write_text("{broken", encoding="utf-8")
+
+    assert should_leave_resilient_launcher(
+        stop_path=tmp_path / "missing.stop",
+        intent_path=intent_path,
+    ) is True
 
 
 def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:

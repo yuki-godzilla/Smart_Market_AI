@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import os
 import socket
 import subprocess
 import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Sequence
+from typing import Iterator, Mapping, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
+
+from backend.server_ops.maintenance import SERVICE_INTENT_PATH, read_service_intent
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOCK_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.lock"
@@ -19,6 +22,14 @@ PORT = 8501
 EXIT_ALREADY_RUNNING = 10
 EXIT_INTERRUPTED = 130
 RESILIENT_RESTART_DELAY_SECONDS = 2.0
+RESILIENT_RESTART_MAX_DELAY_SECONDS = 60.0
+RESILIENT_RESTART_STABLE_SECONDS = 300.0
+NUMERICAL_THREAD_ENV_DEFAULTS = {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_MAX_THREADS": "4",
+}
 
 
 class ServerLockUnavailable(RuntimeError):
@@ -109,6 +120,27 @@ def streamlit_creation_flags(*, resilient: bool) -> int:
     )
 
 
+def optimized_child_environment(
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Bound nested numerical pools while preserving explicit operator overrides."""
+
+    child_environment = dict(os.environ if environ is None else environ)
+    for name, value in NUMERICAL_THREAD_ENV_DEFAULTS.items():
+        child_environment.setdefault(name, value)
+    return child_environment
+
+
+def resilient_restart_delay(consecutive_failures: int) -> float:
+    """Return a bounded exponential delay for repeated unexpected exits."""
+
+    exponent = max(0, consecutive_failures)
+    return min(
+        RESILIENT_RESTART_MAX_DELAY_SECONDS,
+        RESILIENT_RESTART_DELAY_SECONDS * (2**exponent),
+    )
+
+
 def wait_for_streamlit(process: subprocess.Popen[bytes], *, resilient: bool) -> int:
     while True:
         try:
@@ -157,19 +189,47 @@ def consume_supervisor_stop_request(path: Path = STOP_REQUEST_PATH) -> bool:
     return True
 
 
+def should_leave_resilient_launcher(
+    *,
+    stop_path: Path = STOP_REQUEST_PATH,
+    intent_path: Path = SERVICE_INTENT_PATH,
+) -> bool:
+    """Return true when a stop/restart intent must suppress auto-restart."""
+
+    request_consumed = consume_supervisor_stop_request(stop_path)
+    intent = read_service_intent(intent_path)
+    if intent is None:
+        return request_consumed
+    mode = intent.get("mode")
+    status = intent.get("status")
+    if mode == "unexpected_exit":
+        return False
+    if mode in {"manual_stop", "maintenance_restart"} and status in {
+        "requested",
+        "draining",
+        "timed_out",
+    }:
+        return True
+    # Unknown intent is fail-closed: leave the launcher stopped for inspection.
+    return mode == "unknown" or status == "unknown" or request_consumed
+
+
 def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
     """Run Streamlit and keep it alive when the always-on policy is enabled."""
 
+    consecutive_failures = 0
     while True:
+        started_at = time.monotonic()
         process = subprocess.Popen(
             streamlit_command(browser_address),
             cwd=PROJECT_ROOT,
             creationflags=streamlit_creation_flags(resilient=resilient),
+            env=optimized_child_environment(),
         )
         returncode = wait_for_streamlit(process, resilient=resilient)
         if not resilient:
             return returncode
-        if consume_supervisor_stop_request():
+        if should_leave_resilient_launcher():
             print(
                 "[SMAI] Streamlit stopped by an explicit service operation; "
                 "leaving the resilient launcher.",
@@ -177,14 +237,19 @@ def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
                 flush=True,
             )
             return returncode
+        runtime_seconds = max(0.0, time.monotonic() - started_at)
+        if runtime_seconds >= RESILIENT_RESTART_STABLE_SECONDS:
+            consecutive_failures = 0
+        delay_seconds = resilient_restart_delay(consecutive_failures)
+        consecutive_failures += 1
         print(
             "[SMAI] Streamlit exited unexpectedly "
             f"(exit={returncode}); restarting in "
-            f"{RESILIENT_RESTART_DELAY_SECONDS:g}s.",
+            f"{delay_seconds:g}s.",
             file=sys.stderr,
             flush=True,
         )
-        time.sleep(RESILIENT_RESTART_DELAY_SECONDS)
+        time.sleep(delay_seconds)
 
 
 def run_server(

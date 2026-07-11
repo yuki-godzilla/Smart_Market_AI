@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import tempfile
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -12,14 +14,22 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Iterator
 
+from filelock import FileLock
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OPS_DIR = PROJECT_ROOT / "data" / "ops" / "server_ops"
 STATE_PATH = OPS_DIR / "maintenance_state.json"
 ACTIVITY_PATH = OPS_DIR / "activity_state.json"
 NOTICE_PATH = OPS_DIR / "maintenance_notice.json"
+SERVICE_INTENT_PATH = OPS_DIR / "service_intent.json"
 SESSION_TIMEOUT = timedelta(minutes=3)
 MAINTENANCE_AFTER = timedelta(hours=24)
 _ACTIVITY_LOCK = threading.RLock()
+_WRITE_LOCK_TIMEOUT_SECONDS = 2
+_REPLACE_RETRY_DELAYS_SECONDS = (0.025, 0.05, 0.1, 0.2, 0.4)
+LOGGER = logging.getLogger(__name__)
+SERVICE_MODES = {"manual_stop", "maintenance_restart", "unexpected_exit"}
+SERVICE_STATUSES = {"requested", "draining", "stopped", "cancelled", "timed_out", "unknown"}
 
 
 def _utc_now() -> datetime:
@@ -48,7 +58,20 @@ def _read_json(path: Path) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
-def _atomic_write(path: Path, value: dict[str, object]) -> None:
+def _write_lock_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.write.lock")
+
+
+@contextmanager
+def _exclusive_write_lock(path: Path) -> Iterator[None]:
+    """Serialize state updates from separate Streamlit and worker processes."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(_write_lock_path(path)), timeout=_WRITE_LOCK_TIMEOUT_SECONDS):
+        yield
+
+
+def _atomic_write_unlocked(path: Path, value: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(prefix=f"{path.name}.", suffix=".tmp", dir=path.parent)
     try:
@@ -57,12 +80,24 @@ def _atomic_write(path: Path, value: dict[str, object]) -> None:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_name, path)
+        for delay in (*_REPLACE_RETRY_DELAYS_SECONDS, None):
+            try:
+                os.replace(temp_name, path)
+                break
+            except PermissionError:
+                if delay is None:
+                    raise
+                time.sleep(delay)
     finally:
         try:
             Path(temp_name).unlink()
         except FileNotFoundError:
             pass
+
+
+def _atomic_write(path: Path, value: dict[str, object]) -> None:
+    with _exclusive_write_lock(path):
+        _atomic_write_unlocked(path, value)
 
 
 @dataclass(frozen=True)
@@ -75,6 +110,70 @@ class MaintenanceDecision:
     blockers: tuple[str, ...]
 
 
+def read_service_intent(path: Path = SERVICE_INTENT_PATH) -> dict[str, object] | None:
+    """Read the restart/stop intent, treating malformed state as unknown."""
+
+    if not path.exists():
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"schema_version": 1, "mode": "unknown", "status": "unknown", "reason_code": "intent_unreadable"}
+    if not isinstance(value, dict):
+        return {"schema_version": 1, "mode": "unknown", "status": "unknown", "reason_code": "intent_invalid"}
+    mode = value.get("mode")
+    status = value.get("status")
+    if mode not in SERVICE_MODES or status not in SERVICE_STATUSES:
+        return {**value, "mode": "unknown", "status": "unknown", "reason_code": "intent_invalid"}
+    return value
+
+
+def write_service_intent(
+    *,
+    mode: str,
+    status: str = "requested",
+    requested_by: str = "local_operator",
+    reason_code: str = "operator_requested",
+    path: Path = SERVICE_INTENT_PATH,
+    now: datetime | None = None,
+    deadline_at: datetime | None = None,
+) -> dict[str, object]:
+    if mode not in SERVICE_MODES or status not in SERVICE_STATUSES:
+        raise ValueError("Unsupported service intent mode or status")
+    now = now or _utc_now()
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "requested_at": _iso(now),
+        "mode": mode,
+        "requested_by": requested_by[:80],
+        "reason_code": reason_code[:120],
+        "status": status,
+        "updated_at": _iso(now),
+    }
+    if deadline_at is not None:
+        payload["deadline_at"] = _iso(deadline_at)
+    _atomic_write(path, payload)
+    return payload
+
+
+def update_service_intent(
+    status: str,
+    *,
+    path: Path = SERVICE_INTENT_PATH,
+    now: datetime | None = None,
+) -> dict[str, object] | None:
+    if status not in SERVICE_STATUSES:
+        raise ValueError("Unsupported service intent status")
+    with _exclusive_write_lock(path):
+        current = read_service_intent(path)
+        if current is None or current.get("mode") == "unknown":
+            return None
+        current["status"] = status
+        current["updated_at"] = _iso(now or _utc_now())
+        _atomic_write_unlocked(path, current)
+        return current
+
+
 class MaintenanceManager:
     """Persist uptime and make conservative, fail-closed restart decisions."""
 
@@ -84,11 +183,13 @@ class MaintenanceManager:
         state_path: Path = STATE_PATH,
         activity_path: Path = ACTIVITY_PATH,
         notice_path: Path = NOTICE_PATH,
+        intent_path: Path = SERVICE_INTENT_PATH,
         lock_roots: tuple[Path, ...] | None = None,
     ) -> None:
         self.state_path = state_path
         self.activity_path = activity_path
         self.notice_path = notice_path
+        self.intent_path = intent_path
         self.lock_roots = lock_roots or (PROJECT_ROOT / "data", PROJECT_ROOT / "logs")
 
     def record_startup(self, *, now: datetime | None = None) -> None:
@@ -103,23 +204,24 @@ class MaintenanceManager:
             },
         )
         self.clear_notice()
+        self.clear_intent()
 
     def heartbeat(self, session_id: str, *, now: datetime | None = None) -> None:
         now = now or _utc_now()
-        with _ACTIVITY_LOCK:
+        with _ACTIVITY_LOCK, _exclusive_write_lock(self.activity_path):
             activity = self._clean_activity(now)
             sessions = dict(activity["sessions"])
             sessions[session_id] = _iso(now)
             activity["sessions"] = sessions
             activity["updated_at"] = _iso(now)
-            _atomic_write(self.activity_path, activity)
+            _atomic_write_unlocked(self.activity_path, activity)
 
     def begin_operation(
         self, name: str, *, now: datetime | None = None, pid: int | None = None
     ) -> str:
         now = now or _utc_now()
         token = uuid.uuid4().hex
-        with _ACTIVITY_LOCK:
+        with _ACTIVITY_LOCK, _exclusive_write_lock(self.activity_path):
             activity = self._clean_activity(now)
             operations = dict(activity["operations"])
             operations[token] = {
@@ -129,18 +231,18 @@ class MaintenanceManager:
             }
             activity["operations"] = operations
             activity["updated_at"] = _iso(now)
-            _atomic_write(self.activity_path, activity)
+            _atomic_write_unlocked(self.activity_path, activity)
         return token
 
     def end_operation(self, token: str, *, now: datetime | None = None) -> None:
         now = now or _utc_now()
-        with _ACTIVITY_LOCK:
+        with _ACTIVITY_LOCK, _exclusive_write_lock(self.activity_path):
             activity = self._clean_activity(now)
             operations = dict(activity["operations"])
             operations.pop(token, None)
             activity["operations"] = operations
             activity["updated_at"] = _iso(now)
-            _atomic_write(self.activity_path, activity)
+            _atomic_write_unlocked(self.activity_path, activity)
 
     def evaluate(self, *, now: datetime | None = None) -> MaintenanceDecision:
         now = now or _utc_now()
@@ -183,6 +285,31 @@ class MaintenanceManager:
             blockers=tuple(blockers),
         )
 
+    def evaluate_drain(self, *, now: datetime | None = None) -> MaintenanceDecision:
+        """Evaluate whether sessions, operations, and write locks have drained."""
+
+        now = now or _utc_now()
+        blockers: list[str] = []
+        if self.activity_path.exists() and not _read_json(self.activity_path):
+            blockers.append("activity_state_unavailable")
+        activity = self._clean_activity(now)
+        sessions = dict(activity["sessions"])
+        operations = dict(activity["operations"])
+        if sessions:
+            blockers.append("active_sessions")
+        if operations:
+            blockers.append("busy_operations")
+        if self._has_write_locks():
+            blockers.append("file_write_locks")
+        return MaintenanceDecision(
+            due=True,
+            safe_to_restart=not blockers,
+            uptime_seconds=0,
+            active_sessions=len(sessions),
+            busy_operations=len(operations),
+            blockers=tuple(blockers),
+        )
+
     def publish_notice(self, *, now: datetime | None = None, delay_seconds: int = 30) -> None:
         now = now or _utc_now()
         _atomic_write(
@@ -202,6 +329,12 @@ class MaintenanceManager:
     def clear_notice(self) -> None:
         try:
             self.notice_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    def clear_intent(self) -> None:
+        try:
+            self.intent_path.unlink()
         except FileNotFoundError:
             pass
 
@@ -235,7 +368,16 @@ class MaintenanceManager:
         }
 
     def _has_write_locks(self) -> bool:
-        ignored = {self.state_path, self.activity_path, self.notice_path}
+        ignored = {
+            self.state_path,
+            self.activity_path,
+            self.notice_path,
+            self.intent_path,
+            _write_lock_path(self.state_path),
+            _write_lock_path(self.activity_path),
+            _write_lock_path(self.notice_path),
+            _write_lock_path(self.intent_path),
+        }
         for root in self.lock_roots:
             if not root.exists():
                 continue
@@ -258,16 +400,33 @@ def _pid_exists(pid: int) -> bool:
 @contextmanager
 def maintenance_operation(name: str) -> Iterator[None]:
     manager = MaintenanceManager()
-    token = manager.begin_operation(name)
+    try:
+        token = manager.begin_operation(name)
+    except OSError:
+        LOGGER.warning("Could not record maintenance operation start: %s", name, exc_info=True)
+        token = None
     try:
         yield
     finally:
-        manager.end_operation(token)
+        if token is not None:
+            try:
+                manager.end_operation(token)
+            except OSError:
+                # The operation remains recorded, so maintenance stays fail-closed.
+                # Never let observability cleanup break the user-facing operation.
+                LOGGER.warning("Could not record maintenance operation end: %s", name, exc_info=True)
 
 
 def _main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("startup", "evaluate", "notice", "clear-notice"))
+    parser.add_argument(
+        "action",
+        choices=("startup", "evaluate", "drain", "notice", "clear-notice", "request-stop", "mark-intent"),
+    )
+    parser.add_argument("--mode", choices=sorted(SERVICE_MODES), default="manual_stop")
+    parser.add_argument("--status", choices=sorted(SERVICE_STATUSES), default="requested")
+    parser.add_argument("--requested-by", default="local_operator")
+    parser.add_argument("--reason-code", default="operator_requested")
     args = parser.parse_args()
     manager = MaintenanceManager()
     if args.action == "startup":
@@ -279,6 +438,19 @@ def _main() -> int:
     if args.action == "clear-notice":
         manager.clear_notice()
         return 0
+    if args.action == "request-stop":
+        write_service_intent(
+            mode=args.mode,
+            requested_by=args.requested_by,
+            reason_code=args.reason_code,
+        )
+        return 0
+    if args.action == "mark-intent":
+        return 0 if update_service_intent(args.status) is not None else 1
+    if args.action == "drain":
+        decision = manager.evaluate_drain()
+        print(json.dumps(asdict(decision), ensure_ascii=False))
+        return 0 if decision.safe_to_restart else 20
     decision = manager.evaluate()
     print(json.dumps(asdict(decision), ensure_ascii=False))
     if not decision.due:

@@ -42,7 +42,9 @@ def test_maintenance_task_is_delayed_guarded_and_indirect() -> None:
     script = _read("scripts/register_symbol_maintenance_if_due_task.ps1")
 
     assert '"SmartMarketAI-Symbol-Maintenance-IfDue"' in script
-    assert '$trigger.Delay = "PT10M"' in script
+    assert '$logonTrigger.Delay = "PT10M"' in script
+    assert 'New-ScheduledTaskTrigger -Daily -At "03:30"' in script
+    assert "-Trigger @($logonTrigger, $dailyTrigger)" in script
     assert "-MultipleInstances IgnoreNew" in script
     assert "-RestartCount 1" in script
     assert "-RestartInterval (New-TimeSpan -Minutes 30)" in script

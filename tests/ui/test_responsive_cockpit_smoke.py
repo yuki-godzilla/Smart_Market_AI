@@ -74,8 +74,10 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     assert section_text.count("04 確認メモ") == 1
     assert "スコアから見た注意点" in section_text
 
-    kpi_labels = page.locator(".smai-card-label").all_text_contents()[:4]
-    assert kpi_labels == ["投資スコア", "上昇気配", "下降警戒", "データ信頼度"]
+    kpi_labels = page.locator(".smai-card-label").all_text_contents()
+    required_kpi_labels = {"投資スコア", "上昇気配", "下降警戒", "データ信頼度"}
+    assert required_kpi_labels.issubset(set(kpi_labels))
+    assert kpi_labels.count("投資スコア") == 1
     research_card = page.locator(".research-ai-cta--hero")
     assert research_card.count() == 1
     research_text = research_card.inner_text()

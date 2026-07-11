@@ -48,8 +48,10 @@ def test_my_radar_responsive_viewports() -> None:
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
                 page.wait_for_timeout(3_000)
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
-                    page.get_by_text("SMAIデフォルト", exact=True).click()
-                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.locator(
+                        'a.smai-profile-link[aria-label="SMAIデフォルトを選択"]:visible'
+                    ).first.click()
+                    page.locator("a#smai-profile-start:visible").click()
                     page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
                         state="visible",
                         timeout=60_000,

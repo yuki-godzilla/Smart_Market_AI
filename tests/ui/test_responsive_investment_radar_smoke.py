@@ -9,9 +9,9 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 VIEWPORTS = (
     ("iphone13mini", 375, 812),
-    ("ipad", 820, 1080),
+    ("ipad8_portrait", 810, 1080),
     ("ipad8_landscape", 1080, 810),
-    ("pc_1440", 1440, 900),
+    ("pc_1366", 1366, 768),
 )
 
 
@@ -39,8 +39,10 @@ def test_investment_radar_responsive_viewports() -> None:
                     sidebar_close.evaluate("(element) => element.click()")
                     page.keyboard.press("Escape")
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
-                    page.get_by_text("Yuki", exact=True).click()
-                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.locator(
+                        'a.smai-profile-link[aria-label="Yukiを選択"]:visible'
+                    ).first.click()
+                    page.locator("a#smai-profile-start:visible").click()
                     page.get_by_text("投資レーダー", exact=True).wait_for(
                         state="visible", timeout=60_000
                     )

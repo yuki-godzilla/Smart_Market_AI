@@ -263,6 +263,8 @@ Current Research Summary maturity work is local-first readability, not external 
 - `ui/ranking_table.py`: AgGrid-only Ranking table configuration with explicit immutable display config
 - `ui/copilot_streaming.py`: deterministic Copilot progressive-text shaping
 - `backend/research/normalization.py`: shared Research identifier normalization without service-layer imports
+- `backend/research/contracts.py`: Research type aliases, Pydantic contracts, and adapter Protocols
+- `ui/copilot_runtime.py`: Copilot Gateway runtime contracts and deterministic status transitions
 - `tests`: deterministic regression tests
 - `Documents`: requirements, design, roadmap, operation, UI, and work-log documents
 

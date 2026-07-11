@@ -4563,3 +4563,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 新moduleは完成済みDataFrameとimmutableな `RankingTableConfig` だけを受け取り、Ranking計算、取得、Streamlit session stateへ依存しない。
 - `ui.app.ranking_result_aggrid_options` は既存private importと呼び出し契約を維持する互換wrapperとして残した。
 - `tests/test_ranking_table_presenter.py` で新旧経路の完全一致、row/header height、hidden column契約を確認。Ranking順位、表示列、sort方向、欠損値順、数値comparatorは変更していない。
+
+## 2026-07-11: Research contract / Copilot runtime責務の分離
+
+- `backend/research/service.py` 冒頭に集中していた型alias、Pydantic contract、adapter Protocol約880行を `backend/research/contracts.py` へ移動。
+- packageルートはcontractを定義元から直接公開し、旧 `backend.research.service` importも明示再exportで維持。Research取得、検索、score、要約、外部fetchの処理内容は変更していない。
+- `ui/views/copilot.py` からGateway runtime設定、status/event contract、状態遷移、session保存・復元を `ui/copilot_runtime.py` へ移動。warmup、Gateway呼び出し、workflow、描画順は変更していない。
+- `tests/test_research_contract_boundaries.py` と `tests/test_copilot_runtime_boundary.py` でpackage/旧import互換と状態遷移を固定した。

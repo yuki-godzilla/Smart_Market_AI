@@ -56,7 +56,18 @@ def main() -> int:
                 results[key] = _assert_rendered(page, expected)
                 page.screenshot(path=str(OUTPUT_DIR / f"{key}_pc.png"), full_page=False)
 
+            page.set_viewport_size({"width": 810, "height": 1080})
+            _open_sidebar_target(page, "銘柄ランキング")
+            results["ranking_tablet"] = _assert_rendered(page, "銘柄ランキング")
+            tablet_body_width = page.locator("body").evaluate(
+                "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
+            )
+            assert tablet_body_width["scrollWidth"] <= tablet_body_width["clientWidth"] + 2
+            results["ranking_tablet"]["body_width"] = tablet_body_width
+            page.screenshot(path=str(OUTPUT_DIR / "ranking_tablet.png"), full_page=False)
+
             page.set_viewport_size({"width": 375, "height": 812})
+            _open_sidebar_target(page, "SMAIアシスタント")
             page.wait_for_timeout(500)
             results["assistant_mobile"] = _assert_rendered(page, "SMAIアシスタント")
             body_width = page.locator("body").evaluate(

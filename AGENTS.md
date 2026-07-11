@@ -56,6 +56,7 @@ LLM出力を後続処理へ渡す場合は、typed contract、schema検証、tim
 | タスク | 最初に確認 | 主な追加確認先 |
 |---|---|---|
 | 小規模バグ | エラー、失敗テスト | 対象moduleと対応テスト |
+| 不具合分析 | エラー、対象ログ、失敗テスト | `..\smai_projects\SMAI_Server_Analytics` の health / audit / dashboard と診断テスト |
 | FastAPI | `backend/app/` | contract、domain service、APIテスト |
 | Streamlit UI | 対象`ui/` module | view、component、state、CSS、UIテスト |
 | MarketData | `backend/marketdata/` | Provider、adapter、fixture |
@@ -71,6 +72,12 @@ LLM出力を後続処理へ渡す場合は、typed contract、schema検証、tim
 | 文書のみ | 対象文書 | 現在地変更時のみ`PROJECT_CONTEXT.md` |
 
 履歴調査が不要なら、最初から`Documents/99_Work_Log.md`全体を読まないでください。
+
+### 不具合分析時のSMAI_Analytics参照
+
+不具合分析では、SMAI本体の実コード、対象時刻のログ、失敗テストを一次情報として確認したうえで、兄弟プロジェクト `..\smai_projects\SMAI_Server_Analytics` も参照します。`health.py`、`audit.py`、`dashboard.py`、関連テストと保存済み診断結果を使い、サーバープロセス、監視、再起動、リソース、ログ時系列の相関を照合してください。
+
+Analyticsの出力は診断根拠として扱い、SMAI本体の実コード・ログと矛盾する場合は本体側の事実を優先します。別プロジェクトのファイルを変更する必要がある場合は、その変更が依頼範囲に含まれることを確認してから実施してください。
 
 ## Architecture Boundaries / 責務境界
 

@@ -365,6 +365,28 @@ def write_forecast_validation_summary(
     return path
 
 
+def write_forecast_validation_outputs(
+    cases: list[UpwardSignalForecastValidationCase],
+    output_dir: Path,
+) -> dict[str, Path]:
+    """Write point-in-time cases and grouped outcome summaries."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cases_path = output_dir / "upward_signal_forecast_validation_cases.csv"
+    with cases_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        fields = list(UpwardSignalForecastValidationCase.model_fields)
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(
+            {**case.model_dump(exclude={"warnings"}), "warnings": ";".join(case.warnings)}
+            for case in cases
+        )
+    summary_path = write_forecast_validation_summary(
+        summarize_forecast_validation_cases(cases), output_dir
+    )
+    return {"cases": cases_path, "summary": summary_path}
+
+
 def write_upward_signal_forecast_outputs(
     cases: list[UpwardSignalForecastCase],
     integrations: Mapping[str, UpwardSignalForecastIntegration],

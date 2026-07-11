@@ -11,6 +11,7 @@ from backend.scoring.upward_signal_forecast_integration import (
     write_forecast_validation_summary,
     write_upward_signal_forecast_outputs,
 )
+from tools.evaluate_upward_signal_forecast_integration import _read_validation_points
 
 
 def _row() -> dict[str, str]:
@@ -160,3 +161,20 @@ def test_validation_summary_groups_outcomes_without_changing_runtime_contract(tm
     assert overall.positive_actual_rate == Decimal("0.50")
     assert us.direction_accuracy == Decimal("1.00")
     assert path.read_text(encoding="utf-8-sig").startswith("group_type,")
+
+
+def test_validation_csv_reader_accepts_forecast_artifact_contract(tmp_path):
+    path = tmp_path / "forecast_model_validation_points.csv"
+    path.write_text(
+        "symbol,market,asset_type,regime,model_name,horizon_days,origin_at,target_at,"
+        "predicted_return,actual_return,model_disagreement\n"
+        "AAA,US,stock,uptrend,forecast_consensus,20,2025-01-01T00:00:00+00:00,"
+        "2025-01-21T00:00:00+00:00,0.05,0.03,0.01\n",
+        encoding="utf-8",
+    )
+
+    points = _read_validation_points(path, ForecastValidationPoint)
+
+    assert len(points) == 1
+    assert points[0].symbol == "AAA"
+    assert points[0].model_disagreement == Decimal("0.01")

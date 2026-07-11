@@ -4580,3 +4580,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - packageルートはcontractを定義元から直接公開し、旧 `backend.research.service` importも明示再exportで維持。Research取得、検索、score、要約、外部fetchの処理内容は変更していない。
 - `ui/views/copilot.py` からGateway runtime設定、status/event contract、状態遷移、session保存・復元を `ui/copilot_runtime.py` へ移動。warmup、Gateway呼び出し、workflow、描画順は変更していない。
 - `tests/test_research_contract_boundaries.py` と `tests/test_copilot_runtime_boundary.py` でpackage/旧import互換と状態遷移を固定した。
+
+## 2026-07-11: Phase 36 LLM材料評価のnetwork-free基盤
+
+- `backend/llm_factor/material_evaluation.py` に、point-in-time top候補のLLM材料レビューを評価するstrict contract、false positive / positive候補維持率 / adverse material・dividend trapラベル / latency / failure / cache hit集計、保守的な採用判断を追加。
+- 良好な評価でも採用判断は材料バッジ限定候補までとし、rank / score correctionはcontract上常にfalseに固定。live LLM、外部材料取得、通常Ranking、UIは変更していない。
+- `tools/evaluate_llm_material_assessment.py` がラベル付きCSVを検証して、Phase 36で定義した5つのMarkdown/CSV成果物を生成する。fixtureベースの24 test、Ruff、対象Black helperを確認した。

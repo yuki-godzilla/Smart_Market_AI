@@ -15,8 +15,9 @@ $action = New-ScheduledTaskAction `
     -Execute $env:ComSpec `
     -Argument "/d /c `"$maintenanceScript`"" `
     -WorkingDirectory $projectRoot
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
-$trigger.Delay = "PT10M"
+$logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+$logonTrigger.Delay = "PT10M"
+$dailyTrigger = New-ScheduledTaskTrigger -Daily -At "03:30"
 $principal = New-ScheduledTaskPrincipal `
     -UserId $userId `
     -LogonType Interactive `
@@ -30,10 +31,10 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $task = New-ScheduledTask `
     -Action $action `
-    -Trigger $trigger `
+    -Trigger @($logonTrigger, $dailyTrigger) `
     -Principal $principal `
     -Settings $settings `
-    -Description "Check symbol maintenance age 10 minutes after logon and run only when due."
+    -Description "Check symbol maintenance after logon and daily; run only when due."
 
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($null -ne $existing) {
@@ -44,8 +45,7 @@ if ($null -ne $existing) {
 
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
 Write-Host "[OK] Symbol maintenance if-due task is registered."
-Write-Host "     Trigger: user logon + 10 minutes"
+Write-Host "     Trigger: user logon + 10 minutes, and daily at 03:30"
 Write-Host "     Script:  $maintenanceScript"
 Write-Host "     Policy:  IgnoreNew, retry once after 30 minutes"
 Write-Host "     The heavy run_symbol_universe_import_all.bat is not registered directly."
-

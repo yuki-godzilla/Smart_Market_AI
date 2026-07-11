@@ -324,6 +324,10 @@ from ui.ranking_history import (
     save_ranking_history_for_current_user,
     synchronize_ranking_history_user,
 )
+from ui.ranking_presenter import (
+    compact_confidence_summary as _ranking_compact_confidence_summary,
+)
+from ui.ranking_presenter import full_confirmation_note as _ranking_full_confirmation_note
 from ui.ranking_state import (
     current_ranking_filter_state,
     ensure_ranking_selection_widget_state,
@@ -3381,35 +3385,8 @@ def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) ->
     return "銘柄コックピットで価格・予測・リスクを確認します。"
 
 
-def _ranking_compact_confidence_summary(row: dict[str, str]) -> str:
-    parts: list[str] = []
-    for label, column in (
-        ("品質", "データ品質"),
-        ("条件", "条件適合度"),
-        ("DB", "DB信頼度"),
-    ):
-        value = str(row.get(column, "")).strip()
-        if value:
-            parts.append(f"{label}{value}")
-    research_status = str(row.get("根拠状態", "")).strip()
-    if research_status:
-        parts.append(research_status)
-    return " / ".join(parts)
-
-
 def _ranking_compact_confirmation_note(reason: str, checkpoint: str) -> str:
     return truncate_text(_ranking_full_confirmation_note(reason, checkpoint), max_chars=96)
-
-
-def _ranking_full_confirmation_note(reason: str, checkpoint: str) -> str:
-    checkpoint = checkpoint.strip()
-    reason = reason.strip()
-    generic_checkpoint = "銘柄コックピットで価格・予測・リスクを確認します。"
-    if checkpoint and checkpoint != generic_checkpoint:
-        if reason and reason != checkpoint:
-            return f"{reason} / {checkpoint}"
-        return checkpoint
-    return reason or checkpoint
 
 
 def _ranking_compact_smai_memo(row: Mapping[str, str], checkpoint: str) -> str:

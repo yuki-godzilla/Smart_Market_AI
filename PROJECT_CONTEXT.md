@@ -257,7 +257,11 @@ Current Research Summary maturity work is local-first readability, not external 
 - `backend/reporting`: Decision Report context contracts and deterministic Markdown/manifest helpers
 - `backend/risk`: deterministic pre-trade risk checks
 - `backend/portfolio`: portfolio valuation, no-solver rebalance proposal, portfolio-to-risk workflow
-- `ui`: Streamlit UI for Market Data / Rebalance workflows
+- `ui`: Streamlit application wiring and compatibility imports
+- `ui/style_components.py`: state-free display formatting, card HTML, and chart styling helpers
+- `ui/ranking_presenter.py`: state-free Ranking display summaries
+- `ui/copilot_streaming.py`: deterministic Copilot progressive-text shaping
+- `backend/research/normalization.py`: shared Research identifier normalization without service-layer imports
 - `tests`: deterministic regression tests
 - `Documents`: requirements, design, roadmap, operation, UI, and work-log documents
 

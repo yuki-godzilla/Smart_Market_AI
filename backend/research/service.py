@@ -50,6 +50,7 @@ from backend.research.ir_classification import (
     IRDocumentCandidate,
     classify_ir_document_candidates,
 )
+from backend.research.normalization import normalize_symbol
 
 ResearchLanguage = Literal["ja", "en", "unknown"]
 ResearchTopicCategory = Literal[
@@ -2019,7 +2020,9 @@ def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
 
 
 def _normalize_symbol(symbol: str) -> str:
-    return symbol.strip().upper()
+    """Backward-compatible private alias for the shared Research normalizer."""
+
+    return normalize_symbol(symbol)
 
 
 def _stable_id(prefix: str, *parts: str) -> str:

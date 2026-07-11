@@ -16,7 +16,6 @@ from backend.research.external_contracts import (
     ExternalResearchSourcePayload,
     ResearchSourceType,
 )
-from backend.research.external_fetch_service import ExternalResearchFetchService
 from backend.research.service import (
     CompanyBusinessProfile,
     CompanyOverviewSummary,
@@ -225,3 +224,13 @@ __all__ = [
     "YahooFinanceResearchAdapter",
     "research_profile_source_key_for_provider",
 ]
+
+
+def __getattr__(name: str):
+    """Load the external fetch service lazily to keep package imports acyclic."""
+
+    if name == "ExternalResearchFetchService":
+        from backend.research.external_fetch_service import ExternalResearchFetchService
+
+        return ExternalResearchFetchService
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

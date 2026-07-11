@@ -106,6 +106,7 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
 )
+from ui.copilot_streaming import stream_chunks as _stream_chunks
 from ui.research_state import fetch_external_research_for_symbol
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
@@ -132,7 +133,6 @@ COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
 COPILOT_CONFIRMABLE_ACTION_IDS = ("update_research", "create_decision_report")
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
-COPILOT_STREAM_MAX_CHUNKS = 8
 COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
 COPILOT_WARMUP_POLL_SECONDS = 2.0
 
@@ -4437,63 +4437,6 @@ def _render_streaming_turn(
         ),
         unsafe_allow_html=True,
     )
-
-
-def _stream_chunks(text: str) -> list[str]:
-    normalized = str(text or "").strip()
-    if not normalized:
-        return [""]
-    segments = _stream_segments(normalized)
-    if len(segments) > 1:
-        chunk_count = min(COPILOT_STREAM_MAX_CHUNKS, len(segments))
-        chunks = []
-        for step in range(1, chunk_count + 1):
-            boundary = (len(segments) * step + chunk_count - 1) // chunk_count
-            chunks.append("".join(segments[:boundary]).strip())
-        return _deduplicate_stream_chunks(chunks, normalized)
-    chunk_count = min(
-        COPILOT_STREAM_MAX_CHUNKS,
-        max(2, min(6, (len(normalized) + 23) // 24)),
-    )
-    chunks = [
-        normalized[: (len(normalized) * step + chunk_count - 1) // chunk_count]
-        for step in range(1, chunk_count + 1)
-    ]
-    return _deduplicate_stream_chunks(chunks, normalized)
-
-
-def _stream_segments(text: str) -> list[str]:
-    sentence_segments = _split_stream_segments(text, "。！？!?\n")
-    if len(sentence_segments) > 1:
-        return sentence_segments
-    phrase_segments = _split_stream_segments(text, "、，,;；:")
-    return phrase_segments if len(phrase_segments) > 1 else [text]
-
-
-def _split_stream_segments(text: str, break_chars: str) -> list[str]:
-    segments: list[str] = []
-    current: list[str] = []
-    for character in text:
-        current.append(character)
-        if character in break_chars:
-            segment = "".join(current).strip()
-            if segment:
-                segments.append(segment)
-            current = []
-    tail = "".join(current).strip()
-    if tail:
-        segments.append(tail)
-    return segments
-
-
-def _deduplicate_stream_chunks(chunks: list[str], final_text: str) -> list[str]:
-    deduplicated: list[str] = []
-    for chunk in chunks:
-        if chunk and (not deduplicated or chunk != deduplicated[-1]):
-            deduplicated.append(chunk)
-    if not deduplicated or deduplicated[-1] != final_text:
-        deduplicated.append(final_text)
-    return deduplicated
 
 
 def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:

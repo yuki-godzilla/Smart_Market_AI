@@ -4549,3 +4549,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 底打ち・蓄積形状にhigher-lowまたは出来高回復確認を要求し、形状基礎点を保守化。監査群で成功平均63.96、失敗平均51.37、Top10狙い形状10/10、Top10成功3/10。
 - consensus weight、予測幅校正は時間順または銘柄holdout gate未通過。runtime forecast weight / predictionは変更なし。Top10 7/10未達だが、監査群への過学習を避けるため追加調整を停止。
 - 対象35 testとRuff成功。大きい一括評価runはcoverage後に長時間化したため2回明示停止し、split別・評価/調整分離へ変更して完走。
+
+## 2026-07-11: 挙動不変リファクタリング第1スライス
+
+- `ui/styles.py` の巨大CSS定数は適用順とimport時保持を維持し、表示値整形、カードHTML、見出し、Altair設定を `ui/style_components.py` へ分離。既存 `ui.styles` importは互換aliasで維持。
+- Research symbol正規化を `backend/research/normalization.py` へ分離し、external fetchから巨大serviceのprivate helper依存を除去。`ExternalResearchFetchService` はpackage `__getattr__` で遅延公開し、既存公開importを維持したまま循環importを縮小。
+- Copilotの段階表示文字列生成を `ui/copilot_streaming.py`、Rankingの状態非依存な確認文・信頼度要約を `ui/ranking_presenter.py` へ分離。従来のprivate import契約は互換aliasで維持。
+- 新しい責務境界と互換importを `tests/test_refactoring_boundaries.py` で固定。計算式、Ranking順位、Forecast、Research Score、session state key、外部通信、CSS内容は変更していない。

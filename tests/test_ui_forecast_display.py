@@ -6392,6 +6392,30 @@ def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
     assert "index=_selectbox_index" not in detail_source
 
 
+def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
+    calls: list[int] = []
+
+    async def fake_fast(symbols, **kwargs):
+        calls.append(len(symbols))
+        return ([{"symbol": symbol} for symbol in symbols], [])
+
+    monkeypatch.setattr(app_module, "_build_market_data_ranking_rows_fast", fake_fast)
+    symbols = [f"{index:04d}.T" for index in range(201)]
+
+    rows, errors = asyncio.run(
+        app_module._build_market_data_ranking_rows(
+            symbols,
+            start=date(2023, 1, 1),
+            end=date(2026, 1, 1),
+            provider="yahoo",
+        )
+    )
+
+    assert calls == [100, 100, 1]
+    assert len(rows) == len(symbols)
+    assert errors == []
+
+
 def test_advanced_forecast_cache_is_not_published_from_failed_batch(monkeypatch):
     cache_calls: list[str] = []
 

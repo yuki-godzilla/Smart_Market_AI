@@ -472,6 +472,7 @@ MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
+RANKING_PIPELINE_COHORT_SIZE = 100
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
 MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
 MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
@@ -9878,6 +9879,14 @@ async def _build_market_data_ranking_rows(
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    if provider in LIVE_MARKET_DATA_PROVIDERS and len(symbols) > RANKING_PIPELINE_COHORT_SIZE:
+        return await _build_large_market_data_ranking_rows(
+            symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=progress_callback,
+        )
     try:
         return await _build_market_data_ranking_rows_fast(
             symbols,
@@ -9901,6 +9910,50 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
+
+
+async def _build_large_market_data_ranking_rows(
+    symbols: list[str],
+    *,
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: RankingProgressCallback | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Build large live rankings in bounded cohorts to cap peak memory."""
+
+    cohorts = [
+        symbols[index : index + RANKING_PIPELINE_COHORT_SIZE]
+        for index in range(0, len(symbols), RANKING_PIPELINE_COHORT_SIZE)
+    ]
+    rows: list[dict[str, str]] = []
+    error_rows: list[dict[str, str]] = []
+    for cohort_index, cohort in enumerate(cohorts):
+        cohort_start = cohort_index / len(cohorts)
+        cohort_width = 1 / len(cohorts)
+
+        def cohort_progress(message: str, ratio: float) -> None:
+            _report_ranking_progress(
+                progress_callback,
+                f"{message} ({cohort_index + 1}/{len(cohorts)} cohort)",
+                min(0.99, cohort_start + (cohort_width * ratio)),
+            )
+
+        try:
+            cohort_rows, cohort_errors = await _build_market_data_ranking_rows_fast(
+                cohort,
+                start=start,
+                end=end,
+                provider=provider,
+                progress_callback=cohort_progress,
+            )
+        except AppError as exc:
+            cohort_rows = []
+            cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
+        rows.extend(cohort_rows)
+        error_rows.extend(cohort_errors)
+    _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
+    return rank_investment_score_rows(rows), error_rows
 
 
 async def _build_market_data_ranking_rows_fast(

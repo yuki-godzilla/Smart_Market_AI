@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Mapping
@@ -9,6 +10,7 @@ from typing import Mapping
 from pydantic import ConfigDict, Field
 
 from backend.core.data_contracts import StrictBaseModel
+from backend.forecast.evaluation import CONSENSUS_MODEL_NAME, ForecastValidationPoint
 from backend.scoring.reversal import calculate_reversal_expectation
 
 
@@ -55,6 +57,28 @@ class UpwardSignalForecastCase(StrictBaseModel):
     downside_safety_score: Decimal = Field(ge=0, le=100)
     confidence: str = Field(min_length=1)
     model_disagreement_pct: Decimal = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class UpwardSignalForecastValidationCase(StrictBaseModel):
+    """Forecast contribution reconstructed at one point-in-time origin."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    symbol: str = Field(min_length=1)
+    market: str = Field(min_length=1)
+    asset_type: str = Field(min_length=1)
+    regime: str = Field(min_length=1)
+    horizon_days: int = Field(ge=1)
+    origin_at: datetime
+    target_at: datetime
+    actual_return: Decimal
+    predicted_return: Decimal
+    forecast_integration_score: Decimal = Field(ge=0, le=100)
+    confidence: str = Field(min_length=1)
+    model_disagreement_pct: Decimal = Field(ge=0)
+    direction_agreement_score: Decimal = Field(ge=0, le=100)
     warning_count: int = Field(ge=0)
     warnings: list[str] = Field(default_factory=list)
 
@@ -166,6 +190,72 @@ def evaluate_upward_signal_forecast_case(
     )
 
 
+def evaluate_forecast_validation_points(
+    points: list[ForecastValidationPoint],
+) -> list[UpwardSignalForecastValidationCase]:
+    """Reconstruct forecast evidence for each consensus validation origin.
+
+    Adapter predictions at an origin are used only to derive direction
+    agreement and the prediction range. ``actual_return`` is copied as a
+    post-origin evaluation label and is never used by the integration score.
+    """
+
+    grouped: dict[tuple[str, datetime, int], list[ForecastValidationPoint]] = {}
+    for point in points:
+        grouped.setdefault((point.symbol, point.origin_at, point.horizon_days), []).append(point)
+
+    cases: list[UpwardSignalForecastValidationCase] = []
+    for group in grouped.values():
+        consensus = next(
+            (point for point in group if point.model_name == CONSENSUS_MODEL_NAME), None
+        )
+        adapters = [point for point in group if point.model_name != CONSENSUS_MODEL_NAME]
+        if consensus is None or not adapters:
+            continue
+        returns = [point.predicted_return for point in adapters]
+        up_count = sum(1 for value in returns if value > 0)
+        down_count = sum(1 for value in returns if value < 0)
+        flat_count = len(returns) - up_count - down_count
+        dominant = max(up_count, down_count, flat_count)
+        agreement = Decimal("100") * Decimal(dominant) / Decimal(len(returns))
+        disagreement = max(returns) - min(returns)
+        confidence = _validation_confidence(disagreement, len(returns), agreement)
+        integration = calculate_forecast_integration(
+            {
+                "consensus_predicted_return": consensus.predicted_return,
+                "predicted_return_lower": min(returns),
+                "predicted_return_upper": max(returns),
+                "predicted_return_range": disagreement,
+                "direction_agreement_score": agreement,
+                "confidence": confidence,
+                "model_count": len(returns),
+                "up_model_count": up_count,
+                "down_model_count": down_count,
+                "flat_model_count": flat_count,
+            }
+        )
+        cases.append(
+            UpwardSignalForecastValidationCase(
+                symbol=consensus.symbol,
+                market=consensus.market,
+                asset_type=consensus.asset_type,
+                regime=consensus.regime,
+                horizon_days=consensus.horizon_days,
+                origin_at=consensus.origin_at,
+                target_at=consensus.target_at,
+                actual_return=consensus.actual_return,
+                predicted_return=consensus.predicted_return,
+                forecast_integration_score=integration.forecast_integration_score,
+                confidence=integration.consensus_confidence,
+                model_disagreement_pct=integration.model_disagreement_pct,
+                direction_agreement_score=integration.direction_agreement_score,
+                warning_count=len(integration.warnings),
+                warnings=integration.warnings,
+            )
+        )
+    return cases
+
+
 def write_upward_signal_forecast_outputs(
     cases: list[UpwardSignalForecastCase],
     integrations: Mapping[str, UpwardSignalForecastIntegration],
@@ -258,6 +348,19 @@ def _confidence_policy(confidence: str) -> tuple[Decimal, Decimal, str]:
     if confidence == "low":
         return Decimal("35"), Decimal("65"), "confidence:low_ceiling_65"
     return Decimal("50"), Decimal("50"), "confidence:unknown_ceiling_50"
+
+
+def _validation_confidence(
+    disagreement: Decimal,
+    model_count: int,
+    direction_agreement: Decimal,
+) -> str:
+    disagreement_pct = disagreement * Decimal("100")
+    if model_count >= 3 and disagreement_pct <= Decimal("5") and direction_agreement >= 75:
+        return "high"
+    if model_count >= 2 and disagreement_pct <= Decimal("12") and direction_agreement >= 50:
+        return "medium"
+    return "low"
 
 
 def _score_return(value: Decimal) -> Decimal:

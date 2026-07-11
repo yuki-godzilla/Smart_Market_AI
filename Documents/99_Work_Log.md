@@ -4,8 +4,9 @@
 
 - `backend/scoring/upward_signal_forecast_integration.py` に、既存のAdvanced Forecast consensusまたはRanking行から予測上向き余地、quantile下振れ安全性、方向一致、confidence、model disagreementを抽出するtyped contractを追加。
 - low / unknown confidenceのscore ceiling、high disagreement、negative quantile downside、model数不足を評価用warningとして記録。Forecast根拠を現行上向き兆候スコアと比較するcase評価と、`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md` の出力を追加。
+- 既存`ForecastValidationPoint`を同一symbol / origin / horizonで束ね、adapter予測から方向一致・予測レンジ・confidence候補を再構成するpoint-in-time validation caseを追加。実績forward returnは評価ラベルとして保持するだけでscore計算へ渡さない。
 - 通常Ranking、Forecast API/UI、runtime consensus weightは変更していない。新規銘柄・新規期間でのwalk-forward holdout採用判定は後続。
-- 対象37 test、Ruff、対象2ファイルのBlack checkが成功。
+- 対象12件の関連回帰、Ruff、対象2ファイルのBlack checkが成功。
 
 ## 2026-07-11 上向き兆候スコア分布・補助マップ改善
 

@@ -1,8 +1,11 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from backend.forecast.evaluation import ForecastValidationPoint
 from backend.forecast.service import AdvancedForecastConsensus
 from backend.scoring.upward_signal_forecast_integration import (
     calculate_forecast_integration,
+    evaluate_forecast_validation_points,
     evaluate_upward_signal_forecast_case,
     write_upward_signal_forecast_outputs,
 )
@@ -76,3 +79,40 @@ def test_case_and_artifacts_are_evaluation_only(tmp_path):
     summary = paths["integration"].read_text(encoding="utf-8")
     assert "通常Rankingの順位・runtime weightは変更していません" in summary
     assert "confidence" in paths["confidence"].read_text(encoding="utf-8")
+
+
+def test_validation_points_reconstruct_consensus_evidence_without_using_actual_return():
+    origin = datetime(2025, 1, 1, tzinfo=UTC)
+    points = [
+        ForecastValidationPoint(
+            symbol="AAA",
+            market="US",
+            asset_type="stock",
+            regime="uptrend",
+            model_name=model,
+            horizon_days=20,
+            origin_at=origin,
+            target_at=origin + timedelta(days=20),
+            predicted_return=predicted,
+            actual_return=actual,
+        )
+        for model, predicted, actual in (
+            ("advanced_linear", Decimal("0.06"), Decimal("0.20")),
+            ("advanced_tree_sklearn", Decimal("0.05"), Decimal("0.20")),
+            ("advanced_quantile", Decimal("0.04"), Decimal("0.20")),
+            ("forecast_consensus", Decimal("0.05"), Decimal("0.20")),
+        )
+    ]
+
+    first = evaluate_forecast_validation_points(points)
+    changed_actual = [
+        point.model_copy(update={"actual_return": Decimal("-0.20")}) for point in points
+    ]
+    second = evaluate_forecast_validation_points(changed_actual)
+
+    assert len(first) == 1
+    assert first[0].confidence == "high"
+    assert first[0].direction_agreement_score == Decimal("100.00")
+    assert first[0].forecast_integration_score == second[0].forecast_integration_score
+    assert first[0].actual_return == Decimal("0.20")
+    assert second[0].actual_return == Decimal("-0.20")

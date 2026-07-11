@@ -9023,11 +9023,14 @@ def _render_market_data_ranking() -> None:
                 rows, error_rows = cached_build
                 update_progress("同じ条件の完成済みランキングを再利用しています。", 0.98)
             else:
-                _run_symbol_database_preflight_refresh(
-                    ranking_symbol_db_preflight_symbols(ranking_symbols),
-                    context="ranking",
-                    max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
-                )
+                # The preflight can also be long for a large universe. Keep it
+                # visible to the maintenance watcher before market-data work starts.
+                with maintenance_operation("ranking_build_preflight"):
+                    _run_symbol_database_preflight_refresh(
+                        ranking_symbol_db_preflight_symbols(ranking_symbols),
+                        context="ranking",
+                        max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
+                    )
                 with maintenance_operation("ranking_build"):
                     rows, error_rows = asyncio.run(
                         _build_market_data_ranking_rows(

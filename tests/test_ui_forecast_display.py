@@ -6373,6 +6373,16 @@ def test_ranking_build_job_state_blocks_restore_only_while_running():
     assert not app_module.ranking_build_is_running(cache_key)
 
 
+def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
+    source = inspect.getsource(app_module._render_market_data_ranking)
+
+    preflight_start = source.index("_run_symbol_database_preflight_refresh(")
+    preflight_guard = source.index('maintenance_operation("ranking_build_preflight")')
+    market_data_guard = source.index('maintenance_operation("ranking_build")')
+
+    assert preflight_guard < preflight_start < market_data_guard
+
+
 def test_advanced_forecast_cache_is_not_published_from_failed_batch(monkeypatch):
     cache_calls: list[str] = []
 

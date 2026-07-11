@@ -431,7 +431,13 @@ from ui.views.news import (
     NEWS_COCKPIT_QUERY_SYMBOL_PARAM,
     render_news_dashboard_page,
 )
-from ui.views.ranking_chart_profiles import chart_profile_for_purpose, ranking_chart_frame
+from ui.views.ranking_chart_profiles import (
+    PROFILE_REVERSAL_EXPECTATION,
+    RankingChartProfile,
+    chart_profile_for_purpose,
+    ranking_chart_frame,
+    ranking_reversal_evidence_frame,
+)
 from ui.views.rebalance import (
     REBALANCE_REQUEST_STATE_KEY,
     REBALANCE_RESULT_STATE_KEY,
@@ -5459,6 +5465,9 @@ def _render_ranking_profile_chart(
     ranking_purpose: str,
 ) -> None:
     requested_profile = chart_profile_for_purpose(ranking_purpose)
+    if requested_profile.key == PROFILE_REVERSAL_EXPECTATION:
+        _render_ranking_reversal_evidence_map(display_rows, requested_profile)
+        return
     selection = ranking_chart_frame(display_rows, requested_profile)
     render_section_heading(selection.profile.title if selection else requested_profile.title)
     if selection is None:
@@ -5568,6 +5577,92 @@ def _render_ranking_profile_chart(
         .properties(height=320)
     )
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
+
+
+def _render_ranking_reversal_evidence_map(
+    display_rows: list[dict[str, str]],
+    profile: RankingChartProfile,
+) -> None:
+    frame = ranking_reversal_evidence_frame(display_rows)
+    render_section_heading(profile.title)
+    st.caption(profile.description)
+    with st.expander("読み方", expanded=False):
+        for item in profile.how_to_read:
+            st.caption(f"- {item}")
+        st.caption(profile.caution)
+    if frame.empty:
+        st.info("上向き兆候の構成スコアを表示できる候補がありません。")
+        return
+
+    tooltip = [
+        alt.Tooltip("rank:N", title="順位"),
+        alt.Tooltip("symbol:N", title="銘柄コード"),
+        alt.Tooltip("name:N", title="銘柄名"),
+        alt.Tooltip("component:N", title="評価要素"),
+        alt.Tooltip("score:Q", title="構成スコア", format=".1f"),
+        alt.Tooltip("quality_status:N", title="評価可否"),
+        alt.Tooltip("data_quality:N", title="データ品質"),
+        alt.Tooltip("shape_label:N", title="チャート形状"),
+        alt.Tooltip("signal_reason:N", title="上向き兆候理由"),
+        alt.Tooltip("trap_warning:N", title="警戒事項"),
+    ]
+    base = alt.Chart(frame)
+    cells = base.mark_rect(cornerRadius=3).encode(
+        x=alt.X(
+            "component:N",
+            title=None,
+            sort=alt.SortField("component_order", order="ascending"),
+            axis=alt.Axis(labelAngle=0, labelLimit=90),
+        ),
+        y=alt.Y(
+            "candidate_label:N",
+            title=None,
+            sort=alt.SortField("rank_order", order="ascending"),
+            axis=alt.Axis(labelLimit=190),
+        ),
+        color=alt.Color(
+            "score:Q",
+            title="構成スコア",
+            scale=alt.Scale(
+                domain=[0, 50, 100],
+                range=[
+                    THEME_COLORS["bg_elevated"],
+                    THEME_COLORS["ai_blue"],
+                    THEME_COLORS["ai_cyan"],
+                ],
+            ),
+        ),
+        tooltip=tooltip,
+    )
+    labels = base.mark_text(fontSize=12, fontWeight=600).encode(
+        x=alt.X(
+            "component:N",
+            sort=alt.SortField("component_order", order="ascending"),
+        ),
+        y=alt.Y(
+            "candidate_label:N",
+            sort=alt.SortField("rank_order", order="ascending"),
+        ),
+        text=alt.Text("score_label:N"),
+        color=alt.condition(
+            "datum.score >= 72",
+            alt.value(THEME_COLORS["bg_app"]),
+            alt.value(THEME_COLORS["text_primary"]),
+        ),
+        tooltip=tooltip,
+    )
+    candidate_states = frame.drop_duplicates(subset=["candidate_label"])
+    state_counts = candidate_states["quality_status"].value_counts().to_dict()
+    chart = (cells + labels).properties(
+        height=max(320, min(430, 34 * len(candidate_states))),
+    )
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
+    st.caption(
+        "データ品質（このマップでは魅力度軸に使わない評価可否）: "
+        f"評価可能 {state_counts.get('評価可能', 0)}件 / "
+        f"要確認 {state_counts.get('要確認', 0)}件 / "
+        f"評価対象外 {state_counts.get('評価対象外', 0)}件"
+    )
 
 
 def _render_selected_ranking_candidate_breakdown(
@@ -9220,11 +9315,14 @@ def _render_market_data_ranking() -> None:
         _render_top_screening_candidate_cards(
             ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_policy)
         )
-        chart_col, confidence_col = st.columns(2)
-        with chart_col:
-            _render_ranking_score_bar_chart(display_rows, ranking_policy)
-        with confidence_col:
+        if ranking_policy == RANKING_PURPOSE_REVERSAL_EXPECTATION:
             _render_ranking_profile_chart(display_rows, ranking_policy)
+        else:
+            chart_col, confidence_col = st.columns(2)
+            with chart_col:
+                _render_ranking_score_bar_chart(display_rows, ranking_policy)
+            with confidence_col:
+                _render_ranking_profile_chart(display_rows, ranking_policy)
         deep_dive_symbols = ranking_deep_dive_symbol_options(ranked_rows)
         deep_dive_rank_by_symbol = {
             symbol: index for index, symbol in enumerate(deep_dive_symbols, start=1)
@@ -22884,6 +22982,12 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_pullback_score": row.get("reversal_pullback_score", ""),
                 "reversal_quality_score": row.get("reversal_quality_score", ""),
                 "reversal_material_score": row.get("reversal_material_score", ""),
+                "pullback_rebound_score": row.get("pullback_rebound_score", ""),
+                "bottoming_score": row.get("bottoming_score", ""),
+                "range_breakout_score": row.get("range_breakout_score", ""),
+                "accumulation_setup_score": row.get("accumulation_setup_score", ""),
+                "reversal_expectation_label": row.get("reversal_expectation_label", ""),
+                "warnings_raw": row.get("warnings", ""),
                 "チャート形状評価": row.get("reversal_chart_shape_score", ""),
                 "reversal_pullback_depth": _absolute_numeric_text(row.get("drawdown_20d", "")),
                 "調整/安定度": _absolute_numeric_text(row.get("drawdown_20d", "")),

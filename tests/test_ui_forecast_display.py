@@ -6415,6 +6415,33 @@ def test_ranking_widget_state_preserves_original_defaults(monkeypatch):
     }
 
 
+def test_ranking_progress_periodically_refreshes_client_snapshot(monkeypatch):
+    session_state: dict[str, object] = {
+        app_module.CLIENT_ID_STATE_KEY: "smai_client_1234567890abcdef12345678",
+        "smai_current_user_id": "local_user",
+        "sidemenu_page": "ranking",
+        "market_data_ranking_period": "long_3y",
+        "market_data_ranking_per_enabled": True,
+    }
+    writes: list[dict[str, object]] = []
+    times = iter([100.0, 200.0, 500.0])
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module.perf_time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(
+        app_module,
+        "save_client_session_if_changed",
+        lambda state, **kwargs: writes.append(dict(state)) or True,
+    )
+
+    assert app_module._touch_ranking_client_session(force=True) is True
+    assert app_module._touch_ranking_client_session() is False
+    assert app_module._touch_ranking_client_session() is True
+
+    assert len(writes) == 2
+    assert writes[-1]["market_data_ranking_period"] == "long_3y"
+    assert writes[-1]["market_data_ranking_per_enabled"] is True
+
+
 def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
     calls: list[tuple[int, bool]] = []
     released: list[list[str]] = []
@@ -6442,7 +6469,9 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
 
     assert calls[:-1] == [(100, False)] * 100 + [(1, False)]
     assert calls[-1] == (25, True)
-    assert [len(batch) for batch in released] == [100] * 100 + [1, 25]
+    released_symbols = [symbol for batch in released for symbol in batch]
+    assert len(released_symbols) == len(symbols)
+    assert set(released_symbols) == set(symbols)
     assert len(rows) == len(symbols)
     assert errors == []
 

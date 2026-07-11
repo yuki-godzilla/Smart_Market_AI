@@ -28,7 +28,38 @@ RANKING_STATE_KEYS = (
     "market_data_ranking_region",
     "market_data_ranking_product_type",
     "market_data_ranking_policy",
+    "market_data_ranking_purpose",
     "market_data_ranking_fetch_limit",
+    "market_data_ranking_period",
+    "market_data_ranking_market",
+    "market_data_ranking_asset_type",
+    "market_data_ranking_currency",
+    "market_data_ranking_dividend",
+    "market_data_ranking_min_dividend",
+    "market_data_ranking_market_cap",
+    "market_data_ranking_index_family",
+    "market_data_ranking_max_expense",
+    "market_data_ranking_complexity",
+    "market_data_ranking_nisa",
+    "market_data_ranking_risk_band",
+    "market_data_ranking_official_sector",
+    "market_data_ranking_theme",
+    "market_data_ranking_symbol_query",
+    "market_data_ranking_per_enabled",
+    "market_data_ranking_per_min",
+    "market_data_ranking_per_max",
+    "market_data_ranking_pbr_enabled",
+    "market_data_ranking_pbr_min",
+    "market_data_ranking_pbr_max",
+    "market_data_ranking_dividend_enabled",
+    "market_data_ranking_dividend_min",
+    "market_data_ranking_dividend_max",
+    "market_data_ranking_roe_enabled",
+    "market_data_ranking_roe_min",
+    "market_data_ranking_roe_max",
+    "market_data_ranking_consensus_enabled",
+    "market_data_ranking_consensus_min",
+    "market_data_ranking_consensus_max",
 )
 PROVIDER_STATE_KEYS = (
     "market_data_provider_live_first",
@@ -247,6 +278,7 @@ def save_client_session_if_changed(
     selected_symbol: str = "",
     directory: Path = DEFAULT_CLIENT_SESSION_DIR,
     now: datetime | None = None,
+    force_write: bool = False,
 ) -> bool:
     snapshot = snapshot_from_session_state(
         session_state,
@@ -264,7 +296,7 @@ def save_client_session_if_changed(
         if current is not None
         else None
     )
-    if comparable == current_comparable:
+    if comparable == current_comparable and not force_write:
         return False
     return save_client_session(snapshot, path)
 

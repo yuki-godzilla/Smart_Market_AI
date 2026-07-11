@@ -159,6 +159,43 @@ def test_snapshot_does_not_serialize_large_or_unknown_session_values() -> None:
     assert len(json.dumps(snapshot)) < 1_000
 
 
+def test_ranking_detail_filters_survive_client_session_restore(tmp_path: Path) -> None:
+    state: dict[str, object] = {
+        "smai_current_user_id": "u_12345678",
+        "sidemenu_page": "ranking",
+        "market_data_ranking_period": "long_3y",
+        "market_data_ranking_dividend_enabled": True,
+        "market_data_ranking_dividend_min": "3.0",
+        "market_data_ranking_per_enabled": True,
+        "market_data_ranking_per_min": "5.0",
+        "market_data_ranking_per_max": "20.0",
+    }
+    snapshot = snapshot_from_session_state(
+        state,
+        client_id=CLIENT_ID,
+        now=NOW,
+    )
+    assert snapshot is not None
+    path = tmp_path / f"{CLIENT_ID}.json"
+    assert save_client_session(snapshot, path)
+
+    restored_state: dict[str, object] = {}
+    restore_client_session(
+        restored_state,
+        client_id=CLIENT_ID,
+        valid_user_ids={"u_12345678"},
+        directory=tmp_path,
+        now=NOW,
+    )
+
+    assert restored_state["market_data_ranking_period"] == "long_3y"
+    assert restored_state["market_data_ranking_dividend_enabled"] is True
+    assert restored_state["market_data_ranking_dividend_min"] == "3.0"
+    assert restored_state["market_data_ranking_per_enabled"] is True
+    assert restored_state["market_data_ranking_per_min"] == "5.0"
+    assert restored_state["market_data_ranking_per_max"] == "20.0"
+
+
 def test_corrupt_snapshot_and_save_failure_are_non_fatal(tmp_path: Path) -> None:
     path = tmp_path / f"{CLIENT_ID}.json"
     path.write_text("{broken", encoding="utf-8")
@@ -201,6 +238,15 @@ def test_unchanged_snapshot_is_not_rewritten_and_release_clears_it(tmp_path: Pat
         now=NOW + timedelta(minutes=1),
     )
     assert path.read_text(encoding="utf-8") == first_contents
+
+    assert save_client_session_if_changed(
+        state,
+        client_id=CLIENT_ID,
+        directory=tmp_path,
+        now=NOW + timedelta(minutes=2),
+        force_write=True,
+    )
+    assert path.read_text(encoding="utf-8") != first_contents
 
     assert clear_client_session(state, client_id=CLIENT_ID, directory=tmp_path)
     assert not path.exists()

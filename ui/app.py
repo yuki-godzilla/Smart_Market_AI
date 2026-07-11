@@ -476,6 +476,8 @@ MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
 RANKING_BUILD_CACHE_VERSION = "signal-v5"
 RANKING_PIPELINE_COHORT_SIZE = 100
 RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT = 25
+RANKING_CLIENT_SESSION_TOUCH_STATE_KEY = "market_data_ranking_client_session_touched_at"
+RANKING_CLIENT_SESSION_TOUCH_INTERVAL_SECONDS = 300.0
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
 MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
 MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
@@ -9001,6 +9003,7 @@ def _render_market_data_ranking() -> None:
                 "完了するまで条件を変えずにお待ちください。"
             )
             return
+        _touch_ranking_client_session(force=True)
         begin_ranking_build(cache_key)
         loading_slot = st.empty()
         loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
@@ -9008,6 +9011,7 @@ def _render_market_data_ranking() -> None:
         )
 
         def update_progress(message: str, ratio: float) -> None:
+            _touch_ranking_client_session()
             update_ranking_build_progress(cache_key, message=message, ratio=ratio)
             loading_slot.markdown(
                 workflow_loading_html(
@@ -9957,6 +9961,8 @@ async def _build_large_market_data_ranking_rows(
     ]
     rows: list[dict[str, str]] = []
     error_rows: list[dict[str, str]] = []
+    retained_top_rows: list[dict[str, str]] = []
+    retained_cache_symbols: set[str] = set()
     for cohort_index, cohort in enumerate(cohorts):
         cohort_start = cohort_index / len(cohorts)
         cohort_width = 1 / len(cohorts)
@@ -9982,7 +9988,19 @@ async def _build_large_market_data_ranking_rows(
             cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
         rows.extend(cohort_rows)
         error_rows.extend(cohort_errors)
-        _release_ranking_cohort_cache(provider, cohort)
+        retained_top_rows = rank_investment_score_rows(
+            [*retained_top_rows, *cohort_rows]
+        )[:RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT]
+        next_retained_symbols = {
+            str(row.get("symbol", "")).strip().upper()
+            for row in retained_top_rows
+            if str(row.get("symbol", "")).strip()
+        }
+        releasable_symbols = (
+            {str(symbol).strip().upper() for symbol in cohort} | retained_cache_symbols
+        ) - next_retained_symbols
+        _release_ranking_cohort_cache(provider, sorted(releasable_symbols))
+        retained_cache_symbols = next_retained_symbols
     _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
     provisional_rows = rank_investment_score_rows(rows)
     advanced_symbols = [
@@ -10526,6 +10544,32 @@ def _ranking_bars_by_symbol(
 
 
 RankingProgressCallback = Callable[[str, float], None]
+
+
+def _touch_ranking_client_session(*, force: bool = False) -> bool:
+    now = perf_time.monotonic()
+    previous = st.session_state.get(RANKING_CLIENT_SESSION_TOUCH_STATE_KEY, 0.0)
+    try:
+        previous_value = float(previous)
+    except (TypeError, ValueError):
+        previous_value = 0.0
+    if not force and now - previous_value < RANKING_CLIENT_SESSION_TOUCH_INTERVAL_SECONDS:
+        return False
+    client_id = str(st.session_state.get(CLIENT_ID_STATE_KEY) or "")
+    if not client_id:
+        return False
+    selected_symbol = (
+        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", "")))
+        or ""
+    )
+    saved = save_client_session_if_changed(
+        st.session_state,
+        client_id=client_id,
+        selected_symbol=selected_symbol,
+        force_write=True,
+    )
+    st.session_state[RANKING_CLIENT_SESSION_TOUCH_STATE_KEY] = now
+    return saved
 
 
 def _report_ranking_progress(

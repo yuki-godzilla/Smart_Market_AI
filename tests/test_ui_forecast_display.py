@@ -6392,6 +6392,27 @@ def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
     assert "index=_selectbox_index" not in detail_source
 
 
+def test_ranking_widget_state_preserves_original_defaults(monkeypatch):
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+
+    app_module._ensure_selectbox_state_value(
+        "market_data_ranking_period",
+        ["short", "standard", "long"],
+        default_value="standard",
+    )
+    app_module._ensure_selectbox_state_value(
+        "market_data_ranking_fetch_limit",
+        ["fast_100", "balanced_300", "all"],
+        default_value="balanced_300",
+    )
+
+    assert session_state == {
+        "market_data_ranking_period": "standard",
+        "market_data_ranking_fetch_limit": "balanced_300",
+    }
+
+
 def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
     calls: list[tuple[int, bool]] = []
     released: list[list[str]] = []

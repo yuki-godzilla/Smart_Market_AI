@@ -3925,10 +3925,16 @@ def _selectbox_index(options: list[str], value: str) -> int:
     return options.index(value) if value in options else 0
 
 
-def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
-    value = _ranking_filter_value(key, options[0])
+def _ensure_selectbox_state_value(
+    key: str,
+    options: list[str],
+    *,
+    default_value: str | None = None,
+) -> None:
+    default = default_value if default_value in options else options[0]
+    value = _ranking_filter_value(key, default)
     if value not in options:
-        value = options[0]
+        value = default
     if key not in st.session_state or st.session_state.get(key) != value:
         st.session_state[key] = value
 
@@ -4075,7 +4081,7 @@ def _render_detail_selectbox(
     disabled: bool = False,
 ) -> str:
     default = default_value if default_value in options else options[0]
-    _ensure_selectbox_state_value(key, options)
+    _ensure_selectbox_state_value(key, options, default_value=default)
     return cast(
         str,
         st.selectbox(
@@ -8411,7 +8417,11 @@ def _render_market_data_cockpit() -> None:
         )
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
-        _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
+        _ensure_selectbox_state_value(
+            "market_data_symbol_candidate",
+            symbol_option_labels,
+            default_value=symbol_option_labels[0],
+        )
         symbol_candidate = cast(
             str,
             st.selectbox(
@@ -8674,7 +8684,11 @@ def _render_market_data_ranking() -> None:
         col_product, col_period, col_provider = st.columns(3)
         with col_product:
             product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
-            _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
+            _ensure_selectbox_state_value(
+                "market_data_ranking_product_type",
+                product_options,
+                default_value=RANKING_PRODUCT_STOCK,
+            )
             product_type = cast(
                 str,
                 st.selectbox(
@@ -8690,7 +8704,11 @@ def _render_market_data_ranking() -> None:
         col_policy, col_limit = st.columns(2)
         with col_policy:
             policy_options = ranking_policy_options(product_type)
-            _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
+            _ensure_selectbox_state_value(
+                "market_data_ranking_policy",
+                policy_options,
+                default_value=RANKING_PURPOSE_MULTI_FACTOR,
+            )
             st.markdown(
                 '<div class="smai-ranking-policy-select-anchor"></div>',
                 unsafe_allow_html=True,
@@ -8710,7 +8728,11 @@ def _render_market_data_ranking() -> None:
             )
         with col_limit:
             fetch_limit_options = list(RANKING_FETCH_LIMIT_LABELS)
-            _ensure_selectbox_state_value("market_data_ranking_fetch_limit", fetch_limit_options)
+            _ensure_selectbox_state_value(
+                "market_data_ranking_fetch_limit",
+                fetch_limit_options,
+                default_value=RANKING_FETCH_LIMIT_BALANCED,
+            )
             st.markdown(
                 '<div class="smai-ranking-policy-select-anchor"></div>',
                 unsafe_allow_html=True,
@@ -8732,7 +8754,11 @@ def _render_market_data_ranking() -> None:
     with detail_conditions:
         with col_period:
             period_options = list(RANKING_PERIOD_PRESETS)
-            _ensure_selectbox_state_value("market_data_ranking_period", period_options)
+            _ensure_selectbox_state_value(
+                "market_data_ranking_period",
+                period_options,
+                default_value=RANKING_DEFAULT_PERIOD_PRESET,
+            )
             period_preset = cast(
                 str,
                 st.selectbox(

@@ -3925,7 +3925,9 @@ def _selectbox_index(options: list[str], value: str) -> int:
 def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
     value = _ranking_filter_value(key, options[0])
     if value not in options:
-        st.session_state[key] = options[0]
+        value = options[0]
+    if key not in st.session_state or st.session_state.get(key) != value:
+        st.session_state[key] = value
 
 
 def _sync_ranking_policy_state(product_type: str) -> None:
@@ -4076,7 +4078,6 @@ def _render_detail_selectbox(
         st.selectbox(
             label,
             options,
-            index=_selectbox_index(options, _ranking_filter_value(key, default)),
             key=key,
             format_func=cast(Any, format_func),
             help=help_text,
@@ -8413,14 +8414,6 @@ def _render_market_data_cockpit() -> None:
             st.selectbox(
                 "銘柄",
                 symbol_option_labels,
-                index=_selectbox_index(
-                    symbol_option_labels,
-                    str(
-                        st.session_state.get(
-                            "market_data_symbol_candidate", symbol_option_labels[0]
-                        )
-                    ),
-                ),
                 key="market_data_symbol_candidate",
                 placeholder="銘柄コードまたは会社名",
                 format_func=lambda label: favorite_symbol_candidate_display_label(
@@ -8684,11 +8677,7 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "商品",
                     product_options,
-                    index=_selectbox_index(
-                        product_options,
-                        _ranking_filter_value("market_data_ranking_product_type", "stock"),
-                    ),
-                    key="market_data_ranking_product_type",
+                key="market_data_ranking_product_type",
                     format_func=ranking_product_type_label,
                 ),
             )
@@ -8728,10 +8717,6 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "作成対象件数",
                     fetch_limit_options,
-                    index=_selectbox_index(
-                        fetch_limit_options,
-                        _ranking_filter_value("market_data_ranking_fetch_limit", "balanced_300"),
-                    ),
                     key="market_data_ranking_fetch_limit",
                     format_func=ranking_fetch_limit_label,
                     help=(
@@ -8750,13 +8735,6 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "取得期間",
                     period_options,
-                    index=_selectbox_index(
-                        period_options,
-                        _ranking_filter_value(
-                            "market_data_ranking_period",
-                            RANKING_DEFAULT_PERIOD_PRESET,
-                        ),
-                    ),
                     key="market_data_ranking_period",
                     format_func=ranking_period_label,
                     help=RANKING_FILTER_HELP_TEXTS["period"],

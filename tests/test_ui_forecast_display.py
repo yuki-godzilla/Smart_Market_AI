@@ -6383,6 +6383,15 @@ def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
     assert preflight_guard < preflight_start < market_data_guard
 
 
+def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
+    source = inspect.getsource(app_module._render_market_data_ranking)
+    detail_source = inspect.getsource(app_module._render_detail_selectbox)
+
+    assert 'key="market_data_ranking_fetch_limit"' in source
+    assert 'key="market_data_ranking_fetch_limit",\n                    index=' not in source
+    assert "index=_selectbox_index" not in detail_source
+
+
 def test_advanced_forecast_cache_is_not_published_from_failed_batch(monkeypatch):
     cache_calls: list[str] = []
 

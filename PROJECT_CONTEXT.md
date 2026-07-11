@@ -5,17 +5,21 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-10
+Last updated: 2026-07-11
 
 Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
-as a chart-shape-first ranking axis. It combines chart shape 35%, forecast upside 25%,
-downside safety 20%, pullback/stability 10%, and upward material 10%, then applies bounded
-falling-knife, weak-forecast, chase, and dividend-trap penalties. Fatal price-history quality
+as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,
+downside safety 20%, pullback/stability 10%, company/dividend quality 10%, and upward material
+5%, then applies bounded falling-knife, weak-forecast, chase, and dividend-trap penalties.
+The penalty-adjusted score uses a smooth midrange expansion so candidates no longer cluster near
+55 while weak and dangerous candidates remain clearly separated. Fatal price-history quality
 warnings remain unevaluated instead of turning ordinary metadata gaps into score caps. Ranking rows preserve the components,
 shape label, trap warnings, dividend safety, yield-spike flag, and sustainability label across
 ranking display, watchlist snapshots, ranking history, Cockpit context, and Decision Report
-context. The dedicated chart uses adjustment/stability on x, upward potential on y, downside
-safety as color, and data quality as point size. A point-in-time backtest contract calculates
+context. The dedicated chart uses chart-shape strength on x, upward potential on y, downside
+safety as color, and data quality as point size; it selects another varying technical axis or
+falls back to the upward-signal × downside-warning map rather than rendering a fixed-axis line.
+A point-in-time backtest contract calculates
 20/60/120-day returns, maximum drawdown, benchmark return, excess return, success/failure
 summaries, and the four requested CSV/Markdown artifacts without exposing future prices to the
 signal-row builder. Phase 34 live validation now covers 66 previously unused symbols and up to

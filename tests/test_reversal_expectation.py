@@ -65,6 +65,26 @@ def test_reversal_penalties_cover_falling_knife_without_flat_caps():
     assert no_up_models.reversal_expectation_score > Decimal("55")
 
 
+def test_reversal_score_expands_middle_range_without_lifting_dangerous_candidates():
+    middle = calculate_reversal_expectation(
+        _candidate(
+            drawdown_20d="-2",
+            momentum_5d="0",
+            forecast_return_pct="1",
+            up_model_count="2",
+            down_model_count="1",
+        )
+    )
+    stronger = calculate_reversal_expectation(_candidate())
+    dangerous = calculate_reversal_expectation(
+        _candidate(drawdown_20d="-38", momentum_5d="-10", downside_signal_score="86")
+    )
+
+    assert middle.reversal_expectation_score > Decimal("60")
+    assert stronger.reversal_expectation_score > middle.reversal_expectation_score
+    assert dangerous.reversal_expectation_score < Decimal("20")
+
+
 def test_already_rising_candidate_is_penalized_and_total_score_is_not_changed():
     row = _candidate(drawdown_20d="-1", momentum_5d="5")
     result = calculate_reversal_expectation(row)
@@ -84,6 +104,27 @@ def test_reversal_missing_quality_and_model_counts_do_not_force_mass_cap():
 
     assert result.reversal_expectation_score > Decimal("55")
     assert result.reversal_trap_warning == "目立つ警告なし"
+
+
+def test_ranking_keeps_missing_model_evidence_neutral_until_after_scoring():
+    missing = _candidate(symbol="MISSING", forecast_return_pct="0")
+    missing.pop("up_model_count")
+    missing.pop("down_model_count")
+    explicit_zero = _candidate(
+        symbol="ZERO", forecast_return_pct="0", up_model_count="0", down_model_count="0"
+    )
+
+    ranked = apply_ranking_weight_preset(
+        [missing, explicit_zero],
+        RANKING_PRESET_REVERSAL_EXPECTATION,
+        {"MISSING": missing, "ZERO": explicit_zero},
+    )
+
+    missing_row = next(row for row in ranked if row["symbol"] == "MISSING")
+    explicit_zero_row = next(row for row in ranked if row["symbol"] == "ZERO")
+    assert Decimal(missing_row["reversal_expectation_score"]) > Decimal(
+        explicit_zero_row["reversal_expectation_score"]
+    )
 
 
 def test_reversal_low_but_available_data_quality_does_not_change_score():

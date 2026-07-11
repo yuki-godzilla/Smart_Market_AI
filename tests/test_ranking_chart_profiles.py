@@ -84,6 +84,48 @@ def test_reversal_chart_uses_pullback_forecast_and_safety():
     assert selection.color_column == "reversal_safety_score"
 
 
+def test_reversal_chart_uses_next_varied_axis_before_falling_back():
+    rows = [
+        {
+            "銘柄": f"R{index}",
+            "reversal_pullback_score": "30",
+            "20日高値乖離": str(-3 - index),
+            "reversal_forecast_score": str(60 + index),
+            "reversal_safety_score": str(70 + index),
+        }
+        for index in range(3)
+    ]
+
+    selection = ranking_chart_frame(rows, chart_profile_for_purpose("reversal_expectation"))
+
+    assert selection is not None
+    assert selection.profile.key == "reversal_expectation"
+    assert selection.x_column == "20日高値乖離"
+    assert selection.used_fallback is False
+
+
+def test_reversal_chart_falls_back_when_technical_axes_are_fixed():
+    rows = [
+        {
+            "銘柄": f"R{index}",
+            "reversal_pullback_score": "30",
+            "reversal_forecast_score": str(60 + index),
+            "上昇気配": str(55 + index),
+            "下降警戒": str(45 - index),
+            "Risk": str(70 + index),
+        }
+        for index in range(3)
+    ]
+
+    selection = ranking_chart_frame(rows, chart_profile_for_purpose("reversal_expectation"))
+
+    assert selection is not None
+    assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
+    assert selection.x_column == "上昇気配"
+    assert selection.y_column == "下降警戒"
+    assert selection.used_fallback is True
+
+
 def test_ranking_chart_frame_uses_available_primary_profile_columns():
     selection = ranking_chart_frame(_ranking_rows(), chart_profile_for_purpose("multi_factor"))
 

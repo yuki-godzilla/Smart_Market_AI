@@ -8937,14 +8937,15 @@ def test_reversal_condition_card_explains_formula_and_guardrails():
     caps = reversal_expectation_cap_rows()
 
     assert "上向き兆候をひとことで" in markup
-    assert "チャート形状 35%" in markup
+    assert "チャート形状 30%" in markup
     assert "予測上向き余地 25%" in markup
     assert "上限固定ではなく段階的に減点" in markup
     assert [row["配点"] for row in components] == [
-        "35%",
+        "30%",
         "25%",
         "20%",
         "10%",
+        "5%",
         "10%",
     ]
     assert next(row for row in pullbacks if row["基礎点"] == "90")["20日高値からの下落"] == (

@@ -5043,7 +5043,8 @@ def _render_ranking_condition_card(
             )
             st.caption(
                 "最後に、上向き兆候 → 下落安全性 → 予測変化率 → 下降警戒の低さ → "
-                "AI総合 → 銘柄コードの順で並べます。AI総合スコア自体は変更しません。"
+                "AI総合 → 銘柄コードの順で並べます。危険条件を減点した後、50点付近の差が"
+                "読み取りやすくなるよう0〜100点へ滑らかに広げます。AI総合スコア自体は変更しません。"
             )
 
 
@@ -5051,7 +5052,7 @@ def reversal_expectation_component_rows() -> list[dict[str, str]]:
     return [
         {
             "評価要素": "チャート形状",
-            "配点": "35%",
+            "配点": "30%",
             "初心者向けの意味": "狙う形に近い下げ方か",
             "主な材料": "押し目の深さ、短期騰落、底打ち・安値更新",
             "計算の要点": "押し目、底打ち、横ばい上放れ、蓄積準備の最大値で形状を評価",
@@ -5079,10 +5080,17 @@ def reversal_expectation_component_rows() -> list[dict[str, str]]:
         },
         {
             "評価要素": "上向き材料",
-            "配点": "10%",
+            "配点": "5%",
             "初心者向けの意味": "戻りを後押しする材料があるか",
             "主な材料": "調査・ニュース材料、予測方向、上昇余地",
             "計算の要点": "材料スコアを優先し、なければ予測情報で補完",
+        },
+        {
+            "評価要素": "企業・データ品質",
+            "配点": "10%",
+            "初心者向けの意味": "企業情報と配当維持力に弱さがないか",
+            "主な材料": "スクリーニング、登録情報、配当安全性",
+            "計算の要点": "データ品質は魅力度に加点せず、未評価判定と確認表示に使う",
         },
     ]
 
@@ -5143,8 +5151,8 @@ def _ranking_condition_card_html(
         "上向きに変わる兆しを探します。買い時や底打ち確定を示すものではありません。"
         "<br>上昇気配は、すでに上向きの強さが出ている銘柄を評価します。"
         "<br><br><strong>計算式</strong><br>"
-        "チャート形状 35% ＋ 予測上向き余地 25% ＋ 下落安全性 20% ＋ "
-        "押し目・安定度 10% ＋ 上向き材料 10%。"
+        "チャート形状 30% ＋ 予測上向き余地 25% ＋ 下落安全性 20% ＋ "
+        "押し目・安定度 10% ＋ 企業・配当品質 10% ＋ 上向き材料 5%。"
         "データ品質は原則スコアに入れず、価格データ不足など致命的な場合だけ未評価にします。"
         "急落・高い下降警戒などは上限固定ではなく段階的に減点します。"
         "</div>"
@@ -22872,6 +22880,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_pullback_score": row.get("reversal_pullback_score", ""),
                 "reversal_quality_score": row.get("reversal_quality_score", ""),
                 "reversal_material_score": row.get("reversal_material_score", ""),
+                "チャート形状評価": row.get("reversal_chart_shape_score", ""),
                 "reversal_pullback_depth": _absolute_numeric_text(row.get("drawdown_20d", "")),
                 "調整/安定度": _absolute_numeric_text(row.get("drawdown_20d", "")),
                 "調整度スコア": row.get("reversal_pullback_score", ""),

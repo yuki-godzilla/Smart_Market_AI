@@ -53,11 +53,18 @@ PROFILE_REVERSAL_EXPECTATION = "reversal_expectation"
 RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
     PROFILE_REVERSAL_EXPECTATION: RankingChartProfile(
         key=PROFILE_REVERSAL_EXPECTATION,
-        x_candidates=("調整/安定度", "reversal_pullback_score", "20日高値乖離"),
+        x_candidates=(
+            "チャート形状評価",
+            "reversal_chart_shape_score",
+            "調整度スコア",
+            "reversal_pullback_score",
+            "調整/安定度",
+            "20日高値乖離",
+        ),
         y_candidates=("上向き余地", "reversal_forecast_score", "上向き兆候"),
         color_candidates=("下落安全性", "reversal_safety_score"),
         size_candidates=("データ品質", "data_quality_score"),
-        fallback_key=PROFILE_SCORE_RISK,
+        fallback_key=PROFILE_UPSIDE_DOWNSIDE,
         **RANKING_CHART_PROFILE_TEXTS[PROFILE_REVERSAL_EXPECTATION],
     ),
     PROFILE_SCORE_RISK: RankingChartProfile(
@@ -242,31 +249,28 @@ def _ranking_chart_frame(
     if profile.key in visited:
         return None
     visited.add(profile.key)
-    x_column = _first_numeric_column(display_rows, profile.x_candidates, min_rows=min_rows)
-    y_column = _first_numeric_column(display_rows, profile.y_candidates, min_rows=min_rows)
-    if x_column and y_column:
-        color_column = _first_present_column(display_rows, profile.color_candidates)
-        size_column = _first_numeric_column(
-            display_rows, profile.size_candidates, min_rows=min_rows
-        )
-        frame = _profile_frame(
-            display_rows,
-            x_column=x_column,
-            y_column=y_column,
-            color_column=color_column,
-            size_column=size_column,
-        )
-        frame = frame.dropna(subset=["x_value", "y_value"])
-        if len(frame) >= min_rows and _frame_has_profile_variation(frame, profile):
-            return RankingChartSelection(
-                profile=profile,
-                frame=frame,
+    color_column = _first_present_column(display_rows, profile.color_candidates)
+    size_column = _first_numeric_column(display_rows, profile.size_candidates, min_rows=min_rows)
+    for x_column in _numeric_columns(display_rows, profile.x_candidates, min_rows=min_rows):
+        for y_column in _numeric_columns(display_rows, profile.y_candidates, min_rows=min_rows):
+            frame = _profile_frame(
+                display_rows,
                 x_column=x_column,
                 y_column=y_column,
                 color_column=color_column,
                 size_column=size_column,
-                used_fallback=used_fallback,
             )
+            frame = frame.dropna(subset=["x_value", "y_value"])
+            if len(frame) >= min_rows and _frame_has_profile_variation(frame, profile):
+                return RankingChartSelection(
+                    profile=profile,
+                    frame=frame,
+                    x_column=x_column,
+                    y_column=y_column,
+                    color_column=color_column,
+                    size_column=size_column,
+                    used_fallback=used_fallback,
+                )
     if profile.fallback_key:
         fallback = RANKING_CHART_PROFILES[profile.fallback_key]
         return _ranking_chart_frame(
@@ -284,12 +288,14 @@ def _frame_has_visual_variation(frame: pd.DataFrame) -> bool:
 
 
 def _frame_has_profile_variation(frame: pd.DataFrame, profile: RankingChartProfile) -> bool:
-    if profile.key == PROFILE_UPSIDE_DOWNSIDE:
-        return (
-            frame["x_value"].nunique(dropna=True) >= 2
-            and frame["y_value"].nunique(dropna=True) >= 2
-        )
-    return _frame_has_visual_variation(frame)
+    _ = profile
+    # A scatter map with a fixed axis is a misleading line rather than a
+    # two-dimensional comparison. Require both axes to carry information, then
+    # try the profile's next candidates or its purpose-specific fallback.
+    return (
+        frame["x_value"].nunique(dropna=True) >= 2
+        and frame["y_value"].nunique(dropna=True) >= 2
+    )
 
 
 def _first_numeric_column(
@@ -303,6 +309,19 @@ def _first_numeric_column(
         if sum(value is not None for value in values) >= min_rows:
             return column
     return None
+
+
+def _numeric_columns(
+    rows: list[dict[str, str]],
+    candidates: tuple[str, ...],
+    *,
+    min_rows: int,
+) -> tuple[str, ...]:
+    return tuple(
+        column
+        for column in candidates
+        if sum(_numeric_value(row.get(column, "")) is not None for row in rows) >= min_rows
+    )
 
 
 def _first_present_column(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
+from math import exp
 from typing import Mapping
 
 
@@ -85,11 +86,12 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
     material = _material_score(row, forecast_return, up_models, upside)
 
     raw = (
-        chart_shape * Decimal("0.35")
+        chart_shape * Decimal("0.30")
         + forecast * Decimal("0.25")
         + safety * Decimal("0.20")
         + pullback * Decimal("0.10")
-        + material * Decimal("0.10")
+        + quality * Decimal("0.10")
+        + material * Decimal("0.05")
     )
 
     if _data_is_insufficient(row):
@@ -115,7 +117,7 @@ def calculate_reversal_expectation(row: Mapping[str, object]) -> ReversalExpecta
         ]
         penalty_cap = Decimal("45") if price_action_penalty >= Decimal("25") else Decimal("35")
         total_penalty = min(sum(penalties, Decimal("0")), penalty_cap)
-        score = _clamp(raw - total_penalty).quantize(Decimal("0.01"))
+        score = _readable_score(raw - total_penalty)
         trap_warning = _trap_warning(
             shape_label,
             downside,
@@ -358,14 +360,15 @@ def _safety_score(row: Mapping[str, object], downside: Decimal, risk: Decimal) -
 def _quality_score(
     row: Mapping[str, object], data_quality: Decimal, dividend_safety: Decimal
 ) -> Decimal:
+    # Reliability metadata remains a confirmation aid, not an attractiveness
+    # boost. Use it only as a neutral fallback when no company fields exist.
     screening = _number(row, "screening_score", default=data_quality)
     database_fit = _number(row, "database_fit_score", default=data_quality)
     metadata = _number(row, "metadata_confidence_score", default=data_quality)
     business_quality = _clamp(
-        screening * Decimal("0.35")
-        + data_quality * Decimal("0.35")
-        + database_fit * Decimal("0.15")
-        + metadata * Decimal("0.15")
+        screening * Decimal("0.50")
+        + database_fit * Decimal("0.25")
+        + metadata * Decimal("0.25")
     )
     yield_pct = _yield_percent(row)
     if yield_pct < 3:
@@ -473,6 +476,20 @@ def _pullback_score(drawdown: Decimal, momentum: Decimal) -> Decimal:
     elif momentum > 5:
         points -= 15
     return _clamp(points)
+
+
+def _readable_score(raw_score: Decimal) -> Decimal:
+    """Expand the crowded middle of the score scale without flattening warnings.
+
+    The component score is intentionally conservative: candidates with only a
+    modest difference in forecast or safety tended to collect around 50--60.
+    A centred logistic curve gives those differences a visible 0--100 score
+    while preserving the order and naturally keeping very weak candidates low.
+    Critical data blocks are handled before this conversion.
+    """
+    bounded = _clamp(raw_score)
+    scaled = Decimal(str(100 / (1 + exp(-(float(bounded) - 50) / 10))))
+    return _clamp(scaled).quantize(Decimal("0.01"))
 
 
 def _model_direction_score(up: Decimal, down: Decimal) -> Decimal:

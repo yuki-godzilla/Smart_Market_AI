@@ -2076,11 +2076,15 @@ def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
         enriched["upside_signal_score"] = _format_score(upside or neutral_direction)
     if not enriched.get("downside_signal_score"):
         enriched["downside_signal_score"] = _format_score(downside or Decimal("50"))
+    # Leave absent forecast/model evidence absent during score calculation.
+    # `calculate_reversal_expectation` treats absence as neutral, whereas an
+    # explicit zero is a meaningful negative observation. The display values
+    # are filled after scoring for backward-compatible table rendering.
+    enriched.update(calculate_reversal_expectation(enriched).as_row())
     if not enriched.get("forecast_return_pct"):
         enriched["forecast_return_pct"] = "0"
     if not enriched.get("up_model_count"):
         enriched["up_model_count"] = "0"
-    enriched.update(calculate_reversal_expectation(enriched).as_row())
     if not enriched.get("down_model_count"):
         enriched["down_model_count"] = "0"
     if not enriched.get("flat_model_count"):

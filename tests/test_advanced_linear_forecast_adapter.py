@@ -5,8 +5,8 @@ import pytest
 
 from backend.core.data_contracts import Bar, Symbol
 from backend.forecast import (
-    ADVANCED_LINEAR_CLIP_VERSION,
     ADVANCED_LINEAR_ADAPTER_NAME,
+    ADVANCED_LINEAR_CLIP_VERSION,
     SUPPORTED_ADVANCED_LINEAR_HORIZONS,
     AdvancedLinearForecastAdapter,
     NaiveForecastModel,

@@ -10,6 +10,7 @@ from pathlib import Path
 from time import sleep
 from typing import Final
 
+from backend.server_ops.maintenance import maintenance_operation
 from backend.symbols.cache import SYMBOL_CACHE_DIR
 from backend.symbols.cache_sync import (
     prune_symbol_metrics_against_universe,
@@ -20,7 +21,6 @@ from backend.symbols.logging_utils import configure_symbol_refresh_logger
 from backend.symbols.metrics_repository import SYMBOL_METRICS_DIR
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN
 from backend.symbols.startup import SYMBOL_UNIVERSE_CSV, run_symbol_database_startup_refresh
-from backend.server_ops.maintenance import maintenance_operation
 
 
 @dataclass(frozen=True)

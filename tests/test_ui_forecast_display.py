@@ -6383,46 +6383,24 @@ def test_ranking_cache_caps_are_bounded_for_server_memory() -> None:
     assert app_module.MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS == 2_000
 
 
-def test_ranking_build_job_state_blocks_restore_only_while_running():
-    cache_key = "test-running-ranking-build"
-
-    app_module.begin_ranking_build(cache_key)
-    assert app_module.ranking_build_is_running(cache_key)
-
-    app_module.complete_ranking_build(cache_key)
-    assert not app_module.ranking_build_is_running(cache_key)
-
-    app_module.begin_ranking_build(cache_key)
-    app_module.fail_ranking_build(cache_key)
-    assert not app_module.ranking_build_is_running(cache_key)
-
-
-def test_ranking_build_job_exposes_reconnect_progress() -> None:
-    cache_key = "test-reconnecting-ranking-build"
-
-    app_module.begin_ranking_build(cache_key)
-    app_module.update_ranking_build_progress(
-        cache_key,
-        message="銘柄別に取得しています (120/300)。",
-        ratio=0.4,
-    )
-
-    job = app_module._ranking_build_jobs()[cache_key]
-    assert job == {
-        "status": "running",
-        "message": "銘柄別に取得しています (120/300)。",
-        "ratio": 0.4,
-    }
-
-
 def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
-    source = inspect.getsource(app_module._render_market_data_ranking)
+    source = inspect.getsource(app_module._execute_market_data_ranking_job)
 
     preflight_start = source.index("_run_symbol_database_preflight_refresh(")
     preflight_guard = source.index('maintenance_operation("ranking_build_preflight")')
     market_data_guard = source.index('maintenance_operation("ranking_build")')
 
     assert preflight_guard < preflight_start < market_data_guard
+
+
+def test_ranking_render_starts_session_independent_background_job():
+    render_source = inspect.getsource(app_module._render_market_data_ranking)
+    worker_source = inspect.getsource(app_module._execute_market_data_ranking_job)
+
+    assert "start_ranking_job(" in render_source
+    assert "asyncio.run(" not in render_source
+    assert "asyncio.run(" in worker_source
+    assert "st.session_state" not in worker_source
 
 
 def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
@@ -6516,6 +6494,36 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
     assert set(released_symbols) == set(symbols)
     assert len(rows) == len(symbols)
     assert errors == []
+
+
+def test_large_live_ranking_continues_after_one_unexpected_cohort_failure(monkeypatch):
+    calls = 0
+
+    async def fake_fast(symbols, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ValueError("unexpected provider payload")
+        return ([{"symbol": symbol} for symbol in symbols], [])
+
+    monkeypatch.setattr(app_module, "_build_market_data_ranking_rows_fast", fake_fast)
+    monkeypatch.setattr(app_module, "_release_ranking_cohort_cache", lambda *_: None)
+    symbols = [f"{index:04d}.T" for index in range(250)]
+
+    rows, errors = asyncio.run(
+        app_module._build_market_data_ranking_rows(
+            symbols,
+            start=date(2023, 1, 1),
+            end=date(2026, 1, 1),
+            provider="yahoo",
+        )
+    )
+
+    assert len(rows) == 150
+    assert len(errors) == 1
+    assert errors[0]["code"] == "APP-2000"
+    assert "unexpected provider payload" not in errors[0]["details"]
+    assert "ValueError" in errors[0]["details"]
 
 
 def test_large_ranking_releases_only_completed_cohort_caches(monkeypatch):

@@ -52,12 +52,15 @@ SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring
 and a fail-closed 24-hour SMAI service-restart manager. Scheduled startup uses a
 resilient Windows process group so a console interrupt cannot stop the shared server.
 Production startup disables Streamlit run-on-save reloads so source edits do not
-discard active ranking sessions. Large live rankings keep one continuous workflow,
-use bounded 25-symbol Yahoo fetch batches with per-symbol fallback, and keep completed
-builds in a process-wide cache so reconnecting sessions can restore the
-same-condition result. Same-day OHLCV, fundamentals, and advanced forecast outputs
-are reused; fundamentals use four-way async concurrency and advanced forecasts use
-up to two local worker threads.
+discard active ranking sessions. Ranking creation now runs in a process-wide daemon
+job rather than the Streamlit screen execution, so mobile disconnects, reconnects,
+and reruns do not cancel the calculation. Reconnecting sessions poll the same job and
+adopt its completed rows. Large live rankings use bounded 100-symbol pipeline cohorts
+and 25-symbol Yahoo fetch batches with per-symbol fallback; an unexpected cohort error
+is sanitized and isolated instead of discarding later cohorts. Same-day OHLCV,
+fundamentals, and advanced forecast outputs are reused; optional fundamentals use
+four-way async concurrency, a 15-second per-symbol timeout, and per-symbol exception
+isolation. Advanced forecasts use up to two local worker threads.
 Connected Streamlit sessions
 publish one-minute heartbeats; background news/symbol refreshes publish busy markers;
 file locks and unreadable state defer restart. A 30-second UI notice is followed by
@@ -139,7 +142,7 @@ and Tailscale behavior still require the documented manual device check.
 
 Phase 31-SDB Screening DB Reliability is implemented as a backward-compatible DB quality slice. The symbol metadata schema now accepts separate official-industry / SMAI-theme fields, SBI/NISA confirmation states, ETF asset-class/AUM/average-volume fields, and per-metric source/as-of/quality metadata without requiring new columns in existing CSVs. Yahoo metadata refresh can fill missing values only and preserves existing canonical values; unavailable values remain null. `symbol_universe_quality_report.json` provides network-free total, region, product, Japan-stock, US-stock, and ETF coverage. The 2026-06-22 deterministic screening backfill fills JPX official `tse_33_industry` / `topix_17` for 3,746 Japan-stock rows and one-to-one mappable `sector_gics` for 3,662 US-stock rows, while keeping ambiguous consumer GICS splits blank. Ranking/Cockpit UI now separates `業種・セクター` from SMAI `投資テーマ`; theme filtering uses `theme` / `smai_theme_tags`, and official-sector filtering uses `sector` / GICS / JPX fields. Ranking UI now calls the `risk_band` filter `値動きリスク` instead of presenting the band as an exact beta value. Phase 31-SDB operational maintenance on 2026-06-26 added deterministic provenance normalization via `tools/normalize_symbol_universe_quality.py`, a reviewed patch workflow via `tools/export_symbol_universe_metadata_gaps.py` and `tools/apply_symbol_universe_metadata_patch.py`, and chunked weak-Asia refresh auditing that records `no_update_symbols`, `unchanged_update_symbols`, and batch `no_update_symbols.csv` outputs. Live backfill remains explicit opt-in and Execution/Broker scope remains deferred.
 
-Cockpit market-data fetch, Research update, and Investment Radar news refresh now share a blocking SMAI workflow loading surface with current step, progress, and cache-only `市場トピック`. Ranking creation uses the same visual as an inline card below its progress bar so the existing screen is not visually blocked; true interactive background ranking remains follow-up because ranking creation is still synchronous. Investment Radar headlines now show four unique items at a time in a two-by-two board, rotate every six seconds, pause on hover, support manual page dots, and stop motion under reduced-motion preferences.
+Cockpit market-data fetch, Research update, and Investment Radar news refresh now share a blocking SMAI workflow loading surface with current step, progress, and cache-only `市場トピック`. Ranking creation uses the same visual as an inline card, but its calculation is owned by a process-wide background job and remains active across mobile reconnects and Streamlit reruns. Investment Radar headlines now show four unique items at a time in a two-by-two board, rotate every six seconds, pause on hover, support manual page dots, and stop motion under reduced-motion preferences.
 
 Performance profile first slices are implemented with `SMAI_PERFORMANCE_PROFILE=notebook|workstation`. The profile controls Research RAG external fetch concurrency, provider request timeout, global timeout, HTTP retry/backoff for EDINET / TDnet / company IR / Google News RSS, provider-to-profile source mapping, and source-level latest fetch summaries through `DefaultExternalResearchAdapter`. Global timeout returns available partial results and records unfinished providers as `timeout` in `ExternalResearchFetchResult.provider_statuses`; Cockpit shows the provider status chips/warnings, and Streamlit `設定 / データ情報` shows the active profile plus the latest source summary using stable table rendering. MarketData now defaults to the configured provider, and the product default is Yahoo live data across API / Cockpit / Ranking / related UI screens. `per_source_workers` has a Research source-limiter entry point, but adapter-internal URL/page parallelism is still deferred. News dashboard refresh, Symbol DB background refresh, Yahoo/yfinance timeout integration, and processing worker settings remain follow-up scope.
 

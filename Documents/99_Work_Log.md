@@ -4586,3 +4586,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `backend/llm_factor/material_evaluation.py` に、point-in-time top候補のLLM材料レビューを評価するstrict contract、false positive / positive候補維持率 / adverse material・dividend trapラベル / latency / failure / cache hit集計、保守的な採用判断を追加。
 - 良好な評価でも採用判断は材料バッジ限定候補までとし、rank / score correctionはcontract上常にfalseに固定。live LLM、外部材料取得、通常Ranking、UIは変更していない。
 - `tools/evaluate_llm_material_assessment.py` がラベル付きCSVを検証して、Phase 36で定義した5つのMarkdown/CSV成果物を生成する。fixtureベースの24 test、Ruff、対象Black helperを確認した。
+
+## 2026-07-11: ランキング作成中断の根本修正
+
+- 22:42の484銘柄実行はserver restartではなく、72.662秒・fundamental 2/5 cohort付近で `ranking.create=failed` になったことをaudit logで確認。従来はランキング計算全体がStreamlit画面実行に直結し、mobile reconnect / rerun / session終了と任意fundamental例外の双方で全結果を失う構造だった。
+- `ui/ranking_jobs.py` にprocess-wide daemon job registryを追加し、ランキング計算・progress・完成行・失敗型を画面sessionから分離。同条件の再接続sessionは同じjobを監視し、完了結果を採用する。失敗ログはprovider raw messageを残さず、例外型とcode位置だけを記録する。
+- optional fundamentalsを最大4並列・1銘柄15秒timeout・全Exceptionの銘柄単位fallbackへ変更。100銘柄cohortの想定外例外はそのcohortだけをsanitized errorにし、後続cohortと通常ランキングを継続する。advanced forecastもoptional enrichmentとして想定外例外で通常結果を破棄しない。
+- session-independent worker、reconnect時job共有、sanitized failure、unexpected fundamental、cohort継続をnetwork-free testで固定。関連400 test中397件pass、残る3件は既存watchlist fixture・旧文言・旧`signal-v4`期待値で今回差分外。

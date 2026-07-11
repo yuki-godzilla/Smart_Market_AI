@@ -41,7 +41,7 @@ from backend.core.data_contracts import (
     FundamentalSnapshot,
     Quote,
 )
-from backend.core.errors import AppError
+from backend.core.errors import AppError, DataSourceError, ProviderTimeoutError
 from backend.forecast import forecast_model_display_name
 from backend.forecast.batch import evaluate_advanced_forecasts_for_symbol
 from backend.interpretation import (
@@ -324,6 +324,10 @@ from ui.ranking_history import (
     save_ranking_history_for_current_user,
     synchronize_ranking_history_user,
 )
+from ui.ranking_jobs import (
+    RankingProgressCallback as BackgroundRankingProgressCallback,
+)
+from ui.ranking_jobs import get_ranking_job, ranking_job_is_running, start_ranking_job
 from ui.ranking_presenter import (
     compact_confidence_summary as _ranking_compact_confidence_summary,
 )
@@ -489,7 +493,10 @@ RANKING_PIPELINE_COHORT_SIZE = 100
 RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT = 25
 RANKING_CLIENT_SESSION_TOUCH_STATE_KEY = "market_data_ranking_client_session_touched_at"
 RANKING_CLIENT_SESSION_TOUCH_INTERVAL_SECONDS = 300.0
+RANKING_JOB_ADOPTED_STATE_KEY = "market_data_ranking_background_job_adopted"
+RANKING_JOB_HISTORY_PENDING_STATE_KEY = "market_data_ranking_background_job_history_pending"
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
+RANKING_FUNDAMENTAL_TIMEOUT_SECONDS = 15.0
 RANKING_ADVANCED_FORECAST_MAX_WORKERS = 4
 MAX_RANKING_OHLCV_CACHE_SYMBOLS = 500
 MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 1_000
@@ -2320,6 +2327,7 @@ def _run_symbol_database_preflight_refresh(
     *,
     context: Literal["cockpit", "ranking"],
     max_items: int,
+    update_session_state: bool = True,
 ) -> SymbolStartupRefreshSummary | None:
     max_symbols = RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT if context == "ranking" else max_items
     target_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
@@ -2336,10 +2344,12 @@ def _run_symbol_database_preflight_refresh(
             sync_symbol_cache_to_official_metrics(max_items=max_items, symbols=target_symbols)
         except Exception:  # noqa: BLE001 - metric promotion must not block data fetch.
             pass
-        st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
+        if update_session_state:
+            st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
         return summary
     except Exception as exc:  # noqa: BLE001
-        st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
+        if update_session_state:
+            st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
         return None
 
 
@@ -8838,7 +8848,7 @@ def _render_market_data_ranking() -> None:
             "ランキング作成",
             key="build_market_data_ranking",
             type="primary",
-            disabled=not ranking_symbols,
+            disabled=(not ranking_symbols or ranking_job_is_running(current_ranking_source)),
             use_container_width=True,
         )
     with action_summary_col:
@@ -8861,76 +8871,31 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
-        if ranking_build_is_running(cache_key):
-            st.info(
-                "同じ条件のランキングを別の実行で作成中です。"
-                "完了するまで条件を変えずにお待ちください。"
-            )
-            return
         _touch_ranking_client_session(force=True)
-        begin_ranking_build(cache_key)
-        loading_slot = st.empty()
-        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
-            max_items=4
+        start_ranking_job(
+            cache_key,
+            lambda progress: _execute_market_data_ranking_job(
+                cache_key=cache_key,
+                ranking_symbols=list(ranking_symbols),
+                start=start_date,
+                end=end_date,
+                provider=provider,
+                progress_callback=progress,
+            ),
         )
+        st.rerun()
 
-        def update_progress(message: str, ratio: float) -> None:
-            _touch_ranking_client_session()
-            update_ranking_build_progress(cache_key, message=message, ratio=ratio)
-            loading_slot.markdown(
-                workflow_loading_html(
-                    title="ランキングを作成中",
-                    message=(
-                        "既存の結果を残したまま、候補ごとの価格データと比較材料を整理しています。"
-                    ),
-                    current_step=message,
-                    progress=ratio,
-                    mode="inline",
-                    headlines=loading_headlines,
-                    headline_note=loading_headline_note,
-                ),
-                unsafe_allow_html=True,
-            )
+    _render_ranking_background_job(current_ranking_source)
 
-        try:
-            update_progress("ランキング対象と取得条件を確認しています。", 0.04)
-            cached_build = get_cached_ranking_build(cache_key)
-            if cached_build is not None and cached_build[0]:
-                rows, error_rows = cached_build
-                update_progress("同じ条件の完成済みランキングを再利用しています。", 0.98)
-            else:
-                # The preflight can also be long for a large universe. Keep it
-                # visible to the maintenance watcher before market-data work starts.
-                with maintenance_operation("ranking_build_preflight"):
-                    _run_symbol_database_preflight_refresh(
-                        ranking_symbol_db_preflight_symbols(ranking_symbols),
-                        context="ranking",
-                        max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
-                    )
-                with maintenance_operation("ranking_build"):
-                    rows, error_rows = asyncio.run(
-                        _build_market_data_ranking_rows(
-                            ranking_symbols,
-                            start=start_date,
-                            end=end_date,
-                            provider=provider,
-                            progress_callback=update_progress,
-                        )
-                    )
-            update_progress("ランキング更新が完了しました。", 1.0)
-        except BaseException:
-            fail_ranking_build(cache_key)
-            raise
-        finally:
-            loading_slot.empty()
-        set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
-        complete_ranking_build(cache_key)
-        st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
-        st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
-        st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
-        st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
-            "%Y-%m-%d %H:%M"
-        )
+    completed_job = get_ranking_job(current_ranking_source)
+    history_pending_job_id = str(st.session_state.get(RANKING_JOB_HISTORY_PENDING_STATE_KEY) or "")
+    if (
+        completed_job is not None
+        and completed_job.status == "completed"
+        and completed_job.job_id == history_pending_job_id
+    ):
+        st.session_state.pop(RANKING_JOB_HISTORY_PENDING_STATE_KEY, None)
+        rows = completed_job.rows
         if rows:
             try:
                 history_ranked_rows = apply_ranking_weight_preset(
@@ -8982,18 +8947,10 @@ def _render_market_data_ranking() -> None:
     if ranking_filter_dialog_is_open():
         st.caption("探索条件モーダルを表示中です。ランキング結果の再描画はスキップしています。")
         return
-    running_build = _ranking_build_jobs().get(current_ranking_source, {})
-    if running_build.get("status") == "running":
-        message = str(running_build.get("message") or "ランキングを作成しています。")
-        ratio = float(running_build.get("ratio") or 0.0)
-        st.info(
-            f"同じ条件のランキングを作成中です。{message} "
-            f"（{max(0, min(100, round(ratio * 100)))}%）"
-        )
     if (
         not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY)
         and current_ranking_source
-        and not ranking_build_is_running(current_ranking_source)
+        and not ranking_job_is_running(current_ranking_source)
     ):
         cached_build = get_cached_ranking_build(current_ranking_source)
         if cached_build is not None:
@@ -9861,6 +9818,21 @@ async def _build_large_market_data_ranking_rows(
         except AppError as exc:
             cohort_rows = []
             cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
+        except Exception as original_exc:  # noqa: BLE001 - keep later cohorts usable.
+            cohort_rows = []
+            cohort_errors = ranking_provider_error_rows(
+                provider,
+                cohort,
+                DataSourceError(
+                    "ランキングの一部候補を処理できませんでした。",
+                    details={
+                        "operation": "ranking_build_cohort",
+                        "cohort": cohort_index + 1,
+                        "cohort_count": len(cohorts),
+                        "error_type": type(original_exc).__name__,
+                    },
+                ),
+            )
         rows.extend(cohort_rows)
         error_rows.extend(cohort_errors)
         retained_top_rows = rank_investment_score_rows(
@@ -9910,7 +9882,7 @@ async def _build_large_market_data_ranking_rows(
             provisional_rows,
             advanced_fields_by_symbol,
         )
-    except AppError:
+    except Exception:  # noqa: BLE001 - advanced forecast is optional enrichment.
         pass
     finally:
         _release_ranking_cohort_cache(provider, advanced_symbols)
@@ -10318,7 +10290,8 @@ async def _fetch_ranking_fundamentals_tolerant(
         display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
             async with semaphore:
-                fetched = await adapter.fetch_fundamentals([provider_symbol], as_of=as_of)
+                async with asyncio.timeout(RANKING_FUNDAMENTAL_TIMEOUT_SECONDS):
+                    fetched = await adapter.fetch_fundamentals([provider_symbol], as_of=as_of)
             _cache_ranking_fundamentals(
                 provider,
                 provider_symbol,
@@ -10326,7 +10299,26 @@ async def _fetch_ranking_fundamentals_tolerant(
                 as_of=as_of,
             )
             return fetched, []
+        except TimeoutError:
+            exc = ProviderTimeoutError(
+                "ファンダメンタル情報の取得がタイムアウトしました。",
+                details={
+                    "operation": "ranking_fetch_fundamentals",
+                    "symbol": provider_symbol,
+                },
+            )
+            return [], ranking_provider_error_rows(provider, display_symbols, exc)
         except AppError as exc:
+            return [], ranking_provider_error_rows(provider, display_symbols, exc)
+        except Exception as original_exc:  # noqa: BLE001 - fundamentals are optional.
+            exc = DataSourceError(
+                "ファンダメンタル情報を利用できませんでした。",
+                details={
+                    "operation": "ranking_fetch_fundamentals",
+                    "symbol": provider_symbol,
+                    "error_type": type(original_exc).__name__,
+                },
+            )
             return [], ranking_provider_error_rows(provider, display_symbols, exc)
 
     results = await asyncio.gather(*(fetch_one(symbol) for symbol in provider_symbols))
@@ -10424,6 +10416,90 @@ def _ranking_bars_by_symbol(
 RankingProgressCallback = Callable[[str, float], None]
 
 
+def _execute_market_data_ranking_job(
+    *,
+    cache_key: str,
+    ranking_symbols: list[str],
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: BackgroundRankingProgressCallback,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Run a ranking without reading or writing Streamlit session state."""
+
+    progress_callback("ランキング対象と取得条件を確認しています。", 0.04)
+    cached_build = get_cached_ranking_build(cache_key)
+    if cached_build is not None and cached_build[0]:
+        rows, error_rows = cached_build
+        progress_callback("同じ条件の完成済みランキングを再利用しています。", 0.98)
+    else:
+        with maintenance_operation("ranking_build_preflight"):
+            _run_symbol_database_preflight_refresh(
+                ranking_symbol_db_preflight_symbols(ranking_symbols),
+                context="ranking",
+                max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
+                update_session_state=False,
+            )
+        with maintenance_operation("ranking_build"):
+            rows, error_rows = asyncio.run(
+                _build_market_data_ranking_rows(
+                    ranking_symbols,
+                    start=start,
+                    end=end,
+                    provider=provider,
+                    progress_callback=progress_callback,
+                )
+            )
+    set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
+    progress_callback("ランキング更新が完了しました。", 1.0)
+    return rows, error_rows
+
+
+@st.fragment(run_every=2)
+def _render_ranking_background_job(cache_key: str) -> None:
+    """Poll and adopt a process-wide ranking from any browser session."""
+
+    if not cache_key:
+        return
+    job = get_ranking_job(cache_key)
+    if job is None:
+        return
+    if job.status == "running":
+        st.markdown(
+            workflow_loading_html(
+                title="ランキングを作成中",
+                message=("画面を閉じたり通信が切り替わっても、サーバー側で作成を継続します。"),
+                current_step=job.message,
+                progress=job.ratio,
+                mode="inline",
+                headlines=workflow_loading_headlines_from_cache(max_items=4)[0],
+                headline_note="取得済みの市場トピックを表示しています。",
+            ),
+            unsafe_allow_html=True,
+        )
+        return
+    if job.status == "failed":
+        error_suffix = f"（{job.error_type}）" if job.error_type else ""
+        st.error(
+            "ランキング作成が途中で終了しました。条件は保持されています。"
+            f"もう一度実行してください。{error_suffix}"
+        )
+        return
+    adopted = str(st.session_state.get(RANKING_JOB_ADOPTED_STATE_KEY) or "")
+    if adopted == job.job_id:
+        st.success("ランキング作成が完了しました。")
+        return
+    st.session_state[MARKET_DATA_RANKING_STATE_KEY] = job.rows
+    st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = job.error_rows
+    st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
+    st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
+        "%Y-%m-%d %H:%M"
+    )
+    st.session_state[RANKING_JOB_ADOPTED_STATE_KEY] = job.job_id
+    st.session_state[RANKING_JOB_HISTORY_PENDING_STATE_KEY] = job.job_id
+    st.rerun()
+
+
 def _touch_ranking_client_session(*, force: bool = False) -> bool:
     now = perf_time.monotonic()
     previous = st.session_state.get(RANKING_CLIENT_SESSION_TOUCH_STATE_KEY, 0.0)
@@ -10469,48 +10545,6 @@ def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
 @st.cache_resource(show_spinner=False)
 def _ranking_build_cache_accessed_at() -> dict[str, float]:
     return {}
-
-
-@st.cache_resource(show_spinner=False)
-def _ranking_build_jobs() -> dict[str, dict[str, object]]:
-    """Track ranking work across Streamlit reconnects in this server process."""
-
-    return {}
-
-
-def begin_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "running",
-        "message": "ランキング対象と取得条件を確認しています。",
-        "ratio": 0.0,
-    }
-
-
-def update_ranking_build_progress(cache_key: str, *, message: str, ratio: float) -> None:
-    job = _ranking_build_jobs().get(cache_key)
-    if job is None or job.get("status") != "running":
-        return
-    job.update({"message": message, "ratio": max(0.0, min(1.0, ratio))})
-
-
-def ranking_build_is_running(cache_key: str) -> bool:
-    return _ranking_build_jobs().get(cache_key, {}).get("status") == "running"
-
-
-def complete_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "completed",
-        "message": "ランキング更新が完了しました。",
-        "ratio": 1.0,
-    }
-
-
-def fail_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "failed",
-        "message": "ランキング作成を完了できませんでした。",
-        "ratio": 0.0,
-    }
 
 
 @st.cache_resource(show_spinner=False)

@@ -6396,6 +6396,8 @@ def test_ranking_widget_state_preserves_original_defaults(monkeypatch):
     session_state: dict[str, object] = {}
     monkeypatch.setattr(app_module.st, "session_state", session_state)
 
+    assert app_module.RANKING_FETCH_LIMIT_BALANCED == "balanced_300"
+
     app_module._ensure_selectbox_state_value(
         "market_data_ranking_period",
         ["short", "standard", "long"],

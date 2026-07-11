@@ -6418,8 +6418,8 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
     )
 
     assert calls[:-1] == [(100, False)] * 100 + [(1, False)]
-    assert calls[-1] == (100, True)
-    assert [len(batch) for batch in released] == [100] * 100 + [1, 100]
+    assert calls[-1] == (25, True)
+    assert [len(batch) for batch in released] == [100] * 100 + [1, 25]
     assert len(rows) == len(symbols)
     assert errors == []
 

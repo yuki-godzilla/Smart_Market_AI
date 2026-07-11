@@ -4556,3 +4556,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Research symbol正規化を `backend/research/normalization.py` へ分離し、external fetchから巨大serviceのprivate helper依存を除去。`ExternalResearchFetchService` はpackage `__getattr__` で遅延公開し、既存公開importを維持したまま循環importを縮小。
 - Copilotの段階表示文字列生成を `ui/copilot_streaming.py`、Rankingの状態非依存な確認文・信頼度要約を `ui/ranking_presenter.py` へ分離。従来のprivate import契約は互換aliasで維持。
 - 新しい責務境界と互換importを `tests/test_refactoring_boundaries.py` で固定。計算式、Ranking順位、Forecast、Research Score、session state key、外部通信、CSS内容は変更していない。
+
+## 2026-07-11: Ranking AgGrid表示責務の分離
+
+- `ui/app.py` にあった約240行のAgGrid column/selection/sort/tooltip設定を `ui/ranking_table.py` へ移動。
+- 新moduleは完成済みDataFrameとimmutableな `RankingTableConfig` だけを受け取り、Ranking計算、取得、Streamlit session stateへ依存しない。
+- `ui.app.ranking_result_aggrid_options` は既存private importと呼び出し契約を維持する互換wrapperとして残した。
+- `tests/test_ranking_table_presenter.py` で新旧経路の完全一致、row/header height、hidden column契約を確認。Ranking順位、表示列、sort方向、欠損値順、数値comparatorは変更していない。

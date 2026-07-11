@@ -260,6 +260,7 @@ Current Research Summary maturity work is local-first readability, not external 
 - `ui`: Streamlit application wiring and compatibility imports
 - `ui/style_components.py`: state-free display formatting, card HTML, and chart styling helpers
 - `ui/ranking_presenter.py`: state-free Ranking display summaries
+- `ui/ranking_table.py`: AgGrid-only Ranking table configuration with explicit immutable display config
 - `ui/copilot_streaming.py`: deterministic Copilot progressive-text shaping
 - `backend/research/normalization.py`: shared Research identifier normalization without service-layer imports
 - `tests`: deterministic regression tests

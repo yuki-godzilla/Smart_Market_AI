@@ -29,7 +29,7 @@ from uuid import uuid4
 import altair as alt
 import pandas as pd
 import streamlit as st
-from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, JsCode
+from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
 from backend.core.config import get_settings, resolve_performance_profile
@@ -340,6 +340,7 @@ from ui.ranking_state import (
 from ui.ranking_state import (
     ranking_filter_value as _ranking_filter_value,
 )
+from ui.ranking_table import RankingTableConfig, build_ranking_aggrid_options
 from ui.rebalance_app import (
     MarketDataPreview,
     _available_forecast_evaluations,
@@ -739,6 +740,15 @@ function(valueA, valueB, nodeA, nodeB, isDescending) {
   return a - b;
 }
 """
+)
+RANKING_TABLE_CONFIG = RankingTableConfig(
+    nowrap_cell_style=RANKING_GRID_NOWRAP_CELL_STYLE,
+    numeric_cell_style=RANKING_GRID_NUMERIC_CELL_STYLE,
+    numeric_sort_directions=RANKING_NUMERIC_SORT_DIRECTIONS,
+    numeric_sort_comparator=RANKING_NUMERIC_SORT_COMPARATOR,
+    llm_factor_detail_columns=LLM_FACTOR_RANKING_DETAIL_COLUMNS,
+    llm_factor_column_tooltips=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS,
+    hidden_columns=RANKING_TABLE_HIDDEN_COLUMNS,
 )
 SYMBOL_DETAIL_DIALOG_CSS = """
 <style>
@@ -3559,238 +3569,7 @@ def ranking_result_aggrid_options(
         if isinstance(display_rows, pd.DataFrame)
         else ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     )
-    builder = GridOptionsBuilder.from_dataframe(frame)
-    builder.configure_default_column(
-        sortable=True,
-        filter=True,
-        resizable=True,
-        wrapText=False,
-        autoHeight=False,
-    )
-    builder.configure_selection(
-        selection_mode="single",
-        use_checkbox=False,
-        suppressRowClickSelection=False,
-        suppressRowDeselection=False,
-    )
-    builder.configure_grid_options(
-        rowHeight=38,
-        headerHeight=38,
-        suppressCellFocus=True,
-        tooltipShowDelay=250,
-        ensureDomOrder=True,
-        enableCellTextSelection=True,
-    )
-    if "順位" in frame.columns:
-        builder.configure_column(
-            "順位",
-            width=58,
-            pinned="left",
-            filter=False,
-            cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
-        )
-    if "銘柄" in frame.columns:
-        builder.configure_column(
-            "銘柄",
-            width=92,
-            pinned="left",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "お気に入り" in frame.columns:
-        builder.configure_column(
-            "お気に入り",
-            width=116,
-            pinned="left",
-            sortable=False,
-            filter=False,
-            suppressMenu=True,
-            cellStyle=JsCode(
-                """
-                function(params) {
-                    const active = String(params.value || '').startsWith('★');
-                    return {
-                        color: active ? '#fbbf24' : '#dbeafe',
-                        backgroundColor: active
-                            ? 'rgba(245, 158, 11, 0.16)'
-                            : 'rgba(15, 23, 42, 0.54)',
-                        borderLeft: active
-                            ? '3px solid rgba(250, 204, 21, 0.82)'
-                            : '3px solid rgba(96, 165, 250, 0.42)',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap'
-                    };
-                }
-                """
-            ),
-        )
-    if "銘柄名" in frame.columns:
-        builder.configure_column(
-            "銘柄名",
-            width=200,
-            minWidth=170,
-            maxWidth=260,
-            pinned="left",
-            tooltipField="銘柄名",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "判断方針" in frame.columns:
-        builder.configure_column(
-            "判断方針",
-            width=116,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in (
-        "総合スコア",
-        "Screening",
-        "基礎評価",
-        "上昇気配",
-        "下降警戒",
-        "予測変化率",
-        "予測確度",
-        "高度予測",
-        "高度予測日数",
-        "高度予測スコア",
-        "データ品質",
-        "データ信頼度",
-        "条件適合度",
-        "Risk",
-        "リスク",
-        "DB信頼度",
-        "PER",
-        "PBR",
-        "ROE",
-        "配当利回り",
-        "株価",
-        "時価総額",
-        "出来高",
-        "ボラティリティ",
-        "自己資本比率",
-        "営業利益率",
-        "売上成長率",
-        "経費率",
-    ):
-        if column in frame.columns:
-            header_name = {
-                "Screening": "基礎評価",
-                "Risk": "リスク",
-                "データ品質": "データ信頼度",
-            }.get(column, column)
-            sort_direction = RANKING_NUMERIC_SORT_DIRECTIONS.get(column, "desc")
-            sorting_order = (
-                ["asc", "desc", None] if sort_direction == "asc" else ["desc", "asc", None]
-            )
-            builder.configure_column(
-                column,
-                width=168 if column == "株価" else 92,
-                filter=False,
-                headerName=header_name,
-                comparator=RANKING_NUMERIC_SORT_COMPARATOR,
-                sortingOrder=sorting_order,
-                unSortIcon=True,
-                wrapText=False,
-                autoHeight=False,
-                cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
-            )
-    for column in LLM_FACTOR_RANKING_DETAIL_COLUMNS:
-        if column in frame.columns:
-            is_numeric_material_column = column != "ニュース材料"
-            builder.configure_column(
-                column,
-                width=128,
-                filter=False,
-                sortable=False,
-                headerTooltip=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS[column],
-                wrapText=False,
-                autoHeight=False,
-                cellStyle=(
-                    RANKING_GRID_NUMERIC_CELL_STYLE
-                    if is_numeric_material_column
-                    else RANKING_GRID_NOWRAP_CELL_STYLE
-                ),
-            )
-    if "方向一致" in frame.columns:
-        builder.configure_column(
-            "方向一致",
-            width=112,
-            headerName="モデル方向",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "モデル方向" in frame.columns:
-        builder.configure_column(
-            "モデル方向",
-            width=128,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "予測根拠" in frame.columns:
-        builder.configure_column(
-            "予測根拠",
-            width=180,
-            tooltipField="予測根拠",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "高度予測信頼度" in frame.columns:
-        builder.configure_column(
-            "高度予測信頼度",
-            width=120,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "信頼度/根拠" in frame.columns:
-        builder.configure_column(
-            "信頼度/根拠",
-            width=142,
-            tooltipField="信頼度/根拠",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "根拠状態" in frame.columns:
-        builder.configure_column(
-            "根拠状態",
-            width=116,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "見方" in frame.columns:
-        builder.configure_column(
-            "見方",
-            width=96,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in ("NISA", "投資スタイル", "時価総額", "連動指数", "通貨", "複雑性"):
-        if column in frame.columns:
-            builder.configure_column(
-                column,
-                width=112,
-                cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-            )
-    if "SMAIメモ" in frame.columns:
-        builder.configure_column(
-            "SMAIメモ",
-            width=280,
-            minWidth=220,
-            maxWidth=360,
-            tooltipField="確認詳細",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "確認メモ" in frame.columns:
-        builder.configure_column(
-            "確認メモ",
-            width=420,
-            minWidth=300,
-            maxWidth=520,
-            tooltipField="確認詳細",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in RANKING_TABLE_HIDDEN_COLUMNS:
-        if column in frame.columns:
-            builder.configure_column(column, hide=True, tooltipField=column)
-    return cast(dict[str, object], builder.build())
-
+    return build_ranking_aggrid_options(frame, RANKING_TABLE_CONFIG)
 
 def _aggrid_event_data(grid_response: object) -> dict[str, object]:
     event_data = getattr(grid_response, "event_data", None)

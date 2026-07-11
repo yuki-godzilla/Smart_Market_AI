@@ -7,6 +7,8 @@ from backend.scoring.upward_signal_forecast_integration import (
     calculate_forecast_integration,
     evaluate_forecast_validation_points,
     evaluate_upward_signal_forecast_case,
+    summarize_forecast_validation_cases,
+    write_forecast_validation_summary,
     write_upward_signal_forecast_outputs,
 )
 
@@ -116,3 +118,45 @@ def test_validation_points_reconstruct_consensus_evidence_without_using_actual_r
     assert first[0].forecast_integration_score == second[0].forecast_integration_score
     assert first[0].actual_return == Decimal("0.20")
     assert second[0].actual_return == Decimal("-0.20")
+
+
+def test_validation_summary_groups_outcomes_without_changing_runtime_contract(tmp_path):
+    origin = datetime(2025, 1, 1, tzinfo=UTC)
+    points = [
+        ForecastValidationPoint(
+            symbol=symbol,
+            market=market,
+            asset_type="stock",
+            regime=regime,
+            model_name=model,
+            horizon_days=horizon,
+            origin_at=origin,
+            target_at=origin + timedelta(days=horizon),
+            predicted_return=predicted,
+            actual_return=actual,
+        )
+        for symbol, market, regime, horizon, actual in (
+            ("AAA", "US", "uptrend", 20, Decimal("0.10")),
+            ("BBB", "JP", "sideways", 60, Decimal("-0.10")),
+        )
+        for model, predicted in (
+            ("advanced_linear", Decimal("0.04")),
+            ("advanced_tree_sklearn", Decimal("0.03")),
+            ("forecast_consensus", Decimal("0.035")),
+        )
+    ]
+
+    cases = evaluate_forecast_validation_points(points)
+    summaries = summarize_forecast_validation_cases(cases)
+    path = write_forecast_validation_summary(summaries, tmp_path)
+
+    overall = next(summary for summary in summaries if summary.group_type == "overall")
+    us = next(
+        summary
+        for summary in summaries
+        if summary.group_type == "market" and summary.group_value == "US"
+    )
+    assert overall.case_count == 2
+    assert overall.positive_actual_rate == Decimal("0.50")
+    assert us.direction_accuracy == Decimal("1.00")
+    assert path.read_text(encoding="utf-8-sig").startswith("group_type,")

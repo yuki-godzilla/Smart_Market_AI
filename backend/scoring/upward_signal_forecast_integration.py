@@ -83,6 +83,23 @@ class UpwardSignalForecastValidationCase(StrictBaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class UpwardSignalForecastValidationSummary(StrictBaseModel):
+    """Grouped outcome metrics for adoption review, not runtime scoring."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    group_type: str = Field(min_length=1)
+    group_value: str = Field(min_length=1)
+    horizon_days: int = Field(ge=0)
+    case_count: int = Field(ge=0)
+    positive_actual_rate: Decimal = Field(ge=0, le=1)
+    direction_accuracy: Decimal = Field(ge=0, le=1)
+    mean_actual_return: Decimal
+    mean_predicted_return: Decimal
+    mean_integration_score: Decimal = Field(ge=0, le=100)
+    warning_case_rate: Decimal = Field(ge=0, le=1)
+
+
 @dataclass(frozen=True)
 class _ForecastEvidence:
     predicted_return: Decimal | None
@@ -256,6 +273,98 @@ def evaluate_forecast_validation_points(
     return cases
 
 
+def summarize_forecast_validation_cases(
+    cases: list[UpwardSignalForecastValidationCase],
+) -> list[UpwardSignalForecastValidationSummary]:
+    """Summarize validation outcomes by horizon and forecast-risk group."""
+
+    selections: list[tuple[str, str, int, list[UpwardSignalForecastValidationCase]]] = [
+        ("overall", "all", 0, cases)
+    ]
+    for horizon in sorted({case.horizon_days for case in cases}):
+        selections.append(
+            (
+                "horizon",
+                str(horizon),
+                horizon,
+                [case for case in cases if case.horizon_days == horizon],
+            )
+        )
+    for group_type, attribute in (
+        ("market", "market"),
+        ("asset_type", "asset_type"),
+        ("regime", "regime"),
+        ("confidence", "confidence"),
+    ):
+        for value in sorted({str(getattr(case, attribute)) for case in cases}):
+            selections.append(
+                (
+                    group_type,
+                    value,
+                    0,
+                    [case for case in cases if str(getattr(case, attribute)) == value],
+                )
+            )
+    disagreement_bands = {
+        "low": lambda case: case.model_disagreement_pct < Decimal("5"),
+        "medium": lambda case: Decimal("5") <= case.model_disagreement_pct < Decimal("12"),
+        "high": lambda case: case.model_disagreement_pct >= Decimal("12"),
+    }
+    for band, predicate in disagreement_bands.items():
+        selections.append(("disagreement", band, 0, [case for case in cases if predicate(case)]))
+
+    summaries: list[UpwardSignalForecastValidationSummary] = []
+    for group_type, group_value, horizon, selected in selections:
+        if not selected:
+            continue
+        positive_count = sum(1 for case in selected if case.actual_return > 0)
+        direction_matches = sum(
+            1
+            for case in selected
+            if _return_sign(case.predicted_return) == _return_sign(case.actual_return)
+        )
+        warning_cases = sum(1 for case in selected if case.warning_count > 0)
+        count = Decimal(len(selected))
+        summaries.append(
+            UpwardSignalForecastValidationSummary(
+                group_type=group_type,
+                group_value=group_value,
+                horizon_days=horizon,
+                case_count=len(selected),
+                positive_actual_rate=_round(Decimal(positive_count) / count),
+                direction_accuracy=_round(Decimal(direction_matches) / count),
+                mean_actual_return=_round(
+                    sum((case.actual_return for case in selected), Decimal("0")) / count
+                ),
+                mean_predicted_return=_round(
+                    sum((case.predicted_return for case in selected), Decimal("0")) / count
+                ),
+                mean_integration_score=_round(
+                    sum((case.forecast_integration_score for case in selected), Decimal("0"))
+                    / count
+                ),
+                warning_case_rate=_round(Decimal(warning_cases) / count),
+            )
+        )
+    return summaries
+
+
+def write_forecast_validation_summary(
+    summaries: list[UpwardSignalForecastValidationSummary],
+    output_dir: Path,
+) -> Path:
+    """Write grouped point-in-time outcomes for review and later adoption gates."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "upward_signal_forecast_validation_summary.csv"
+    fields = list(UpwardSignalForecastValidationSummary.model_fields)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(summary.model_dump() for summary in summaries)
+    return path
+
+
 def write_upward_signal_forecast_outputs(
     cases: list[UpwardSignalForecastCase],
     integrations: Mapping[str, UpwardSignalForecastIntegration],
@@ -392,6 +501,14 @@ def _nonnegative_int(value: object) -> int:
         return max(0, int(value))
     except (TypeError, ValueError):
         return 0
+
+
+def _return_sign(value: Decimal) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
 
 
 def _clamp(value: Decimal, lower: Decimal, upper: Decimal) -> Decimal:

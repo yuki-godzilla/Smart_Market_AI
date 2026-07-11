@@ -311,6 +311,11 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.research-ai-cta--hero) {
     --smai-gray: var(--chart-volume);
 }
 
+html {
+    /* Scale rem-based UI typography down by 10% while preserving touch targets. */
+    font-size: 90%;
+}
+
 html,
 body,
 #root,
@@ -489,7 +494,8 @@ body,
 }
 
 [data-testid="stButton"] button {
-    min-height: 2.35rem;
+    /* Preserve the desktop control baseline even when compact typography is enabled. */
+    min-height: 36px;
     border-radius: 8px;
     border: 1px solid var(--button-secondary-border);
     background:
@@ -560,7 +566,7 @@ body,
             135deg,
             rgba(56, 189, 248, 1) 0%,
             rgba(34, 211, 238, 0.98) 45%,
-            rgba(45, 212, 191, 0.98) 100%
+            rgba(103, 232, 249, 0.98) 100%
         );
     background-size: 180% 180%;
     background-position: 100% 50%;
@@ -5223,21 +5229,22 @@ div[data-testid="stChatInput"] textarea:focus {
 
     .smai-app-header {
         grid-template-columns: 1fr;
-        gap: 0.8rem;
-        padding: 0.95rem 1rem 1rem;
+        padding: 0.55rem 0.8rem 0.6rem;
+        margin-top: -2rem;
+        margin-bottom: 0.75rem;
     }
 
     .smai-app-mascot-wrap {
-        position: relative;
-        top: auto;
-        right: auto;
-        width: 4.4rem;
-        transform: none;
+        display: none;
     }
 
     .smai-app-logo {
-        width: min(100%, 30rem);
-        max-height: 6.2rem;
+        width: min(92%, 18rem);
+        max-height: 3.25rem;
+    }
+
+    .smai-app-message {
+        display: none;
     }
 
     .smai-page-title-row {
@@ -7925,6 +7932,12 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stMainBlockContainer"] {
         padding-left: 1.1rem;
         padding-right: 1.1rem;
+        padding-top: 1rem !important;
+    }
+
+    [data-testid="stAppViewContainer"] .main .block-container,
+    [data-testid="stAppViewContainer"] [data-testid="stAppViewMain"] .block-container {
+        padding-top: 1rem !important;
     }
 
     .smai-responsive-grid,
@@ -7944,7 +7957,8 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stButton"] button,
     [data-testid="stDownloadButton"] button,
     [data-testid="stLinkButton"] a {
-        min-height: 2.75rem;
+        /* Keep touch controls at least 44 CSS px after the compact root font scale. */
+        min-height: 44px;
         touch-action: manipulation;
     }
 
@@ -7970,6 +7984,12 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stMainBlockContainer"] {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
+        padding-top: 0.75rem !important;
+    }
+
+    [data-testid="stAppViewContainer"] .main .block-container,
+    [data-testid="stAppViewContainer"] [data-testid="stAppViewMain"] .block-container {
+        padding-top: 0.75rem !important;
     }
 
     [data-testid="stHorizontalBlock"] {
@@ -8021,7 +8041,8 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stDownloadButton"] button,
     [data-testid="stLinkButton"] a {
         width: 100%;
-        min-height: 2.75rem;
+        /* Keep touch controls at least 44 CSS px after the compact root font scale. */
+        min-height: 44px;
         white-space: normal;
         touch-action: manipulation;
     }

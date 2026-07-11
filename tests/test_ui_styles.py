@@ -172,6 +172,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '[data-testid="stVegaLiteChart"] canvas' in SMAI_GLOBAL_CSS
     assert "contain: inline-size;" in SMAI_GLOBAL_CSS
     assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
+    assert "min-height: 44px;" in SMAI_GLOBAL_CSS
     assert "content-visibility: auto;" in SMAI_GLOBAL_CSS
     assert "contain-intrinsic-size: auto 18rem;" in SMAI_GLOBAL_CSS
     assert "Keep compact, scan-oriented KPI rows at two columns on a phone." in SMAI_GLOBAL_CSS
@@ -205,6 +206,10 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
+    assert "font-size: 90%;" in SMAI_GLOBAL_CSS
+    assert "rgba(30, 42, 62, 0.18)" in SMAI_GLOBAL_CSS
+    assert ".smai-app-logo" in SMAI_GLOBAL_CSS
+    assert "drop-shadow(0 0 18px rgba(34, 211, 238, 0.16))" in SMAI_GLOBAL_CSS
     assert '[data-testid="stAppViewContainer"]' in SMAI_GLOBAL_CSS
     assert "background-color: var(--bg-page) !important;" in SMAI_GLOBAL_CSS
     assert "max-width: none;" in SMAI_GLOBAL_CSS
@@ -241,7 +246,7 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "color: #F8FDFF;" in SMAI_GLOBAL_CSS
     assert "rgba(11, 58, 102, 0.98)" in SMAI_GLOBAL_CSS
     assert "0 0 12px rgba(34, 211, 238, 0.32)" in SMAI_GLOBAL_CSS
-    assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
+    assert "rgba(103, 232, 249, 0.98)" in SMAI_GLOBAL_CSS
     assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS
     assert ".ai-title" in SMAI_GLOBAL_CSS
     assert ".table-value" in SMAI_GLOBAL_CSS

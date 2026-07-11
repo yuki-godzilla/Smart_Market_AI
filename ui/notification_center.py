@@ -123,9 +123,14 @@ def trusted_device_bootstrap_html(
         id.textContent = userId ? ` / ${{userId}}` : "";
         if (notificationsEnabled) button.append(bell);
         button.append(avatar, name, id);
+        const compactViewport = window.parent.matchMedia("(max-width: 1024px)").matches;
         button.style.setProperty("position", "fixed", "important");
-        button.style.setProperty("top", "4.75rem", "important");
-        button.style.setProperty("right", "1.25rem", "important");
+        button.style.setProperty(
+          "top", compactViewport ? ".25rem" : "4.75rem", "important"
+        );
+        button.style.setProperty(
+          "right", compactViewport ? "3rem" : "1.25rem", "important"
+        );
         button.style.setProperty("z-index", "2147483000", "important");
         if (button.dataset.smaiMenuBound !== "1") {{
           button.dataset.smaiMenuBound = "1";
@@ -172,7 +177,11 @@ def trusted_device_bootstrap_html(
         .smai-notification-card.low {{ border-left-color: #64748b; }}
         .smai-notification-asset {{ width: 34px; height: 34px; margin-right: .55rem;
           border-radius: 9px; object-fit: cover; vertical-align: middle; }}
-        @media (max-width: 1024px) {{ .smai-user-id {{ display: none; }} }}
+        @media (max-width: 1024px) {{ .smai-user-id {{ display: none; }}
+          .smai-user-trigger {{ top: .25rem !important; right: 3rem !important; }}
+          body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger {{
+            visibility: hidden !important; pointer-events: none !important;
+          }} }}
         @media (max-width: 767px) {{ .smai-user-name, .smai-user-id {{ display: none; }}
           .smai-user-trigger {{ min-width: 96px; }} .smai-profile-card {{ max-width: 156px; }} }}
       `;

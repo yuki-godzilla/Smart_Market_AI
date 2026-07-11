@@ -11,7 +11,11 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
 
     assert 'host.style.setProperty("position", "fixed", "important")' in html
     assert 'button.style.setProperty("position", "fixed", "important")' in html
-    assert '"top", "4.75rem", "important"' in html
+    assert 'const compactViewport = window.parent.matchMedia("(max-width: 1024px)").matches;' in html
+    assert '"top", compactViewport ? ".25rem" : "4.75rem", "important"' in html
+    assert '"right", compactViewport ? "3rem" : "1.25rem", "important"' in html
+    assert 'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger' in html
+    assert "visibility: hidden !important; pointer-events: none !important;" in html
     assert '"top", "8.4rem", "important"' in html
     assert "positionUserMenu" in html
     assert "window.setInterval" in html

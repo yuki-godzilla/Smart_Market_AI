@@ -375,7 +375,7 @@ def render_news_dashboard_page(
     snapshot, status = _load_dashboard_snapshot()
     render_page_title(
         "投資レーダー",
-        "市場ニュースの流れ、投資ヒートマップ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
+        "市場ニュースとヒートマップから、気になる銘柄を確認します。",
         "investment_radar",
         accessory_html=news_dashboard_freshness_badge_html(snapshot),
     )

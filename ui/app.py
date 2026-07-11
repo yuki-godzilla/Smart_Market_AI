@@ -8525,7 +8525,7 @@ def _render_market_data_ranking() -> None:
         return
     render_page_title(
         "銘柄ランキング",
-        "条件で絞り込み、深掘り候補をランキングします。売買推奨ではありません。",
+        "条件で絞り込み、比較する候補を並べます。",
         "ranking",
     )
     _, history_button_col = st.columns([4, 1.25])
@@ -10994,13 +10994,12 @@ def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") ->
 def _render_my_watchlist_page() -> None:
     render_page_title(
         "Myウォッチリスト",
-        "★を付けた銘柄をまとめて確認します。気になる銘柄を継続的に追うための一覧です。",
+        "気になる銘柄をまとめて追跡します。",
         "watchlist",
     )
     if st.session_state.get("smai_current_user_id") == "default":
         st.caption(
-            "SMAIデフォルトでは、お気に入りはこのセッション内だけ保持されます。"
-            "保存したい場合はカスタムユーザーを作成してください。"
+            "SMAIデフォルトの登録はこのセッション限りです。保存する場合はカスタムユーザーを作成してください。"
         )
     group_view_mode, groups_state = render_watchlist_group_toolbar()
     favorites = load_favorites()
@@ -11716,10 +11715,12 @@ async def _refresh_watchlist_snapshots(
                         ),
                     )
                     bars = preview.bars
+                    score_rows = getattr(preview, "investment_score_rows", [])
+                    feature_rows = getattr(preview, "feature_rows", [])
                     score_row = next(
                         (
                             item
-                            for item in preview.investment_score_rows
+                            for item in score_rows
                             if str(item.get("symbol") or "").upper() == normalized
                         ),
                         {},
@@ -11727,7 +11728,7 @@ async def _refresh_watchlist_snapshots(
                     feature_row = next(
                         (
                             item
-                            for item in preview.feature_rows
+                            for item in feature_rows
                             if str(item.get("symbol") or "").upper() == normalized
                         ),
                         {},

@@ -60,7 +60,7 @@ REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 def render_rebalance_page() -> None:
     render_page_title(
         "リバランス",
-        "現在の保有、目標配分、配分見直し候補、リスク判定を確認します。売買送信は行いません。",
+        "現在の配分、目標配分、リスクを確認します。",
         "rebalance",
     )
 

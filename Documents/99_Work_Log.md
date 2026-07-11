@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-07-12: 全画面UI品質スプリント（3サイクル）
+
+- 7画面（Cockpit / Ranking / 投資レーダー / Myウォッチリスト / アシスタント / リバランス / 設定）のnetwork-free画面スモークと、リバランスの決定論的な主操作を追加。3週分の因子・水準・live smoke境界は `docs/ui/three_week_ui_quality_sprint.md` に記録。
+- Watchlist更新で、部分的なCockpit previewに `feature_rows` がなくても、取得済みの価格・スコアを捨てて1件失敗にしないようにした。部分preview回帰は成功へ回復。
+- 上向き兆候をCockpit KPI・詳細、Watchlist表に反映する既存仕様にテストを同期。Rankingの指標ソート説明とcache世代の古い期待も現行仕様へ同期。
+- 追加・対象回帰471件、Ruff、対象Black確認が成功。実viewportの対話確認はブラウザ実体がないため未実行で、既存opt-in responsive smokeへ残した。
+
 ## 2026-07-11: Phase 35-A 上向き兆候 Forecast根拠の評価専用slice
 
 - `backend/scoring/upward_signal_forecast_integration.py` に、既存のAdvanced Forecast consensusまたはRanking行から予測上向き余地、quantile下振れ安全性、方向一致、confidence、model disagreementを抽出するtyped contractを追加。
@@ -4593,3 +4600,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `ui/ranking_jobs.py` にprocess-wide daemon job registryを追加し、ランキング計算・progress・完成行・失敗型を画面sessionから分離。同条件の再接続sessionは同じjobを監視し、完了結果を採用する。失敗ログはprovider raw messageを残さず、例外型とcode位置だけを記録する。
 - optional fundamentalsを最大4並列・1銘柄15秒timeout・全Exceptionの銘柄単位fallbackへ変更。100銘柄cohortの想定外例外はそのcohortだけをsanitized errorにし、後続cohortと通常ランキングを継続する。advanced forecastもoptional enrichmentとして想定外例外で通常結果を破棄しない。
 - session-independent worker、reconnect時job共有、sanitized failure、unexpected fundamental、cohort継続をnetwork-free testで固定。関連400 test中397件pass、残る3件は既存watchlist fixture・旧文言・旧`signal-v4`期待値で今回差分外。
+
+## 2026-07-12: 全画面UI品質スプリント 実画面フォローアップ
+
+- 隔離したmock Streamlitで全7画面を横断する3ユーザーパスを実操作し、銘柄取得・お気に入り・ウォッチリスト・リバランス・設定、投資レーダー・Ranking、Assistant送信まで確認した。`tests/ui/test_ui_user_paths_smoke.py` として回帰化し、3件成功。
+- 7画面をiPhone / iPad縦横 / PCで実操作するresponsive smokeを追加・実行した。Cockpit、Ranking、投資レーダー、Myウォッチリスト、Assistant、リバランス、設定 / データ情報で、横はみ出し、例外、主要操作、モーダル、サイドバーを確認し、7件成功・任意チャートsmoke 1件をスキップ。
+- タップ領域（PC 36px、タッチ画面44px）、固定ユーザー操作とサイドバーの干渉、スマホの共通ヘッダー／本文上余白を改善した。画面冒頭の重複説明を短文化し、全体のベース配色・CTAを青／ネイビー基調へ戻した。緑は上昇・成功などの状態色に限定した。
+- network-free UI回帰577件、全viewport実画面、全ユーザーパスを成功として確認。実機Safari / PWA、live provider、外部LLM、実通知配送は未実行。

@@ -5758,9 +5758,9 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     assert "予測・上昇気配 25%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "下振れ警戒 10%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert ranking_purpose_weight_summary(RANKING_PURPOSE_SORT_PER) == (
-        "PER低い順 100%",
-        "N/A 末尾",
-        "同値は総合スコア補助",
+        "主指標 PER低い順",
+        "欠損データ N/Aは末尾",
+        "同点補正 総合スコアで補助",
     )
     assert "上向きシグナル" in ranking_purpose_focus_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "低い順" in ranking_purpose_focus_summary(RANKING_PURPOSE_SORT_PER)
@@ -6287,7 +6287,7 @@ def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
             end=date(2026, 5, 17),
         )
     )
-    assert source_key.startswith("signal-v4|")
+    assert source_key.startswith(f"{app_module.RANKING_BUILD_CACHE_VERSION}|")
     assert (
         _ranking_source_key_for_selection(
             provider="yahoo",

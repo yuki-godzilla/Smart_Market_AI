@@ -8982,6 +8982,14 @@ def _render_market_data_ranking() -> None:
     if ranking_filter_dialog_is_open():
         st.caption("探索条件モーダルを表示中です。ランキング結果の再描画はスキップしています。")
         return
+    running_build = _ranking_build_jobs().get(current_ranking_source, {})
+    if running_build.get("status") == "running":
+        message = str(running_build.get("message") or "ランキングを作成しています。")
+        ratio = float(running_build.get("ratio") or 0.0)
+        st.info(
+            f"同じ条件のランキングを作成中です。{message} "
+            f"（{max(0, min(100, round(ratio * 100)))}%）"
+        )
     if (
         not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY)
         and current_ranking_source

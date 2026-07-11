@@ -6397,6 +6397,24 @@ def test_ranking_build_job_state_blocks_restore_only_while_running():
     assert not app_module.ranking_build_is_running(cache_key)
 
 
+def test_ranking_build_job_exposes_reconnect_progress() -> None:
+    cache_key = "test-reconnecting-ranking-build"
+
+    app_module.begin_ranking_build(cache_key)
+    app_module.update_ranking_build_progress(
+        cache_key,
+        message="銘柄別に取得しています (120/300)。",
+        ratio=0.4,
+    )
+
+    job = app_module._ranking_build_jobs()[cache_key]
+    assert job == {
+        "status": "running",
+        "message": "銘柄別に取得しています (120/300)。",
+        "ratio": 0.4,
+    }
+
+
 def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
     source = inspect.getsource(app_module._render_market_data_ranking)
 

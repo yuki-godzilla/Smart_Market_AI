@@ -184,6 +184,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "overflow-wrap: anywhere;" in SMAI_GLOBAL_CSS
     assert "word-break: break-word;" in SMAI_GLOBAL_CSS
     assert "flex-wrap: wrap;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stToastContainer"]' in SMAI_GLOBAL_CSS
+    assert "bottom: max(0.85rem, env(safe-area-inset-bottom)) !important;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stToast"]' in SMAI_GLOBAL_CSS
+    assert "background: rgba(4, 18, 35, 0.98) !important;" in SMAI_GLOBAL_CSS
 
 
 def test_global_theme_tokens_define_dark_financial_ai_palette():

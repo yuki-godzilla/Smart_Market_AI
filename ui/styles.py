@@ -6693,6 +6693,44 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     }
 }
 
+/*
+ * Streamlit places toasts at the upper-right edge by default.  On iPhone and
+ * iPad that position overlaps the fixed user controls and obscures the page
+ * the user is currently reading.  Keep the notification in the safe bottom
+ * area, make it full-width within the device gutter, and use an opaque surface
+ * so the success/error message remains legible over busy ranking cards.
+ */
+@media (max-width: 1024px) {
+    [data-testid="stToastContainer"] {
+        top: auto !important;
+        right: max(0.85rem, env(safe-area-inset-right)) !important;
+        bottom: max(0.85rem, env(safe-area-inset-bottom)) !important;
+        left: max(0.85rem, env(safe-area-inset-left)) !important;
+        width: auto !important;
+        z-index: 5000 !important;
+    }
+
+    [data-testid="stToast"] {
+        width: 100% !important;
+        min-height: 3.4rem;
+        padding: 0.8rem 0.95rem !important;
+        border: 1px solid rgba(103, 232, 249, 0.82) !important;
+        border-radius: 0.9rem !important;
+        background: rgba(4, 18, 35, 0.98) !important;
+        box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.48) !important;
+        color: #F8FBFF !important;
+        font-size: 1rem !important;
+        font-weight: 750 !important;
+        line-height: 1.45 !important;
+    }
+
+    [data-testid="stToast"] * {
+        color: #F8FBFF !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+    }
+}
+
 .smai-ranking-build-action-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-ranking-build-action-anchor)
     + div[data-testid="stButton"] button {

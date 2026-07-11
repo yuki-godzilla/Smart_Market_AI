@@ -6361,6 +6361,28 @@ def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatc
     assert get_cached_ranking_build("missing") is None
 
 
+def test_ranking_build_cache_expires_after_ttl(monkeypatch):
+    cache: dict[str, dict[str, list[dict[str, str]]]] = {}
+    accessed_at: dict[str, float] = {}
+    now = 100.0
+    monkeypatch.setattr(app_module, "_ranking_build_cache", lambda: cache)
+    monkeypatch.setattr(app_module, "_ranking_build_cache_accessed_at", lambda: accessed_at)
+    monkeypatch.setattr(app_module.perf_time, "monotonic", lambda: now)
+
+    app_module.set_cached_ranking_build("ranking", rows=[{"symbol": "AAPL"}], error_rows=[])
+    now += app_module.RANKING_BUILD_CACHE_TTL_SECONDS + 1
+
+    assert app_module.get_cached_ranking_build("ranking") is None
+    assert cache == {}
+    assert accessed_at == {}
+
+
+def test_ranking_cache_caps_are_bounded_for_server_memory() -> None:
+    assert app_module.MAX_RANKING_OHLCV_CACHE_SYMBOLS == 500
+    assert app_module.MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS == 1_000
+    assert app_module.MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS == 2_000
+
+
 def test_ranking_build_job_state_blocks_restore_only_while_running():
     cache_key = "test-running-ranking-build"
 

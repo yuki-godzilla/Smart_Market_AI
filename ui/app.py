@@ -485,9 +485,14 @@ RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT = 25
 RANKING_CLIENT_SESSION_TOUCH_STATE_KEY = "market_data_ranking_client_session_touched_at"
 RANKING_CLIENT_SESSION_TOUCH_INTERVAL_SECONDS = 300.0
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
-MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
-MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
-MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS = 4_000
+RANKING_ADVANCED_FORECAST_MAX_WORKERS = 4
+MAX_RANKING_OHLCV_CACHE_SYMBOLS = 500
+MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 1_000
+MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS = 2_000
+RANKING_OHLCV_CACHE_TTL_SECONDS = 6 * 60 * 60
+RANKING_FUNDAMENTAL_CACHE_TTL_SECONDS = 24 * 60 * 60
+RANKING_ADVANCED_FORECAST_CACHE_TTL_SECONDS = 6 * 60 * 60
+RANKING_BUILD_CACHE_TTL_SECONDS = 30 * 60
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
 MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY = "market_data_ranking_stock_news_reports"
@@ -10416,7 +10421,10 @@ def _ranking_advanced_forecast_fields_for_symbols(
     from joblib import Parallel, delayed  # type: ignore[import-untyped]  # noqa: PLC0415
 
     profile = resolve_performance_profile()
-    workers = max(1, min(2, profile.processing.forecast_workers))
+    workers = max(
+        1,
+        min(RANKING_ADVANCED_FORECAST_MAX_WORKERS, profile.processing.forecast_workers),
+    )
     completed = Parallel(
         n_jobs=workers,
         backend="threading",
@@ -10695,6 +10703,11 @@ def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
 
 
 @st.cache_resource(show_spinner=False)
+def _ranking_build_cache_accessed_at() -> dict[str, float]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
 def _ranking_build_jobs() -> dict[str, dict[str, object]]:
     """Track ranking work across Streamlit reconnects in this server process."""
 
@@ -10741,6 +10754,11 @@ def _ranking_ohlcv_cache() -> dict[tuple[str, str, str, str], list[Bar]]:
     return {}
 
 
+@st.cache_resource(show_spinner=False)
+def _ranking_ohlcv_cache_accessed_at() -> dict[tuple[str, str, str, str], float]:
+    return {}
+
+
 def _ranking_ohlcv_cache_key(
     provider: str,
     symbol: str,
@@ -10763,9 +10781,19 @@ def _get_cached_ranking_ohlcv(
     start: datetime,
     end: datetime,
 ) -> list[Bar] | None:
-    return _ranking_ohlcv_cache().get(
-        _ranking_ohlcv_cache_key(provider, symbol, start=start, end=end)
-    )
+    key = _ranking_ohlcv_cache_key(provider, symbol, start=start, end=end)
+    cache = _ranking_ohlcv_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_ohlcv_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_OHLCV_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_ohlcv(
@@ -10777,6 +10805,7 @@ def _cache_ranking_ohlcv(
     end: datetime,
 ) -> None:
     cache = _ranking_ohlcv_cache()
+    accessed_at = _ranking_ohlcv_cache_accessed_at()
     bars_by_symbol: dict[str, list[Bar]] = {symbol.strip().upper(): [] for symbol in symbols}
     for bar in bars:
         raw_symbol = str(getattr(getattr(bar, "symbol", None), "raw", "")).strip().upper()
@@ -10790,12 +10819,20 @@ def _cache_ranking_ohlcv(
         key = _ranking_ohlcv_cache_key(provider, normalized, start=start, end=end)
         cache.pop(key, None)
         cache[key] = symbol_bars
+        accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_OHLCV_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 @st.cache_resource(show_spinner=False)
 def _ranking_fundamental_cache() -> dict[tuple[str, str, str], list[FundamentalSnapshot]]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_fundamental_cache_accessed_at() -> dict[tuple[str, str, str], float]:
     return {}
 
 
@@ -10814,9 +10851,19 @@ def _get_cached_ranking_fundamentals(
     *,
     as_of: date,
 ) -> list[FundamentalSnapshot] | None:
-    return _ranking_fundamental_cache().get(
-        _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
-    )
+    key = _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
+    cache = _ranking_fundamental_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_fundamental_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_FUNDAMENTAL_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_fundamentals(
@@ -10829,15 +10876,26 @@ def _cache_ranking_fundamentals(
     if not fundamentals:
         return
     cache = _ranking_fundamental_cache()
+    accessed_at = _ranking_fundamental_cache_accessed_at()
     key = _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
     cache.pop(key, None)
     cache[key] = fundamentals
+    accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 @st.cache_resource(show_spinner=False)
 def _ranking_advanced_forecast_cache() -> dict[tuple[str, int, int, str, str], dict[str, str]]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_advanced_forecast_cache_accessed_at() -> (
+    dict[tuple[str, int, int, str, str], float]
+):
     return {}
 
 
@@ -10872,7 +10930,18 @@ def _get_cached_ranking_advanced_forecast(
     )
     if key is None:
         return None
-    return _ranking_advanced_forecast_cache().get(key)
+    cache = _ranking_advanced_forecast_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_advanced_forecast_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_ADVANCED_FORECAST_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_advanced_forecast(
@@ -10890,10 +10959,14 @@ def _cache_ranking_advanced_forecast(
     if key is None:
         return
     cache = _ranking_advanced_forecast_cache()
+    accessed_at = _ranking_advanced_forecast_cache_accessed_at()
     cache.pop(key, None)
     cache[key] = fields
+    accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None:
@@ -10906,17 +10979,23 @@ def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None
     }
     cache_symbols = display_symbols | provider_symbols
     ohlcv_cache = _ranking_ohlcv_cache()
+    ohlcv_accessed_at = _ranking_ohlcv_cache_accessed_at()
     for key in tuple(ohlcv_cache):
         if key[0] == provider_key and key[1] in cache_symbols:
             ohlcv_cache.pop(key, None)
+            ohlcv_accessed_at.pop(key, None)
     fundamental_cache = _ranking_fundamental_cache()
+    fundamental_accessed_at = _ranking_fundamental_cache_accessed_at()
     for key in tuple(fundamental_cache):
         if key[0] == provider_key and key[1] in cache_symbols:
             fundamental_cache.pop(key, None)
+            fundamental_accessed_at.pop(key, None)
     advanced_cache = _ranking_advanced_forecast_cache()
+    advanced_accessed_at = _ranking_advanced_forecast_cache_accessed_at()
     for key in tuple(advanced_cache):
         if key[0] in display_symbols:
             advanced_cache.pop(key, None)
+            advanced_accessed_at.pop(key, None)
     gc.collect()
 
 
@@ -10926,6 +11005,13 @@ def get_cached_ranking_build(
     cached = _ranking_build_cache().get(cache_key)
     if cached is None:
         return None
+    accessed_at = _ranking_build_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(cache_key, now) > RANKING_BUILD_CACHE_TTL_SECONDS:
+        _ranking_build_cache().pop(cache_key, None)
+        accessed_at.pop(cache_key, None)
+        return None
+    accessed_at[cache_key] = now
     return cached.get("rows", []), cached.get("error_rows", [])
 
 
@@ -10936,12 +11022,15 @@ def set_cached_ranking_build(
     error_rows: list[dict[str, str]],
 ) -> None:
     cache = _ranking_build_cache()
+    accessed_at = _ranking_build_cache_accessed_at()
     if cache_key in cache:
         cache.pop(cache_key)
     cache[cache_key] = {"rows": rows, "error_rows": error_rows}
+    accessed_at[cache_key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_BUILD_CACHE_ENTRIES:
         oldest_key = next(iter(cache))
         cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 def _feature_missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:

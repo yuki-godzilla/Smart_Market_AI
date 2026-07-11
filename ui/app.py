@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import hashlib
 import html
 import json
@@ -471,8 +472,9 @@ MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
-RANKING_BUILD_CACHE_VERSION = "signal-v4"
+RANKING_BUILD_CACHE_VERSION = "signal-v5"
 RANKING_PIPELINE_COHORT_SIZE = 100
+RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT = 100
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
 MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
 MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
@@ -9946,14 +9948,53 @@ async def _build_large_market_data_ranking_rows(
                 end=end,
                 provider=provider,
                 progress_callback=cohort_progress,
+                include_advanced_forecast=False,
             )
         except AppError as exc:
             cohort_rows = []
             cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
         rows.extend(cohort_rows)
         error_rows.extend(cohort_errors)
+        _release_ranking_cohort_cache(provider, cohort)
     _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
-    return rank_investment_score_rows(rows), error_rows
+    provisional_rows = rank_investment_score_rows(rows)
+    advanced_symbols = [
+        str(row.get("symbol", "")).strip().upper()
+        for row in provisional_rows[:RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT]
+        if str(row.get("symbol", "")).strip()
+    ]
+    if not advanced_symbols:
+        return provisional_rows, error_rows
+    _report_ranking_progress(
+        progress_callback,
+        "上位候補に高度予測を適用しています。",
+        0.995,
+    )
+    try:
+        advanced_rows, _advanced_errors = await _build_market_data_ranking_rows_fast(
+            advanced_symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=None,
+            include_advanced_forecast=True,
+        )
+        advanced_fields_by_symbol = {
+            str(row.get("symbol", "")).strip().upper(): {
+                key: value for key, value in row.items() if key.startswith("advanced_forecast_")
+            }
+            for row in advanced_rows
+            if str(row.get("symbol", "")).strip()
+        }
+        provisional_rows = _enrich_ranking_rows_with_advanced_forecast(
+            provisional_rows,
+            advanced_fields_by_symbol,
+        )
+    except AppError:
+        pass
+    finally:
+        _release_ranking_cohort_cache(provider, advanced_symbols)
+    return rank_investment_score_rows(provisional_rows), error_rows
 
 
 async def _build_market_data_ranking_rows_fast(
@@ -9963,6 +10004,7 @@ async def _build_market_data_ranking_rows_fast(
     end: date,
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
+    include_advanced_forecast: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     _report_ranking_progress(progress_callback, "ランキング用データの準備を開始しています。", 0.05)
     settings = get_settings()
@@ -10122,12 +10164,14 @@ async def _build_market_data_ranking_rows_fast(
             progress,
         )
 
-    advanced_forecast_fields_by_symbol = _ranking_advanced_forecast_fields_for_symbols(
-        available_symbols,
-        bars_by_symbol=bars_by_symbol,
-        horizon_days=forecast_horizon_days,
-        progress_callback=progress_callback,
-    )
+    advanced_forecast_fields_by_symbol: dict[str, dict[str, str]] = {}
+    if include_advanced_forecast:
+        advanced_forecast_fields_by_symbol = _ranking_advanced_forecast_fields_for_symbols(
+            available_symbols,
+            bars_by_symbol=bars_by_symbol,
+            horizon_days=forecast_horizon_days,
+            progress_callback=progress_callback,
+        )
     _report_ranking_progress(progress_callback, "総合スコアを計算しています。", 0.9)
     screening_scores = ScreeningService().score(
         feature_snapshot,
@@ -10673,6 +10717,30 @@ def _cache_ranking_advanced_forecast(
     cache[key] = fields
     while len(cache) > MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS:
         cache.pop(next(iter(cache)))
+
+
+def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None:
+    """Release raw per-symbol caches after a large ranking cohort completes."""
+
+    provider_key = provider.strip().lower()
+    display_symbols = {str(symbol).strip().upper() for symbol in symbols if str(symbol).strip()}
+    provider_symbols = {
+        symbol_provider_symbol(symbol, provider).strip().upper() for symbol in display_symbols
+    }
+    cache_symbols = display_symbols | provider_symbols
+    ohlcv_cache = _ranking_ohlcv_cache()
+    for key in tuple(ohlcv_cache):
+        if key[0] == provider_key and key[1] in cache_symbols:
+            ohlcv_cache.pop(key, None)
+    fundamental_cache = _ranking_fundamental_cache()
+    for key in tuple(fundamental_cache):
+        if key[0] == provider_key and key[1] in cache_symbols:
+            fundamental_cache.pop(key, None)
+    advanced_cache = _ranking_advanced_forecast_cache()
+    for key in tuple(advanced_cache):
+        if key[0] in display_symbols:
+            advanced_cache.pop(key, None)
+    gc.collect()
 
 
 def get_cached_ranking_build(

@@ -6393,14 +6393,20 @@ def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
 
 
 def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
-    calls: list[int] = []
+    calls: list[tuple[int, bool]] = []
+    released: list[list[str]] = []
 
     async def fake_fast(symbols, **kwargs):
-        calls.append(len(symbols))
+        calls.append((len(symbols), bool(kwargs["include_advanced_forecast"])))
         return ([{"symbol": symbol} for symbol in symbols], [])
 
     monkeypatch.setattr(app_module, "_build_market_data_ranking_rows_fast", fake_fast)
-    symbols = [f"{index:04d}.T" for index in range(201)]
+    monkeypatch.setattr(
+        app_module,
+        "_release_ranking_cohort_cache",
+        lambda _provider, symbols: released.append(list(symbols)),
+    )
+    symbols = [f"{index:05d}.T" for index in range(10_001)]
 
     rows, errors = asyncio.run(
         app_module._build_market_data_ranking_rows(
@@ -6411,9 +6417,41 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
         )
     )
 
-    assert calls == [100, 100, 1]
+    assert calls[:-1] == [(100, False)] * 100 + [(1, False)]
+    assert calls[-1] == (100, True)
+    assert [len(batch) for batch in released] == [100] * 100 + [1, 100]
     assert len(rows) == len(symbols)
     assert errors == []
+
+
+def test_large_ranking_releases_only_completed_cohort_caches(monkeypatch):
+    ohlcv_cache = {
+        ("yahoo", "AAA", "start", "end"): [object()],
+        ("yahoo", "BBB", "start", "end"): [object()],
+        ("mock", "AAA", "start", "end"): [object()],
+    }
+    fundamental_cache = {
+        ("yahoo", "AAA", "2026-01-01"): [object()],
+        ("yahoo", "BBB", "2026-01-01"): [object()],
+    }
+    advanced_cache = {
+        ("AAA", 20, 100, "latest", "100"): {"score": "70"},
+        ("BBB", 20, 100, "latest", "100"): {"score": "70"},
+    }
+    monkeypatch.setattr(app_module, "_ranking_ohlcv_cache", lambda: ohlcv_cache)
+    monkeypatch.setattr(app_module, "_ranking_fundamental_cache", lambda: fundamental_cache)
+    monkeypatch.setattr(app_module, "_ranking_advanced_forecast_cache", lambda: advanced_cache)
+    monkeypatch.setattr(app_module.gc, "collect", lambda: 0)
+
+    app_module._release_ranking_cohort_cache("yahoo", ["AAA"])
+
+    assert ("yahoo", "AAA", "start", "end") not in ohlcv_cache
+    assert ("yahoo", "BBB", "start", "end") in ohlcv_cache
+    assert ("mock", "AAA", "start", "end") in ohlcv_cache
+    assert ("yahoo", "AAA", "2026-01-01") not in fundamental_cache
+    assert ("yahoo", "BBB", "2026-01-01") in fundamental_cache
+    assert all(key[0] != "AAA" for key in advanced_cache)
+    assert any(key[0] == "BBB" for key in advanced_cache)
 
 
 def test_advanced_forecast_cache_is_not_published_from_failed_batch(monkeypatch):

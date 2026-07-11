@@ -43,6 +43,20 @@ def test_stop_script_only_stops_matching_8501_smai_listener() -> None:
     assert "Stop-Process -Id $p.ProcessId" in script
 
 
+def test_restart_script_reuses_guarded_stop_and_waits_for_health() -> None:
+    script = _read("scripts/restart_smai_server.bat")
+    implementation = _read("scripts/server_ops/restart_smai_server.ps1")
+
+    assert "server_ops\\restart_smai_server.ps1" in script
+    assert "stop_smai_server.bat" in implementation
+    assert "start_smai_server.bat" in implementation
+    assert "-Verb RunAs" in implementation
+    assert "-WindowStyle Hidden" in implementation
+    assert "http://127.0.0.1:8501/_stcore/health" in implementation
+    assert "AddSeconds(45)" in implementation
+    assert "taskkill" not in implementation.lower()
+
+
 def test_task_registration_has_logon_delay_retry_and_ignore_new() -> None:
     script = _read("scripts/register_smai_startup_task.ps1")
 

@@ -362,6 +362,14 @@ SMAIアシスタントの自由会話 `free_chat` は、体感速度を優先す
 
 ## 3. API 起動と確認
 
+### Streamlitサーバーの再起動
+
+稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
+
+```powershell
+.\scripts\restart_smai_server.bat
+```
+
 FastAPI を起動します。
 
 ```powershell

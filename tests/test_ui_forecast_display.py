@@ -6456,7 +6456,7 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
         "_release_ranking_cohort_cache",
         lambda _provider, symbols: released.append(list(symbols)),
     )
-    symbols = [f"{index:05d}.T" for index in range(10_001)]
+    symbols = [f"{index:05d}.T" for index in range(11_099)]
 
     rows, errors = asyncio.run(
         app_module._build_market_data_ranking_rows(
@@ -6467,7 +6467,7 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
         )
     )
 
-    assert calls[:-1] == [(100, False)] * 100 + [(1, False)]
+    assert calls[:-1] == [(100, False)] * 110 + [(99, False)]
     assert calls[-1] == (25, True)
     released_symbols = [symbol for batch in released for symbol in batch]
     assert len(released_symbols) == len(symbols)
@@ -6932,7 +6932,7 @@ def test_build_market_data_ranking_rows_does_not_retry_live_batch_failure(monkey
     assert progress_messages[-1] == "Yahoo live data の一括取得に失敗しました。"
 
 
-def test_large_live_ranking_uses_one_continuous_pipeline(monkeypatch):
+def test_large_live_ranking_keeps_all_rows_across_bounded_cohorts(monkeypatch):
     calls: list[list[str]] = []
 
     async def fake_fast(symbols, **kwargs):
@@ -6960,7 +6960,7 @@ def test_large_live_ranking_uses_one_continuous_pipeline(monkeypatch):
         )
     )
 
-    assert [len(call) for call in calls] == [205]
+    assert [len(call) for call in calls] == [100, 100, 5, 25]
     assert len(rows) == 205
     assert {row["symbol"] for row in rows} == set(symbols)
     assert error_rows == []

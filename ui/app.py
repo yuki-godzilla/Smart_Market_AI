@@ -10948,6 +10948,10 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state["sidemenu_page"] = SIDEMENU_PAGE_COCKPIT
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
     st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = provider
+    # A keyword left from a previous Cockpit visit filters the handoff symbol
+    # out of the selectbox. Clear only this transient search state; the
+    # Cockpit's other filters still apply and the handoff symbol is preserved.
+    st.session_state.pop("market_data_symbol_search", None)
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state["market_data_ranking_handoff_symbol"] = symbol.strip().upper()
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)

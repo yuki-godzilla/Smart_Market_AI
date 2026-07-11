@@ -4835,6 +4835,7 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
         "market_data_preview": object(),
         "market_data_status_message": "ok",
         "market_data_ranking_deep_dive_symbol": "old",
+        "market_data_symbol_search": "AAPL",
     }
     monkeypatch.setattr("ui.app.st.session_state", session_state)
 
@@ -4855,8 +4856,7 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state
     assert "market_data_ranking_deep_dive_symbol" not in session_state
-
-
+    assert "market_data_symbol_search" not in session_state
 def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
     monkeypatch.delenv(CONFIG_FILE_ENV, raising=False)
     session_state: dict[str, object] = {

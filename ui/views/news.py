@@ -8,6 +8,7 @@ from functools import lru_cache
 from typing import cast
 from urllib.parse import quote
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from zoneinfo import ZoneInfo
@@ -17,8 +18,13 @@ from backend.news import (
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsUpdateStatus,
+    RadarCandidate,
+    RadarCandidateDataStatus,
+    RadarCandidateMap,
     build_demo_news_dashboard_snapshot,
+    build_radar_candidate_map,
     build_standard_news_dashboard_snapshot,
+    filter_radar_candidates,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
     refresh_news_dashboard_cache,
@@ -52,12 +58,31 @@ NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 NEWS_FEATURED_HEADLINE_LIMIT = 3
+NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
     "recent": "近日",
     "stale": "古め",
     "unknown": "未確認",
+}
+
+_RADAR_PROVENANCE_LABELS = {
+    "direct_mention": "本文に出た銘柄",
+    "inferred_candidate": "SMAI推測候補",
+    "macro_proxy": "市場確認指標",
+}
+_RADAR_MATERIAL_TONE_LABELS = {
+    "positive": "好材料を含む",
+    "caution": "注意材料を含む",
+    "mixed": "材料が混在",
+    "unknown": "材料の方向は未確認",
+}
+_RADAR_DATA_STATUS_LABELS = {
+    "available": "確認可能",
+    "partial": "一部確認",
+    "unavailable": "未取得",
+    "not_checked": "未確認",
 }
 
 _MATERIAL_LABELS = {
@@ -386,6 +411,11 @@ def render_news_dashboard_page(
     symbol_name_map = _news_symbol_name_map()
     filtered_snapshot = _render_news_detail_filters(snapshot)
     _render_heatmap(filtered_snapshot)
+    _render_radar_candidate_map(
+        filtered_snapshot,
+        open_symbol_callback=open_symbol_callback,
+        symbol_name_map=symbol_name_map,
+    )
     _render_news_stream(filtered_snapshot)
     _render_category_lanes(
         filtered_snapshot,
@@ -1858,6 +1888,223 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
         st.info("投資ヒートマップを集計できる材料はまだありません。")
         return
     st.markdown(heatmap_html, unsafe_allow_html=True)
+
+
+def news_radar_candidate_map_frame(candidates: Sequence[RadarCandidate]) -> pd.DataFrame:
+    """Return a chart-ready, display-only frame for the confirmation candidate map."""
+
+    return pd.DataFrame(
+        [
+            {
+                "candidate_id": candidate.candidate_id,
+                "symbol": candidate.symbol,
+                "name": candidate.display_name or candidate.symbol,
+                "provenance": _RADAR_PROVENANCE_LABELS[candidate.provenance],
+                "directness": candidate.directness,
+                "confirmation_priority": candidate.confirmation_priority,
+                "source_breadth": max(1, candidate.independent_source_count),
+                "material_tone": _RADAR_MATERIAL_TONE_LABELS[candidate.material_tone],
+                "data_status": _RADAR_DATA_STATUS_LABELS[candidate.symbol_data_status],
+                "freshness": _freshness_label(candidate.freshness_status),
+                "watchlist": "Myウォッチリスト一致" if candidate.watchlist_match else "",
+            }
+            for candidate in candidates
+        ]
+    )
+
+
+def _render_radar_candidate_map(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: Mapping[str, str],
+) -> None:
+    st.markdown("### 追加候補マップ")
+    st.caption(
+        "ニュース根拠から次に確認する候補を整理します。横軸は根拠の直接性、縦軸は確認優先度です。"
+        "投資魅力度・期待収益・ランキング順位は表していません。"
+    )
+    watchlist_symbols = _radar_watchlist_symbols()
+    candidate_map = build_radar_candidate_map(
+        snapshot,
+        watchlist_symbols=watchlist_symbols,
+        symbol_metadata_by_symbol=_heatmap_symbol_universe_by_symbol(),
+    )
+    candidates = _render_radar_candidate_filters(candidate_map)
+    if not candidates:
+        st.info("選択中の条件で、根拠へ戻れる追加候補はありません。")
+        return
+
+    frame = news_radar_candidate_map_frame(candidates)
+    chart = (
+        alt.Chart(frame)
+        .mark_circle(opacity=0.86, stroke="#e2e8f0", strokeWidth=1)
+        .encode(
+            x=alt.X(
+                "directness:Q",
+                title="根拠の直接性（記事本文の明示 → SMAI推測 → 市場背景）",
+                scale=alt.Scale(domain=[0, 1]),
+            ),
+            y=alt.Y("confirmation_priority:Q", title="確認優先度（確認の順番）"),
+            size=alt.Size(
+                "source_breadth:Q", title="独立ソース数", scale=alt.Scale(range=[90, 650])
+            ),
+            color=alt.Color("material_tone:N", title="材料の構成"),
+            shape=alt.Shape("provenance:N", title="候補由来"),
+            tooltip=[
+                alt.Tooltip("symbol:N", title="銘柄"),
+                alt.Tooltip("name:N", title="表示名"),
+                alt.Tooltip("provenance:N", title="候補由来"),
+                alt.Tooltip("confirmation_priority:Q", title="確認優先度"),
+                alt.Tooltip("source_breadth:Q", title="独立ソース数"),
+                alt.Tooltip("freshness:N", title="ニュース鮮度"),
+                alt.Tooltip("data_status:N", title="銘柄DB"),
+                alt.Tooltip("watchlist:N", title=""),
+            ],
+        )
+        .properties(height=310)
+    )
+    st.altair_chart(chart, use_container_width=True)
+    _render_radar_candidate_detail(
+        candidates,
+        open_symbol_callback=open_symbol_callback,
+        symbol_name_map=symbol_name_map,
+    )
+
+
+def _render_radar_candidate_filters(candidate_map: RadarCandidateMap) -> list[RadarCandidate]:
+    candidates = candidate_map.candidates
+    markets = sorted({candidate.market for candidate in candidates if candidate.market})
+    asset_types = sorted({candidate.asset_type for candidate in candidates if candidate.asset_type})
+    rag_statuses = sorted({candidate.rag_data_status for candidate in candidates})
+    provenance_options = ["direct_mention", "inferred_candidate", "macro_proxy"]
+    with st.expander("追加候補の絞り込み", expanded=False):
+        market_col, asset_col, provenance_col = st.columns(3)
+        with market_col:
+            selected_markets = st.multiselect(
+                "市場",
+                markets,
+                key="investment_radar_candidate_markets",
+            )
+        with asset_col:
+            selected_asset_types = st.multiselect(
+                "資産種別",
+                asset_types,
+                key="investment_radar_candidate_asset_types",
+            )
+        with provenance_col:
+            selected_provenance_values = st.multiselect(
+                "候補由来",
+                provenance_options,
+                default=["direct_mention", "inferred_candidate"],
+                format_func=lambda value: _RADAR_PROVENANCE_LABELS[value],
+                key="investment_radar_candidate_provenance",
+            )
+        rag_col, watchlist_col = st.columns([1.4, 1.0])
+        with rag_col:
+            selected_rag_statuses = st.multiselect(
+                "RAG根拠の状態",
+                rag_statuses,
+                format_func=lambda value: _RADAR_DATA_STATUS_LABELS[value],
+                key="investment_radar_candidate_rag_status",
+            )
+        with watchlist_col:
+            watchlist_only = st.checkbox(
+                "Myウォッチリスト一致だけ",
+                key="investment_radar_candidate_watchlist_only",
+            )
+    selected_provenances = cast(list[object], selected_provenance_values)
+    return filter_radar_candidates(
+        candidate_map,
+        markets=selected_markets,
+        asset_types=selected_asset_types,
+        provenances=cast(list, selected_provenances),
+        rag_statuses=cast(list[RadarCandidateDataStatus], selected_rag_statuses),
+        watchlist_only=watchlist_only,
+    )
+
+
+def _render_radar_candidate_detail(
+    candidates: Sequence[RadarCandidate],
+    *,
+    open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: Mapping[str, str],
+) -> None:
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    selected_candidate_id = st.selectbox(
+        "追加候補を選択",
+        list(candidate_by_id),
+        format_func=lambda candidate_id: _radar_candidate_label(candidate_by_id[candidate_id]),
+        key=NEWS_RADAR_CANDIDATE_STATE_KEY,
+    )
+    candidate = candidate_by_id[selected_candidate_id]
+    with st.container(border=True):
+        st.markdown(f"#### {_radar_candidate_label(candidate)}")
+        st.caption(
+            f"{_RADAR_PROVENANCE_LABELS[candidate.provenance]} / "
+            f"{_RADAR_MATERIAL_TONE_LABELS[candidate.material_tone]} / "
+            f"ニュース鮮度: {_freshness_label(candidate.freshness_status)}"
+        )
+        why_col, state_col = st.columns(2)
+        with why_col:
+            st.markdown("**なぜこの候補か**")
+            st.write(
+                f"カテゴリ: {' / '.join(candidate.categories)}。"
+                f"独立した根拠: {candidate.independent_source_count}件。"
+                f"確認優先度: {candidate.confirmation_priority}。"
+            )
+            if candidate.watchlist_match:
+                st.caption("Myウォッチリストと一致しています。")
+        with state_col:
+            st.markdown("**データの状態**")
+            st.write(
+                f"銘柄DB: {_RADAR_DATA_STATUS_LABELS[candidate.symbol_data_status]} / "
+                f"価格: {_RADAR_DATA_STATUS_LABELS[candidate.price_data_status]} / "
+                f"RAG: {_RADAR_DATA_STATUS_LABELS[candidate.rag_data_status]}"
+            )
+        st.markdown("**根拠記事**")
+        for evidence in candidate.evidence:
+            source = evidence.source_name or _source_type_label(evidence.source_type)
+            label = f"{evidence.headline_title} — {source}"
+            if evidence.source_url:
+                st.markdown(
+                    f'<a href="{html.escape(evidence.source_url, quote=True)}" '
+                    f'target="_blank" rel="noopener noreferrer">{html.escape(label)} ↗</a>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.write(label)
+        st.markdown("**次の確認**")
+        for gap in candidate.confirmation_gaps:
+            st.caption(f"・{gap}")
+        if candidate.is_investigation_candidate:
+            st.button(
+                "銘柄コックピットで確認",
+                key=f"investment_radar_candidate_open_{candidate.candidate_id}",
+                on_click=open_symbol_callback,
+                args=(candidate.symbol,),
+                type="primary",
+            )
+            st.caption(
+                "この画面での選択・遷移では、価格取得、RAG検索、外部資料取得、保存は開始しません。"
+            )
+        else:
+            st.info("市場確認指標は、個別銘柄候補としてではなく市場背景の確認に使います。")
+        _ = symbol_name_map
+
+
+def _radar_watchlist_symbols() -> list[str]:
+    manual_symbols = parse_news_watchlist_symbols(
+        str(st.session_state.get(NEWS_DASHBOARD_WATCHLIST_STATE_KEY) or "")
+    )
+    favorite_symbols = [favorite.symbol for favorite in load_favorites()]
+    source = str(st.session_state.get("investment_news_watchlist_source", "favorites_watchlist"))
+    return combine_news_watchlist_symbols(manual_symbols, favorite_symbols, source=source)
+
+
+def _radar_candidate_label(candidate: RadarCandidate) -> str:
+    name = candidate.display_name or candidate.symbol
+    return f"{candidate.symbol} / {name} — {_RADAR_PROVENANCE_LABELS[candidate.provenance]}"
 
 
 def _render_category_lanes(

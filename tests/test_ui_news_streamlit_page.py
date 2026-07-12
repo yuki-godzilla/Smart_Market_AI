@@ -223,13 +223,14 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
     assert "投資ヒートマップ" in page_text
+    assert "追加候補マップ" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
     assert "Watchlist" in text_input_labels
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
-    assert "関連銘柄" in selectbox_labels
+    assert {"関連銘柄", "追加候補を選択"}.issubset(set(selectbox_labels))
     assert {"Watchlist一致を優先表示", "Watchlist一致だけ表示"}.issubset(set(checkbox_labels))
 
 

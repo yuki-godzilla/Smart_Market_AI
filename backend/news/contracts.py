@@ -10,6 +10,9 @@ from backend.core.data_contracts import StrictBaseModel
 NEWS_DASHBOARD_SCHEMA_VERSION = "news-dashboard-snapshot-v1"
 
 NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+RadarCandidateProvenance = Literal["direct_mention", "inferred_candidate", "macro_proxy"]
+RadarCandidateMaterialTone = Literal["positive", "caution", "mixed", "unknown"]
+RadarCandidateDataStatus = Literal["available", "partial", "unavailable", "not_checked"]
 NewsSymbolMatchKind = Literal[
     "direct_mention",
     "alias_match",
@@ -85,6 +88,56 @@ class NewsHeadlineCard(StrictBaseModel):
     is_official_source: bool = False
     ai_comment: str | None = None
     investment_checkpoints: list[str] = Field(default_factory=list)
+
+
+class RadarCandidateEvidence(StrictBaseModel):
+    """One stable, traceable news reason for a Radar exploration candidate."""
+
+    evidence_id: str = Field(min_length=1)
+    headline_title: str = Field(min_length=1)
+    source_name: str | None = Field(default=None, min_length=1)
+    source_type: str = Field(min_length=1)
+    source_url: str | None = Field(default=None, min_length=1)
+    category: str = Field(min_length=1)
+    material_type: str = Field(min_length=1)
+    provenance: RadarCandidateProvenance
+    directness: float = Field(ge=0.0, le=1.0)
+    published_at: datetime | None = None
+    fetched_at: datetime | None = None
+    freshness_status: NewsFreshnessStatus = "unknown"
+
+
+class RadarCandidate(StrictBaseModel):
+    """A deterministic candidate for confirmation, never an investment ranking row."""
+
+    candidate_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    display_name: str | None = Field(default=None, min_length=1)
+    market: str | None = Field(default=None, min_length=1)
+    asset_type: str | None = Field(default=None, min_length=1)
+    provenance: RadarCandidateProvenance
+    categories: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    evidence: list[RadarCandidateEvidence] = Field(default_factory=list)
+    freshness_status: NewsFreshnessStatus = "unknown"
+    latest_published_at: datetime | None = None
+    independent_source_count: int = Field(default=0, ge=0)
+    watchlist_match: bool = False
+    symbol_data_status: RadarCandidateDataStatus = "not_checked"
+    price_data_status: RadarCandidateDataStatus = "not_checked"
+    rag_data_status: RadarCandidateDataStatus = "not_checked"
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    directness: float = Field(ge=0.0, le=1.0)
+    confirmation_priority: int = Field(ge=0, le=100)
+    material_tone: RadarCandidateMaterialTone = "unknown"
+    is_investigation_candidate: bool = True
+
+
+class RadarCandidateMap(StrictBaseModel):
+    """Bounded, network-free candidate map constructed from a news snapshot."""
+
+    generated_at: datetime
+    candidates: list[RadarCandidate] = Field(default_factory=list)
 
 
 class NewsHeatmapCell(StrictBaseModel):

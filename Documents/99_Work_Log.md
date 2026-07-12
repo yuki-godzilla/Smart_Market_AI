@@ -4607,3 +4607,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 7画面をiPhone / iPad縦横 / PCで実操作するresponsive smokeを追加・実行した。Cockpit、Ranking、投資レーダー、Myウォッチリスト、Assistant、リバランス、設定 / データ情報で、横はみ出し、例外、主要操作、モーダル、サイドバーを確認し、7件成功・任意チャートsmoke 1件をスキップ。
 - タップ領域（PC 36px、タッチ画面44px）、固定ユーザー操作とサイドバーの干渉、スマホの共通ヘッダー／本文上余白を改善した。画面冒頭の重複説明を短文化し、全体のベース配色・CTAを青／ネイビー基調へ戻した。緑は上昇・成功などの状態色に限定した。
 - network-free UI回帰577件、全viewport実画面、全ユーザーパスを成功として確認。実機Safari / PWA、live provider、外部LLM、実通知配送は未実行。
+
+## 2026-07-12: RAG検索品質・再索引性能改善スプリント
+
+- Cockpit / Ranking / Assistantの既存AI調査導線を、キーワードとローカルvector候補を統合するhybrid retrievalへ接続。vector候補だけでキーワード一致・公式資料を落とす挙動を除去し、同一資料の隣接chunkも上位を独占しないよう制限した。
+- file-backed vector cacheの再索引をチャンクごとの全JSONL書込みから一括atomic更新へ変更。160チャンクの比較で160書込み・237.83 msから1書込み・2.37 ms（約100.2x）となった。
+- ETFの`market`のような弱いcross-topic一致が成長/財務安全性の根拠になる事象を再現し、観点別の関連度floor未満を`confirmation_gap`として扱うよう修正。資料不足を低スコアや投資魅力度へ変換しない方針を維持。
+- `ResearchRetrievalQuality`へキーワード/ベクトル候補数、資料数、局所latencyを追加。通常画面に検索方式・根拠数・資料数、詳細に候補数・処理時間を表示する。
+- 国内株7203.T、米国株AAPL、ETF SPY、資料不足のnetwork-freeシナリオを確認。関連pytest 524件成功・opt-in UI smoke 1件スキップ、Ruff、Research / state範囲のmypyが成功。隔離Streamlitが実行環境のプロセス管理により終了したため、実UI smokeは通常端末で再実行する。詳細は `Documents/35_RAG_Improvement_Sprint_Report.md` を参照。

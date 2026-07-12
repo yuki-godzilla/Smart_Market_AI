@@ -61,6 +61,8 @@ outputs/work/*_smoke/
 outputs/work/symbol_metadata_probe/
 exports/decision_reports/
 data/cache/llm_factor_results.json
+# Local RAG retrieval cache; it can contain session-local source excerpts.
+data/cache/research_vectors_v1.jsonl
 data/cache/*.lock
 data/cache/*.sqlite
 data/cache/*.sqlite-*

@@ -179,6 +179,7 @@ from ui.app import (
     _research_operation_insight,
     _research_quality_warning_rows,
     _research_result_overview_html,
+    _research_retrieval_quality_caption,
     _research_retrieval_quality_rows,
     _research_score_component_rows,
     _research_score_context_caption,
@@ -4399,6 +4400,22 @@ def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():
     assert retrieval_rows[0]["関連語の一部"] == "growth / strategy"
     assert claim_rows[0]["観点"] == "growth"
     assert claim_rows[0]["信頼度"] == "0.75"
+
+    hybrid_caption = _research_retrieval_quality_caption(
+        report.model_copy(
+            update={
+                "retrieval_quality": report.retrieval_quality.model_copy(
+                    update={
+                        "backend": "hybrid",
+                        "document_count": 1,
+                        "vector_candidate_count": 2,
+                    }
+                )
+            }
+        )
+    )
+    assert "ハイブリッド検索" in hybrid_caption
+    assert "根拠: 2件" in hybrid_caption
 
 
 def test_research_evidence_report_section_carries_data_quality_warnings():

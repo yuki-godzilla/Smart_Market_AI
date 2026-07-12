@@ -395,6 +395,10 @@ class ResearchRetrievalQuality(StrictBaseModel):
     expanded_terms: list[str] = Field(default_factory=list)
     candidate_count: int = Field(ge=0)
     evidence_count: int = Field(ge=0)
+    keyword_candidate_count: int = Field(default=0, ge=0)
+    vector_candidate_count: int = Field(default=0, ge=0)
+    document_count: int = Field(default=0, ge=0)
+    latency_ms: int = Field(default=0, ge=0)
     warnings: list[str] = Field(default_factory=list)
 
 

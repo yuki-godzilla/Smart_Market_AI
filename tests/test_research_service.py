@@ -4907,6 +4907,260 @@ def test_hybrid_retrieval_scores_vector_candidates_when_available():
     assert quality.candidate_count == 1
 
 
+def test_hybrid_retrieval_keeps_exact_keyword_evidence_alongside_vector_candidates(tmp_path):
+    official_path = tmp_path / "official_growth.md"
+    official_path.write_text(
+        "Official medium-term plan: growth strategy and overseas expansion are confirmed.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    document = ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Official Medium-term Plan",
+            local_path=str(official_path),
+            source_type="annual_report",
+            published_at=date(2026, 5, 1),
+            reliability=Decimal("0.95"),
+        )
+    )
+    ResearchIndexService(store, max_chars=240).build_chunks(document.document_id)
+
+    class FakeVectorStore:
+        def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
+            return [
+                ResearchRetrievalCandidate(
+                    symbol="7203.T",
+                    document_id="semantic-news",
+                    chunk_id="semantic-news-1",
+                    title="Semantic market commentary",
+                    source_type="news",
+                    published_at=date(2026, 5, 20),
+                    excerpt="A broadly related market commentary.",
+                    vector_score=Decimal("0.82"),
+                    reliability=Decimal("0.55"),
+                )
+            ]
+
+        def retrieval_quality(
+            self,
+            request: ResearchSearchRequest,
+            *,
+            expanded_terms: list[str] | None = None,
+        ) -> ResearchRetrievalQuality:
+            return ResearchRetrievalQuality(
+                backend="vector",
+                query=request.query,
+                expanded_terms=expanded_terms or [],
+                candidate_count=1,
+                evidence_count=1,
+            )
+
+    evidence = HybridResearchRetrievalService(
+        ResearchRetrievalService(store),
+        vector_store=FakeVectorStore(),
+    ).search(
+        ResearchSearchRequest(
+            symbol="7203.T",
+            query="growth strategy overseas expansion",
+            top_k=2,
+            as_of=date(2026, 5, 25),
+        )
+    )
+
+    assert {row.title for row in evidence} == {
+        "Official Medium-term Plan",
+        "Semantic market commentary",
+    }
+    assert evidence[0].title == "Official Medium-term Plan"
+
+
+def test_research_analysis_reports_hybrid_retrieval_quality(tmp_path):
+    document_path = tmp_path / "hybrid_report.md"
+    document_path.write_text(
+        "Growth strategy includes market expansion, overseas revenue, cash discipline, "
+        "dividend policy, and regulation risk.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    document = ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Hybrid Research Report",
+            local_path=str(document_path),
+            source_type="annual_report",
+            published_at=date(2026, 5, 1),
+            reliability=Decimal("0.90"),
+        )
+    )
+    ResearchIndexService(store, max_chars=240).build_chunks(document.document_id)
+    vector_store = ResearchInMemoryVectorStore()
+    ResearchVectorIndexService(store, vector_store).rebuild_index(symbol="7203.T")
+
+    report = ResearchAnalysisService(
+        ingestion,
+        HybridResearchRetrievalService(
+            ResearchRetrievalService(store),
+            vector_store=vector_store,
+        ),
+    ).analyze_company(CompanyResearchRequest(symbol="7203.T", as_of=date(2026, 5, 25)))
+
+    assert report.retrieval_quality is not None
+    assert report.retrieval_quality.backend == "hybrid"
+    assert report.retrieval_quality.keyword_candidate_count > 0
+    assert report.retrieval_quality.document_count == 1
+    assert report.retrieval_quality.latency_ms >= 0
+
+
+def test_research_analysis_marks_low_relevance_cross_topic_matches_as_gaps(tmp_path):
+    document_path = tmp_path / "spy_profile.md"
+    document_path.write_text(
+        "SPY fund profile: S&P 500 index exposure, expense ratio, distribution policy, "
+        "tracking method and market risk.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    document = ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="SPY",
+            title="SPY Fund Profile",
+            local_path=str(document_path),
+            source_type="provider_profile",
+            published_at=date(2026, 6, 1),
+            reliability=Decimal("0.90"),
+        )
+    )
+    ResearchIndexService(store, max_chars=240).build_chunks(document.document_id)
+    vector_store = ResearchInMemoryVectorStore()
+    ResearchVectorIndexService(store, vector_store).rebuild_index(symbol="SPY")
+    report = ResearchAnalysisService(
+        ingestion,
+        HybridResearchRetrievalService(
+            ResearchRetrievalService(store),
+            vector_store=vector_store,
+        ),
+    ).analyze_company(CompanyResearchRequest(symbol="SPY", as_of=date(2026, 7, 12)))
+
+    points_by_category = {point.category: point for point in report.points}
+    assert not points_by_category["growth"].evidence
+    assert not points_by_category["financial_safety"].evidence
+    assert points_by_category["business_risk"].evidence
+    assert any(
+        claim.category == "confirmation_gap" and "成長材料" in claim.claim
+        for claim in report.extracted_claims
+    )
+    assert report.retrieval_quality is not None
+    assert any("関連性が低い候補" in warning for warning in report.retrieval_quality.warnings)
+
+
+def test_vector_index_rebuild_batches_file_writes_and_replaces_symbol_entries(
+    tmp_path, monkeypatch
+):
+    vector_store = ResearchFileVectorStore(tmp_path / "vectors.jsonl")
+    store = ResearchInMemoryStore()
+    first_chunk = ResearchChunk(
+        document_id="doc-current",
+        chunk_id="chunk-current-1",
+        symbol="7203.T",
+        title="Current IR",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        text="Growth strategy and dividend policy.",
+        chunk_index=0,
+        char_count=36,
+    )
+    second_chunk = first_chunk.model_copy(
+        update={
+            "chunk_id": "chunk-current-2",
+            "chunk_index": 1,
+            "text": "Cash and financial safety are maintained.",
+        }
+    )
+    stale_chunk = first_chunk.model_copy(
+        update={
+            "document_id": "doc-stale",
+            "chunk_id": "chunk-stale",
+            "title": "Stale IR",
+            "text": "Old business description.",
+        }
+    )
+    embedding_service = ResearchEmbeddingService(
+        dimensions=16,
+        created_at=datetime(2026, 5, 25, tzinfo=UTC),
+    )
+    stale_candidate, stale_embedding = embedding_service.embedding_candidate_pair(stale_chunk)
+    vector_store.upsert(stale_candidate, stale_embedding)
+    store.chunks_by_document_id["doc-current"] = [first_chunk, second_chunk]
+
+    write_count = 0
+    original_write = vector_store._write_entries
+
+    def count_write() -> None:
+        nonlocal write_count
+        write_count += 1
+        original_write()
+
+    monkeypatch.setattr(vector_store, "_write_entries", count_write)
+    summary = ResearchVectorIndexService(
+        store,
+        vector_store,
+        embedding_service,
+    ).rebuild_index(symbol="7203.T")
+
+    reloaded = ResearchFileVectorStore(vector_store.cache_path)
+    assert summary.embedded_count == 2
+    assert write_count == 1
+    assert set(reloaded._entries) == {"chunk-current-1", "chunk-current-2"}
+
+
+def test_vector_index_rebuild_removes_cached_vectors_when_symbol_has_no_chunks(tmp_path):
+    vector_store = ResearchFileVectorStore(tmp_path / "vectors.jsonl")
+    embedding_service = ResearchEmbeddingService(
+        dimensions=16,
+        created_at=datetime(2026, 5, 25, tzinfo=UTC),
+    )
+    removed_chunk = ResearchChunk(
+        document_id="doc-transient",
+        chunk_id="chunk-transient",
+        symbol="7203.T",
+        title="Transient external source",
+        source_type="news",
+        published_at=date(2026, 5, 20),
+        text="Temporary external research material.",
+        chunk_index=0,
+        char_count=37,
+    )
+    retained_chunk = removed_chunk.model_copy(
+        update={
+            "document_id": "doc-retained",
+            "chunk_id": "chunk-retained",
+            "symbol": "6758.T",
+            "title": "Other symbol material",
+        }
+    )
+    vector_store.upsert_many(
+        [
+            embedding_service.embedding_candidate_pair(removed_chunk),
+            embedding_service.embedding_candidate_pair(retained_chunk),
+        ]
+    )
+
+    summary = ResearchVectorIndexService(
+        ResearchInMemoryStore(),
+        vector_store,
+        embedding_service,
+    ).rebuild_index(symbol="7203.T")
+
+    reloaded = ResearchFileVectorStore(vector_store.cache_path)
+    assert summary.chunk_count == 0
+    assert summary.embedded_count == 0
+    assert "No research chunks available" in summary.warnings[0]
+    assert set(reloaded._entries) == {"chunk-retained"}
+
+
 def test_in_memory_vector_store_searches_by_query_vector_and_filters_symbol():
     store = ResearchInMemoryVectorStore()
     toyota_candidate = ResearchRetrievalCandidate(

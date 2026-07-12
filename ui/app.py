@@ -198,6 +198,13 @@ from ui.content.research_texts import (
     RESEARCH_RANKING_LOOKUP_INTRO,
     RESEARCH_RANKING_LOOKUP_TITLE,
     RESEARCH_REGISTERED_EVIDENCE_NOTE,
+    RESEARCH_RETRIEVAL_DOCUMENT_LABEL,
+    RESEARCH_RETRIEVAL_EVIDENCE_LABEL,
+    RESEARCH_RETRIEVAL_FALLBACK_NOTE,
+    RESEARCH_RETRIEVAL_MODE_HYBRID,
+    RESEARCH_RETRIEVAL_MODE_KEYWORD,
+    RESEARCH_RETRIEVAL_MODE_LABEL,
+    RESEARCH_RETRIEVAL_MODE_VECTOR,
     RESEARCH_STALE_DOCUMENT_NOTE,
     RESEARCH_STALE_REPORT_NOTE,
     RESEARCH_STATUS_INSUFFICIENT,
@@ -14929,6 +14936,10 @@ def _render_research_summary_panel(
             else:
                 st.warning(warning_text)
 
+    retrieval_caption = _research_retrieval_quality_caption(report)
+    if retrieval_caption:
+        st.caption(retrieval_caption)
+
     score_rows = _research_score_summary_rows(research_score)
     with st.expander(RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         st.caption(
@@ -19294,17 +19305,42 @@ def _research_retrieval_quality_rows(report: CompanyResearchReport) -> list[dict
     quality = report.retrieval_quality
     if quality is None:
         return []
-    return [
-        {
-            "確認項目": "検索品質",
-            "検索方式": quality.backend,
-            "検索した観点": quality.query,
-            "関連語の一部": _research_terms_preview(quality.expanded_terms),
-            "候補数": str(quality.candidate_count),
-            "根拠数": str(quality.evidence_count),
-            "注意点": " / ".join(quality.warnings),
-        }
-    ]
+    row = {
+        "確認項目": "検索品質",
+        "検索方式": quality.backend,
+        "検索した観点": quality.query,
+        "関連語の一部": _research_terms_preview(quality.expanded_terms),
+        "候補数": str(quality.candidate_count),
+        "根拠数": str(quality.evidence_count),
+        "資料数": str(quality.document_count),
+        "処理時間": f"{quality.latency_ms} ms",
+        "注意点": " / ".join(quality.warnings),
+    }
+    if quality.backend == "hybrid":
+        row["キーワード候補"] = str(quality.keyword_candidate_count)
+        row["ベクトル候補"] = str(quality.vector_candidate_count)
+    return [row]
+
+
+def _research_retrieval_quality_caption(report: CompanyResearchReport) -> str:
+    """Keep the active retrieval mode visible without exposing implementation detail."""
+
+    quality = report.retrieval_quality
+    if quality is None:
+        return ""
+    backend_label = {
+        "keyword": RESEARCH_RETRIEVAL_MODE_KEYWORD,
+        "vector": RESEARCH_RETRIEVAL_MODE_VECTOR,
+        "hybrid": RESEARCH_RETRIEVAL_MODE_HYBRID,
+    }.get(quality.backend, "検索方式未確認")
+    caption = (
+        f"{RESEARCH_RETRIEVAL_MODE_LABEL}: {backend_label}"
+        f" / {RESEARCH_RETRIEVAL_EVIDENCE_LABEL}: {quality.evidence_count}件"
+        f" / {RESEARCH_RETRIEVAL_DOCUMENT_LABEL}: {quality.document_count}件"
+    )
+    if quality.backend == "hybrid" and quality.vector_candidate_count == 0:
+        caption += f" / {RESEARCH_RETRIEVAL_FALLBACK_NOTE}"
+    return caption
 
 
 def _research_terms_preview(terms: Sequence[str], *, limit: int = 12) -> str:

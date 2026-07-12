@@ -8,6 +8,7 @@ from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Callable, Protocol, Sequence, cast
 
 import yaml  # type: ignore[import-untyped]
@@ -125,6 +126,8 @@ from backend.research.ir_classification import (
     classify_ir_document_candidates,
 )
 from backend.research.normalization import normalize_symbol
+
+MIN_TOPIC_EVIDENCE_RELEVANCE = Decimal("0.10")
 
 
 class ResearchInMemoryStore:
@@ -481,15 +484,30 @@ class ResearchInMemoryVectorStore:
         candidate: ResearchRetrievalCandidate,
         embedding: ResearchEmbedding,
     ) -> None:
-        if candidate.chunk_id != embedding.chunk_id:
-            raise ResearchSearchError(
-                message="Research vector candidate and embedding chunk_id do not match.",
-                details={
-                    "candidate_chunk_id": candidate.chunk_id,
-                    "embedding_chunk_id": embedding.chunk_id,
-                },
-            )
+        _validate_vector_entry(candidate, embedding)
         self._entries[candidate.chunk_id] = (candidate, embedding)
+
+    def upsert_many(
+        self,
+        entries: Sequence[tuple[ResearchRetrievalCandidate, ResearchEmbedding]],
+        *,
+        replace_symbol: str | None = None,
+        replace_all: bool = False,
+    ) -> None:
+        for candidate, embedding in entries:
+            _validate_vector_entry(candidate, embedding)
+        if replace_all:
+            self._entries = {}
+        elif replace_symbol is not None:
+            normalized_symbol = _normalize_symbol(replace_symbol)
+            self._entries = {
+                chunk_id: value
+                for chunk_id, value in self._entries.items()
+                if value[0].symbol != normalized_symbol
+            }
+        self._entries.update(
+            {candidate.chunk_id: (candidate, embedding) for candidate, embedding in entries}
+        )
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
         return _search_vector_entries(self._entries, request)
@@ -521,16 +539,39 @@ class ResearchFileVectorStore:
         candidate: ResearchRetrievalCandidate,
         embedding: ResearchEmbedding,
     ) -> None:
-        if candidate.chunk_id != embedding.chunk_id:
-            raise ResearchSearchError(
-                message="Research vector candidate and embedding chunk_id do not match.",
-                details={
-                    "candidate_chunk_id": candidate.chunk_id,
-                    "embedding_chunk_id": embedding.chunk_id,
-                    "cache_path": str(self.cache_path),
-                },
-            )
+        _validate_vector_entry(candidate, embedding, cache_path=self.cache_path)
         self._entries[candidate.chunk_id] = (candidate, embedding)
+        self._write_entries()
+
+    def upsert_many(
+        self,
+        entries: Sequence[tuple[ResearchRetrievalCandidate, ResearchEmbedding]],
+        *,
+        replace_symbol: str | None = None,
+        replace_all: bool = False,
+    ) -> None:
+        """Atomically persist a complete vector update with one cache rewrite.
+
+        Rebuilding a file-backed index previously rewrote the whole JSONL file once
+        per chunk.  A research report can easily contain dozens of chunks, so this
+        method makes reindexing linear in file writes while retaining the existing
+        atomic replace behavior.
+        """
+
+        for candidate, embedding in entries:
+            _validate_vector_entry(candidate, embedding, cache_path=self.cache_path)
+        if replace_all:
+            self._entries = {}
+        elif replace_symbol is not None:
+            normalized_symbol = _normalize_symbol(replace_symbol)
+            self._entries = {
+                chunk_id: value
+                for chunk_id, value in self._entries.items()
+                if value[0].symbol != normalized_symbol
+            }
+        self._entries.update(
+            {candidate.chunk_id: (candidate, embedding) for candidate, embedding in entries}
+        )
         self._write_entries()
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
@@ -632,6 +673,14 @@ class ResearchWritableVectorStore(ResearchVectorStore, Protocol):
         embedding: ResearchEmbedding,
     ) -> None: ...
 
+    def upsert_many(
+        self,
+        entries: Sequence[tuple[ResearchRetrievalCandidate, ResearchEmbedding]],
+        *,
+        replace_symbol: str | None = None,
+        replace_all: bool = False,
+    ) -> None: ...
+
 
 class ResearchEmbeddingService:
     """Generate deterministic local embeddings for optional vector retrieval."""
@@ -711,6 +760,17 @@ class ResearchEmbeddingService:
     ) -> list[ResearchEmbedding]:
         return [self.upsert_chunk(chunk, vector_store) for chunk in chunks]
 
+    def embedding_candidate_pair(
+        self,
+        chunk: ResearchChunk,
+        *,
+        keyword_score: Decimal | None = None,
+    ) -> tuple[ResearchRetrievalCandidate, ResearchEmbedding]:
+        return (
+            self.candidate_from_chunk(chunk, keyword_score=keyword_score),
+            self.embed_chunk(chunk),
+        )
+
 
 class ResearchVectorIndexService:
     """Build an optional local vector index from already chunked research documents."""
@@ -728,27 +788,40 @@ class ResearchVectorIndexService:
     def rebuild_index(self, symbol: str | None = None) -> ResearchVectorIndexSummary:
         chunks = self.store.all_chunks(symbol)
         warnings: list[str] = []
-        embedded_count = 0
+        entries: list[tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = []
         for chunk in chunks:
             try:
-                self.embedding_service.upsert_chunk(chunk, self.vector_store)
-                embedded_count += 1
+                entries.append(self.embedding_service.embedding_candidate_pair(chunk))
             except AppError as exc:
                 warnings.append(f"{chunk.chunk_id}: {exc.message}")
+        try:
+            # An empty symbol rebuild is still meaningful: it must remove
+            # vectors for transient documents that no longer exist in the
+            # session store.  Otherwise a file-backed cache could surface
+            # stale evidence after an external-source refresh returns no
+            # usable material for that symbol.
+            self.vector_store.upsert_many(
+                entries,
+                replace_symbol=symbol,
+                replace_all=symbol is None,
+            )
+        except AppError as exc:
+            warnings.append(f"vector index: {exc.message}")
+            entries = []
         if not chunks:
             warnings.append("No research chunks available; rebuild the text index first.")
         return ResearchVectorIndexSummary(
             embedding_model=self.embedding_service.embedding_model,
             dimensions=self.embedding_service.dimensions,
             chunk_count=len(chunks),
-            embedded_count=embedded_count,
+            embedded_count=len(entries),
             symbols=sorted({_normalize_symbol(chunk.symbol) for chunk in chunks}),
             warnings=warnings,
         )
 
 
 class HybridResearchRetrievalService:
-    """Optional hybrid retrieval wrapper with deterministic keyword fallback."""
+    """Merge deterministic keyword and local-vector evidence with safe fallback."""
 
     def __init__(
         self,
@@ -756,27 +829,114 @@ class HybridResearchRetrievalService:
         vector_store: ResearchVectorStore | None = None,
         scorer: ResearchHybridScorer | None = None,
         reranker: ResearchEvidenceReranker | None = None,
+        embedding_service: ResearchEmbeddingService | None = None,
     ) -> None:
         self.keyword_retrieval = keyword_retrieval
         self.vector_store = vector_store or ResearchDisabledVectorStore()
         self.scorer = scorer or ResearchHybridScorer()
         self.reranker = reranker or ResearchEvidenceReranker()
+        self.embedding_service = embedding_service or ResearchEmbeddingService()
+        self.backend: ResearchRetrievalBackend = "hybrid"
+        self.last_search_quality: ResearchRetrievalQuality | None = None
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
-        vector_candidates = self.vector_store.search(request)
+        """Fuse rather than replace lexical evidence with semantic candidates.
+
+        The previous implementation chose vector results whenever any existed.
+        That could hide an exact official-IR match behind a loosely similar local
+        hash-vector result.  Both candidate sets are now scored together, while a
+        capped per-document selection keeps the result list useful when a long
+        document is split into adjacent chunks.
+        """
+
+        started_at = perf_counter()
+        candidate_limit = min(50, max(request.top_k * 4, request.top_k))
+        expanded_request = request.model_copy(update={"top_k": candidate_limit})
+        keyword_evidence = self.keyword_retrieval.search(expanded_request)
+        vector_request = self._vector_request(expanded_request)
+        vector_candidates = self.vector_store.search(vector_request)
         if not vector_candidates:
-            return self.keyword_retrieval.search(request)
+            evidence = keyword_evidence[: request.top_k]
+            self.last_search_quality = ResearchRetrievalQuality(
+                backend="hybrid",
+                query=request.query or request.query_category or "hybrid search",
+                expanded_terms=_expanded_query_terms(request),
+                candidate_count=len(keyword_evidence),
+                evidence_count=len(evidence),
+                keyword_candidate_count=len(keyword_evidence),
+                vector_candidate_count=0,
+                document_count=len({row.document_id for row in evidence}),
+                latency_ms=_elapsed_milliseconds(started_at),
+                warnings=["Hybrid retrieval fell back to keyword retrieval."],
+            )
+            return evidence
 
         as_of = request.as_of or date.today()
-        scored = [self.scorer.score(candidate, as_of=as_of) for candidate in vector_candidates]
-        evidence = [_evidence_from_candidate(candidate) for candidate in scored]
-        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        keyword_candidates = {
+            evidence.chunk_id: _candidate_from_evidence(evidence) for evidence in keyword_evidence
+        }
+        vector_by_chunk = {candidate.chunk_id: candidate for candidate in vector_candidates}
+        merged: list[ResearchRetrievalCandidate] = []
+        for chunk_id in sorted(set(keyword_candidates) | set(vector_by_chunk)):
+            keyword_candidate = keyword_candidates.get(chunk_id)
+            vector_candidate = vector_by_chunk.get(chunk_id)
+            base = vector_candidate or keyword_candidate
+            if base is None:  # defensive guard for static type narrowing
+                continue
+            merged.append(
+                base.model_copy(
+                    update={
+                        "keyword_score": (
+                            keyword_candidate.keyword_score
+                            if keyword_candidate is not None
+                            else (
+                                vector_candidate.keyword_score
+                                if vector_candidate is not None
+                                else None
+                            )
+                        ),
+                        "vector_score": (
+                            vector_candidate.vector_score if vector_candidate is not None else None
+                        ),
+                    }
+                )
+            )
+
+        scored = [self.scorer.score(candidate, as_of=as_of) for candidate in merged]
+        diversified = _diversify_retrieval_candidates(scored, limit=request.top_k)
+        evidence = [_evidence_from_candidate(candidate) for candidate in diversified]
+        result = self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        self.last_search_quality = ResearchRetrievalQuality(
+            backend="hybrid",
+            query=request.query or request.query_category or "hybrid search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(merged),
+            evidence_count=len(result),
+            keyword_candidate_count=len(keyword_evidence),
+            vector_candidate_count=len(vector_candidates),
+            document_count=len({row.document_id for row in result}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+        return result
 
     def retrieval_quality(self, request: ResearchSearchRequest) -> ResearchRetrievalQuality:
-        vector_quality = self.vector_store.retrieval_quality(request)
-        if vector_quality.candidate_count > 0:
-            return vector_quality.model_copy(update={"backend": "hybrid"})
+        started_at = perf_counter()
+        vector_request = self._vector_request(request)
+        vector_quality = self.vector_store.retrieval_quality(
+            vector_request,
+            expanded_terms=_expanded_query_terms(request),
+        )
         keyword_evidence = self.keyword_retrieval.search(request)
+        if vector_quality.candidate_count > 0:
+            return vector_quality.model_copy(
+                update={
+                    "backend": "hybrid",
+                    "keyword_candidate_count": len(keyword_evidence),
+                    "vector_candidate_count": vector_quality.candidate_count,
+                    "document_count": len({row.document_id for row in keyword_evidence}),
+                    "latency_ms": _elapsed_milliseconds(started_at),
+                }
+            )
         warnings = list(vector_quality.warnings)
         warnings.append("Hybrid retrieval fell back to keyword retrieval.")
         return ResearchRetrievalQuality(
@@ -785,7 +945,24 @@ class HybridResearchRetrievalService:
             expanded_terms=vector_quality.expanded_terms,
             candidate_count=len(keyword_evidence),
             evidence_count=len(keyword_evidence),
+            keyword_candidate_count=len(keyword_evidence),
+            vector_candidate_count=0,
+            document_count=len({row.document_id for row in keyword_evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
             warnings=warnings,
+        )
+
+    def _vector_request(self, request: ResearchSearchRequest) -> ResearchSearchRequest:
+        if request.query_vector:
+            return request
+        expanded_terms = _expanded_query_terms(request)
+        return request.model_copy(
+            update={
+                "query_vector": self.embedding_service.build_query_vector(
+                    request.query,
+                    expanded_terms=expanded_terms,
+                )
+            }
         )
 
 
@@ -799,13 +976,25 @@ class ResearchRetrievalService:
     ) -> None:
         self.store = store
         self.reranker = reranker or ResearchEvidenceReranker()
+        self.backend: ResearchRetrievalBackend = "keyword"
+        self.last_search_quality: ResearchRetrievalQuality | None = None
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
+        started_at = perf_counter()
         chunks = self.store.all_chunks(request.symbol)
         if request.source_types:
             source_types = set(request.source_types)
             chunks = [chunk for chunk in chunks if chunk.source_type in source_types]
         if not chunks:
+            self.last_search_quality = ResearchRetrievalQuality(
+                backend="keyword",
+                query=request.query or request.query_category or "keyword search",
+                expanded_terms=_expanded_query_terms(request),
+                candidate_count=0,
+                evidence_count=0,
+                latency_ms=_elapsed_milliseconds(started_at),
+                warnings=["No local research chunks are available for this symbol."],
+            )
             return []
 
         query_terms = _expanded_query_terms(request)
@@ -816,7 +1005,41 @@ class ResearchRetrievalService:
             if score > Decimal("0"):
                 scored.append((score, chunk))
         evidence = [_evidence_from_chunk(chunk, relevance_score=score) for score, chunk in scored]
-        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        result = self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        self.last_search_quality = ResearchRetrievalQuality(
+            backend="keyword",
+            query=request.query or request.query_category or "keyword search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(scored),
+            evidence_count=len(result),
+            keyword_candidate_count=len(scored),
+            document_count=len({row.document_id for row in result}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+        return result
+
+    def retrieval_quality(self, request: ResearchSearchRequest) -> ResearchRetrievalQuality:
+        started_at = perf_counter()
+        evidence = self.search(request)
+        return ResearchRetrievalQuality(
+            backend="keyword",
+            query=request.query or request.query_category or "keyword search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(evidence),
+            evidence_count=len(evidence),
+            keyword_candidate_count=len(evidence),
+            document_count=len({row.document_id for row in evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+
+
+class ResearchEvidenceRetriever(Protocol):
+    """Small shared contract for keyword and hybrid evidence retrieval."""
+
+    backend: ResearchRetrievalBackend
+    last_search_quality: ResearchRetrievalQuality | None
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]: ...
 
 
 class ResearchGroundedAnswerService:
@@ -889,7 +1112,7 @@ class ResearchAnalysisService:
     def __init__(
         self,
         ingestion: ResearchIngestionService,
-        retrieval: ResearchRetrievalService,
+        retrieval: ResearchEvidenceRetriever,
         query_expansion: ResearchQueryExpansionService | None = None,
         grounded_answer: ResearchGroundedAnswerService | None = None,
         reranker: ResearchEvidenceReranker | None = None,
@@ -901,6 +1124,7 @@ class ResearchAnalysisService:
         self.reranker = reranker or ResearchEvidenceReranker()
 
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
+        started_at = perf_counter()
         as_of = request.as_of or date.today()
         topics = [
             (
@@ -929,12 +1153,14 @@ class ResearchAnalysisService:
         all_evidence: list[ResearchEvidence] = []
         expanded_terms_by_topic: list[str] = []
         topic_queries: list[str] = []
+        query_qualities: list[ResearchRetrievalQuality] = []
+        relevance_filter_warnings: list[str] = []
         for category, label, query in topics:
             topic_category = cast(ResearchTopicCategory, category)
             expanded = self.query_expansion.expand_query(query, category=topic_category)
             expanded_terms_by_topic.extend(expanded.expanded_terms)
             topic_queries.append(f"{topic_category}:{query}")
-            evidence = self.retrieval.search(
+            retrieved_evidence = self.retrieval.search(
                 ResearchSearchRequest(
                     symbol=request.symbol,
                     query=query,
@@ -944,6 +1170,18 @@ class ResearchAnalysisService:
                     expanded_terms=expanded.expanded_terms,
                 )
             )
+            evidence = [
+                row
+                for row in retrieved_evidence
+                if row.relevance_score >= MIN_TOPIC_EVIDENCE_RELEVANCE
+            ]
+            if len(evidence) < len(retrieved_evidence):
+                relevance_filter_warnings.append(
+                    f"{label}は関連性が低い候補を根拠として採用していません。"
+                )
+            search_quality = self.retrieval.last_search_quality
+            if isinstance(search_quality, ResearchRetrievalQuality):
+                query_qualities.append(search_quality)
             all_evidence.extend(evidence)
             extracted_claims.append(
                 _extracted_claim(
@@ -971,6 +1209,19 @@ class ResearchAnalysisService:
             candidate_count=len(all_evidence),
             evidence_count=len(unique_evidence),
             data_quality=data_quality,
+            backend=self.retrieval.backend,
+            document_count=len({row.document_id for row in unique_evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
+            keyword_candidate_count=sum(
+                quality.keyword_candidate_count for quality in query_qualities
+            ),
+            vector_candidate_count=sum(
+                quality.vector_candidate_count for quality in query_qualities
+            ),
+            retrieval_warnings=[
+                warning for quality in query_qualities for warning in quality.warnings
+            ]
+            + relevance_filter_warnings,
         )
         if data_quality.status != "OK":
             extracted_claims.append(
@@ -1565,6 +1816,78 @@ def _evidence_from_candidate(candidate: ResearchRetrievalCandidate) -> ResearchE
     )
 
 
+def _candidate_from_evidence(evidence: ResearchEvidence) -> ResearchRetrievalCandidate:
+    """Retain keyword evidence as a hybrid-scoring candidate without raw text."""
+
+    return ResearchRetrievalCandidate(
+        symbol=evidence.symbol,
+        document_id=evidence.document_id,
+        chunk_id=evidence.chunk_id,
+        title=evidence.title,
+        source_type=evidence.source_type,
+        published_at=evidence.published_at,
+        section_title=evidence.section_title,
+        excerpt=evidence.excerpt,
+        keyword_score=evidence.relevance_score,
+        reliability=evidence.reliability,
+        final_relevance_score=evidence.relevance_score,
+        retrieval_backend="keyword",
+    )
+
+
+def _diversify_retrieval_candidates(
+    candidates: Sequence[ResearchRetrievalCandidate],
+    *,
+    limit: int,
+    max_per_document: int = 2,
+) -> list[ResearchRetrievalCandidate]:
+    """Prevent neighbouring chunks from consuming all evidence slots."""
+
+    selected: list[ResearchRetrievalCandidate] = []
+    document_counts: dict[str, int] = {}
+    for candidate in sorted(
+        candidates,
+        key=lambda row: (
+            -row.final_relevance_score,
+            -row.reliability,
+            -(row.published_at or date.min).toordinal(),
+            row.document_id,
+            row.chunk_id,
+        ),
+    ):
+        if document_counts.get(candidate.document_id, 0) >= max_per_document:
+            continue
+        selected.append(candidate)
+        document_counts[candidate.document_id] = document_counts.get(candidate.document_id, 0) + 1
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+def _validate_vector_entry(
+    candidate: ResearchRetrievalCandidate,
+    embedding: ResearchEmbedding,
+    *,
+    cache_path: Path | None = None,
+) -> None:
+    if candidate.chunk_id == embedding.chunk_id:
+        return
+    details: dict[str, object] = {
+        "candidate_chunk_id": candidate.chunk_id,
+        "embedding_chunk_id": embedding.chunk_id,
+    }
+    if cache_path is not None:
+        details["cache_path"] = str(cache_path)
+    raise ResearchSearchError(
+        message="Research vector candidate and embedding chunk_id do not match.",
+        details=details,
+    )
+
+
+def _elapsed_milliseconds(started_at: float) -> int:
+    return max(0, int(round((perf_counter() - started_at) * 1000)))
+
+
 def _excerpt(text: str, *, max_chars: int = 220) -> str:
     single_line = re.sub(r"\s+", " ", text).strip()
     if len(single_line) <= max_chars:
@@ -1740,16 +2063,26 @@ def _retrieval_quality(
     candidate_count: int,
     evidence_count: int,
     data_quality: ResearchDataQuality,
+    backend: ResearchRetrievalBackend = "keyword",
+    document_count: int = 0,
+    latency_ms: int = 0,
+    keyword_candidate_count: int = 0,
+    vector_candidate_count: int = 0,
+    retrieval_warnings: Sequence[str] = (),
 ) -> ResearchRetrievalQuality:
-    warnings = list(data_quality.warnings)
+    warnings = list(dict.fromkeys([*data_quality.warnings, *retrieval_warnings]))
     if evidence_count == 0 and "検索で根拠候補が見つかりませんでした。" not in warnings:
         warnings.append("検索で根拠候補が見つかりませんでした。")
     return ResearchRetrievalQuality(
-        backend="keyword",
+        backend=backend,
         query=" | ".join(queries),
         expanded_terms=_normalize_query_terms(expanded_terms),
         candidate_count=candidate_count,
         evidence_count=evidence_count,
+        keyword_candidate_count=keyword_candidate_count,
+        vector_candidate_count=vector_candidate_count,
+        document_count=document_count,
+        latency_ms=latency_ms,
         warnings=warnings,
     )
 

@@ -23,6 +23,8 @@ def test_ui_content_catalogs_are_importable():
     assert symbol_texts.SYMBOL_UNIVERSE_DETAIL_LABELS
     assert common_texts.MARKET_DATA_PERIOD_PRESETS
     assert research_texts.RESEARCH_STATUS_WITH_EVIDENCE == "根拠あり"
+    assert "ハイブリッド検索" in research_texts.RESEARCH_RETRIEVAL_MODE_HYBRID
+    assert "キーワード根拠" in research_texts.RESEARCH_RETRIEVAL_FALLBACK_NOTE
 
 
 def test_score_texts_include_direction_signal_labels():

@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-12: SMAIアシスタント実アプリ・Ollama品質改善スプリント
+
+- ローカルGateway経由で、インストール済み `qwen3:1.7b / 4b / 8b / 14b / 30b` の全5モデルに、合成文脈だけを使う5ケース（自然会話、画面案内、予測・リスク、RAGニュース・開示、売買助言境界）を実行する`tools/evaluate_assistant_live_models.py --allow-live`を追加した。通常pytest/CIには含めない。
+- 当該端末の25 live runでは、1.7Bは平均3.64秒・5/5 Gateway成功、8Bは5.18秒・5/5、14Bは7.33秒・5/5、30Bは30.27秒・4/5（最大67.38秒）、4Bは13.74秒・2/5（schema/response validation fallback 3件）だった。構造・根拠・安全の機械採点は14B/30Bが32/35、1.7B/8B/4Bが31/35だったが、30Bの遅延と4Bのfallback率を確認した。runtime既定モデルは変更していない。
+- live出力で、助言的な「購入は慎重に検討してください」と実在しないSMAI画面名を確認した。親SMAIは未信頼LLMのprescriptive buy/sell/hold-like文章を表示前に決定論的非助言fallbackへ切り替え、`app_help`のlive回答は実在する`銘柄コックピット` / `銘柄ランキング` / `投資レーダー`をすべて含む場合だけ採用するようにした。
+- 実Streamlitで、profile start用のouter-document overlayがquery-parameter遷移後に残りサイドバーを無効化する問題を修正した。LLM warmup中もサイドバーをmodalより上に保ち、PC（1366px）、iPad（810px）、iPhone（375px）の画面遷移・横overflowなし・例外なしを確認した。live会話シナリオでは、実在3画面名を含む回答とcomposerの継続利用を確認した。
+- network-free回帰93件、Ruff、対象Black、live Streamlit PlaywrightのAssistant会話1件、PC/iPad/iPhone実画面smokeを実行。background refreshは評価中のruntime artifact混入を避けるため隔離起動で無効化し、Gateway/Ollamaはliveのまま使用した。
+
 ## 2026-07-12: SMAIアシスタント確認型エージェント安全性スプリント
 
 - Assistantの実行層で、payload、現在文脈、Decision Report材料に複数または不一致の銘柄がある場合を`target_mismatch`として拒否するようにした。外部AI調査はfetcherを呼ばず、確認レポートも作成しない。

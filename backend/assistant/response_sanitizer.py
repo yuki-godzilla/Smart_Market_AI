@@ -42,12 +42,54 @@ FORBIDDEN_PRESENTATION_PATTERNS: tuple[str, ...] = (
 
 _SENTENCE_BOUNDARY_RE = re.compile(r"(?<=[。！？!?.])\s+|\n+")
 
+# Gateway prompts prohibit investment advice, but provider output is untrusted.
+# Keep this narrow enough that an answer which merely repeats a user's question
+# (for example, "買うべきかどうかは判断できません") remains usable while
+# prescriptive wording is rejected at the application boundary.
+_INVESTMENT_ADVICE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?:買う|買った|売る|売った|保有する)(?:べき(?!か)(?:です|だ)?|ことを(?:推奨|おすすめ)|のが(?:推奨|おすすめ)|よう(?:に)?(?:してください|勧めます)|(?:方|ほう)が(?:よい|いい))",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:買い|売り|購入|売却)(?:を|は)?(?:推奨|おすすめ|してください|した方が|したほうが|検討すべき)"
+    ),
+    re.compile(
+        r"保有(?:を)?(?:継続|開始|解消|続ける|始める|やめる).{0,8}(?:推奨|おすすめ|してください|した方が|したほうが)"
+    ),
+    re.compile(
+        r"(?:購入|買い|売り|売却|保有).{0,18}慎重に(?:検討|判断).{0,8}(?:してください|が必要)"
+    ),
+    re.compile(
+        r"(?:今|現時点|短期|中長期)?(?:は|なら)?(?:買い時|売り時)(?:です|だ|と(?:思います|考えます)|でしょう)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:you\s+should|you\s+ought\s+to)\s+(?:buy|sell|hold)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:recommend|suggest)(?:\s+that\s+you|\s+you)?\s+(?:buy(?:ing)?|sell(?:ing)?|hold(?:ing)?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(?:strong buy|strong sell|buy this|sell this|hold this)", re.IGNORECASE),
+)
+
 
 def is_internal_presentation_text(text: str) -> bool:
     normalized = str(text or "").strip().lower()
     if not normalized:
         return False
     return any(pattern in normalized for pattern in FORBIDDEN_PRESENTATION_PATTERNS)
+
+
+def contains_investment_advice(text: str) -> bool:
+    """Return whether untrusted LLM text gives a prescriptive trading direction."""
+
+    normalized = str(text or "").strip()
+    return bool(normalized) and any(
+        pattern.search(normalized) for pattern in _INVESTMENT_ADVICE_PATTERNS
+    )
 
 
 def sanitize_presentation_text(text: str) -> str:

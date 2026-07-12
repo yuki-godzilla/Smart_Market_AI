@@ -20,9 +20,15 @@ def _assert_healthy_page(page) -> None:
 
 
 def _start_default_user(page) -> None:
-    if not page.get_by_text("どのユーザーで使いますか？", exact=True).count():
+    profile_picker = page.get_by_text("どのユーザーで使いますか？", exact=True)
+    try:
+        profile_picker.wait_for(state="visible", timeout=10_000)
+    except playwright.TimeoutError:
         return
     page.locator('a.smai-profile-link[aria-label="SMAIデフォルトを選択"]:visible').first.click()
+    page.locator('.smai-profile-card[data-selected="true"]').first.wait_for(
+        state="visible", timeout=30_000
+    )
     page.locator("a#smai-profile-start:visible").click()
     page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
         state="visible", timeout=60_000
@@ -161,12 +167,24 @@ def test_path_3_ask_assistant_and_keep_the_composer_usable() -> None:
             _start_default_user(page)
 
             _navigate(page, "SMAIアシスタント", "SMAIアシスタント")
-            prompt = "ランキングで最初に確認する点を教えて"
+            prompt = (
+                "SMAIの使い方として、銘柄コックピット・銘柄ランキング・投資レーダーを"
+                "どう使い分けますか？"
+            )
             page.get_by_placeholder(
                 "価格・予測・ニュース・根拠資料について確認したいことを入力..."
             ).fill(prompt)
             page.get_by_role("button", name="送信", exact=True).click()
             page.get_by_text(prompt, exact=True).wait_for(state="visible", timeout=30_000)
+            assistant_turn = page.locator(".smai-copilot-message-row--assistant").last
+            assistant_turn.wait_for(state="visible", timeout=120_000)
+            assistant_turn.get_by_text("銘柄コックピット", exact=False).wait_for(
+                state="visible", timeout=120_000
+            )
+            assistant_body = assistant_turn.inner_text()
+            assert "銘柄コックピット" in assistant_body
+            assert "銘柄ランキング" in assistant_body
+            assert "投資レーダー" in assistant_body
             page.get_by_placeholder(
                 "価格・予測・ニュース・根拠資料について確認したいことを入力..."
             ).wait_for(state="visible", timeout=30_000)

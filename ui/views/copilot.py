@@ -1371,7 +1371,7 @@ def copilot_loading_panel_html(
         <style>
         .smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;
           padding:24px;background:rgba(2,8,23,.72);backdrop-filter:blur(4px);pointer-events:auto}
-        section[data-testid="stSidebar"]{z-index:1002!important}
+        section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{z-index:2001!important}
         .smai-warmup-inline{position:relative;margin:10px 0 18px}
         .smai-warmup-panel{position:relative;overflow:hidden;width:min(760px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow-y:auto;margin:10px 0 18px;padding:18px;
           border:1px solid rgba(56,189,248,.34);border-radius:16px;
@@ -4794,13 +4794,11 @@ def _conversation_answer(
         if body:
             return body
         return _fallback_free_chat_answer(question)
-    if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
-        return (
-            "SMAIは、目的別に画面を使い分けると分かりやすいです。"
-            "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
-            "市場全体を見るなら「投資レーダー」を使います。"
-            "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
-        )
+    if intent == "app_help":
+        body = _safe_response_body(response.answer, intent=intent)
+        if response.response_source in {"gateway", "llm"} and _is_grounded_app_help_answer(body):
+            return body
+        return _deterministic_app_help_answer()
     lead = {
         "app_help": "はい。SMAIは目的別に画面を使い分けると分かりやすいです。",
         "stock_summary": "まず、この銘柄で確認する材料を短く整理します。",
@@ -4858,6 +4856,20 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
         "SMAIで確認したいことを、画面名や銘柄名と一緒に送ってください。"
         "見ている材料、注意点、次に確認することの順に整理します。"
     )
+
+
+def _deterministic_app_help_answer() -> str:
+    return (
+        "SMAIは、目的別に画面を使い分けると分かりやすいです。"
+        "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
+        "市場全体を見るなら「投資レーダー」を使います。"
+        "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
+    )
+
+
+def _is_grounded_app_help_answer(answer: str) -> bool:
+    required_screen_names = ("銘柄コックピット", "銘柄ランキング", "投資レーダー")
+    return bool(answer) and all(screen_name in answer for screen_name in required_screen_names)
 
 
 def _concept_explanation_answer(question: str) -> str:

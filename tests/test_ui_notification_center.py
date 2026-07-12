@@ -11,10 +11,15 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
 
     assert 'host.style.setProperty("position", "fixed", "important")' in html
     assert 'button.style.setProperty("position", "fixed", "important")' in html
-    assert 'const compactViewport = window.parent.matchMedia("(max-width: 1024px)").matches;' in html
+    assert (
+        'const compactViewport = window.parent.matchMedia("(max-width: 1024px)").matches;' in html
+    )
     assert '"top", compactViewport ? ".25rem" : "4.75rem", "important"' in html
     assert '"right", compactViewport ? "3rem" : "1.25rem", "important"' in html
-    assert 'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger' in html
+    assert (
+        'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger'
+        in html
+    )
     assert "visibility: hidden !important; pointer-events: none !important;" in html
     assert '"top", "8.4rem", "important"' in html
     assert "positionUserMenu" in html
@@ -92,6 +97,9 @@ def test_user_selection_gates_main_app_and_hides_sidebar() -> None:
     assert "START_PROFILE_QUERY_KEY" in source
     assert "smai-profile-start-loading" in source
     assert "アプリを準備しています" in source
+    assert "const decorateUserArea = Boolean(iconUrl || displayName || userId);" in source
+    assert 'getElementById("smai-profile-start-loading")?.remove();' in source
+    assert 'getElementById("smai-profile-start-loading-style")?.remove();' in source
     assert "remember_device_user" not in source
     assert 'class="smai-profile-link"' in source
     assert "select_profile_" not in source

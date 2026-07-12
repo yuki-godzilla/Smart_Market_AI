@@ -76,6 +76,13 @@ def trusted_device_bootstrap_html(
   const unread = {max(0, unread)};
   const notificationsEnabled = {str(notifications_enabled).lower()};
   const decorateUserArea = Boolean(iconUrl || displayName || userId);
+  if (decorateUserArea) {{
+    // The profile-start overlay is mounted in Streamlit's outer document. A
+    // query-parameter rerun keeps that document alive, so remove the transient
+    // overlay as soon as the selected user's actual app surface is rendered.
+    window.parent.document.getElementById("smai-profile-start-loading")?.remove();
+    window.parent.document.getElementById("smai-profile-start-loading-style")?.remove();
+  }}
   const positionUserMenu = () => {{
     const bodies = window.parent.document.querySelectorAll('[data-testid="stPopoverBody"]');
     const panels = bodies.length

@@ -177,6 +177,36 @@ def test_gateway_backed_assistant_falls_back_when_schema_is_invalid():
     assert len(client.requests) == 1
 
 
+def test_gateway_backed_assistant_falls_back_when_llm_text_looks_like_investment_advice():
+    client = MockAssistantGatewayClient(
+        response=AssistantGatewayResponse(
+            answer="価格変動リスクが高いため、購入は慎重に検討してください。",
+            materials=["中心予測"],
+            cautions=["決算前は変動が大きくなる可能性があります。"],
+            next_checkpoints=["データ品質を確認します。"],
+            referenced_sections=[],
+            confidence="medium",
+            safety_notes=[],
+            provider="mock",
+            model="mock-assistant-gateway",
+            profile="assistant_standard",
+        )
+    )
+    service = GatewayBackedAssistantService(client)
+
+    response = service.answer(
+        AssistantRequest(
+            question="この銘柄は今すぐ買うべきですか？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.intent == "advice_boundary"
+    assert response.response_source == "deterministic_fallback"
+    assert response.fallback_reason == "unsafe_llm_presentation"
+    assert "買う・売る・保有するといった指示では答えません" in response.answer
+
+
 def test_gateway_backed_assistant_without_context_uses_minimal_gateway_context():
     client = MockAssistantGatewayClient()
     service = GatewayBackedAssistantService(client)

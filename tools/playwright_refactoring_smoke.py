@@ -19,6 +19,13 @@ def _open_sidebar_target(page, label: str) -> None:
     page.wait_for_timeout(1_500)
 
 
+def _close_sidebar(page) -> None:
+    control = page.locator('[data-testid="stSidebarCollapseButton"] button')
+    if control.count() and control.is_visible():
+        control.click()
+        page.wait_for_timeout(300)
+
+
 def _assert_rendered(page, expected_text: str) -> dict[str, object]:
     page.get_by_text(expected_text, exact=True).first.wait_for(state="visible", timeout=15_000)
     exception_count = page.locator('[data-testid="stException"], .stException').count()
@@ -39,13 +46,20 @@ def main() -> int:
         page = browser.new_page(viewport={"width": 1366, "height": 768})
         try:
             page.goto(BASE_URL, wait_until="domcontentloaded", timeout=20_000)
-            page.wait_for_timeout(3_000)
-            profile = page.locator('a.smai-profile-link[aria-label="Yukiを選択"]:visible')
-            if profile.count():
-                profile.first.click()
-                page.wait_for_timeout(500)
+            profile_picker = page.get_by_text("どのユーザーで使いますか？", exact=True)
+            try:
+                profile_picker.wait_for(state="visible", timeout=10_000)
+            except Exception:
+                pass
+            else:
+                page.locator('a.smai-profile-link[aria-label="Yukiを選択"]:visible').first.click()
+                page.locator('.smai-profile-card[data-selected="true"]').first.wait_for(
+                    state="visible", timeout=30_000
+                )
                 page.locator("a#smai-profile-start:visible").click()
-                page.wait_for_timeout(3_000)
+                page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
+                    state="visible", timeout=60_000
+                )
 
             for key, label, expected in (
                 ("ranking", "銘柄ランキング", "銘柄ランキング"),
@@ -54,11 +68,13 @@ def main() -> int:
             ):
                 _open_sidebar_target(page, label)
                 results[key] = _assert_rendered(page, expected)
+                _close_sidebar(page)
                 page.screenshot(path=str(OUTPUT_DIR / f"{key}_pc.png"), full_page=False)
 
             page.set_viewport_size({"width": 810, "height": 1080})
             _open_sidebar_target(page, "銘柄ランキング")
             results["ranking_tablet"] = _assert_rendered(page, "銘柄ランキング")
+            _close_sidebar(page)
             tablet_body_width = page.locator("body").evaluate(
                 "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
             )
@@ -70,6 +86,7 @@ def main() -> int:
             _open_sidebar_target(page, "SMAIアシスタント")
             page.wait_for_timeout(500)
             results["assistant_mobile"] = _assert_rendered(page, "SMAIアシスタント")
+            _close_sidebar(page)
             body_width = page.locator("body").evaluate(
                 "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
             )

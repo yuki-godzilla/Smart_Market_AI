@@ -311,6 +311,16 @@ assistant:
 
 SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` から model / timeout / token budget を選び、分析・整理系の応答下部には `qwen3:1.7b / live / notebook_dev / ollama / stock_summary / 4230ms` のような控えめなメタ情報を表示します。通常会話、自己紹介、できること案内では技術メタ情報を表に出さず、自然な会話表示とコピー操作だけにします。ノートPC開発の既定は `qwen3:1.7b` で、SMAIアシスタント上部の小さなモデルピッカーから `qwen3:4b` / `qwen3:8b` / `qwen3:14b` / `qwen3:30b` profile へ切り替えられます。親側 HTTP timeout 既定はローカルLLMの実測に合わせて 90 秒です。Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ deterministic fallback に戻り、その場合は `fallback: gateway_unavailable`、`fallback: provider_unavailable`、`fallback: model_not_found`、`fallback: provider_timeout` のように理由を分けます。開発用 metadata として `request_id`、`timeout_sec`、`context_tokens_estimate`、`prompt_chars`、`response_chars`、`tool_execution_ms`、`llm_generation_ms`、`total_elapsed_ms`、conversation mode、`gateway_error_type`、`gateway_error_message`、`gateway_url`、`http_status`、`provider_error_type`、`provider_error_message` も保持し、分析・整理系の回答では通常本文ではなく `技術情報を表示` にだけ出します。SMAIアシスタントのヘッダーは `AssistantRuntimeStatus` を唯一の表示モデルとして使い、初期表示では自動ヘルスチェックで赤エラーにせず `LLM待機中` として表示し、model変更 / 送信開始 / LLM成功 / fallback / Tool Plan表示 / Tool実行 / キャンセル / 新しい会話で更新します。表示は `準備完了`、`LLM待機中`、`接続確認中`、`回答生成中`、`調査計画あり`、`材料確認中`、`簡易モードで回答中`、`LLM接続エラー`、`Ollama未接続`、`モデル未取得` に整理し、成功時は古いエラーを消して `準備完了` に戻します。通常focusの入力欄はcyan系、validation error時だけ赤系の枠にします。
 
+インストール済みOllamaモデルを比較する明示live評価は、通常pytestとは別に実行します。評価入力は合成したSMAI文脈だけで、MarketData・ニュース・保存状態は変更しません。GatewayとOllamaが起動済みの状態で、次を実行します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_assistant_live_models.py `
+  --allow-live `
+  --output .\outputs\work\assistant_live_model_evaluation.json
+```
+
+既定ではGatewayが検出した全installed modelに、自然な初回会話、SMAI画面案内、予測・リスク、RAGニュース・開示、売買助言境界の5ケースを送ります。JSONにはモデル別の応答時間、Gateway fallback、構造化材料、根拠語、内部表現、助言境界の判定を保存します。これは端末・Ollama・promptの時点依存の品質計測であり、runtimeの選択モデルやRanking / Forecast / Scoreを自動変更しません。
+
 LLM Tool Planner を試す場合は、別設定 `assistant.llm_planner` を明示ONにします。既定は `enabled: false` で、通常確認・CI・Playwright smoke は network-free の deterministic Tool Plan / Guided Workflow を使います。ONの場合も Gateway `/api/v1/assistant/tool-plan` は action案のJSONを返すだけで、SMAI 親側が schema / action allowlist / confirmation / unsafe wording / unsupported action を検証し、valid plan だけを既存の `次にできること` / `確認フロー` に採用します。invalid / timeout / Gateway fallback / malformed response は非表示にし、fallback reason は `技術情報を表示` にだけ保持します。
 
 Phase 30-Hでは、SMAIアシスタント初回描画時に `assistant.warmup` 設定でbackground LLM warmupを開始します。初期値は health timeout 3秒、全体timeout 15秒、chat warmupはOFFです。画面描画はwarmupを待たず、準備中でもSMAI標準ナビと安全な確認フローを利用できます。Gateway / provider / model確認が失敗またはtimeoutになった場合もdeterministic fallbackで継続し、永久スピナーにはしません。

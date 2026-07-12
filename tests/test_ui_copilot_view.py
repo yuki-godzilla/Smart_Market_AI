@@ -33,6 +33,7 @@ from ui.views.copilot import (
     _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
+    _conversation_answer,
     _fallback_free_chat_answer,
     _gateway_question,
     _intent_from_message,
@@ -153,11 +154,12 @@ def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready(
     assert 'data-testid="assistant-loading-radar-icon"' in markup
     assert 'data-testid="assistant-loading-modal"' in markup
     assert 'data-testid="assistant-loading-animation"' in markup
-    assert 'section[data-testid="stSidebar"]' in markup
+    assert 'section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]' in markup
     assert (
         ".smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;"
         in markup
     )
+    assert "z-index:2001!important" in markup
     assert "max-height:calc(100dvh - 48px)" in markup
     assert 'alt="投資レーダー"' in markup
     assert "SMAIナビが市場の気配を確認中です" in markup
@@ -634,6 +636,44 @@ def test_fallback_free_chat_answer_handles_wellbeing_greeting():
     assert "fallback" not in answer.lower()
 
 
+def test_app_help_uses_known_screen_names_when_live_answer_hallucinates_navigation():
+    response = AssistantResponse(
+        intent="unknown",
+        answer=("まず市場概要を見て、次に個別銘柄と投資分析の画面で詳細を確認してください。"),
+        response_source="llm",
+    )
+
+    answer = _conversation_answer(
+        intent="app_help",
+        question="ランキングで候補を見つけた後、どの画面を使えばよいですか？",
+        response=response,
+    )
+
+    assert "銘柄コックピット" in answer
+    assert "銘柄ランキング" in answer
+    assert "投資レーダー" in answer
+    assert "市場概要" not in answer
+
+
+def test_app_help_keeps_grounded_live_answer_with_all_known_screen_names():
+    response = AssistantResponse(
+        intent="unknown",
+        answer=(
+            "銘柄ランキングで候補を探し、銘柄コックピットで価格・予測を確認します。"
+            "市場全体の材料は投資レーダーで確認してください。"
+        ),
+        response_source="llm",
+    )
+
+    answer = _conversation_answer(
+        intent="app_help",
+        question="SMAIの使い方を教えてください。",
+        response=response,
+    )
+
+    assert answer == response.answer
+
+
 def test_copilot_turn_html_separates_user_and_smai_messages():
     markup = copilot_turn_html(
         {
@@ -839,7 +879,10 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
         executed_checks=["現在文脈を確認"],
     )
 
-    assert turn["answer"].startswith("はい。SMAIは目的別に画面を使い分ける")
+    assert turn["answer"].startswith("SMAIは、目的別に画面を使い分ける")
+    assert "銘柄コックピット" in turn["answer"]
+    assert "銘柄ランキング" in turn["answer"]
+    assert "投資レーダー" in turn["answer"]
     assert turn["response_meta"] == "qwen3:8b / live / assistant_fast / ollama / app_help / 4230ms"
     assert turn["latency_ms"] == "4230"
     assert turn["gateway_status"] == "ok"

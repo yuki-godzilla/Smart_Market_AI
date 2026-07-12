@@ -856,9 +856,9 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         div[data-testid="stColumn"]:has(.smai-user-settings-marker) {
           flex: 0 1 760px !important; max-width: 760px !important;
         }
-        div[data-testid="stColumn"]:has(.smai-user-settings-marker) [data-testid="stImage"] img {
+        .smai-user-settings-icon {
           width: 128px; height: 128px; object-fit: cover; border-radius: 16px;
-          border: 1px solid #22d3ee;
+          border: 1px solid #22d3ee; display: block;
         }
         div[data-testid="stColumn"]:has(.smai-user-settings-marker)
           div[data-testid="stButton"] > button {
@@ -879,8 +879,13 @@ def _render_user_settings(repository: TrustedDeviceRepository, user: SmaiUser) -
         icon_col, action_col = st.columns([0.22, 0.78], gap="small", vertical_alignment="center")
         current_icon = resolve_user_icon(user.icon_id)
         with icon_col:
-            if current_icon.file_path is not None:
-                st.image(str(current_icon.file_path), width=128)
+            icon_source = user_icon_browser_source(current_icon)
+            if icon_source:
+                st.markdown(
+                    f'<img class="smai-user-settings-icon" src="{html.escape(icon_source)}" '
+                    'alt="" loading="eager">',
+                    unsafe_allow_html=True,
+                )
         with action_col:
             st.markdown("**選択中のアイコン**")
             if st.button("アイコンを変更", key="user_settings_open_icons"):

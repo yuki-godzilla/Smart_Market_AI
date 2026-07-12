@@ -116,7 +116,11 @@ from backend.research import (
 from backend.scoring import InvestmentScoringService
 from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
-from backend.server_ops.maintenance import MaintenanceManager, maintenance_operation
+from backend.server_ops.maintenance import (
+    MaintenanceManager,
+    classify_client_type,
+    maintenance_operation,
+)
 from backend.symbols.background import (
     request_symbol_background_refresh,
     start_symbol_background_refresh_worker,
@@ -1862,13 +1866,20 @@ def _render_maintenance_status() -> None:
     if not session_id:
         session_id = uuid4().hex
         st.session_state[session_key] = session_id
-    _maintenance_heartbeat_fragment(session_id)
+    _maintenance_heartbeat_fragment(session_id, _current_client_type())
+
+
+def _current_client_type() -> str:
+    """Derive a coarse client type without retaining a raw browser identifier."""
+
+    user_agent = st.context.headers.get("User-Agent", "")
+    return classify_client_type(user_agent)
 
 
 @st.fragment(run_every=60)
-def _maintenance_heartbeat_fragment(session_id: str) -> None:
+def _maintenance_heartbeat_fragment(session_id: str, client_type: str) -> None:
     manager = MaintenanceManager()
-    manager.heartbeat(session_id)
+    manager.heartbeat(session_id, client_type=client_type)
     notice = manager.notice()
     if notice:
         st.warning(str(notice.get("message") or "30秒後にメンテナンス再起動を行います。"))

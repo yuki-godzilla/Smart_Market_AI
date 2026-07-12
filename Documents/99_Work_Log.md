@@ -4630,3 +4630,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ETFの`market`のような弱いcross-topic一致が成長/財務安全性の根拠になる事象を再現し、観点別の関連度floor未満を`confirmation_gap`として扱うよう修正。資料不足を低スコアや投資魅力度へ変換しない方針を維持。
 - `ResearchRetrievalQuality`へキーワード/ベクトル候補数、資料数、局所latencyを追加。通常画面に検索方式・根拠数・資料数、詳細に候補数・処理時間を表示する。
 - 国内株7203.T、米国株AAPL、ETF SPY、資料不足のnetwork-freeシナリオを確認。関連pytest 524件成功・opt-in UI smoke 1件スキップ、Ruff、Research / state範囲のmypyが成功。隔離Streamlitが実行環境のプロセス管理により終了したため、実UI smokeは通常端末で再実行する。詳細は `Documents/35_RAG_Improvement_Sprint_Report.md` を参照。
+
+## 2026-07-13: クライアントheartbeat監視契約の安全化
+
+- `activity_state.json`のheartbeatを、最終通信、正規化済み端末種別、接続状態だけの最小記録へ更新した。User-Agentから端末種別をローカル分類するが、生のUser-Agent、IPアドレス、Cookieは保存しない。
+- 旧来の時刻文字列セッションを読み続け、メンテナンス再起動のfail-closed判定との後方互換性を維持した。Analytics側の読み取り専用セッション契約とも整合する。WindowsのPID生存確認は安全なプロセス照会APIへ切り替え、`os.kill(pid, 0)`による対象プロセス停止を避けた。
+- ユーザー設定のアイコン表示を、static境界外のローカルパスを渡す`st.image`から、既存の最適化済みstatic URL（または安全なfallback）へ統一した。Streamlitのstatic境界警告を避け、直URLで画像配信を確認した。
+- Cockpit responsive smokeは可視範囲のstatic画像が読み込み完了してからスクリーンショットを保存するようにした。隔離StreamlitでiPhone、iPad縦横、PCの4 viewportを再確認し、画像欠落なしで成功した。
+- 実行済みのサーバー運用分離、20分間隔の銘柄background refresh、更新済み銘柄マスター、および root に残すPhase要約レポートに追随するよう、既存の4件の回帰テスト期待値を更新した。

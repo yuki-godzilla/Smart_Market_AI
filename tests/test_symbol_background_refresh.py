@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from backend.symbols.background import (
+    BACKGROUND_REFRESH_INTERVAL_MINUTES,
     BACKGROUND_REFRESH_MAX_ITEMS,
     BACKGROUND_REFRESH_STEPS,
     MAX_SYMBOL_REFRESH_PER_SESSION,
@@ -96,7 +97,7 @@ def test_background_refresh_cycle_uses_recurring_batches_after_eight_minutes(
         now_provider=lambda: now,
     )
 
-    assert waits == [180.0, 300.0, 300.0]
+    assert waits == [180.0, 300.0, BACKGROUND_REFRESH_INTERVAL_MINUTES * 60.0]
     assert BACKGROUND_REFRESH_STEPS[0].max_items == 25
     assert BACKGROUND_REFRESH_STEPS[1].max_items == 25
     assert BACKGROUND_REFRESH_MAX_ITEMS == 25

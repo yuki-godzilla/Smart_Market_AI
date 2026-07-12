@@ -34,13 +34,16 @@ def test_status_script_checks_smai_gateway_and_ollama() -> None:
 
 
 def test_stop_script_only_stops_matching_8501_smai_listener() -> None:
-    script = _read("scripts/stop_smai_server.bat")
+    wrapper = _read("scripts/stop_smai_server.bat")
+    script = _read("scripts/server_ops/stop_smai_server.ps1")
 
     assert "Get-NetTCPConnection -LocalPort 8501 -State Listen" in script
     assert "CommandLine:" in script
-    assert "streamlit.+ui[\\\\/]+app\\.py" in script
-    assert 'if /i "%~1"=="/quiet"' in script
-    assert "Stop-Process -Id $p.ProcessId" in script
+    assert "streamlit.+ui[\\/]+app\\.py" in script
+    assert 'if /i "%~1"=="/quiet"' in wrapper
+    assert "stop_smai_server.ps1" in wrapper
+    assert "-Quiet" in wrapper
+    assert "Stop-Process -Id $process.ProcessId" in script
 
 
 def test_restart_script_reuses_guarded_stop_and_waits_for_health() -> None:

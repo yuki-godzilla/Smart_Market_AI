@@ -73,6 +73,9 @@ def test_notification_cta_is_navigation_only_and_icon_assets_are_selectable() ->
     assert "smai-icon-card" in overlay
     assert 'button.style.opacity = "0"' in overlay
     assert 'button.style.cursor = "pointer"' in overlay
+    assert "st.image(" not in source
+    assert 'class="smai-user-settings-icon"' in source
+    assert "user_icon_browser_source(current_icon)" in source
 
 
 def test_user_selection_gates_main_app_and_hides_sidebar() -> None:

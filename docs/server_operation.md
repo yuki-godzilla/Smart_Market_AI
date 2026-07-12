@@ -80,6 +80,13 @@ LAN/Tailscaleともに `http://<PCのIP>:8501` を使用します。ルーター
 処理中マーカー、`.lock` / `.tmp` がある場合は再起動しません。UIは接続中に
 1分ごとにheartbeatを更新し、切断後3分間は安全側に延期します。
 
+`data/ops/server_ops/activity_state.json` の新しいheartbeat記録は、
+`last_seen_at`、`client_type`、`connection_state`だけを保存します。
+端末種別は`desktop`、`smartphone`、`tablet`、`unknown`に正規化し、生の
+User-Agent、IPアドレス、Cookieは保存しません。旧形式の時刻文字列セッションも
+再起動安全判定のため継続して読み取ります。WindowsではPID確認に`os.kill`を使わず、
+プロセス照会APIを使うため、drain判定が確認対象プロセスを停止させることはありません。
+
 再起動なしで監視を1回だけ確認するには次を実行します。
 
 ```powershell

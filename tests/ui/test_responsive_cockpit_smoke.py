@@ -109,6 +109,26 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     page.wait_for_timeout(300)
 
 
+def _wait_for_visible_static_images(page) -> None:
+    """Avoid capturing a visible mascot/avatar before its static asset loads."""
+
+    page.wait_for_function(
+        """() => {
+          const images = [...document.querySelectorAll('img[src^="/app/static/"]')];
+          const visible = images.filter((image) => {
+            const rect = image.getBoundingClientRect();
+            const style = window.getComputedStyle(image);
+            return rect.width > 0 && rect.height > 0 && rect.bottom > 0
+              && rect.top < window.innerHeight && style.visibility !== "hidden";
+          });
+          return visible.length > 0 && visible.every(
+            (image) => image.complete && image.naturalWidth > 0,
+          );
+        }""",
+        timeout=30_000,
+    )
+
+
 @pytest.mark.skipif(
     os.getenv("SMAI_RUN_RESPONSIVE_SMOKE") != "1",
     reason="Set SMAI_RUN_RESPONSIVE_SMOKE=1 with Streamlit running to enable.",
@@ -127,6 +147,7 @@ def test_cockpit_responsive_viewports() -> None:
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
                 _load_mock_cockpit_result(page)
                 _assert_cockpit_result_contract(page, width)
+                _wait_for_visible_static_images(page)
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

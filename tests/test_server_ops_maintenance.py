@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from backend.server_ops import maintenance
 from backend.server_ops.maintenance import MaintenanceManager
 
@@ -97,10 +95,19 @@ def test_pid_check_treats_windows_system_error_as_stale(monkeypatch) -> None:
 
     monkeypatch.setattr(maintenance.os, "kill", raise_system_error)
 
-    assert maintenance._pid_exists(12345) is False
+    assert maintenance._posix_pid_exists(12345) is False
 
 
-def test_atomic_write_retries_a_transient_windows_permission_error(tmp_path: Path, monkeypatch) -> None:
+def test_pid_check_keeps_current_windows_process_active() -> None:
+    if maintenance.os.name != "nt":
+        return
+
+    assert maintenance._pid_exists(maintenance.os.getpid()) is True
+
+
+def test_atomic_write_retries_a_transient_windows_permission_error(
+    tmp_path: Path, monkeypatch
+) -> None:
     path = tmp_path / "state.json"
     real_replace = maintenance.os.replace
     attempts = 0

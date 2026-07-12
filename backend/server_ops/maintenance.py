@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Mapping, TypedDict
 
 from filelock import FileLock
 
@@ -30,6 +30,54 @@ _REPLACE_RETRY_DELAYS_SECONDS = (0.025, 0.05, 0.1, 0.2, 0.4)
 LOGGER = logging.getLogger(__name__)
 SERVICE_MODES = {"manual_stop", "maintenance_restart", "unexpected_exit"}
 SERVICE_STATUSES = {"requested", "draining", "stopped", "cancelled", "timed_out", "unknown"}
+CLIENT_TYPES = {"desktop", "smartphone", "tablet", "unknown"}
+_WINDOWS_ERROR_ACCESS_DENIED = 5
+_WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_WINDOWS_STILL_ACTIVE = 259
+
+
+class ActivityState(TypedDict):
+    """Persisted maintenance activity state with intentionally opaque entry values."""
+
+    schema_version: int
+    sessions: dict[str, object]
+    operations: dict[str, object]
+    updated_at: object
+
+
+def normalize_client_type(value: object) -> str:
+    """Keep only the small device category required for operations monitoring."""
+
+    normalized = str(value or "").strip().casefold()
+    aliases = {
+        "pc": "desktop",
+        "phone": "smartphone",
+        "mobile": "smartphone",
+        "ipad": "tablet",
+    }
+    normalized = aliases.get(normalized, normalized)
+    return normalized if normalized in CLIENT_TYPES else "unknown"
+
+
+def classify_client_type(user_agent: object) -> str:
+    """Classify a request locally without persisting its raw User-Agent value."""
+
+    value = str(user_agent or "").casefold()
+    if not value:
+        return "unknown"
+    # iPadOS can identify as Macintosh in desktop-browser mode, while keeping
+    # the Mobile token.  Evaluate it before desktop platforms.
+    if any(token in value for token in ("ipad", "tablet", "kindle", "silk/", "playbook", "sm-t")):
+        return "tablet"
+    if "macintosh" in value and "mobile/" in value:
+        return "tablet"
+    if "android" in value:
+        return "smartphone" if "mobile" in value else "tablet"
+    if any(token in value for token in ("iphone", "ipod", "windows phone", "mobile", "mobi")):
+        return "smartphone"
+    if any(token in value for token in ("windows nt", "macintosh", "x11", "linux")):
+        return "desktop"
+    return "unknown"
 
 
 def _utc_now() -> datetime:
@@ -71,7 +119,7 @@ def _exclusive_write_lock(path: Path) -> Iterator[None]:
         yield
 
 
-def _atomic_write_unlocked(path: Path, value: dict[str, object]) -> None:
+def _atomic_write_unlocked(path: Path, value: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(prefix=f"{path.name}.", suffix=".tmp", dir=path.parent)
     try:
@@ -95,7 +143,7 @@ def _atomic_write_unlocked(path: Path, value: dict[str, object]) -> None:
             pass
 
 
-def _atomic_write(path: Path, value: dict[str, object]) -> None:
+def _atomic_write(path: Path, value: Mapping[str, object]) -> None:
     with _exclusive_write_lock(path):
         _atomic_write_unlocked(path, value)
 
@@ -118,9 +166,19 @@ def read_service_intent(path: Path = SERVICE_INTENT_PATH) -> dict[str, object] |
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {"schema_version": 1, "mode": "unknown", "status": "unknown", "reason_code": "intent_unreadable"}
+        return {
+            "schema_version": 1,
+            "mode": "unknown",
+            "status": "unknown",
+            "reason_code": "intent_unreadable",
+        }
     if not isinstance(value, dict):
-        return {"schema_version": 1, "mode": "unknown", "status": "unknown", "reason_code": "intent_invalid"}
+        return {
+            "schema_version": 1,
+            "mode": "unknown",
+            "status": "unknown",
+            "reason_code": "intent_invalid",
+        }
     mode = value.get("mode")
     status = value.get("status")
     if mode not in SERVICE_MODES or status not in SERVICE_STATUSES:
@@ -206,12 +264,25 @@ class MaintenanceManager:
         self.clear_notice()
         self.clear_intent()
 
-    def heartbeat(self, session_id: str, *, now: datetime | None = None) -> None:
+    def heartbeat(
+        self,
+        session_id: str,
+        *,
+        client_type: str = "unknown",
+        now: datetime | None = None,
+    ) -> None:
         now = now or _utc_now()
         with _ACTIVITY_LOCK, _exclusive_write_lock(self.activity_path):
             activity = self._clean_activity(now)
             sessions = dict(activity["sessions"])
-            sessions[session_id] = _iso(now)
+            # Rewrite the record from the explicit monitoring contract.  In
+            # particular, never carry forward an unknown field such as a raw
+            # User-Agent from a manually edited or older activity-state file.
+            sessions[session_id] = {
+                "last_seen_at": _iso(now),
+                "client_type": normalize_client_type(client_type),
+                "connection_state": "connected",
+            }
             activity["sessions"] = sessions
             activity["updated_at"] = _iso(now)
             _atomic_write_unlocked(self.activity_path, activity)
@@ -338,19 +409,18 @@ class MaintenanceManager:
         except FileNotFoundError:
             pass
 
-    def _clean_activity(self, now: datetime) -> dict[str, object]:
+    def _clean_activity(self, now: datetime) -> ActivityState:
         raw = _read_json(self.activity_path)
         sessions_raw = raw.get("sessions")
         operations_raw = raw.get("operations")
-        sessions = {
-            str(key): value
-            for key, value in (sessions_raw.items() if isinstance(sessions_raw, dict) else ())
-            if (seen := _parse(value)) is not None and now - seen <= SESSION_TIMEOUT
-        }
+        sessions: dict[str, object] = {}
+        for key, value in sessions_raw.items() if isinstance(sessions_raw, dict) else ():
+            last_seen_at = value.get("last_seen_at") if isinstance(value, dict) else value
+            seen = _parse(last_seen_at)
+            if seen is not None and now - seen <= SESSION_TIMEOUT:
+                sessions[str(key)] = value
         operations: dict[str, object] = {}
-        for key, value in (
-            operations_raw.items() if isinstance(operations_raw, dict) else ()
-        ):
+        for key, value in operations_raw.items() if isinstance(operations_raw, dict) else ():
             if not isinstance(value, dict):
                 continue
             started_at = _parse(value.get("started_at"))
@@ -387,14 +457,61 @@ class MaintenanceManager:
         return False
 
 
-def _pid_exists(pid: int) -> bool:
-    if pid <= 0:
-        return False
+def _windows_pid_exists(pid: int) -> bool:
+    """Check a Windows process without using ``os.kill(pid, 0)``.
+
+    On Windows, unlike POSIX, ``os.kill`` can terminate a process for signals
+    other than Ctrl events.  Opening the process for limited query access is
+    sufficient for the conservative maintenance drain decision.
+    """
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        open_process.restype = wintypes.HANDLE
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+        get_exit_code_process = kernel32.GetExitCodeProcess
+        get_exit_code_process.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        get_exit_code_process.restype = wintypes.BOOL
+
+        handle = open_process(_WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            # A protected process might exist but be unavailable to this
+            # process; preserve the fail-closed maintenance policy.
+            return ctypes.get_last_error() == _WINDOWS_ERROR_ACCESS_DENIED
+        try:
+            exit_code = wintypes.DWORD()
+            if not get_exit_code_process(handle, ctypes.byref(exit_code)):
+                return True
+            return exit_code.value == _WINDOWS_STILL_ACTIVE
+        finally:
+            close_handle(handle)
+    except (AttributeError, OSError):
+        # If the local process table cannot be queried, do not allow a restart
+        # merely because the safety check was unavailable.
+        return True
+
+
+def _posix_pid_exists(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except (OSError, SystemError):
         return False
     return True
+
+
+def _pid_exists(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        return _windows_pid_exists(pid)
+    return _posix_pid_exists(pid)
 
 
 @contextmanager
@@ -414,14 +531,24 @@ def maintenance_operation(name: str) -> Iterator[None]:
             except OSError:
                 # The operation remains recorded, so maintenance stays fail-closed.
                 # Never let observability cleanup break the user-facing operation.
-                LOGGER.warning("Could not record maintenance operation end: %s", name, exc_info=True)
+                LOGGER.warning(
+                    "Could not record maintenance operation end: %s", name, exc_info=True
+                )
 
 
 def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "action",
-        choices=("startup", "evaluate", "drain", "notice", "clear-notice", "request-stop", "mark-intent"),
+        choices=(
+            "startup",
+            "evaluate",
+            "drain",
+            "notice",
+            "clear-notice",
+            "request-stop",
+            "mark-intent",
+        ),
     )
     parser.add_argument("--mode", choices=sorted(SERVICE_MODES), default="manual_stop")
     parser.add_argument("--status", choices=sorted(SERVICE_STATUSES), default="requested")

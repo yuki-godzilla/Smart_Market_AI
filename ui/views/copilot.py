@@ -166,6 +166,7 @@ CopilotIntent = Literal[
     "broad_discovery",
 ]
 
+
 @dataclass(frozen=True)
 class CopilotConversationPreset:
     intent: CopilotIntent
@@ -852,22 +853,6 @@ def _probe_copilot_gateway_runtime(
     )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _assistant_runtime_status_for_header(
     *,
     history: list[dict[str, str]],
@@ -895,8 +880,6 @@ def _assistant_runtime_status_for_header(
     return derive_assistant_runtime_status(
         AssistantStatusEvent(name="health_checked", runtime_config=runtime_config)
     )
-
-
 
 
 def copilot_history_messages(
@@ -1821,6 +1804,29 @@ def _render_confirmable_assistant_action(
         if turn is None or not action_id:
             st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
             return True
+        context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
+        if not _assistant_action_confirmation_is_current(history, turn):
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=_superseded_assistant_action_result(action_id),
+                context=context,
+                confirmed=False,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
+        pending_target = pending.get("target")
+        if not _assistant_action_confirmation_target_matches(
+            pending_target,
+            _assistant_action_confirmation_target(turn, context, action_id),
+        ):
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=_superseded_assistant_action_result(action_id),
+                context=context,
+                confirmed=False,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
         return _render_assistant_action_confirmation(
             turn,
             action_id=action_id,
@@ -1847,9 +1853,11 @@ def _render_confirmable_assistant_action(
             use_container_width=True,
             help="実行前に対象、使用材料、変更しないものを確認します。",
         ):
+            context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
             st.session_state[COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY] = {
                 "turn_id": str(turn.get("turn_id", "")),
                 "action_id": action_id,
+                "target": _assistant_action_confirmation_target(turn, context, action_id),
             }
             return True
     return False
@@ -2029,15 +2037,15 @@ def _workflow_retry_button_label(action_id: str | None) -> str:
 def _latest_workflow_session_turn(
     history: list[dict[str, str]],
 ) -> tuple[dict[str, str], AssistantWorkflowSession] | None:
-    for turn in reversed(history):
-        if str(turn.get("status", "")) != "complete":
-            continue
-        session = _workflow_session_from_turn(turn)
-        if session is None:
-            continue
-        if session.status in {"active", "failed"}:
-            return turn, session
-    return None
+    if not history:
+        return None
+    turn = history[-1]
+    if str(turn.get("status", "")) != "complete":
+        return None
+    session = _workflow_session_from_turn(turn)
+    if session is None or session.status not in {"active", "failed"}:
+        return None
+    return turn, session
 
 
 def _workflow_session_from_turn(
@@ -2195,6 +2203,22 @@ def _cancelled_assistant_action_result(action_id: str) -> AssistantActionResult:
     )
 
 
+def _superseded_assistant_action_result(action_id: str) -> AssistantActionResult:
+    now = datetime.now(UTC)
+    action = get_assistant_action(action_id)
+    label = action.label if action is not None else "操作"
+    return AssistantActionResult(
+        action_id=action_id,
+        status="cancelled",
+        title=f"{label}の確認を取り消しました",
+        summary="新しい相談または対象の変更があったため、以前の実行前確認を取り消しました。",
+        user_message="この操作ではデータ取得、レポート作成、スコア変更は行っていません。",
+        started_at=now,
+        completed_at=now,
+        followup_actions=["summarize_next_checks"],
+    )
+
+
 def _record_assistant_action_result(
     *,
     turn_id: str,
@@ -2322,16 +2346,15 @@ def _workflow_session_step_id_for_action(
 def _latest_confirmable_assistant_action_turn(
     history: list[dict[str, str]],
 ) -> tuple[dict[str, str], str] | None:
-    for turn in reversed(history):
-        if str(turn.get("status", "")) != "complete":
-            continue
-        action_id = _first_confirmable_action_id(turn)
-        if not action_id:
-            continue
-        if _turn_has_action_result(turn, action_id):
-            continue
-        return turn, action_id
-    return None
+    if not history:
+        return None
+    turn = history[-1]
+    if str(turn.get("status", "")) != "complete":
+        return None
+    action_id = _first_confirmable_action_id(turn)
+    if not action_id or _turn_has_action_result(turn, action_id):
+        return None
+    return turn, action_id
 
 
 def _first_confirmable_action_id(turn: dict[str, str]) -> str:
@@ -2431,9 +2454,62 @@ def _assistant_action_symbol(
 ) -> str:
     return (
         str(turn.get("decision_report_symbol", "")).strip()
+        or _assistant_workflow_target_symbol(turn)
         or str(context.summary.get("銘柄", "")).strip()
         or str(context.summary.get("symbol", "")).strip()
     )
+
+
+def _assistant_workflow_target_symbol(turn: dict[str, str]) -> str:
+    session = _workflow_session_from_turn(turn)
+    if session is not None:
+        active_step = _workflow_session_active_step(session)
+        if active_step is not None and active_step.symbol:
+            return str(active_step.symbol).strip()
+        if session.target_symbol:
+            return str(session.target_symbol).strip()
+    workflow = _assistant_guided_workflow_dict(turn)
+    return str(workflow.get("target_symbol", "")).strip()
+
+
+def _assistant_action_confirmation_is_current(
+    history: list[dict[str, str]],
+    turn: dict[str, str],
+) -> bool:
+    return bool(history) and str(history[-1].get("turn_id", "")) == str(turn.get("turn_id", ""))
+
+
+def _assistant_action_confirmation_target(
+    turn: dict[str, str],
+    context: SmaiAssistantContext | None = None,
+    action_id: str = "",
+) -> dict[str, str]:
+    session = _workflow_session_from_turn(turn)
+    session_id = session.session_id if session is not None else ""
+    workflow_step_id = session.active_step_id if session is not None else ""
+    symbol = (
+        _assistant_action_symbol(turn, context)
+        if context is not None
+        else _assistant_workflow_target_symbol(turn)
+        or str(turn.get("decision_report_symbol", "")).strip()
+    )
+    return {
+        "turn_id": str(turn.get("turn_id", "")).strip(),
+        "action_id": str(action_id or "").strip(),
+        "context_id": str(turn.get("context_id", "")).strip(),
+        "symbol": symbol,
+        "workflow_session_id": session_id,
+        "workflow_step_id": workflow_step_id or "",
+    }
+
+
+def _assistant_action_confirmation_target_matches(
+    stored: object,
+    current: dict[str, str],
+) -> bool:
+    if not isinstance(stored, dict):
+        return False
+    return all(str(stored.get(key, "")).strip() == value for key, value in current.items())
 
 
 def _assistant_action_company_name(

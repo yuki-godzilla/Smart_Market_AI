@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-07-12: SMAIアシスタント確認型エージェント安全性スプリント
+
+- Assistantの実行層で、payload、現在文脈、Decision Report材料に複数または不一致の銘柄がある場合を`target_mismatch`として拒否するようにした。外部AI調査はfetcherを呼ばず、確認レポートも作成しない。
+- 最新ターンだけを確認対象にし、turn / context / workflow step / 対象銘柄が変わった古い確認は取消結果として記録する既存導線を、実行層の対象照合と整合させた。
+- Parent SMAIと`smai-ai-gateway`の両方で、日本語の購入・保有推奨、即時売買、買い時・売り時などの助言表現をTool Plan採用前に拒否するよう統一。ユーザーに表示するPlanのwarning / disabled reasonも検査する。
+- Agent evaluationに日本語助言表現のraw planner fixtureを追加。対象Assistant回帰303件（3 skip）とGatewayテスト62件（1 skip）、Ruff、対象Blackが成功。実Streamlit loading smokeは、独立起動時のプロフィール選択で既存harnessが停止するため未完了として残した。
+
 ## 2026-07-12: 全画面UI品質スプリント（3サイクル）
 
 - 7画面（Cockpit / Ranking / 投資レーダー / Myウォッチリスト / アシスタント / リバランス / 設定）のnetwork-free画面スモークと、リバランスの決定論的な主操作を追加。3週分の因子・水準・live smoke境界は `docs/ui/three_week_ui_quality_sprint.md` に記録。

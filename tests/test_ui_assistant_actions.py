@@ -13,7 +13,10 @@ from ui.components.assistant_action_confirm import assistant_action_confirmation
 from ui.components.assistant_action_result import assistant_action_result_card_html
 from ui.views.copilot import (
     _apply_workflow_session_control,
+    _assistant_action_confirmation_target,
+    _assistant_action_confirmation_target_matches,
     _first_confirmable_action_id,
+    _latest_confirmable_assistant_action_turn,
     _workflow_session_control_options,
     copilot_answer_detail_html,
 )
@@ -154,6 +157,42 @@ def test_first_confirmable_action_skips_already_recorded_action_result():
     }
 
     assert _first_confirmable_action_id(turn) == "create_decision_report"
+
+
+def test_old_confirmation_turn_is_not_offered_after_a_newer_turn():
+    old_turn = {
+        "turn_id": "old-turn",
+        "status": "complete",
+        "assistant_tool_plan": json.dumps(
+            {"steps": [{"action_id": "update_research", "requires_confirmation": True}]},
+            ensure_ascii=False,
+        ),
+    }
+    newer_turn = {
+        "turn_id": "new-turn",
+        "status": "complete",
+        "answer": "新しい相談への回答です。",
+    }
+
+    assert _latest_confirmable_assistant_action_turn([old_turn, newer_turn]) is None
+
+
+def test_confirmation_target_binding_rejects_changed_symbol():
+    turn = {
+        "turn_id": "turn-1",
+        "context_id": "copilot_cockpit_overview",
+        "decision_report_symbol": "7203.T",
+    }
+    binding = _assistant_action_confirmation_target(
+        turn,
+        action_id="update_research",
+    )
+
+    assert _assistant_action_confirmation_target_matches(binding, binding)
+    assert not _assistant_action_confirmation_target_matches(
+        {**binding, "symbol": "AAPL"},
+        binding,
+    )
 
 
 def test_first_confirmable_action_reads_guided_workflow_before_tool_plan():

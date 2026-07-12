@@ -44,6 +44,7 @@ def safe_action_error_message(error_code: str | None) -> str:
         "disabled_action": "この操作は現在の画面では利用できません。",
         "destructive_action": "安全のため、この操作はSMAIアシスタントから実行できません。",
         "symbol_missing": "対象銘柄が特定できません。先に銘柄コックピットで銘柄を選んでください。",
+        "target_mismatch": "確認した対象と現在の材料が一致しないため、操作は実行していません。対象銘柄を確認してからもう一度実行してください。",
         "insufficient_materials": "価格やAI予測など、確認レポートに必要な材料が不足しています。",
         "report_builder_unavailable": "確認レポート作成に必要な部品を利用できませんでした。",
         "research_fetcher_unavailable": "AI調査を更新する準備ができていません。",

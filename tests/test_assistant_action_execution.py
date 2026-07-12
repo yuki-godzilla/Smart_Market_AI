@@ -127,6 +127,81 @@ def test_create_decision_report_missing_symbol_fails_safely():
     assert "対象銘柄" in result.user_message
 
 
+def test_confirmed_action_rejects_a_payload_symbol_that_differs_from_context():
+    calls: list[dict[str, object]] = []
+
+    def fake_fetcher(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"status": "success", "entry_count": 1}
+
+    result = AssistantActionExecutor(research_fetcher=fake_fetcher).execute(
+        "update_research",
+        _assistant_context(symbol="7203.T"),
+        payload={"symbol": "AAPL"},
+        confirmed=True,
+    )
+
+    assert result.status == "validation_error"
+    assert result.error_code == "target_mismatch"
+    assert calls == []
+
+
+def test_confirmed_action_rejects_conflicting_symbols_within_the_current_context():
+    calls: list[dict[str, object]] = []
+
+    def fake_fetcher(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"status": "success", "entry_count": 1}
+
+    context = _assistant_context(symbol="7203.T").model_copy(
+        update={"page_state": {"selected_symbol": "7203.T", "active_symbol": "AAPL"}}
+    )
+    result = AssistantActionExecutor(research_fetcher=fake_fetcher).execute(
+        "update_research",
+        context,
+        payload={"symbol": "7203.T"},
+        confirmed=True,
+    )
+
+    assert result.status == "validation_error"
+    assert result.error_code == "target_mismatch"
+    assert calls == []
+
+
+def test_confirmed_report_rejects_report_materials_for_a_different_symbol():
+    result = AssistantActionExecutor().execute(
+        "create_decision_report",
+        _assistant_context(symbol="7203.T"),
+        payload={"report_context": _sample_report_context(symbol="AAPL")},
+        confirmed=True,
+    )
+
+    assert result.status == "validation_error"
+    assert result.error_code == "target_mismatch"
+
+
+def test_confirmed_report_rejects_mixed_symbol_materials():
+    report_context = _sample_report_context(symbol="7203.T")
+    mixed_context = report_context.model_copy(
+        update={
+            "sections": [
+                *report_context.sections,
+                _sample_report_context(symbol="AAPL").sections[0],
+            ]
+        }
+    )
+
+    result = AssistantActionExecutor().execute(
+        "create_decision_report",
+        _assistant_context(symbol="7203.T"),
+        payload={"report_context": mixed_context, "symbol": "7203.T"},
+        confirmed=True,
+    )
+
+    assert result.status == "validation_error"
+    assert result.error_code == "target_mismatch"
+
+
 def test_create_decision_report_insufficient_materials_fails_safely():
     result = AssistantActionExecutor().execute(
         "create_decision_report",

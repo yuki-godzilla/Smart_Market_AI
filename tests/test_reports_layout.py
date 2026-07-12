@@ -10,8 +10,18 @@ ROOT_REFERENCE_REPORT_DIRECTORY_PATTERN = re.compile(
 )
 
 
+def test_generated_reports_layout_allows_a_fresh_checkout(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    test_generated_reports_are_grouped_into_execution_minute_directories()
+
+
 def test_generated_reports_are_grouped_into_execution_minute_directories() -> None:
     report_root = Path("reports")
+    if not report_root.exists():
+        # Reports are local generated artifacts and are intentionally absent
+        # from a fresh CI checkout.
+        return
     root_files = sorted(path.name for path in report_root.iterdir() if path.is_file())
 
     # Execution artifacts belong in their minute directory.  A small number

@@ -228,6 +228,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
+    assert "根拠を確認（ローカルRAG）" in button_labels
     assert "Watchlist" in text_input_labels
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
     assert {"関連銘柄", "追加候補を選択"}.issubset(set(selectbox_labels))

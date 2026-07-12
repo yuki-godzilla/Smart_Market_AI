@@ -47,6 +47,11 @@ from backend.news.contracts import (
     RadarCandidateMap,
     RadarCandidateMaterialTone,
     RadarCandidateProvenance,
+    RadarEvidenceBundle,
+    RadarEvidenceBundleStatus,
+    RadarEvidenceCitation,
+    RadarResearchContext,
+    RadarRetrievalQuality,
 )
 from backend.news.dashboard import (
     build_demo_news_dashboard_snapshot,
@@ -60,6 +65,7 @@ from backend.news.logging_utils import (
     configure_news_update_logger,
 )
 from backend.news.radar_candidates import build_radar_candidate_map, filter_radar_candidates
+from backend.news.radar_research import build_radar_evidence_bundle, build_radar_research_context
 from backend.news.sources import (
     STANDARD_NEWS_CATEGORY_QUERY_COUNT,
     STANDARD_NEWS_LOOKBACK_DAYS,
@@ -136,10 +142,17 @@ __all__ = [
     "RadarCandidateMap",
     "RadarCandidateMaterialTone",
     "RadarCandidateProvenance",
+    "RadarEvidenceBundle",
+    "RadarEvidenceBundleStatus",
+    "RadarEvidenceCitation",
+    "RadarResearchContext",
+    "RadarRetrievalQuality",
     "StaticNewsSourceAdapter",
     "build_demo_news_dashboard_snapshot",
     "build_news_dashboard_snapshot",
+    "build_radar_evidence_bundle",
     "build_radar_candidate_map",
+    "build_radar_research_context",
     "build_standard_news_dashboard_snapshot",
     "cleanup_news_cache_files",
     "configure_news_update_logger",

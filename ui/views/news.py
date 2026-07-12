@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import cast
 from urllib.parse import quote
@@ -21,8 +21,11 @@ from backend.news import (
     RadarCandidate,
     RadarCandidateDataStatus,
     RadarCandidateMap,
+    RadarEvidenceBundle,
     build_demo_news_dashboard_snapshot,
     build_radar_candidate_map,
+    build_radar_evidence_bundle,
+    build_radar_research_context,
     build_standard_news_dashboard_snapshot,
     filter_radar_candidates,
     load_cached_news_dashboard_snapshot,
@@ -59,6 +62,7 @@ NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 NEWS_FEATURED_HEADLINE_LIMIT = 3
 NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
+NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY = "investment_radar_evidence_bundles"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -1930,6 +1934,7 @@ def _render_radar_candidate_map(
         watchlist_symbols=watchlist_symbols,
         symbol_metadata_by_symbol=_heatmap_symbol_universe_by_symbol(),
     )
+    candidate_map = _candidate_map_with_rag_state(candidate_map)
     candidates = _render_radar_candidate_filters(candidate_map)
     if not candidates:
         st.info("選択中の条件で、根拠へ戻れる追加候補はありません。")
@@ -1967,6 +1972,7 @@ def _render_radar_candidate_map(
     st.altair_chart(chart, use_container_width=True)
     _render_radar_candidate_detail(
         candidates,
+        as_of=snapshot.generated_at.date(),
         open_symbol_callback=open_symbol_callback,
         symbol_name_map=symbol_name_map,
     )
@@ -2027,6 +2033,7 @@ def _render_radar_candidate_filters(candidate_map: RadarCandidateMap) -> list[Ra
 def _render_radar_candidate_detail(
     candidates: Sequence[RadarCandidate],
     *,
+    as_of: date,
     open_symbol_callback: OpenSymbolCallback,
     symbol_name_map: Mapping[str, str],
 ) -> None:
@@ -2062,6 +2069,7 @@ def _render_radar_candidate_detail(
                 f"価格: {_RADAR_DATA_STATUS_LABELS[candidate.price_data_status]} / "
                 f"RAG: {_RADAR_DATA_STATUS_LABELS[candidate.rag_data_status]}"
             )
+        _render_radar_evidence_bundle(candidate)
         st.markdown("**根拠記事**")
         for evidence in candidate.evidence:
             source = evidence.source_name or _source_type_label(evidence.source_type)
@@ -2078,6 +2086,12 @@ def _render_radar_candidate_detail(
         for gap in candidate.confirmation_gaps:
             st.caption(f"・{gap}")
         if candidate.is_investigation_candidate:
+            if st.button(
+                "根拠を確認（ローカルRAG）",
+                key=f"investment_radar_candidate_research_{candidate.candidate_id}",
+            ):
+                _store_radar_evidence_bundle(candidate, as_of=as_of)
+                st.rerun()
             st.button(
                 "銘柄コックピットで確認",
                 key=f"investment_radar_candidate_open_{candidate.candidate_id}",
@@ -2091,6 +2105,126 @@ def _render_radar_candidate_detail(
         else:
             st.info("市場確認指標は、個別銘柄候補としてではなく市場背景の確認に使います。")
         _ = symbol_name_map
+
+
+def _candidate_map_with_rag_state(candidate_map: RadarCandidateMap) -> RadarCandidateMap:
+    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    if not isinstance(stored, dict):
+        return candidate_map
+    candidates: list[RadarCandidate] = []
+    for candidate in candidate_map.candidates:
+        bundle = _radar_evidence_bundle_from_state(stored.get(candidate.candidate_id))
+        if bundle is None:
+            candidates.append(candidate)
+            continue
+        rag_status: RadarCandidateDataStatus = (
+            "available" if bundle.status == "available" else "partial"
+        )
+        candidates.append(
+            candidate.model_copy(
+                update={
+                    "rag_data_status": rag_status,
+                    "confirmation_gaps": _unique_text(
+                        [
+                            *candidate.confirmation_gaps,
+                            *bundle.confirmation_gaps,
+                        ]
+                    ),
+                }
+            )
+        )
+    return candidate_map.model_copy(update={"candidates": candidates})
+
+
+def _render_radar_evidence_bundle(candidate: RadarCandidate) -> None:
+    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    bundle = _radar_evidence_bundle_from_state(
+        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
+    )
+    if bundle is None:
+        return
+    st.markdown("**RAG根拠の確認**")
+    if bundle.citations:
+        for citation in bundle.citations:
+            st.markdown(
+                f"**{citation.title}** · {citation.source_type} · "
+                f"{_freshness_label(citation.freshness_status)}"
+            )
+            st.caption(citation.excerpt)
+    else:
+        st.info("ローカルRAG根拠は確認できませんでした。確認不足として扱います。")
+    for gap in bundle.confirmation_gaps:
+        st.caption(f"・{gap}")
+    if bundle.retrieval_quality is not None:
+        with st.expander("RAG検索の状態", expanded=False):
+            st.caption(
+                f"方式: {bundle.retrieval_quality.backend} / "
+                f"候補: {bundle.retrieval_quality.candidate_count}件 / "
+                f"根拠: {bundle.retrieval_quality.evidence_count}件"
+            )
+
+
+def _store_radar_evidence_bundle(candidate: RadarCandidate, *, as_of: date) -> None:
+    """Run local RAG only after the user explicitly asks to confirm evidence."""
+
+    from backend.research import (
+        HybridResearchRetrievalService,
+        ResearchRetrievalService,
+        ResearchSearchError,
+    )
+    from ui.research_state import (
+        autoload_local_research_documents,
+        research_store,
+        research_vector_store,
+    )
+
+    context = build_radar_research_context(candidate, as_of=as_of)
+    try:
+        autoload_local_research_documents()
+        retriever = HybridResearchRetrievalService(
+            ResearchRetrievalService(research_store()),
+            vector_store=research_vector_store(),
+        )
+        bundle = build_radar_evidence_bundle(
+            candidate,
+            context=context,
+            retriever=retriever,
+        )
+    except (OSError, ResearchSearchError, ValueError):
+        bundle = RadarEvidenceBundle(
+            candidate_id=candidate.candidate_id,
+            context=context,
+            status="unavailable",
+            confirmation_gaps=["ローカルRAG根拠を確認できませんでした。後で再試行してください。"],
+            generated_at=datetime.now(UTC),
+        )
+    existing = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    bundles = dict(existing) if isinstance(existing, dict) else {}
+    bundles[candidate.candidate_id] = bundle
+    st.session_state[NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY] = bundles
+
+
+def _radar_evidence_bundle_from_state(value: object) -> RadarEvidenceBundle | None:
+    if isinstance(value, RadarEvidenceBundle):
+        return value
+    if isinstance(value, Mapping):
+        try:
+            return RadarEvidenceBundle.model_validate(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _unique_text(values: Sequence[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = value.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
 def _radar_watchlist_symbols() -> list[str]:

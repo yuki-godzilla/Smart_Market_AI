@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -13,6 +13,7 @@ NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 RadarCandidateProvenance = Literal["direct_mention", "inferred_candidate", "macro_proxy"]
 RadarCandidateMaterialTone = Literal["positive", "caution", "mixed", "unknown"]
 RadarCandidateDataStatus = Literal["available", "partial", "unavailable", "not_checked"]
+RadarEvidenceBundleStatus = Literal["available", "confirmation_gap", "unavailable"]
 NewsSymbolMatchKind = Literal[
     "direct_mention",
     "alias_match",
@@ -138,6 +139,55 @@ class RadarCandidateMap(StrictBaseModel):
 
     generated_at: datetime
     candidates: list[RadarCandidate] = Field(default_factory=list)
+
+
+class RadarResearchContext(StrictBaseModel):
+    """Bounded local-RAG query context created only after explicit user action."""
+
+    candidate_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=360)
+    as_of: date
+    news_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class RadarEvidenceCitation(StrictBaseModel):
+    """Short, stable citation from local Research RAG for one Radar candidate."""
+
+    citation_id: str = Field(min_length=1)
+    research_evidence_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source_type: str = Field(min_length=1)
+    published_at: date | None = None
+    retrieved_at: datetime
+    freshness_status: NewsFreshnessStatus = "unknown"
+    directness: float = Field(ge=0.0, le=1.0)
+    excerpt: str = Field(min_length=1, max_length=320)
+
+
+class RadarRetrievalQuality(StrictBaseModel):
+    """Small copy of retrieval transparency fields safe for the Radar surface."""
+
+    backend: str = Field(min_length=1)
+    candidate_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    keyword_candidate_count: int = Field(ge=0)
+    vector_candidate_count: int = Field(ge=0)
+    document_count: int = Field(ge=0)
+    latency_ms: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RadarEvidenceBundle(StrictBaseModel):
+    """Explicit local-RAG result for a Radar candidate without external retrieval."""
+
+    candidate_id: str = Field(min_length=1)
+    context: RadarResearchContext
+    citations: list[RadarEvidenceCitation] = Field(default_factory=list)
+    retrieval_quality: RadarRetrievalQuality | None = None
+    status: RadarEvidenceBundleStatus
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    generated_at: datetime
 
 
 class NewsHeatmapCell(StrictBaseModel):

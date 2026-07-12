@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterator, Mapping, TypedDict
+from typing import Any, Iterator, Mapping, TypedDict
 
 from filelock import FileLock
 
@@ -469,7 +469,8 @@ def _windows_pid_exists(pid: int) -> bool:
         import ctypes
         from ctypes import wintypes
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        ctypes_win: Any = ctypes
+        kernel32 = ctypes_win.WinDLL("kernel32", use_last_error=True)
         open_process = kernel32.OpenProcess
         open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
         open_process.restype = wintypes.HANDLE
@@ -484,7 +485,7 @@ def _windows_pid_exists(pid: int) -> bool:
         if not handle:
             # A protected process might exist but be unavailable to this
             # process; preserve the fail-closed maintenance policy.
-            return ctypes.get_last_error() == _WINDOWS_ERROR_ACCESS_DENIED
+            return ctypes_win.get_last_error() == _WINDOWS_ERROR_ACCESS_DENIED
         try:
             exit_code = wintypes.DWORD()
             if not get_exit_code_process(handle, ctypes.byref(exit_code)):

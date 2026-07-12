@@ -409,10 +409,7 @@ class YahooMarketDataProviderAdapter:
                     **kwargs,
                 )
             except Exception as exc:
-                if (
-                    _is_yahoo_transient_request_error(exc)
-                    and attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS
-                ):
+                if _is_yahoo_transient_request_error(exc) and attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS:
                     await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS * attempt)
                     reset_shared_yfinance_session()
                     kwargs["session"] = shared_yfinance_session()

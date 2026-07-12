@@ -1821,7 +1821,7 @@ def main() -> None:
     restore_notice = st.session_state.pop(RESTORE_NOTICE_KEY, None)
     if isinstance(restore_notice, dict):
         restored_parts = [
-            SIDEMENU_PAGE_LABELS.get(str(restore_notice.get("active_page", "")), ""),
+            SIDEMENU_PAGE_LABELS.get(cast(Any, str(restore_notice.get("active_page", ""))), ""),
             str(restore_notice.get("selected_symbol", "")),
         ]
         detail = " / ".join(part for part in restored_parts if part)
@@ -1854,7 +1854,7 @@ def main() -> None:
     )
     client_id = str(st.session_state.get(CLIENT_ID_STATE_KEY) or "")
     save_client_session_if_changed(
-        st.session_state,
+        cast(Mapping[str, Any], st.session_state),
         client_id=client_id,
         selected_symbol=selected_symbol,
     )
@@ -3599,6 +3599,7 @@ def ranking_result_aggrid_options(
     )
     return build_ranking_aggrid_options(frame, RANKING_TABLE_CONFIG)
 
+
 def _aggrid_event_data(grid_response: object) -> dict[str, object]:
     event_data = getattr(grid_response, "event_data", None)
     if event_data is None and isinstance(grid_response, dict):
@@ -4904,18 +4905,54 @@ def reversal_expectation_pullback_rows() -> list[dict[str, str]]:
 
 def reversal_expectation_cap_rows() -> list[dict[str, str]]:
     return [
-        {"危険条件": "価格・時系列データ不足", "扱い": "未評価", "理由": "比較に必要な価格材料が不足"},
+        {
+            "危険条件": "価格・時系列データ不足",
+            "扱い": "未評価",
+            "理由": "比較に必要な価格材料が不足",
+        },
         {"危険条件": "データ品質BLOCK", "扱い": "未評価", "理由": "評価材料が不足"},
-        {"危険条件": "下降警戒 70以上", "扱い": "-6〜-18点", "理由": "下振れ警戒が強いほど段階減点"},
+        {
+            "危険条件": "下降警戒 70以上",
+            "扱い": "-6〜-18点",
+            "理由": "下振れ警戒が強いほど段階減点",
+        },
         {"危険条件": "Risk 50未満", "扱い": "-5〜-16点", "理由": "安全確認が弱いほど段階減点"},
         {"危険条件": "5日騰落率 -5%以下", "扱い": "-6〜-18点", "理由": "足元の急落を警戒"},
-        {"危険条件": "20日高値から25%以上下落", "扱い": "-6〜-14点", "理由": "下落幅が大きいほど警戒"},
-        {"危険条件": "急落と安値割れ・下降警戒の重なり", "扱い": "-22〜-30点", "理由": "落ちるナイフ候補として強めに減点"},
-        {"危険条件": "予測変化率 0%以下", "扱い": "-3〜-12点", "理由": "戻る予測根拠が弱いほど軽〜中程度に減点"},
-        {"危険条件": "下落3%未満かつ5日で+3%超", "扱い": "-5〜-11点", "理由": "すでに上昇済みの追いかけ注意"},
-        {"危険条件": "高配当・配当維持注意", "扱い": "0〜-8点", "理由": "基本は注意タグ。減配リスクが高い場合のみ軽く減点"},
-        {"危険条件": "通常時の累積減点", "扱い": "最大-35点", "理由": "複数条件が重なっても点数の分解能を残す"},
-        {"危険条件": "落ちるナイフ級の累積減点", "扱い": "最大-45点", "理由": "急落継続だけは強めに抑制"},
+        {
+            "危険条件": "20日高値から25%以上下落",
+            "扱い": "-6〜-14点",
+            "理由": "下落幅が大きいほど警戒",
+        },
+        {
+            "危険条件": "急落と安値割れ・下降警戒の重なり",
+            "扱い": "-22〜-30点",
+            "理由": "落ちるナイフ候補として強めに減点",
+        },
+        {
+            "危険条件": "予測変化率 0%以下",
+            "扱い": "-3〜-12点",
+            "理由": "戻る予測根拠が弱いほど軽〜中程度に減点",
+        },
+        {
+            "危険条件": "下落3%未満かつ5日で+3%超",
+            "扱い": "-5〜-11点",
+            "理由": "すでに上昇済みの追いかけ注意",
+        },
+        {
+            "危険条件": "高配当・配当維持注意",
+            "扱い": "0〜-8点",
+            "理由": "基本は注意タグ。減配リスクが高い場合のみ軽く減点",
+        },
+        {
+            "危険条件": "通常時の累積減点",
+            "扱い": "最大-35点",
+            "理由": "複数条件が重なっても点数の分解能を残す",
+        },
+        {
+            "危険条件": "落ちるナイフ級の累積減点",
+            "扱い": "最大-45点",
+            "理由": "急落継続だけは強めに抑制",
+        },
     ]
 
 
@@ -8182,7 +8219,7 @@ def favorite_prioritized_symbol_candidate_labels(
 
         def sort_key(row: Mapping[str, object]) -> tuple[int, bool, str]:
             rank = cockpit_symbol_search_rank(row, query)
-            symbol = row.get("symbol", "")
+            symbol = str(row.get("symbol", ""))
             return (
                 rank if rank is not None else 99,
                 normalize_favorite_symbol(symbol) not in normalized_favorites,
@@ -8589,7 +8626,7 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "商品",
                     product_options,
-                key="market_data_ranking_product_type",
+                    key="market_data_ranking_product_type",
                     format_func=ranking_product_type_label,
                 ),
             )
@@ -9853,9 +9890,9 @@ async def _build_large_market_data_ranking_rows(
             )
         rows.extend(cohort_rows)
         error_rows.extend(cohort_errors)
-        retained_top_rows = rank_investment_score_rows(
-            [*retained_top_rows, *cohort_rows]
-        )[:RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT]
+        retained_top_rows = rank_investment_score_rows([*retained_top_rows, *cohort_rows])[
+            :RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT
+        ]
         next_retained_symbols = {
             str(row.get("symbol", "")).strip().upper()
             for row in retained_top_rows
@@ -9890,7 +9927,9 @@ async def _build_large_market_data_ranking_rows(
             include_advanced_forecast=True,
         )
         advanced_fields_by_symbol = {
-            str(row.get("symbol", "")).strip().upper(): {
+            str(row.get("symbol", ""))
+            .strip()
+            .upper(): {
                 key: value for key, value in row.items() if key.startswith("advanced_forecast_")
             }
             for row in advanced_rows
@@ -10318,18 +10357,18 @@ async def _fetch_ranking_fundamentals_tolerant(
             )
             return fetched, []
         except TimeoutError:
-            exc = ProviderTimeoutError(
+            timeout_error = ProviderTimeoutError(
                 "ファンダメンタル情報の取得がタイムアウトしました。",
                 details={
                     "operation": "ranking_fetch_fundamentals",
                     "symbol": provider_symbol,
                 },
             )
-            return [], ranking_provider_error_rows(provider, display_symbols, exc)
-        except AppError as exc:
-            return [], ranking_provider_error_rows(provider, display_symbols, exc)
+            return [], ranking_provider_error_rows(provider, display_symbols, timeout_error)
+        except AppError as app_error:
+            return [], ranking_provider_error_rows(provider, display_symbols, app_error)
         except Exception as original_exc:  # noqa: BLE001 - fundamentals are optional.
-            exc = DataSourceError(
+            data_source_error = DataSourceError(
                 "ファンダメンタル情報を利用できませんでした。",
                 details={
                     "operation": "ranking_fetch_fundamentals",
@@ -10337,7 +10376,7 @@ async def _fetch_ranking_fundamentals_tolerant(
                     "error_type": type(original_exc).__name__,
                 },
             )
-            return [], ranking_provider_error_rows(provider, display_symbols, exc)
+            return [], ranking_provider_error_rows(provider, display_symbols, data_source_error)
 
     results = await asyncio.gather(*(fetch_one(symbol) for symbol in provider_symbols))
     for fetched, errors in results:
@@ -10531,11 +10570,10 @@ def _touch_ranking_client_session(*, force: bool = False) -> bool:
     if not client_id:
         return False
     selected_symbol = (
-        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", "")))
-        or ""
+        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
     )
     saved = save_client_session_if_changed(
-        st.session_state,
+        cast(Mapping[str, Any], st.session_state),
         client_id=client_id,
         selected_symbol=selected_symbol,
         force_write=True,
@@ -10709,9 +10747,7 @@ def _ranking_advanced_forecast_cache() -> dict[tuple[str, int, int, str, str], d
 
 
 @st.cache_resource(show_spinner=False)
-def _ranking_advanced_forecast_cache_accessed_at() -> (
-    dict[tuple[str, int, int, str, str], float]
-):
+def _ranking_advanced_forecast_cache_accessed_at() -> dict[tuple[str, int, int, str, str], float]:
     return {}
 
 
@@ -10796,22 +10832,22 @@ def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None
     cache_symbols = display_symbols | provider_symbols
     ohlcv_cache = _ranking_ohlcv_cache()
     ohlcv_accessed_at = _ranking_ohlcv_cache_accessed_at()
-    for key in tuple(ohlcv_cache):
-        if key[0] == provider_key and key[1] in cache_symbols:
-            ohlcv_cache.pop(key, None)
-            ohlcv_accessed_at.pop(key, None)
+    for ohlcv_key in tuple(ohlcv_cache):
+        if ohlcv_key[0] == provider_key and ohlcv_key[1] in cache_symbols:
+            ohlcv_cache.pop(ohlcv_key, None)
+            ohlcv_accessed_at.pop(ohlcv_key, None)
     fundamental_cache = _ranking_fundamental_cache()
     fundamental_accessed_at = _ranking_fundamental_cache_accessed_at()
-    for key in tuple(fundamental_cache):
-        if key[0] == provider_key and key[1] in cache_symbols:
-            fundamental_cache.pop(key, None)
-            fundamental_accessed_at.pop(key, None)
+    for fundamental_key in tuple(fundamental_cache):
+        if fundamental_key[0] == provider_key and fundamental_key[1] in cache_symbols:
+            fundamental_cache.pop(fundamental_key, None)
+            fundamental_accessed_at.pop(fundamental_key, None)
     advanced_cache = _ranking_advanced_forecast_cache()
     advanced_accessed_at = _ranking_advanced_forecast_cache_accessed_at()
-    for key in tuple(advanced_cache):
-        if key[0] in display_symbols:
-            advanced_cache.pop(key, None)
-            advanced_accessed_at.pop(key, None)
+    for advanced_key in tuple(advanced_cache):
+        if advanced_key[0] in display_symbols:
+            advanced_cache.pop(advanced_key, None)
+            advanced_accessed_at.pop(advanced_key, None)
     gc.collect()
 
 
@@ -11425,10 +11461,7 @@ def _run_watchlist_auto_snapshot_once(
     targets = _watchlist_all_refresh_targets(rows)
     target_fingerprint = _watchlist_refresh_target_fingerprint(targets)
     existing = st.session_state.get(WATCHLIST_AUTO_SNAPSHOT_STATE_KEY)
-    if (
-        isinstance(existing, Mapping)
-        and existing.get("target_fingerprint") == target_fingerprint
-    ):
+    if isinstance(existing, Mapping) and existing.get("target_fingerprint") == target_fingerprint:
         return False
     if _background_workers_disabled():
         st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
@@ -11531,9 +11564,7 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "reversal_expectation_score": str(
-                        raw_row.get("reversal_expectation_score")
-                        or raw_row.get("上向き兆候")
-                        or ""
+                        raw_row.get("reversal_expectation_score") or raw_row.get("上向き兆候") or ""
                     ),
                     "reversal_expectation_label": str(
                         raw_row.get("reversal_expectation_label")
@@ -11558,9 +11589,7 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "forecast_return_pct": str(
-                        raw_row.get("forecast_return_pct")
-                        or raw_row.get("予測変化率")
-                        or ""
+                        raw_row.get("forecast_return_pct") or raw_row.get("予測変化率") or ""
                     ),
                     "up_model_count": str(raw_row.get("up_model_count") or ""),
                     "down_model_count": str(raw_row.get("down_model_count") or ""),
@@ -11572,14 +11601,10 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "data_quality_score": str(
-                        raw_row.get("data_quality_score")
-                        or raw_row.get("データ品質")
-                        or ""
+                        raw_row.get("data_quality_score") or raw_row.get("データ品質") or ""
                     ),
                     "drawdown_20d": str(
-                        raw_row.get("drawdown_20d")
-                        or raw_row.get("20日高値乖離")
-                        or ""
+                        raw_row.get("drawdown_20d") or raw_row.get("20日高値乖離") or ""
                     ),
                     "momentum_5d": str(
                         raw_row.get("momentum_5d")
@@ -11627,12 +11652,9 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                     "reversal_expectation_score": _watchlist_optional_number_text(
                         local_snapshot.reversal_expectation_score
                     ),
-                    "reversal_expectation_label": local_snapshot.reversal_expectation_label
-                    or "",
-                    "reversal_expectation_reason": local_snapshot.reversal_expectation_reason
-                    or "",
-                    "reversal_chart_shape_label": local_snapshot.reversal_chart_shape_label
-                    or "",
+                    "reversal_expectation_label": local_snapshot.reversal_expectation_label or "",
+                    "reversal_expectation_reason": local_snapshot.reversal_expectation_reason or "",
+                    "reversal_chart_shape_label": local_snapshot.reversal_chart_shape_label or "",
                     "reversal_trap_warning": local_snapshot.reversal_trap_warning or "",
                     "dividend_trap_warning": local_snapshot.dividend_trap_warning or "",
                     "dividend_safety_score": _watchlist_optional_number_text(
@@ -11735,7 +11757,7 @@ async def _refresh_watchlist_snapshots(
                     bars = preview.bars
                     score_rows = getattr(preview, "investment_score_rows", [])
                     feature_rows = getattr(preview, "feature_rows", [])
-                    score_row = next(
+                    score_row: Mapping[str, object] = next(
                         (
                             item
                             for item in score_rows
@@ -11743,7 +11765,7 @@ async def _refresh_watchlist_snapshots(
                         ),
                         {},
                     )
-                    feature_row = next(
+                    feature_row: Mapping[str, object] = next(
                         (
                             item
                             for item in feature_rows
@@ -22903,9 +22925,12 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
     symbol_rows_by_symbol = _symbol_universe_rows_by_symbol()
     display_rows: list[dict[str, str]] = []
     for source_row in rows:
-        row = {
+        row: dict[str, str] = {
             **source_row,
-            **calculate_reversal_expectation(source_row).as_row(),
+            **{
+                key: str(value)
+                for key, value in calculate_reversal_expectation(source_row).as_row().items()
+            },
         }
         symbol = row.get("symbol", "")
         symbol_row = symbol_rows_by_symbol.get(symbol.strip().upper())
@@ -22936,7 +22961,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_trap_warning": row.get("reversal_trap_warning", ""),
                 "dividend_trap_warning": row.get("dividend_trap_warning", ""),
                 "dividend_safety_score": row.get("dividend_safety_score", ""),
-                "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", False),
+                "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", ""),
                 "dividend_sustainability_label": row.get("dividend_sustainability_label", ""),
                 "順位": row.get("rank", ""),
                 "銘柄": symbol,

@@ -15,9 +15,7 @@ def test_server_watcher_uses_two_stage_safe_restart_check() -> None:
 
 
 def test_autostart_registers_server_and_watcher_at_startup() -> None:
-    script = Path("scripts/server_ops/register_smai_autostart_task.ps1").read_text(
-        encoding="utf-8"
-    )
+    script = Path("scripts/server_ops/register_smai_autostart_task.ps1").read_text(encoding="utf-8")
 
     assert "SmartMarketAI-Server-Autostart" in script
     assert "SmartMarketAI-Server-Watch" in script

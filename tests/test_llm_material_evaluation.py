@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from backend.llm_factor.material_evaluation import (
     LLMMaterialEvaluationCase,
@@ -14,8 +15,8 @@ def _case(
     index: int,
     *,
     actual_positive: bool,
-    review_status: str = "retain",
-    run_status: str = "completed",
+    review_status: Literal["retain", "caution", "unavailable"] = "retain",
+    run_status: Literal["completed", "failed", "skipped"] = "completed",
     cache_hit: bool = False,
 ) -> LLMMaterialEvaluationCase:
     return LLMMaterialEvaluationCase(

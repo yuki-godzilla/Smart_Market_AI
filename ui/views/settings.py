@@ -125,9 +125,7 @@ def render_settings_page() -> None:
             )
 
     with st.expander("AI調査 / 根拠資料", expanded=False):
-        st.caption(
-            "ローカル資料を登録すると、銘柄コックピットと確認レポートの根拠として使えます。"
-        )
+        st.caption("ローカル資料を登録すると、銘柄コックピットと確認レポートの根拠として使えます。")
         symbol = st.text_input("銘柄コード", key="research_upload_symbol", placeholder="7203.T")
         title = st.text_input("資料タイトル", key="research_upload_title")
         source_type = st.selectbox(

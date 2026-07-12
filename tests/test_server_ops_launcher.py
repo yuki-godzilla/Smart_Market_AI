@@ -193,10 +193,13 @@ def test_manual_stop_intent_suppresses_resilient_restart(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
-    assert should_leave_resilient_launcher(
-        stop_path=request_path,
-        intent_path=intent_path,
-    ) is True
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=request_path,
+            intent_path=intent_path,
+        )
+        is True
+    )
     assert not request_path.exists()
 
 
@@ -207,20 +210,26 @@ def test_unexpected_exit_intent_allows_resilient_restart(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
-    assert should_leave_resilient_launcher(
-        stop_path=tmp_path / "missing.stop",
-        intent_path=intent_path,
-    ) is False
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=tmp_path / "missing.stop",
+            intent_path=intent_path,
+        )
+        is False
+    )
 
 
 def test_unknown_intent_is_fail_closed_for_resilient_restart(tmp_path: Path) -> None:
     intent_path = tmp_path / "service_intent.json"
     intent_path.write_text("{broken", encoding="utf-8")
 
-    assert should_leave_resilient_launcher(
-        stop_path=tmp_path / "missing.stop",
-        intent_path=intent_path,
-    ) is True
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=tmp_path / "missing.stop",
+            intent_path=intent_path,
+        )
+        is True
+    )
 
 
 def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:

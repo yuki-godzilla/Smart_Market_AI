@@ -366,9 +366,7 @@ def _quality_score(
     database_fit = _number(row, "database_fit_score", default=data_quality)
     metadata = _number(row, "metadata_confidence_score", default=data_quality)
     business_quality = _clamp(
-        screening * Decimal("0.50")
-        + database_fit * Decimal("0.25")
-        + metadata * Decimal("0.25")
+        screening * Decimal("0.50") + database_fit * Decimal("0.25") + metadata * Decimal("0.25")
     )
     yield_pct = _yield_percent(row)
     if yield_pct < 3:

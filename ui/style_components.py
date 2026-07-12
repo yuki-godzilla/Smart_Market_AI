@@ -106,8 +106,30 @@ def metric_card_html(
     )
 
 
-def render_metric_card(label: str, value: object, **kwargs: object) -> None:
-    st.markdown(metric_card_html(label, value, **kwargs), unsafe_allow_html=True)
+def render_metric_card(
+    label: str,
+    value: object,
+    *,
+    caption: str = "",
+    help_text: str = "",
+    badges: tuple[str, ...] = (),
+    tone: str = "neutral",
+    emphasis: str = "normal",
+    progress: int | None = None,
+) -> None:
+    st.markdown(
+        metric_card_html(
+            label,
+            value,
+            caption=caption,
+            help_text=help_text,
+            badges=badges,
+            tone=tone,
+            emphasis=emphasis,
+            progress=progress,
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def dashboard_header_html(

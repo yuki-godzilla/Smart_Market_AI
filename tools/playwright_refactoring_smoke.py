@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import cast
 
 from playwright.sync_api import sync_playwright
 
@@ -40,7 +41,7 @@ def _assert_rendered(page, expected_text: str) -> dict[str, object]:
 
 def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    results: dict[str, object] = {}
+    results: dict[str, dict[str, object]] = {}
     with sync_playwright() as runtime:
         browser = runtime.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1366, "height": 768})
@@ -75,8 +76,11 @@ def main() -> int:
             _open_sidebar_target(page, "銘柄ランキング")
             results["ranking_tablet"] = _assert_rendered(page, "銘柄ランキング")
             _close_sidebar(page)
-            tablet_body_width = page.locator("body").evaluate(
-                "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
+            tablet_body_width = cast(
+                dict[str, int],
+                page.locator("body").evaluate(
+                    "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
+                ),
             )
             assert tablet_body_width["scrollWidth"] <= tablet_body_width["clientWidth"] + 2
             results["ranking_tablet"]["body_width"] = tablet_body_width
@@ -87,8 +91,11 @@ def main() -> int:
             page.wait_for_timeout(500)
             results["assistant_mobile"] = _assert_rendered(page, "SMAIアシスタント")
             _close_sidebar(page)
-            body_width = page.locator("body").evaluate(
-                "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
+            body_width = cast(
+                dict[str, int],
+                page.locator("body").evaluate(
+                    "element => ({scrollWidth: element.scrollWidth, clientWidth: element.clientWidth})"
+                ),
             )
             assert body_width["scrollWidth"] <= body_width["clientWidth"] + 2
             results["assistant_mobile"]["body_width"] = body_width

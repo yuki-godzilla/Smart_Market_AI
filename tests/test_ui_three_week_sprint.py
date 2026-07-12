@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import cast
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -19,21 +20,21 @@ SCREEN_CASES = (
 
 
 def _page_text(app: AppTest) -> str:
-    groups: Iterable[object] = (
-        app.caption,
-        app.markdown,
-        app.subheader,
-        app.button,
-        app.selectbox,
-        app.text_input,
-        app.multiselect,
-        app.checkbox,
-        app.radio,
-        app.slider,
+    groups: tuple[Iterable[object], ...] = (
+        cast(Iterable[object], app.caption),
+        cast(Iterable[object], app.markdown),
+        cast(Iterable[object], app.subheader),
+        cast(Iterable[object], app.button),
+        cast(Iterable[object], app.selectbox),
+        cast(Iterable[object], app.text_input),
+        cast(Iterable[object], app.multiselect),
+        cast(Iterable[object], app.checkbox),
+        cast(Iterable[object], app.radio),
+        cast(Iterable[object], app.slider),
     )
     values: list[str] = []
     for group in groups:
-        for element in group:  # type: ignore[union-attr]
+        for element in group:
             value = getattr(element, "value", None)
             label = getattr(element, "label", None)
             if value is not None:

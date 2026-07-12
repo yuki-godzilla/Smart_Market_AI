@@ -605,9 +605,7 @@ def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         return
     render_section_heading("03 上昇気配・下降警戒")
-    st.caption(
-        "ランキングと同じ上昇気配・下降警戒を、1銘柄で確認します。"
-    )
+    st.caption("ランキングと同じ上昇気配・下降警戒を、1銘柄で確認します。")
     columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:

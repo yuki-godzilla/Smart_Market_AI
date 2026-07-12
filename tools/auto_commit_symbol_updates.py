@@ -14,16 +14,24 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 def _allowed(path: str) -> bool:
     normalized = path.replace("\\", "/")
-    return normalized == "data/marketdata/symbol_universe.csv" or normalized.startswith("data/marketdata/symbol_universe_sources/") or (normalized.startswith("data/marketdata/") and "manifest" in Path(normalized).name)
+    return (
+        normalized == "data/marketdata/symbol_universe.csv"
+        or normalized.startswith("data/marketdata/symbol_universe_sources/")
+        or (normalized.startswith("data/marketdata/") and "manifest" in Path(normalized).name)
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Commit and optionally push only approved symbol-universe artifacts.")
+    parser = argparse.ArgumentParser(
+        description="Commit and optionally push only approved symbol-universe artifacts."
+    )
     parser.add_argument("--push", action="store_true")
     parser.add_argument("--message", default="chore: refresh symbol universe artifacts")
     args = parser.parse_args()
     status = _run("git", "status", "--porcelain", "--", "data/marketdata")
-    paths = [line[3:] for line in status.stdout.splitlines() if len(line) >= 4 and line[0:2].strip()]
+    paths = [
+        line[3:] for line in status.stdout.splitlines() if len(line) >= 4 and line[0:2].strip()
+    ]
     unsafe = [path for path in paths if not _allowed(path)]
     if unsafe:
         print("[ERROR] Refusing automatic commit; unexpected marketdata paths:", file=sys.stderr)
@@ -52,4 +60,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

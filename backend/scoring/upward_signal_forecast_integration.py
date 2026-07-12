@@ -519,9 +519,11 @@ def _optional_decimal(value: object) -> Decimal | None:
 
 
 def _nonnegative_int(value: object) -> int:
+    if not isinstance(value, (str, int, float, Decimal)):
+        return 0
     try:
         return max(0, int(value))
-    except (TypeError, ValueError):
+    except (OverflowError, ValueError):
         return 0
 
 

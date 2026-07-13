@@ -110,6 +110,7 @@ Phase N4:
 - 通常の画面描画、候補選択、Cockpitへの画面遷移は、RAG、LLM、外部ニュース更新、価格取得、保存を開始しない。`根拠を確認（ローカルRAG）` の明示操作だけが、既存のローカル/キャッシュ済みResearch資料を検索する。未来時点の資料、別銘柄、低関連度の資料は根拠として表示しない。
 - `AIで根拠を整理（明示実行）` は、RAG根拠束を確認した後にだけ使える。`llm_interpretation.radar.enabled` は既定で `false` であり、無効時はGatewayへ接続せず「この根拠だけでは判断できません」という決定論的な確認メモを表示する。設定ファイルで有効化する場合も、Gateway / provider / schema / 引用ID / 助言表現の失敗は同じ確認メモへfallbackする。
 - AI根拠整理は `radar_interpretation.v1` として候補ID・ニュース根拠ID・local RAG citation IDだけを送る。Ranking、Forecast、Investment Score、Research Score、候補マップの位置・色・順序は変更しない。live Gateway確認は通常pytestとは分離した明示opt-in smokeとして実行する。
+- `radar_interpretation.v1` のsummary、材料、注意点、不明点、次の確認は、項目ごとに許可済み根拠IDを最低1件持つ。親SMAIは候補外symbol、根拠束にない数値・日付、未知の引用、助言表現を採用しない。`tools/evaluate_radar_interpretation_shadow.py --output-dir <folder>` は8件のnetwork-free fixtureでこの拒否契約を確認する。
 
 ## 2026-06-27 Myウォッチリスト MVP
 

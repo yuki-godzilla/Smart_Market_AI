@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 from backend.assistant import (
+    AssistantGatewayEvidencePoint,
+    AssistantGatewayRadarInterpretation,
     AssistantGatewayReferencedSection,
     AssistantGatewayResponse,
     AssistantGatewayTimeoutError,
@@ -76,6 +78,69 @@ def _bundle() -> RadarEvidenceBundle:
     )
 
 
+def _radar_payload(
+    *,
+    summary: str = "公式資料とニュースの時点差を確認する材料です。",
+    summary_ids: list[str] | None = None,
+    positive_materials: list[AssistantGatewayEvidencePoint] | None = None,
+    cautions: list[AssistantGatewayEvidencePoint] | None = None,
+    unknowns: list[AssistantGatewayEvidencePoint] | None = None,
+    next_checkpoints: list[AssistantGatewayEvidencePoint] | None = None,
+    candidate_id: str = "radar:direct_mention:7203.T",
+) -> AssistantGatewayRadarInterpretation:
+    return AssistantGatewayRadarInterpretation(
+        candidate_id=candidate_id,
+        summary=AssistantGatewayEvidencePoint(
+            text=summary,
+            cited_evidence_ids=summary_ids or ["radar-rag:doc-001:chunk-001"],
+        ),
+        positive_materials=positive_materials
+        or [
+            AssistantGatewayEvidencePoint(
+                text="生産方針に関する公式資料があります。",
+                cited_evidence_ids=["radar-rag:doc-001:chunk-001"],
+            )
+        ],
+        cautions=cautions
+        or [
+            AssistantGatewayEvidencePoint(
+                text="需要の持続性は未確認です。",
+                cited_evidence_ids=["radar-news-001"],
+            )
+        ],
+        unknowns=unknowns or [],
+        next_checkpoints=next_checkpoints
+        or [
+            AssistantGatewayEvidencePoint(
+                text="次回開示で計画の前提を確認してください。",
+                cited_evidence_ids=["radar-rag:doc-001:chunk-001"],
+            )
+        ],
+    )
+
+
+def _referenced_sections(payload: AssistantGatewayRadarInterpretation):
+    ids: list[str] = []
+    for point in [
+        payload.summary,
+        *payload.positive_materials,
+        *payload.cautions,
+        *payload.unknowns,
+        *payload.next_checkpoints,
+    ]:
+        for evidence_id in point.cited_evidence_ids:
+            if evidence_id not in ids:
+                ids.append(evidence_id)
+    return [
+        AssistantGatewayReferencedSection(
+            section_id=evidence_id,
+            title="根拠資料",
+            source_kind="radar_evidence",
+        )
+        for evidence_id in ids
+    ]
+
+
 def test_radar_interpretation_context_keeps_only_safe_evidence_sections():
     context = build_radar_interpretation_context(
         _candidate(),
@@ -100,19 +165,15 @@ def test_radar_interpretation_context_keeps_only_safe_evidence_sections():
 
 def test_radar_interpretation_accepts_only_known_evidence_ids():
     context = build_radar_interpretation_context(_candidate(), _bundle())
+    payload = _radar_payload()
     client = MockAssistantGatewayClient(
         response=AssistantGatewayResponse(
-            answer="公式資料とニュースの時点差を確認する材料です。",
-            materials=["生産方針に関する公式資料があります。"],
-            cautions=["需要の持続性は未確認です。"],
-            next_checkpoints=["次回開示で計画の前提を確認してください。"],
-            referenced_sections=[
-                AssistantGatewayReferencedSection(
-                    section_id="radar-rag:doc-001:chunk-001",
-                    title="決算説明資料",
-                    source_kind="radar_rag_evidence",
-                )
-            ],
+            answer=payload.summary.text,
+            materials=[point.text for point in payload.positive_materials],
+            cautions=[point.text for point in payload.cautions],
+            next_checkpoints=[point.text for point in payload.next_checkpoints],
+            referenced_sections=_referenced_sections(payload),
+            radar_interpretation=payload,
             confidence="medium",
             provider="local",
             model="test-model",
@@ -127,24 +188,24 @@ def test_radar_interpretation_accepts_only_known_evidence_ids():
     result = service.interpret(context, now=datetime(2026, 7, 13, 10, 0, tzinfo=UTC))
 
     assert result.status == "live"
-    assert result.referenced_evidence_ids == ["radar-rag:doc-001:chunk-001"]
+    assert result.referenced_evidence_ids == [
+        "radar-rag:doc-001:chunk-001",
+        "radar-news-001",
+    ]
     assert result.material_points[0].evidence_ids == ["radar-rag:doc-001:chunk-001"]
     assert client.requests[0].task_type == "news_materials"
     assert client.requests[0].referenced_context_ids == context.allowed_evidence_ids
+    assert client.requests[0].response_schema == "radar_interpretation.v1"
 
 
 def test_radar_interpretation_rejects_recommendations():
     context = build_radar_interpretation_context(_candidate(), _bundle())
+    payload = _radar_payload(summary="この銘柄は買うべきです。")
     client = MockAssistantGatewayClient(
         response=AssistantGatewayResponse(
-            answer="この銘柄は買うべきです。",
-            referenced_sections=[
-                AssistantGatewayReferencedSection(
-                    section_id="unrelated-evidence",
-                    title="unrelated",
-                    source_kind="other",
-                )
-            ],
+            answer=payload.summary.text,
+            referenced_sections=_referenced_sections(payload),
+            radar_interpretation=payload,
             provider="local",
             model="test-model",
             profile="desktop_fast",
@@ -165,16 +226,15 @@ def test_radar_interpretation_rejects_recommendations():
 
 def test_radar_interpretation_rejects_unknown_evidence_ids():
     context = build_radar_interpretation_context(_candidate(), _bundle())
+    payload = _radar_payload(
+        summary="根拠の確認が必要です。",
+        summary_ids=["unrelated-evidence"],
+    )
     client = MockAssistantGatewayClient(
         response=AssistantGatewayResponse(
-            answer="根拠の確認が必要です。",
-            referenced_sections=[
-                AssistantGatewayReferencedSection(
-                    section_id="unrelated-evidence",
-                    title="unrelated",
-                    source_kind="other",
-                )
-            ],
+            answer=payload.summary.text,
+            referenced_sections=_referenced_sections(payload),
+            radar_interpretation=payload,
             provider="local",
             model="test-model",
             profile="desktop_fast",
@@ -187,7 +247,7 @@ def test_radar_interpretation_rejects_unknown_evidence_ids():
 
     result = service.interpret(context, now=datetime(2026, 7, 13, 10, 0, tzinfo=UTC))
 
-    assert result.status == "fallback"
+    assert result.status == "validation_error"
     assert result.fallback_reason == "unknown_evidence"
     assert result.is_fallback is True
 

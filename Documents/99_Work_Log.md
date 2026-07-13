@@ -4651,3 +4651,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 保存しない明示Google News RSS取得で100 headline / 9 category laneを正規化し、direct 21、inferred 26、macro proxy 9の計56 candidateがすべて根拠IDへ戻れることを確認した。Ranking、Forecast、Score、news cacheは変更していない。
 - 7203.Tの既存local資料を一時in-memory storeにだけ読み込み、candidate RAGで4 citationを取得した。すべて公開日が古く`stale`として表示され、資料の古さを候補順位やscoreへ変換しないことを確認した。
 - Radar Gatewayはローカル設定で無効のため接続せず、`disabled`の決定論的fallbackを確認。起動中StreamlitのHTTP応答は200だった。in-app browser runtimeが利用不能なため、iPhone/iPad/PCのresponsive smoke、実機Safari/PWA、enabled Gatewayのlive smokeは未実行として残した。
+
+## 2026-07-13: 投資レーダーAI根拠拘束・shadow評価
+
+- `radar_interpretation.v1`のsummary / positive materials / cautions / unknowns / next checkpointsを、項目ごとの`cited_evidence_ids`を必須にする構造化契約へ更新。親SMAIとGatewayの`/api/v1/context-answer` contractを同期した。
+- 親validatorはcandidate ID、全fieldの許可済みcitation、response referenceとの一致、助言・score/rank変更表現に加え、候補外symbol、根拠束にない数値・日付をrejectする。不採用時は既存の決定論的確認メモへfallbackし、候補マップ、Ranking、Forecast、各Scoreは変更しない。
+- 8件のnetwork-free shadow fixtureと評価CLIを追加。正常1件を採用し、未知引用、候補外symbol、根拠外数値・日付、助言、schema不正の7件を期待どおり拒否した。

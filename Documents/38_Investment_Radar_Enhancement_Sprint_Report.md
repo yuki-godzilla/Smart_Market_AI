@@ -23,9 +23,13 @@
 
 `radar_interpretation.v1` は既定で無効であり、RAG根拠束がある候補で利用者が明示操作したときだけ実行する。候補ID、ニュース根拠ID、local RAG citation IDだけをGateway-safe contextに含め、Ranking・Forecast・価格・外部記事本文・provider raw fieldは送らない。
 
-- Gateway応答はcandidate/evidence ID、引用対応、文字数、投資助言・score/rank変更表現を検証する。
+- Gateway応答はcandidate/evidence ID、項目ごとの引用対応、文字数、投資助言・score/rank変更表現を検証する。candidate以外のsymbol、根拠束にない数値・日付も不採用とする。
 - 不明な引用、助言表現、schema不正、Gateway/provider/timeout失敗は採用せず、`この根拠だけでは判断できません`という決定論的な確認メモを表示する。
 - LLM結果は説明・注意点・未確認点・次の確認の整理に限定し、候補追加、直接言及への昇格、候補マップの位置・色・順序、Ranking、Forecast、Investment Score、Research Scoreを変更しない。
+
+## Shadow-only grounding evaluation
+
+`tests/fixtures/news/radar_interpretation_shadow_cases.json` は、正常な根拠束応答に加え、未知の引用、候補外symbol、根拠外の数値・日付、投資助言、構造不正を固定する。`backend/news/radar_shadow_evaluation.py` と `tools/evaluate_radar_interpretation_shadow.py` はGatewayへ接続せずに各payloadを親SMAI validatorへ通し、JSON/Markdown reportを出力する。初期fixtureは8件すべてで期待どおり、正常1件だけを採用し、危険または不整合な7件を拒否する。
 
 ## 検証と残課題
 

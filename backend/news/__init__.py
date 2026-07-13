@@ -81,6 +81,14 @@ from backend.news.radar_interpretation import (
     radar_interpretation_from_gateway_response,
 )
 from backend.news.radar_research import build_radar_evidence_bundle, build_radar_research_context
+from backend.news.radar_shadow_evaluation import (
+    RadarInterpretationShadowCase,
+    RadarInterpretationShadowCaseResult,
+    RadarInterpretationShadowFixture,
+    RadarInterpretationShadowReport,
+    evaluate_radar_interpretation_shadow_fixture,
+    radar_interpretation_shadow_report_markdown,
+)
 from backend.news.sources import (
     STANDARD_NEWS_CATEGORY_QUERY_COUNT,
     STANDARD_NEWS_LOOKBACK_DAYS,
@@ -167,6 +175,10 @@ __all__ = [
     "RadarInterpretationPoint",
     "RadarInterpretationResult",
     "RadarInterpretationService",
+    "RadarInterpretationShadowCase",
+    "RadarInterpretationShadowCaseResult",
+    "RadarInterpretationShadowFixture",
+    "RadarInterpretationShadowReport",
     "RadarInterpretationValidationError",
     "RadarResearchContext",
     "RadarRetrievalQuality",
@@ -184,6 +196,7 @@ __all__ = [
     "configure_news_update_logger",
     "contains_prohibited_recommendation_terms",
     "dedupe_news_headline_cards",
+    "evaluate_radar_interpretation_shadow_fixture",
     "get_news_cache_file_size",
     "filter_radar_candidates",
     "google_news_dashboard_cards_from_rss",
@@ -196,6 +209,7 @@ __all__ = [
     "refresh_news_dashboard_cache",
     "radar_interpretation_contract_metadata",
     "radar_interpretation_from_gateway_response",
+    "radar_interpretation_shadow_report_markdown",
     "rotate_previous_snapshot",
     "save_cached_news_dashboard_snapshot",
     "save_news_update_status",

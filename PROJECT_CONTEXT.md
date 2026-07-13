@@ -33,9 +33,12 @@ evidence, freshness, source breadth, confirmation gaps, and a confirmation-only
 priority. Local hybrid RAG runs only after an explicit candidate-level action
 and filters future, low-relevance, and other-symbol evidence. Optional
 `radar_interpretation.v1` is disabled by default; when enabled and explicitly
-requested, it accepts only supplied candidate/evidence IDs and falls back to a
-deterministic confirmation memo for Gateway, schema, citation, or wording
-failures. See `Documents/38_Investment_Radar_Enhancement_Sprint_Report.md`.
+requested, every summary/material/caution/unknown/next-check field must cite
+only supplied evidence IDs. The parent rejects a wrong candidate symbol,
+unsupported numeric or date claim, unknown citation, unsafe wording, or schema
+failure and falls back to a deterministic confirmation memo. A network-free
+eight-case shadow suite keeps those rejection paths covered. See
+`Documents/38_Investment_Radar_Enhancement_Sprint_Report.md`.
 
 ## Upward Signal / Forecast Improvement / Serious Analysis Strategy
 

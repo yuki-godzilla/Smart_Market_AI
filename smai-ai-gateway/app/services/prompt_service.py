@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 
 from app.schemas.common import LlmMessage
-from app.schemas.context_answer import ContextAnswerMessage, ContextAnswerRequest, ContextSection
+from app.schemas.context_answer import (
+    RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+    ContextAnswerMessage,
+    ContextAnswerRequest,
+    ContextSection,
+)
 from app.schemas.tool_plan import ToolPlannerRequest
 
 DEFAULT_CHAT_SYSTEM_PROMPT = "/no_think\nYou are a helpful assistant. Answer directly."
@@ -184,6 +189,7 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
     privacy_notes = "\n".join(f"- {note}" for note in context.privacy_notes[:5])
     constraints = request.constraints
     intent_instruction = _intent_instruction(request.user_question)
+    radar_contract = _radar_interpretation_contract(request)
     return (
         f"Task: {request.task}\n"
         f"Question: {request.user_question.strip()}\n"
@@ -199,15 +205,47 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         f"Privacy notes:\n{privacy_notes or '- none'}\n\n"
         "Context sections:\n"
         f"{sections}\n\n"
+        f"{radar_contract or _default_context_answer_contract()}"
+        "Do not include privacy_notes, safety_notes, provider_notes, internal_notes, debug_notes, "
+        "provider/raw/debug/source-body wording, or internal implementation notes in any user-facing field. "
+        "Do not wrap the JSON in markdown. Do not add fields. Output JSON only."
+    )
+
+
+def _default_context_answer_contract() -> str:
+    return (
         "Return only valid JSON with these keys:\n"
         "- answer: concise answer string\n"
         "- materials: array of 1 to 8 strings grounded in the supplied context\n"
         "- cautions: array of 1 to 8 strings, including uncertainty or missing checks when relevant\n"
         "- next_checkpoints: array of 1 to 6 strings\n"
         "- confidence: one of low, medium, high\n"
-        "Do not include privacy_notes, safety_notes, provider_notes, internal_notes, debug_notes, "
-        "provider/raw/debug/source-body wording, or internal implementation notes in any user-facing field. "
-        "Do not wrap the JSON in markdown. Do not add fields. Output JSON only."
+    )
+
+
+def _radar_interpretation_contract(request: ContextAnswerRequest) -> str | None:
+    if request.response_schema != RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return None
+    candidate_id = ""
+    for section in request.context.sections:
+        if section.section_id == "radar_candidate":
+            candidate_id = str(section.summary.get("candidate_id") or "").strip()
+            break
+    allowed_ids = [item for item in request.referenced_context_ids if item.strip()]
+    return (
+        "Return only valid JSON with these exact keys:\n"
+        f"- schema_version: {RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION}\n"
+        f"- candidate_id: exactly {candidate_id}\n"
+        "- summary: object with text and cited_evidence_ids\n"
+        "- positive_materials: array of objects with text and cited_evidence_ids\n"
+        "- cautions: array of objects with text and cited_evidence_ids\n"
+        "- unknowns: array of objects with text and cited_evidence_ids\n"
+        "- next_checkpoints: array of objects with text and cited_evidence_ids\n"
+        f"Allowed cited_evidence_ids only: {json.dumps(allowed_ids, ensure_ascii=False)}\n"
+        "Rules:\n"
+        "- Every text object must cite one or more allowed cited_evidence_ids.\n"
+        "- Do not add any symbol, number, date, or factual claim that is absent from the supplied sections.\n"
+        "- Do not output answer, materials, next_checkpoints, confidence, Markdown fences, or extra fields.\n"
     )
 
 

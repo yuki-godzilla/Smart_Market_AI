@@ -154,6 +154,34 @@ def test_settings_can_load_explicit_assistant_llm_planner_opt_in():
     assert planner.preferred_profile == "assistant_fast"
 
 
+def test_settings_can_load_explicit_radar_interpretation_opt_in():
+    settings = Settings.model_validate(
+        {
+            "llm_interpretation": {
+                "radar": {
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:8088",
+                    "context_answer_path": "/api/v1/context-answer",
+                    "timeout_seconds": 12.0,
+                    "execution_mode": "light",
+                    "environment_profile": "notebook",
+                    "preferred_profile": "desktop_fast",
+                    "prompt_version": "radar_interpretation_mvp.v1",
+                    "schema_version": "radar_interpretation.v1",
+                    "max_citations": 5,
+                    "max_context_text_chars": 320,
+                }
+            }
+        }
+    )
+
+    radar = settings.llm_interpretation.radar
+    assert radar.enabled is True
+    assert radar.timeout_seconds == 12.0
+    assert radar.schema_version == "radar_interpretation.v1"
+    assert radar.max_citations == 5
+
+
 def test_settings_can_load_explicit_llm_factor_live_opt_in():
     settings = Settings.model_validate(
         {

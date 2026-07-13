@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-11
+Last updated: 2026-07-13
 
 Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
 as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,
@@ -24,6 +24,18 @@ A point-in-time backtest contract calculates
 summaries, and the four requested CSV/Markdown artifacts without exposing future prices to the
 signal-row builder. Phase 34 live validation now covers 66 previously unused symbols and up to
 ten years of bars with fixed symbol-disjoint tuning / validation / audit groups.
+
+Investment Radar now has an evidence-trace exploration slice that leaves the
+existing market heatmap, Ranking, Forecast, Investment Score, and Research
+Score unchanged. A deterministic candidate map keeps direct mentions, SMAI
+inferred candidates, and macro proxies distinct; it records stable news
+evidence, freshness, source breadth, confirmation gaps, and a confirmation-only
+priority. Local hybrid RAG runs only after an explicit candidate-level action
+and filters future, low-relevance, and other-symbol evidence. Optional
+`radar_interpretation.v1` is disabled by default; when enabled and explicitly
+requested, it accepts only supplied candidate/evidence IDs and falls back to a
+deterministic confirmation memo for Gateway, schema, citation, or wording
+failures. See `Documents/38_Investment_Radar_Enhancement_Sprint_Report.md`.
 
 ## Upward Signal / Forecast Improvement / Serious Analysis Strategy
 

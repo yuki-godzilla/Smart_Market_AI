@@ -22,9 +22,11 @@ from backend.news import (
     RadarCandidateDataStatus,
     RadarCandidateMap,
     RadarEvidenceBundle,
+    RadarInterpretationResult,
     build_demo_news_dashboard_snapshot,
     build_radar_candidate_map,
     build_radar_evidence_bundle,
+    build_radar_interpretation_from_settings,
     build_radar_research_context,
     build_standard_news_dashboard_snapshot,
     filter_radar_candidates,
@@ -63,6 +65,7 @@ NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 NEWS_FEATURED_HEADLINE_LIMIT = 3
 NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
 NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY = "investment_radar_evidence_bundles"
+NEWS_RADAR_INTERPRETATIONS_STATE_KEY = "investment_radar_interpretations"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -2069,7 +2072,8 @@ def _render_radar_candidate_detail(
                 f"価格: {_RADAR_DATA_STATUS_LABELS[candidate.price_data_status]} / "
                 f"RAG: {_RADAR_DATA_STATUS_LABELS[candidate.rag_data_status]}"
             )
-        _render_radar_evidence_bundle(candidate)
+        evidence_bundle = _render_radar_evidence_bundle(candidate)
+        _render_radar_interpretation(candidate)
         st.markdown("**根拠記事**")
         for evidence in candidate.evidence:
             source = evidence.source_name or _source_type_label(evidence.source_type)
@@ -2091,6 +2095,12 @@ def _render_radar_candidate_detail(
                 key=f"investment_radar_candidate_research_{candidate.candidate_id}",
             ):
                 _store_radar_evidence_bundle(candidate, as_of=as_of)
+                st.rerun()
+            if evidence_bundle is not None and st.button(
+                "AIで根拠を整理（明示実行）",
+                key=f"investment_radar_candidate_interpret_{candidate.candidate_id}",
+            ):
+                _store_radar_interpretation(candidate, evidence_bundle)
                 st.rerun()
             st.button(
                 "銘柄コックピットで確認",
@@ -2136,13 +2146,10 @@ def _candidate_map_with_rag_state(candidate_map: RadarCandidateMap) -> RadarCand
     return candidate_map.model_copy(update={"candidates": candidates})
 
 
-def _render_radar_evidence_bundle(candidate: RadarCandidate) -> None:
-    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
-    bundle = _radar_evidence_bundle_from_state(
-        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
-    )
+def _render_radar_evidence_bundle(candidate: RadarCandidate) -> RadarEvidenceBundle | None:
+    bundle = _radar_evidence_bundle_for_candidate(candidate)
     if bundle is None:
-        return
+        return None
     st.markdown("**RAG根拠の確認**")
     if bundle.citations:
         for citation in bundle.citations:
@@ -2162,6 +2169,7 @@ def _render_radar_evidence_bundle(candidate: RadarCandidate) -> None:
                 f"候補: {bundle.retrieval_quality.candidate_count}件 / "
                 f"根拠: {bundle.retrieval_quality.evidence_count}件"
             )
+    return bundle
 
 
 def _store_radar_evidence_bundle(candidate: RadarCandidate, *, as_of: date) -> None:
@@ -2202,6 +2210,85 @@ def _store_radar_evidence_bundle(candidate: RadarCandidate, *, as_of: date) -> N
     bundles = dict(existing) if isinstance(existing, dict) else {}
     bundles[candidate.candidate_id] = bundle
     st.session_state[NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY] = bundles
+
+
+def _render_radar_interpretation(candidate: RadarCandidate) -> None:
+    stored = st.session_state.get(NEWS_RADAR_INTERPRETATIONS_STATE_KEY, {})
+    result = _radar_interpretation_from_state(
+        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
+    )
+    if result is None:
+        return
+    st.markdown("**AIによる根拠整理**")
+    st.caption(
+        "参照IDに結び付いた説明です。投資判断・順位・スコア・予測値を変更するものではありません。"
+    )
+    st.write(result.overall_reading)
+    _render_radar_interpretation_points("材料", result.material_points)
+    _render_radar_interpretation_points("注意点", result.caution_points)
+    _render_radar_interpretation_points("不明点", result.unknowns)
+    _render_radar_interpretation_points("次の確認", result.next_checks)
+    if result.fallback_reason is not None:
+        st.caption(f"表示状態: {_radar_interpretation_status_label(result)}")
+    if result.warnings:
+        for warning in result.warnings:
+            st.caption(f"・{warning}")
+
+
+def _render_radar_interpretation_points(label: str, points: Sequence[object]) -> None:
+    if not points:
+        return
+    st.markdown(f"*{label}*")
+    for point in points:
+        summary = str(getattr(point, "summary", "")).strip()
+        evidence_ids = getattr(point, "evidence_ids", [])
+        if not summary:
+            continue
+        reference = "、".join(str(value) for value in evidence_ids[:3])
+        st.write(f"・{summary}")
+        if reference:
+            st.caption(f"根拠ID: {reference}")
+
+
+def _store_radar_interpretation(
+    candidate: RadarCandidate,
+    evidence_bundle: RadarEvidenceBundle,
+) -> None:
+    try:
+        result = build_radar_interpretation_from_settings(candidate, evidence_bundle)
+    except ValueError:
+        return
+    existing = st.session_state.get(NEWS_RADAR_INTERPRETATIONS_STATE_KEY, {})
+    interpretations = dict(existing) if isinstance(existing, dict) else {}
+    interpretations[candidate.candidate_id] = result
+    st.session_state[NEWS_RADAR_INTERPRETATIONS_STATE_KEY] = interpretations
+
+
+def _radar_evidence_bundle_for_candidate(candidate: RadarCandidate) -> RadarEvidenceBundle | None:
+    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    return _radar_evidence_bundle_from_state(
+        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
+    )
+
+
+def _radar_interpretation_from_state(value: object) -> RadarInterpretationResult | None:
+    if isinstance(value, RadarInterpretationResult):
+        return value
+    if isinstance(value, Mapping):
+        try:
+            return RadarInterpretationResult.model_validate(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _radar_interpretation_status_label(result: RadarInterpretationResult) -> str:
+    labels = {
+        "disabled": "AI根拠整理は設定で無効です。確認不足として扱います。",
+        "fallback": "AI根拠整理を取得できませんでした。確認不足として扱います。",
+        "validation_error": "AI応答を根拠制約に照らして採用しませんでした。",
+    }
+    return labels.get(result.status, "根拠IDに結び付けたAI整理を表示しています。")
 
 
 def _radar_evidence_bundle_from_state(value: object) -> RadarEvidenceBundle | None:

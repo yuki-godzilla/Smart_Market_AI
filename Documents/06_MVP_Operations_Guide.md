@@ -104,6 +104,13 @@ Phase N4:
 
 詳細設計は `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md` を参照する。
 
+## 2026-07-13 投資レーダーの根拠追跡導線
+
+- `追加候補マップ` は既存の投資ヒートマップを置き換えない探索用表示である。`本文に出た銘柄`、`SMAI推測候補`、`マクロ確認用` は混ぜず、確認優先度は鮮度・独立根拠数・材料種別・Watchlist関連だけを表す。投資魅力度、期待収益、ランキング順位、売買推奨ではない。
+- 通常の画面描画、候補選択、Cockpitへの画面遷移は、RAG、LLM、外部ニュース更新、価格取得、保存を開始しない。`根拠を確認（ローカルRAG）` の明示操作だけが、既存のローカル/キャッシュ済みResearch資料を検索する。未来時点の資料、別銘柄、低関連度の資料は根拠として表示しない。
+- `AIで根拠を整理（明示実行）` は、RAG根拠束を確認した後にだけ使える。`llm_interpretation.radar.enabled` は既定で `false` であり、無効時はGatewayへ接続せず「この根拠だけでは判断できません」という決定論的な確認メモを表示する。設定ファイルで有効化する場合も、Gateway / provider / schema / 引用ID / 助言表現の失敗は同じ確認メモへfallbackする。
+- AI根拠整理は `radar_interpretation.v1` として候補ID・ニュース根拠ID・local RAG citation IDだけを送る。Ranking、Forecast、Investment Score、Research Score、候補マップの位置・色・順序は変更しない。live Gateway確認は通常pytestとは分離した明示opt-in smokeとして実行する。
+
 ## 2026-06-27 Myウォッチリスト MVP
 
 - `Myウォッチリスト` is available in the Streamlit side menu between `投資レーダー` and `SMAIアシスタント`.
@@ -121,6 +128,7 @@ Phase N4:
 - Myウォッチリスト card display is now grouped into header, status badge row, refresh badge, metric cards (`価格`, `AI総合`, `上昇気配`, `下振れ警戒`, `最終確認`), confirmation information, and action buttons. Missing values remain non-fatal and display as `未取得` or `未確認`.
 - The `watchlist` title mascot points to replaceable `smai-title-watchlist.webp`; if the file is not present yet, title rendering falls back to the Investment Radar mascot art.
 - Investment Radar news-card related symbols now use one horizontal chip per symbol for `本文に出た銘柄` and `SMAI推測候補`: left side opens the symbol in Cockpit, right side uses the existing `☆ お気に入り` / `★ お気に入り中` favorite toggle. Empty / unclear symbols are skipped.
+
 - Phase 32-D adds Decision Trail fields to `favorites.json` with backward compatibility: `watch_reason`, `decision_status`, `decision_note`, `next_check_at`, `next_check_label`, `decision_updated_at`, and `decision_trail`. Myウォッチリスト cards and tables show these fields, and each card has a compact `判断メモを編集` form.
 - Phase 32-E adds a display-only `My Radar` summary and filter/sort controls. Radar priority uses refresh state, note completeness, tags, next-check date, and displayed local metrics only; it does not change Ranking score, AI総合, Research Score, provider fetch behavior, or the saved order in `favorites.json`.
 - Phase 32-E2 keeps that logic and storage contract unchanged while compacting the daily workflow. My Radar shows five summary counts and keeps candidate reasons in `My Radarの判定理由を見る`; `最大更新件数` is under `更新オプション`; update/news actions remain explicit; empty Decision Trail cards show one `判断メモ: 未入力` state and an add form, while populated cards show the full decision details.

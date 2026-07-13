@@ -4638,3 +4638,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ユーザー設定のアイコン表示を、static境界外のローカルパスを渡す`st.image`から、既存の最適化済みstatic URL（または安全なfallback）へ統一した。Streamlitのstatic境界警告を避け、直URLで画像配信を確認した。
 - Cockpit responsive smokeは可視範囲のstatic画像が読み込み完了してからスクリーンショットを保存するようにした。隔離StreamlitでiPhone、iPad縦横、PCの4 viewportを再確認し、画像欠落なしで成功した。
 - 実行済みのサーバー運用分離、20分間隔の銘柄background refresh、更新済み銘柄マスター、および root に残すPhase要約レポートに追随するよう、既存の4件の回帰テスト期待値を更新した。
+
+## 2026-07-13: 投資レーダー根拠追跡強化スプリント
+
+- 既存の市場ヒートマップを維持したまま、news snapshotから決定論的に生成する追加候補マップを実装。`direct_mention`、`inferred_candidate`、`macro_proxy`を候補ID・表示・操作可否まで分離し、安定した根拠ID、鮮度、独立ソース数、材料構成、確認不足を追跡できるようにした。確認優先度は確認材料の優先順であり、Rankingや投資魅力度ではない。
+- 候補詳細からの明示操作だけでlocal hybrid RAGを実行し、引用ID、鮮度、検索品質、確認不足を表示する。未来資料、別銘柄、関連度floor未満を根拠から除外し、空結果・取得失敗をscoreや順位へ変換しない。
+- `radar_interpretation.v1`を追加。既定無効の明示AI操作でのみ、候補と許可済みニュース/RAG根拠IDだけをGatewayへ送る。未知の引用、助言表現、score/rank変更表現、Gateway/provider/schema失敗は決定論的な「この根拠だけでは判断できません」メモへfallbackする。
+- candidate / RAG / LLM契約、future資料除外、provenance分離、Gateway未呼出のdisabled経路、Streamlit画面をnetwork-free testで確認した。in-app browser runtimeが利用不能だったため、iPhone/iPad/PCのlive responsive smokeとlive RSS/Gateway smokeは未実行として残した。

@@ -961,7 +961,7 @@ Phase 21.5 の対象外:
 
 Phase 22.x: 投資レーダー / Investment News dashboard
 
-状態: 🟨 **MVP済み / 継続拡張**。投資レーダー画面、Google News RSS Standard Mode、銘柄ユニバース補完型の投資ヒートマップを実装済み。詳細フィルタ、Watchlist連動、通知、追加providerは後続
+状態: 🟨 **MVP済み / 継続拡張**。投資レーダー画面、Google News RSS Standard Mode、銘柄ユニバース補完型の投資ヒートマップ、根拠追跡型の追加候補マップを実装済み。通知、追加provider、live評価は後続
 
 目的: 新画面 `投資レーダー` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
@@ -973,6 +973,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
 - `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
 - `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。タイトル右上の `情報鮮度` バッジには取得時刻をJSTで小さく表示する。ニュースカードの関連銘柄は `本文に出た銘柄` を最大8件まで優先表示し、残り枠に `SMAI推測候補` を可変で補完する。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
+- 2026-07-13の根拠追跡sliceでは、既存ヒートマップを残したまま、`direct_mention` / `inferred_candidate` / `macro_proxy` を混同しない決定論的な追加候補マップ、market・asset type・由来・RAG状態・Watchlist filter、根拠記事とCockpit handoffを追加した。RAGは明示クリック後だけ既存local hybrid retrievalを使い、future資料・別銘柄・低関連度資料は根拠から除外する。AI根拠整理は明示クリックかつ設定有効時だけGatewayへ送信し、候補・根拠ID・助言禁止を検証できない応答は決定論的な確認メモへfallbackする。いずれもRanking、Forecast、Investment Score、Research Score、候補位置・色・順序を変更しない。
 
 MVP 必須機能:
 

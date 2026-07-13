@@ -63,9 +63,9 @@ broker連携、売買行為を変更するスプリントではない。
 
 ## 3. 必須スコープ
 
-### 3.1 決定論的な追加候補マップ
+### 3.1 決定論的な確認候補一覧
 
-既存の市場ヒートマップを置き換えず、その下または詳細導線に「追加候補マップ」を追加する。
+既存の市場ヒートマップを置き換えず、その下または詳細導線に「ニュースからの確認候補」を追加する。
 
 - `RadarCandidate`、`RadarCandidateEvidence`、`RadarCandidateMap`などのtyped contractを導入する。
 - candidateは最低限、symbol、表示名、market、asset type、候補由来、カテゴリ、根拠ID群、鮮度、独立ソース数、Watchlist関連、データ状態、確認不足を持つ。
@@ -73,13 +73,13 @@ broker連携、売買行為を変更するスプリントではない。
   - `direct_mention`: 記事本文または見出しに明示された銘柄
   - `inferred_candidate`: テーマ・カテゴリ・ローカル銘柄DBからのSMAI推測候補
   - `macro_proxy`: 市場全体の背景確認用の指標・代理銘柄。通常の銘柄候補にはしない
-- 追加候補マップの表示意味を固定する。
-  - 横軸: 根拠の直接性
-  - 縦軸: 確認優先度（鮮度、重複除去後の根拠数、材料種別、Watchlist関連性）
-  - 円の大きさ: 根拠の広がり
-  - 色: 好材料 / 注意材料 / 混在 / 判断不能
-  - 形: 候補由来
-  - 枠線: 銘柄DB・価格・RAG根拠のデータ状態
+- 表示は、連続値の散布図ではなく、候補由来ごとの3レーンにする。直接性は
+  `direct_mention` / `inferred_candidate` / `macro_proxy` の固定区分であり、擬似的な数値軸にしない。
+  - `direct_mention`: 記事に明示された対象として先に表示する
+  - `inferred_candidate`: テーマ由来であり、記事に銘柄名が出たとは限らないことを常に表示する
+  - `macro_proxy`: 個別銘柄候補と混ぜず、市場背景確認として折りたたみ表示できる
+- 各候補カードは、材料の構成、ニュース鮮度、独立根拠数、Watchlist一致、確認の順番を短く示す。
+  銘柄DB・価格・RAG根拠は、未実行と未取得/一部確認を区別して詳細に表示する。
 - 「確認優先度」は投資魅力度、期待収益、買い推奨、ランキング順位として表現しない。計算要素を詳細で説明し、各要素を追跡できるようにする。
 - 候補ID、表示順、dedupe、同点時の順序はnetwork-freeでdeterministicにする。候補の根拠が一件も追跡できない場合は表示しない。
 
@@ -92,7 +92,7 @@ broker連携、売買行為を変更するスプリントではない。
   - 「次の確認」: RAG根拠確認、Cockpitを開く、外部資料を確認する場合の明示操作
 - 既存filterに加え、market、asset type、候補由来、RAG確認状態、Watchlist一致で絞り込めるようにする。デフォルトは直接言及候補を優先し、推測候補は表示上で常に明示する。
 - RAG・LLM実行、外部ニュース更新、Cockpitのデータ取得、保存、レポート作成を、画面表示や候補クリックだけで開始してはいけない。
-- PCでは地図と詳細を並べて比較できるようにし、iPhoneでは地図、選択中候補、根拠、詳細の順に縦積みする。表・地図だけに必要な内部スクロールは許可するが、ページ全体の横スクロールを発生させない。
+- PCでは候補レーンと選択中候補の詳細を並べて比較できるようにし、iPhoneでは候補レーン、選択中候補、根拠、詳細の順に縦積みする。表・一覧だけに必要な内部スクロールは許可するが、ページ全体の横スクロールを発生させない。
 
 ### 3.3 候補単位のRAG根拠束
 
@@ -115,7 +115,7 @@ broker連携、売買行為を変更するスプリントではない。
   - `next_checkpoints`
   - `cited_evidence_ids`
 - 親SMAIはcandidate ID、evidence ID、文字数、schema、引用対応、unsafe wordingを検証する。候補束にない銘柄・数値・日付・事実を追加した出力は不採用とし、決定論的な確認メモへfallbackする。
-- LLM出力はRanking、Forecast、Investment Score、Research Score、追加候補マップの位置・色・順序を変更してはいけない。
+- LLM出力はRanking、Forecast、Investment Score、Research Score、確認候補の由来・表示順・確認優先度を変更してはいけない。
 - 既存の`NewsSymbolLLMExtractionRequest/Response`を実運用で候補追加に使わない。まずはfixtureとラベル付き評価集合でshadow-only評価し、将来も直接言及ラベルへ昇格させない。
 - Gateway停止、provider/model不足、timeout、malformed response、cache失敗時も画面を止めない。通常表示は次の確認を示し、技術原因は詳細表示に限定する。
 
@@ -170,7 +170,7 @@ broker連携、売買行為を変更するスプリントではない。
 - 候補マップを売買推奨、期待収益、目標価格、確定的な反発予測として見せること
 - broker / 証券会社接続、注文、約定、資金移動、自動売買
 - 確認なしのニュース更新、外部資料取得、RAG本文保存、Decision Report保存
-- LLMによる銘柄の自動追加、直接言及ラベルへの自動昇格、候補順位/地図座標の変更
+- LLMによる銘柄の自動追加、直接言及ラベルへの自動昇格、候補の由来/表示順/確認優先度の変更
 - 通常CIでのlive provider、Ollama、外部LLM依存
 - GatewayからのSMAI Python module import、GatewayによるSMAI action直接実行
 - user_id境界を越えるWatchlist・Radar状態・保存結果の共有

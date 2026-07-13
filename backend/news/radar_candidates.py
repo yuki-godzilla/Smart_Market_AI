@@ -17,6 +17,7 @@ from backend.news.contracts import (
     RadarCandidateEvidence,
     RadarCandidateMap,
     RadarCandidateMaterialTone,
+    RadarCandidatePriorityReason,
     RadarCandidateProvenance,
 )
 
@@ -256,6 +257,10 @@ def _build_candidate(
         provenance=provenance,
         symbol_data_status=symbol_data_status,
     )
+    priority_reasons = _confirmation_priority_reasons(
+        evidence,
+        watchlist_match=watchlist_match,
+    )
     return RadarCandidate(
         candidate_id=f"radar:{provenance}:{symbol}",
         symbol=symbol,
@@ -275,27 +280,60 @@ def _build_candidate(
         rag_data_status="not_checked",
         confirmation_gaps=gaps,
         directness=_PROVENANCE_DIRECTNESS[provenance],
-        confirmation_priority=_confirmation_priority(
-            evidence,
-            watchlist_match=watchlist_match,
-        ),
+        confirmation_priority=min(100, sum(reason.points for reason in priority_reasons)),
+        confirmation_priority_reasons=priority_reasons,
         material_tone=material_tone,
         is_investigation_candidate=provenance != "macro_proxy",
     )
 
 
-def _confirmation_priority(
+def _confirmation_priority_reasons(
     evidence: Sequence[RadarCandidateEvidence],
     *,
     watchlist_match: bool,
-) -> int:
-    freshest = max((_FRESHNESS_WEIGHT[item.freshness_status] for item in evidence), default=0)
+) -> list[RadarCandidatePriorityReason]:
+    freshness_status: NewsFreshnessStatus
+    if evidence:
+        freshness_status = max(
+            (item.freshness_status for item in evidence),
+            key=lambda status: (_FRESHNESS_WEIGHT[status], status),
+        )
+    else:
+        freshness_status = "unknown"
+    freshness_points = _FRESHNESS_WEIGHT[freshness_status]
     breadth = min(3, len(evidence)) * 8
-    material_bonus = max(
-        (_MATERIAL_PRIORITY_BONUS.get(item.material_type, 3) for item in evidence), default=0
+    material_type = max(
+        (item.material_type for item in evidence),
+        key=lambda value: (_MATERIAL_PRIORITY_BONUS.get(value, 3), value),
+        default="unknown",
     )
-    watchlist_bonus = 14 if watchlist_match else 0
-    return min(100, freshest + breadth + material_bonus + watchlist_bonus)
+    material_points = _MATERIAL_PRIORITY_BONUS.get(material_type, 3)
+    reasons = [
+        RadarCandidatePriorityReason(
+            kind="freshness",
+            points=freshness_points,
+            detail=freshness_status,
+        ),
+        RadarCandidatePriorityReason(
+            kind="evidence_breadth",
+            points=breadth,
+            detail=str(min(3, len(evidence))),
+        ),
+        RadarCandidatePriorityReason(
+            kind="material_type",
+            points=material_points,
+            detail=material_type,
+        ),
+    ]
+    if watchlist_match:
+        reasons.append(
+            RadarCandidatePriorityReason(
+                kind="watchlist_match",
+                points=14,
+                detail="watchlist_match",
+            )
+        )
+    return reasons
 
 
 def _material_tone(evidence: Sequence[RadarCandidateEvidence]) -> RadarCandidateMaterialTone:

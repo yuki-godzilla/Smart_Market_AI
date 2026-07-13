@@ -99,6 +99,18 @@ def test_radar_candidate_map_keeps_direct_inferred_and_macro_provenance_separate
     assert direct.independent_source_count == 2
     assert len(direct.evidence_ids) == 2
     assert direct.confirmation_priority > inferred.confirmation_priority
+    assert [reason.kind for reason in direct.confirmation_priority_reasons] == [
+        "freshness",
+        "evidence_breadth",
+        "material_type",
+        "watchlist_match",
+    ]
+    assert sum(reason.points for reason in direct.confirmation_priority_reasons) == (
+        direct.confirmation_priority
+    )
+    assert direct.confirmation_priority_reasons[0].detail == "latest"
+    assert direct.confirmation_priority_reasons[1].detail == "2"
+    assert direct.confirmation_priority_reasons[2].detail == "earnings"
     assert inferred.symbol_data_status == "partial"
     assert macro.is_investigation_candidate is False
     assert macro.directness == 0.1

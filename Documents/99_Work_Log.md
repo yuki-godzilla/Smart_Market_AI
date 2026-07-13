@@ -4667,3 +4667,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - 手動のSMAI再起動時に、ローカルURL、信頼済みLAN端末用URL、インターネット公開禁止の注意、Streamlit起動ログを確認できるWindowsコマンド画面を残す `/console` 起動モードを追加した。
 - 常時運用のスケジュール起動は従来どおり非対話・ログ保存のままとし、表示用モードだけがWindows子プロセスの非表示フラグを外す。
+
+## 2026-07-13 投資レーダー確認候補の可読性改善
+
+- 固定3値の直接性を連続散布図へ置いて点が重なる表示をやめ、本文に出た銘柄、SMAI推測候補、市場背景の由来別レーンへ変更した。PCでは候補一覧と選択中詳細を並べ、スマホでは安全に縦積みする。
+- `RadarCandidate`へ決定論的な確認優先度の要因を追加し、鮮度・追跡できる根拠記事数・材料種別・Myウォッチリスト一致を画面で追跡できるようにした。価格/RAGの`not_checked`は、失敗ではなく明示操作前の「未実行」と表示する。
+- Ranking、Forecast、Investment Score、Research Score、候補抽出、外部取得の自動開始は変更していない。

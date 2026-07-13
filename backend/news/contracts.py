@@ -13,6 +13,12 @@ NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 RadarCandidateProvenance = Literal["direct_mention", "inferred_candidate", "macro_proxy"]
 RadarCandidateMaterialTone = Literal["positive", "caution", "mixed", "unknown"]
 RadarCandidateDataStatus = Literal["available", "partial", "unavailable", "not_checked"]
+RadarCandidatePriorityReasonKind = Literal[
+    "freshness",
+    "evidence_breadth",
+    "material_type",
+    "watchlist_match",
+]
 RadarEvidenceBundleStatus = Literal["available", "confirmation_gap", "unavailable"]
 NewsSymbolMatchKind = Literal[
     "direct_mention",
@@ -108,6 +114,14 @@ class RadarCandidateEvidence(StrictBaseModel):
     freshness_status: NewsFreshnessStatus = "unknown"
 
 
+class RadarCandidatePriorityReason(StrictBaseModel):
+    """One deterministic contributor to a candidate's confirmation order."""
+
+    kind: RadarCandidatePriorityReasonKind
+    points: int = Field(ge=0, le=100)
+    detail: str = Field(min_length=1)
+
+
 class RadarCandidate(StrictBaseModel):
     """A deterministic candidate for confirmation, never an investment ranking row."""
 
@@ -130,6 +144,7 @@ class RadarCandidate(StrictBaseModel):
     confirmation_gaps: list[str] = Field(default_factory=list)
     directness: float = Field(ge=0.0, le=1.0)
     confirmation_priority: int = Field(ge=0, le=100)
+    confirmation_priority_reasons: list[RadarCandidatePriorityReason] = Field(default_factory=list)
     material_tone: RadarCandidateMaterialTone = "unknown"
     is_investigation_candidate: bool = True
 

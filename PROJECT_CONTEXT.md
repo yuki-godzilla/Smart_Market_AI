@@ -27,10 +27,10 @@ ten years of bars with fixed symbol-disjoint tuning / validation / audit groups.
 
 Investment Radar now has an evidence-trace exploration slice that leaves the
 existing market heatmap, Ranking, Forecast, Investment Score, and Research
-Score unchanged. A deterministic candidate map keeps direct mentions, SMAI
-inferred candidates, and macro proxies distinct; it records stable news
-evidence, freshness, source breadth, confirmation gaps, and a confirmation-only
-priority. Local hybrid RAG runs only after an explicit candidate-level action
+Score unchanged. A deterministic three-lane confirmation board keeps direct
+mentions, SMAI-inferred candidates, and macro proxies distinct; it records
+stable news evidence, freshness, source breadth, confirmation gaps, and a
+confirmation-only priority with visible factors. Local hybrid RAG runs only after an explicit candidate-level action
 and filters future, low-relevance, and other-symbol evidence. Optional
 `radar_interpretation.v1` is disabled by default; when enabled and explicitly
 requested, every summary/material/caution/unknown/next-check field must cite

@@ -29,9 +29,11 @@
 
 ## 検証と残課題
 
-network-freeのcandidate、RAG、AI契約、既存News UI回帰、設定回帰を実行した。通常画面のStreamlit AppTestでは、追加候補マップと明示RAG操作の表示を確認した。live RSS、live Gateway/Ollama、実機Safari/PWAは通常CIから分離したopt-in確認として未実行である。
+network-freeのcandidate、RAG、AI契約、既存News UI回帰、設定回帰を実行した。通常画面のStreamlit AppTestでは、追加候補マップと明示RAG操作の表示を確認した。
 
-この実行環境ではin-app browser runtimeを利用できなかったため、iPhone/iPad/PCのlive responsive smokeも未実行とした。通常端末では次を実行して確認する。
+2026-07-13のR4確認では、保存を伴わない明示live Google News RSS取得で100 headline・9 category laneを正規化し、direct 21件 / inferred 26件 / macro proxy 9件の計56候補がすべて根拠IDを持つことを確認した。7203.Tの既存local資料を一時メモリだけに読んだcandidate RAGでは4 citationを取得し、公開日が古いことを全件`stale`として表示した。Radar Gatewayは設定上既定どおり無効であり、接続せず決定論的な`disabled` fallbackを表示した。起動中StreamlitのHTTP応答は200だった。
+
+この実行環境ではin-app browser runtimeを利用できなかったため、iPhone/iPad/PCのlive responsive smokeは未実行とした。通常端末では次を実行して確認する。
 
 ```powershell
 $env:SMAI_RUN_RESPONSIVE_SMOKE = "1"
@@ -39,4 +41,4 @@ $env:SMAI_RUN_RESPONSIVE_SMOKE = "1"
 Remove-Item Env:SMAI_RUN_RESPONSIVE_SMOKE
 ```
 
-Gatewayを有効にする場合も、通常pytestとは別のローカルGateway環境で、未知の引用・助言表現・timeout・schema不正がfallback表示になることを確認する。AI候補追加やNews Score化はこのスプリントの対象外である。
+Gatewayを有効にする場合も、通常pytestとは別のローカルGateway環境で、未知の引用・助言表現・timeout・schema不正がfallback表示になることを確認する。実機Safari/PWAも未確認である。AI候補追加やNews Score化はこのスプリントの対象外である。

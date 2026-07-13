@@ -4645,3 +4645,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 候補詳細からの明示操作だけでlocal hybrid RAGを実行し、引用ID、鮮度、検索品質、確認不足を表示する。未来資料、別銘柄、関連度floor未満を根拠から除外し、空結果・取得失敗をscoreや順位へ変換しない。
 - `radar_interpretation.v1`を追加。既定無効の明示AI操作でのみ、候補と許可済みニュース/RAG根拠IDだけをGatewayへ送る。未知の引用、助言表現、score/rank変更表現、Gateway/provider/schema失敗は決定論的な「この根拠だけでは判断できません」メモへfallbackする。
 - candidate / RAG / LLM契約、future資料除外、provenance分離、Gateway未呼出のdisabled経路、Streamlit画面をnetwork-free testで確認した。in-app browser runtimeが利用不能だったため、iPhone/iPad/PCのlive responsive smokeとlive RSS/Gateway smokeは未実行として残した。
+
+## 2026-07-13: 投資レーダー R4 live確認（部分完了）
+
+- 保存しない明示Google News RSS取得で100 headline / 9 category laneを正規化し、direct 21、inferred 26、macro proxy 9の計56 candidateがすべて根拠IDへ戻れることを確認した。Ranking、Forecast、Score、news cacheは変更していない。
+- 7203.Tの既存local資料を一時in-memory storeにだけ読み込み、candidate RAGで4 citationを取得した。すべて公開日が古く`stale`として表示され、資料の古さを候補順位やscoreへ変換しないことを確認した。
+- Radar Gatewayはローカル設定で無効のため接続せず、`disabled`の決定論的fallbackを確認。起動中StreamlitのHTTP応答は200だった。in-app browser runtimeが利用不能なため、iPhone/iPad/PCのresponsive smoke、実機Safari/PWA、enabled Gatewayのlive smokeは未実行として残した。

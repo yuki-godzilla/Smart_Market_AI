@@ -203,6 +203,24 @@ def test_news_dashboard_cockpit_href_includes_safe_current_user(monkeypatch):
     assert news_dashboard_cockpit_href("9432.t") == "?smai_page=cockpit&smai_symbol=9432.T"
 
 
+def test_radar_priority_reason_rows_support_a_candidate_from_the_previous_contract():
+    legacy_candidate = SimpleNamespace(
+        confirmation_priority=80,
+        watchlist_match=True,
+        evidence=[
+            SimpleNamespace(freshness_status="latest", material_type="earnings"),
+            SimpleNamespace(freshness_status="recent", material_type="theme"),
+        ],
+    )
+
+    assert news_module._radar_candidate_priority_reason_rows(legacy_candidate) == [
+        ("freshness", "latest", 40),
+        ("evidence_breadth", "2", 16),
+        ("material_type", "earnings", 10),
+        ("watchlist_match", "watchlist_match", 14),
+    ]
+
+
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     snapshot = build_demo_news_dashboard_snapshot(
         now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),

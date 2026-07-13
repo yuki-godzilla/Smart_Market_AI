@@ -228,6 +228,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "追加候補マップ" not in page_text
     assert "本文に出た銘柄" in page_text
     assert "確認の順番" in page_text
+    assert "市場確認指標は「確認候補を絞り込む」から追加できます" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
@@ -238,6 +239,15 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert {"関連銘柄"}.issubset(set(selectbox_labels))
     assert "追加候補を選択" not in selectbox_labels
     assert {"Watchlist一致を優先表示", "Watchlist一致だけ表示"}.issubset(set(checkbox_labels))
+
+    markdown_values = [str(element.value) for element in app.markdown]
+    candidate_map_index = next(
+        index for index, value in enumerate(markdown_values) if "ニュースからの確認候補" in value
+    )
+    heatmap_index = next(
+        index for index, value in enumerate(markdown_values) if "投資ヒートマップ" in value
+    )
+    assert candidate_map_index < heatmap_index
 
     detail_button = next(button for button in app.button if button.label == "詳細を見る")
     detail_button.click().run()

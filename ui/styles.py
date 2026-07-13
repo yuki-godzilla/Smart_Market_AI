@@ -8391,6 +8391,34 @@ a.smai-ranking-history-card:focus-visible .smai-ranking-history-card-action {
         flex-direction: column;
     }
 
+    div[data-testid="element-container"]:has(.investment-radar-candidate-layout-anchor) {
+        display: none;
+    }
+
+    div[data-testid="element-container"]:has(.investment-radar-candidate-layout-anchor)
+        + div[data-testid="stHorizontalBlock"] {
+        flex-direction: column;
+    }
+
+    div[data-testid="element-container"]:has(.investment-radar-candidate-layout-anchor)
+        + div[data-testid="stHorizontalBlock"]
+        > div[data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+
+    div[data-testid="element-container"]:has(.investment-radar-candidate-layout-anchor)
+        + div[data-testid="stHorizontalBlock"]
+        > div[data-testid="column"]:first-child {
+        order: 2;
+    }
+
+    div[data-testid="element-container"]:has(.investment-radar-candidate-layout-anchor)
+        + div[data-testid="stHorizontalBlock"]
+        > div[data-testid="column"]:nth-child(2) {
+        order: 1;
+    }
+
 }
 </style>
 """

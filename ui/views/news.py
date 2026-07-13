@@ -96,6 +96,25 @@ _RADAR_DATA_STATUS_LABELS = {
     "not_checked": "未確認",
 }
 
+# Keep this display-only compatibility data alongside the Radar copy.  A
+# Streamlit page reload can pick up this module while retaining an already
+# imported RadarCandidate class from the previous process revision.
+_RADAR_PRIORITY_FRESHNESS_POINTS = {
+    "latest": 40,
+    "recent": 28,
+    "stale": 12,
+    "unknown": 6,
+}
+_RADAR_PRIORITY_MATERIAL_POINTS = {
+    "risk": 12,
+    "earnings": 10,
+    "policy": 8,
+    "macro": 7,
+    "shareholder_return": 6,
+    "theme": 6,
+    "fund_flow": 4,
+}
+
 _MATERIAL_LABELS = {
     "earnings": "決算・業績",
     "fund_flow": "資金フロー",
@@ -421,11 +440,11 @@ def render_news_dashboard_page(
     _render_update_warning(status)
     symbol_name_map = _news_symbol_name_map()
     filtered_snapshot = _render_news_detail_filters(snapshot)
-    _render_heatmap(filtered_snapshot)
     _render_radar_candidate_map(
         filtered_snapshot,
         open_symbol_callback=open_symbol_callback,
     )
+    _render_heatmap(filtered_snapshot)
     _render_news_stream(filtered_snapshot)
     _render_category_lanes(
         filtered_snapshot,
@@ -1950,6 +1969,10 @@ def _render_radar_candidate_map(
     st.caption(
         f"表示中: {len(candidates)}件。候補を選ぶだけでは、価格取得・RAG検索・保存は開始しません。"
     )
+    st.markdown(
+        '<span class="investment-radar-candidate-layout-anchor" aria-hidden="true"></span>',
+        unsafe_allow_html=True,
+    )
     candidate_col, detail_col = st.columns([1.14, 0.86], gap="large")
     with candidate_col:
         _render_radar_candidate_lanes(
@@ -1979,6 +2002,10 @@ def _render_radar_candidate_guide(candidate_map: RadarCandidateMap) -> None:
     st.caption(
         "「確認の順番」はニュースの鮮度・追跡できる根拠・材料種別・"
         "Myウォッチリスト一致を整理した目安であり、投資判断ではありません。"
+    )
+    st.caption(
+        "初期表示は「本文に出た銘柄」と「SMAI推測候補」です。"
+        "市場確認指標は「確認候補を絞り込む」から追加できます。"
     )
     direct_col, inferred_col, macro_col = st.columns(3)
     for column, provenance in zip(
@@ -2158,12 +2185,12 @@ def _render_radar_candidate_detail(
             f"{_radar_candidate_priority_label(candidate)} "
             f"（確認優先度 {candidate.confirmation_priority}/100）"
         )
-        for reason in candidate.confirmation_priority_reasons:
+        for kind, detail, points in _radar_candidate_priority_reason_rows(candidate):
             reason_text = _radar_candidate_priority_reason_text(
                 candidate,
-                reason.kind,
-                reason.detail,
-                reason.points,
+                kind,
+                detail,
+                points,
             )
             st.caption(f"・{reason_text}")
         st.caption(
@@ -2219,6 +2246,54 @@ def _radar_candidate_priority_label(candidate: RadarCandidate) -> str:
     if candidate.confirmation_priority >= 55:
         return "次に確認"
     return "必要に応じて確認"
+
+
+def _radar_candidate_priority_reason_rows(
+    candidate: RadarCandidate,
+) -> list[tuple[str, str, int]]:
+    """Return priority rows, including candidates built before the reason field existed.
+
+    Streamlit reloads the page script independently of imported domain modules.
+    During a rolling local update, a just-reloaded page can therefore receive a
+    ``RadarCandidate`` created by the previous in-memory contract.  The fallback
+    mirrors that previous deterministic priority formula strictly for display;
+    it does not alter the score or persist any data.
+    """
+
+    current_reasons = getattr(candidate, "confirmation_priority_reasons", None)
+    if current_reasons is not None:
+        rows = [
+            (
+                str(getattr(reason, "kind", "unknown")),
+                str(getattr(reason, "detail", "unknown")),
+                int(getattr(reason, "points", 0)),
+            )
+            for reason in current_reasons
+        ]
+        if sum(points for _, _, points in rows) == candidate.confirmation_priority:
+            return rows
+
+    evidence = list(getattr(candidate, "evidence", ()) or ())
+    freshness_status = max(
+        (str(getattr(item, "freshness_status", "unknown")) for item in evidence),
+        key=lambda value: (_RADAR_PRIORITY_FRESHNESS_POINTS.get(value, 0), value),
+        default="unknown",
+    )
+    freshness_points = _RADAR_PRIORITY_FRESHNESS_POINTS.get(freshness_status, 0)
+    material_type = max(
+        (str(getattr(item, "material_type", "unknown")) for item in evidence),
+        key=lambda value: (_RADAR_PRIORITY_MATERIAL_POINTS.get(value, 3), value),
+        default="unknown",
+    )
+    material_points = _RADAR_PRIORITY_MATERIAL_POINTS.get(material_type, 3) if evidence else 0
+    rows = [
+        ("freshness", freshness_status, freshness_points),
+        ("evidence_breadth", str(min(3, len(evidence))), min(3, len(evidence)) * 8),
+        ("material_type", material_type, material_points),
+    ]
+    if candidate.watchlist_match:
+        rows.append(("watchlist_match", "watchlist_match", 14))
+    return rows if sum(points for _, _, points in rows) == candidate.confirmation_priority else []
 
 
 def _radar_candidate_priority_reason_text(

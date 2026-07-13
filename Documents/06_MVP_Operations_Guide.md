@@ -383,10 +383,16 @@ SMAIアシスタントの自由会話 `free_chat` は、体感速度を優先す
 
 ### Streamlitサーバーの再起動
 
-稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
+稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動時にはSMAIのコマンド画面を開いたままにし、`localhost`、信頼済みLAN端末用URL、インターネット公開禁止の注意、およびStreamlitの起動ログを確認できます。通常の自動起動は従来どおり非対話のログ出力で動作します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
 
 ```powershell
 .\scripts\restart_smai_server.bat
+```
+
+SMAIをまだ起動していない状態で同じ操作画面を直接開くには、次を実行します。コンソールを閉じることを通常の停止手段にせず、停止時は `scripts\stop_smai_server.bat` を使います。
+
+```powershell
+.\scripts\start_smai_server.bat /console
 ```
 
 FastAPI を起動します。

@@ -44,11 +44,11 @@ if ($stopProcess.ExitCode -ne 0) {
     exit 2
 }
 
+Write-Host "[SMAI] Opening the SMAI server console..."
 Start-Process `
     -FilePath $env:ComSpec `
-    -ArgumentList @("/d", "/c", ('"{0}"' -f $startScript)) `
-    -WorkingDirectory $projectRoot `
-    -WindowStyle Hidden
+    -ArgumentList @("/d", "/k", ('call "{0}" /console' -f $startScript)) `
+    -WorkingDirectory $projectRoot
 
 $deadline = (Get-Date).AddSeconds(45)
 do {

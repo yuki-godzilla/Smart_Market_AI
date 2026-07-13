@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -120,6 +121,15 @@ def test_resilient_creation_flags_are_windows_only(monkeypatch) -> None:
     monkeypatch.setattr("backend.server_ops.launcher.sys.platform", "linux")
 
     assert streamlit_creation_flags(resilient=True) == 0
+
+
+def test_visible_console_keeps_the_resilient_child_window_available(monkeypatch) -> None:
+    monkeypatch.setattr("backend.server_ops.launcher.sys.platform", "win32")
+
+    assert streamlit_creation_flags(
+        resilient=True,
+        visible_console=True,
+    ) == getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
 
 
 def test_resilient_wait_returns_when_child_already_stopped() -> None:

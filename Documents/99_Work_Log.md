@@ -4662,3 +4662,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - in-app browser runtimeは利用できなかったが、作業ツリーから隔離したStreamlit（`127.0.0.1:8503`）へ`SMAI_RUN_RESPONSIVE_SMOKE=1`を指定し、投資レーダーのiPhone 13 mini、iPad縦横、PC 1366px responsive smokeを実行。横はみ出し、例外、投資レーダー、ヒートマップ、mobile tap targetの確認は`1 passed`だった。
 - 隔離Gateway（`127.0.0.1:8088`）とローカルOllamaでRadar live smokeを実行。Gateway / Ollama readinessは正常で、4B/8Bの親SMAI経由応答は`validation_error`の決定論的fallbackとなった。8Bは同一promptで構造化Radar JSONを生成できるが、親側で受理されるlive応答の再現性は未確認として残す。隔離プロセスは確認後に停止した。
+
+## 2026-07-13 SMAIサーバー可視コンソール
+
+- 手動のSMAI再起動時に、ローカルURL、信頼済みLAN端末用URL、インターネット公開禁止の注意、Streamlit起動ログを確認できるWindowsコマンド画面を残す `/console` 起動モードを追加した。
+- 常時運用のスケジュール起動は従来どおり非対話・ログ保存のままとし、表示用モードだけがWindows子プロセスの非表示フラグを外す。

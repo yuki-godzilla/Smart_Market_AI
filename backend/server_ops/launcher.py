@@ -112,12 +112,13 @@ def streamlit_command(browser_address: str) -> list[str]:
     ]
 
 
-def streamlit_creation_flags(*, resilient: bool) -> int:
+def streamlit_creation_flags(*, resilient: bool, visible_console: bool = False) -> int:
     if sys.platform != "win32" or not resilient:
         return 0
-    return getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
-        subprocess, "CREATE_NO_WINDOW", 0
-    )
+    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    if not visible_console:
+        flags |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return flags
 
 
 def optimized_child_environment(
@@ -214,7 +215,12 @@ def should_leave_resilient_launcher(
     return mode == "unknown" or status == "unknown" or request_consumed
 
 
-def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
+def supervise_streamlit(
+    browser_address: str,
+    *,
+    resilient: bool,
+    visible_console: bool = False,
+) -> int:
     """Run Streamlit and keep it alive when the always-on policy is enabled."""
 
     consecutive_failures = 0
@@ -223,7 +229,10 @@ def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
         process = subprocess.Popen(
             streamlit_command(browser_address),
             cwd=PROJECT_ROOT,
-            creationflags=streamlit_creation_flags(resilient=resilient),
+            creationflags=streamlit_creation_flags(
+                resilient=resilient,
+                visible_console=visible_console,
+            ),
             env=optimized_child_environment(),
         )
         returncode = wait_for_streamlit(process, resilient=resilient)
@@ -257,6 +266,7 @@ def run_server(
     *,
     maintenance_startup: bool = False,
     resilient: bool = False,
+    visible_console: bool = False,
 ) -> int:
     try:
         lock_context = server_lock()
@@ -284,7 +294,11 @@ def run_server(
                         file=sys.stderr,
                     )
                     return 3
-            return supervise_streamlit(browser_address, resilient=resilient)
+            return supervise_streamlit(
+                browser_address,
+                resilient=resilient,
+                visible_console=visible_console,
+            )
     except ServerLockUnavailable:
         if wait_for_existing_server():
             print("[SMAI] SMAI is already starting or running on TCP 8501.")
@@ -303,6 +317,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--browser-address", default="localhost")
     parser.add_argument("--maintenance-startup", action="store_true")
     parser.add_argument("--resilient", action="store_true")
+    parser.add_argument(
+        "--visible-console",
+        action="store_true",
+        help="Keep the Windows Streamlit child attached to this console.",
+    )
     return parser
 
 
@@ -312,6 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.browser_address,
         maintenance_startup=args.maintenance_startup,
         resilient=args.resilient,
+        visible_console=args.visible_console,
     )
 
 

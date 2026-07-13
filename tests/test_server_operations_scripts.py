@@ -16,6 +16,10 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert "--browser-address %SMAI_LAN_IP%" in script
     assert "--maintenance-startup" in script
     assert "--resilient" in script
+    assert 'if /i "%~1"=="/console"' in script
+    assert "--visible-console" in script
+    assert "Interactive LAN server console" in script
+    assert "Keep this window open while SMAI is running." in script
     assert "tailscale ip -4" in script
     assert "websocket compression=enabled" in script
     assert "Duplicate-safe shared launcher: enabled" in script
@@ -55,6 +59,8 @@ def test_restart_script_reuses_guarded_stop_and_waits_for_health() -> None:
     assert "start_smai_server.bat" in implementation
     assert "-Verb RunAs" in implementation
     assert "-WindowStyle Hidden" in implementation
+    assert '"/k"' in implementation
+    assert 'call "{0}" /console' in implementation
     assert "http://127.0.0.1:8501/_stcore/health" in implementation
     assert "AddSeconds(45)" in implementation
     assert "taskkill" not in implementation.lower()

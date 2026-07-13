@@ -2,6 +2,8 @@
 setlocal EnableExtensions
 cd /d "%~dp0\.."
 
+set "SMAI_CONSOLE_MODE=0"
+if /i "%~1"=="/console" set "SMAI_CONSOLE_MODE=1"
 set "SMAI_ROOT=%CD%"
 set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"
 set "SMAI_LOG_DIR=%SMAI_ROOT%\logs\server_ops"
@@ -15,7 +17,11 @@ set "SMAI_AUTOSTART_LOG=%SMAI_LOG_DIR%\autostart.log"
 >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [START] start_smai_server.bat invoked.
 
 call :log "============================================================"
-call :log "[SMAI] Scheduled LAN server startup"
+if "%SMAI_CONSOLE_MODE%"=="1" (
+    call :log "[SMAI] Interactive LAN server console"
+) else (
+    call :log "[SMAI] Scheduled LAN server startup"
+)
 call :log "[SMAI] Root: %SMAI_ROOT%"
 call :log "[SMAI] Performance profile: %SMAI_PERFORMANCE_PROFILE%"
 call :log "[SMAI] Assistant Gateway autostart: %SMAI_ASSISTANT_GATEWAY_AUTOSTART%"
@@ -32,17 +38,23 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConf
 if "%SMAI_LAN_IP%"=="" set "SMAI_LAN_IP=localhost"
 
 call :log "[SMAI] Local URL: http://localhost:8501"
-call :log "[SMAI] LAN URL: http://%SMAI_LAN_IP%:8501"
+call :log "[SMAI] Trusted LAN devices: http://%SMAI_LAN_IP%:8501"
 set "SMAI_TAILSCALE_IP="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-Command tailscale -ErrorAction SilentlyContinue; if($command){tailscale ip -4 2^>$null | Select-Object -First 1}" 2^>nul`) do set "SMAI_TAILSCALE_IP=%%I"
 if not "%SMAI_TAILSCALE_IP%"=="" call :log "[SMAI] Tailscale URL: http://%SMAI_TAILSCALE_IP%:8501"
 call :log "[SMAI] Listening on 0.0.0.0:8501 (bind address; do not open 0.0.0.0 in a browser)"
+call :log "[SMAI] Do not expose this port to the Internet."
+if "%SMAI_CONSOLE_MODE%"=="1" call :log "[SMAI] Keep this window open while SMAI is running."
 call :log "[SMAI] Starting Streamlit..."
 >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Starting SMAI Streamlit server.
-"%SMAI_PYTHON%" -m backend.server_ops.launcher ^
-  --browser-address %SMAI_LAN_IP% ^
-  --maintenance-startup ^
-  --resilient >> "%SMAI_LOG_FILE%" 2>&1
+if "%SMAI_CONSOLE_MODE%"=="1" (
+    "%SMAI_PYTHON%" -m backend.server_ops.launcher --browser-address %SMAI_LAN_IP% --maintenance-startup --resilient --visible-console
+) else (
+    "%SMAI_PYTHON%" -m backend.server_ops.launcher ^
+      --browser-address %SMAI_LAN_IP% ^
+      --maintenance-startup ^
+      --resilient >> "%SMAI_LOG_FILE%" 2>&1
+)
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 if "%SMAI_EXIT_CODE%"=="10" (

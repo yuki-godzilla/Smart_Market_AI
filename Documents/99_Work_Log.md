@@ -4657,3 +4657,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `radar_interpretation.v1`のsummary / positive materials / cautions / unknowns / next checkpointsを、項目ごとの`cited_evidence_ids`を必須にする構造化契約へ更新。親SMAIとGatewayの`/api/v1/context-answer` contractを同期した。
 - 親validatorはcandidate ID、全fieldの許可済みcitation、response referenceとの一致、助言・score/rank変更表現に加え、候補外symbol、根拠束にない数値・日付をrejectする。不採用時は既存の決定論的確認メモへfallbackし、候補マップ、Ranking、Forecast、各Scoreは変更しない。
 - 8件のnetwork-free shadow fixtureと評価CLIを追加。正常1件を採用し、未知引用、候補外symbol、根拠外数値・日付、助言、schema不正の7件を期待どおり拒否した。
+
+## 2026-07-13: 投資レーダー未実行smokeの再確認
+
+- in-app browser runtimeは利用できなかったが、作業ツリーから隔離したStreamlit（`127.0.0.1:8503`）へ`SMAI_RUN_RESPONSIVE_SMOKE=1`を指定し、投資レーダーのiPhone 13 mini、iPad縦横、PC 1366px responsive smokeを実行。横はみ出し、例外、投資レーダー、ヒートマップ、mobile tap targetの確認は`1 passed`だった。
+- 隔離Gateway（`127.0.0.1:8088`）とローカルOllamaでRadar live smokeを実行。Gateway / Ollama readinessは正常で、4B/8Bの親SMAI経由応答は`validation_error`の決定論的fallbackとなった。8Bは同一promptで構造化Radar JSONを生成できるが、親側で受理されるlive応答の再現性は未確認として残す。隔離プロセスは確認後に停止した。

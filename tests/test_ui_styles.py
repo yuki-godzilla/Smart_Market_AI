@@ -105,7 +105,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".investment-news-board-page" in SMAI_GLOBAL_CSS
     assert ".investment-stock-heatmap-board" in SMAI_GLOBAL_CSS
     assert (
-        "@media (min-width: 768px) and (max-width: 1024px) {\n"
+        "@media (min-width: 768px) and (max-width: 1200px) {\n"
         "    .investment-stock-heatmap-board {\n"
         "        grid-template-columns: repeat(2, minmax(0, 1fr));"
     ) in SMAI_GLOBAL_CSS

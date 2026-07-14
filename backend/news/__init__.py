@@ -36,6 +36,7 @@ from backend.news.contracts import (
     NewsFreshnessStatus,
     NewsHeadlineCard,
     NewsHeatmapCell,
+    NewsHeatmapMetricSource,
     NewsSymbolLLMExtractionRequest,
     NewsSymbolLLMExtractionResponse,
     NewsSymbolMatch,
@@ -105,6 +106,7 @@ from backend.news.sources import (
     dedupe_news_headline_cards,
     google_news_dashboard_cards_from_rss,
     google_news_dashboard_rss_url,
+    news_headline_dedupe_key,
 )
 from backend.news.update_manager import (
     MAX_REFRESH_RETRY,
@@ -151,6 +153,7 @@ __all__ = [
     "NewsFreshnessStatus",
     "NewsHeadlineCard",
     "NewsHeatmapCell",
+    "NewsHeatmapMetricSource",
     "NewsRefreshResult",
     "NewsCategoryQuery",
     "NewsSourceAdapter",
@@ -205,6 +208,7 @@ __all__ = [
     "google_news_dashboard_rss_url",
     "load_cached_news_dashboard_snapshot",
     "load_news_update_status",
+    "news_headline_dedupe_key",
     "news_snapshot_item_count",
     "normalize_snapshot_for_cache",
     "run_news_background_refresh_once",

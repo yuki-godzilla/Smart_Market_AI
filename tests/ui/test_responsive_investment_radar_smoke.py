@@ -21,7 +21,12 @@ VIEWPORTS = (
 )
 def test_investment_radar_responsive_viewports() -> None:
     base_url = os.getenv("SMAI_STREAMLIT_URL", "http://127.0.0.1:8501")
-    screenshot_dir = Path("docs/responsive/screenshots/investment_radar")
+    screenshot_dir = Path(
+        os.getenv(
+            "SMAI_RESPONSIVE_SCREENSHOT_DIR",
+            "docs/responsive/screenshots/investment_radar",
+        )
+    )
     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
     with playwright.sync_playwright() as runtime:
@@ -34,10 +39,9 @@ def test_investment_radar_responsive_viewports() -> None:
                     wait_until="networkidle",
                     timeout=120_000,
                 )
-                sidebar_close = page.locator('[data-testid="stSidebarCollapseButton"] button')
-                if sidebar_close.count() and sidebar_close.is_visible():
-                    sidebar_close.evaluate("(element) => element.click()")
-                    page.keyboard.press("Escape")
+                sidebar = page.locator('[data-testid="stSidebar"]')
+                if width <= 767:
+                    assert sidebar.get_attribute("aria-expanded") == "false"
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
                     page.locator(
                         'a.smai-profile-link[aria-label="Yukiを選択"]:visible'
@@ -67,13 +71,90 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert header_box is not None
                 assert header_box["height"] >= 40
                 assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
+                page.get_by_text("詳しい探索条件", exact=True).wait_for(
+                    state="visible", timeout=30_000
+                )
                 assert page.get_by_text("8セクター", exact=False).count() == 0
                 assert page.locator(".investment-stock-heatmap-group-kind").count() > 0
                 assert page.locator(".investment-news-ticker-item").count() <= 3
+                primary_theme_map = page.locator(".investment-stock-heatmap-board").first
+                assert (
+                    primary_theme_map.locator(":scope > .investment-stock-heatmap-group").count()
+                    <= 3
+                )
+                primary_theme_surface = page.locator("section.investment-stock-heatmap").first
+                assert (
+                    primary_theme_surface.locator(
+                        ".investment-stock-heatmap-legend.evidence"
+                    ).count()
+                    == 1
+                )
+                assert (
+                    primary_theme_surface.locator(
+                        ".investment-stock-heatmap-legend.neutral"
+                    ).count()
+                    == 1
+                )
+                assert (
+                    primary_theme_surface.locator(
+                        'a.investment-stock-heatmap-tile[class*="freshness-"]'
+                    ).count()
+                    > 0
+                )
+                if 768 <= width <= 900:
+                    grid_column_count = primary_theme_map.evaluate(
+                        "(element) => getComputedStyle(element).gridTemplateColumns"
+                        ".split(' ').filter(Boolean).length"
+                    )
+                    assert grid_column_count == 1
+                elif 901 <= width <= 1200:
+                    grid_column_count = primary_theme_map.evaluate(
+                        "(element) => getComputedStyle(element).gridTemplateColumns"
+                        ".split(' ').filter(Boolean).length"
+                    )
+                    assert grid_column_count == 2
+                primary_theme_surface.scroll_into_view_if_needed()
+                page.screenshot(
+                    path=str(screenshot_dir / f"{name}-theme-map.png"),
+                    full_page=False,
+                )
+
+                radar_heading = page.get_by_text("ニュースからの確認候補", exact=True)
+                radar_heading.scroll_into_view_if_needed()
+                detail_button = page.get_by_role("button", name="詳細を開く").first
+                assert detail_button.count() == 1
+                detail_button.click()
+                dialog = page.locator('[data-testid="stDialog"]')
+                dialog.wait_for(state="visible", timeout=30_000)
+                assert (
+                    dialog.locator(".investment-radar-candidate-detail-dialog-marker").count() == 1
+                )
+                assert dialog.get_by_text("選択中の候補", exact=False).count() > 0
+                assert dialog.get_by_role("button", name="根拠資料を確認").count() == 1
+
+                dialog_body_width = page.locator("body").evaluate(
+                    "(element) => ({"
+                    "scrollWidth: element.scrollWidth, "
+                    "clientWidth: element.clientWidth"
+                    "})"
+                )
+                assert dialog_body_width["scrollWidth"] <= dialog_body_width["clientWidth"] + 2
                 if width <= 767:
                     tile_box = heatmap_tile.bounding_box()
                     assert tile_box is not None
                     assert tile_box["height"] >= 44
+                    assistant_trigger = page.locator(".smai-floating-assistant-trigger")
+                    assistant_box = assistant_trigger.bounding_box()
+                    assert assistant_box is not None
+                    assert 44 <= assistant_box["width"] <= 80
+                    assert assistant_box["height"] >= 44
+                    final_map_tile = primary_theme_map.locator(
+                        "a.investment-stock-heatmap-tile"
+                    ).last
+                    final_map_tile.scroll_into_view_if_needed()
+                    final_tile_box = final_map_tile.bounding_box()
+                    assert final_tile_box is not None
+                    assert final_tile_box["y"] + final_tile_box["height"] <= assistant_box["y"]
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

@@ -145,6 +145,27 @@ def test_radar_candidate_map_is_deterministic_and_hides_rejected_or_symbol_free_
     ]
 
 
+def test_radar_candidate_material_taxonomy_does_not_imply_headline_direction():
+    """A query category must never turn a negative headline into a positive signal."""
+
+    snapshot = _snapshot(
+        _card(
+            title="Ａｎｄ Ｄｏ、前期経常を一転65％減益に下方修正",
+            source_name="Market News",
+            published_at=datetime(2026, 7, 13, 8, 30, tzinfo=UTC),
+            material_type="earnings",
+            related_symbols=["3457.T"],
+        )
+    )
+
+    candidate_map = build_radar_candidate_map(snapshot)
+
+    assert len(candidate_map.candidates) == 1
+    candidate = candidate_map.candidates[0]
+    assert candidate.evidence[0].material_type == "earnings"
+    assert candidate.material_tone == "unknown"
+
+
 def test_radar_candidate_filters_are_display_only_and_keep_map_order():
     snapshot = _snapshot(
         _card(

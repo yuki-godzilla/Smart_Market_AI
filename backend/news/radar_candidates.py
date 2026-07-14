@@ -37,8 +37,6 @@ _PROVENANCE_ORDER: dict[RadarCandidateProvenance, int] = {
     "inferred_candidate": 1,
     "macro_proxy": 2,
 }
-_POSITIVE_MATERIAL_TYPES = {"earnings", "shareholder_return", "theme", "fund_flow"}
-_CAUTION_MATERIAL_TYPES = {"risk", "policy", "macro"}
 _MATERIAL_PRIORITY_BONUS = {
     "risk": 12,
     "earnings": 10,
@@ -337,15 +335,15 @@ def _confirmation_priority_reasons(
 
 
 def _material_tone(evidence: Sequence[RadarCandidateEvidence]) -> RadarCandidateMaterialTone:
-    material_types = {item.material_type for item in evidence}
-    positive = bool(material_types & _POSITIVE_MATERIAL_TYPES)
-    caution = bool(material_types & _CAUTION_MATERIAL_TYPES)
-    if positive and caution:
-        return "mixed"
-    if positive:
-        return "positive"
-    if caution:
-        return "caution"
+    """Keep direction unknown until an evidence-grounded direction contract exists.
+
+    ``material_type`` is a taxonomy assigned by the news query, not a validated
+    positive/negative reading of a headline.  Returning a compatibility value
+    avoids breaking stored candidates while preventing labels such as
+    ``earnings -> positive`` from becoming investment-facing guidance.
+    """
+
+    del evidence
     return "unknown"
 
 
@@ -365,7 +363,7 @@ def _confirmation_gaps(
 ) -> list[str]:
     gaps = [
         "価格データはこの候補マップでは未確認です。",
-        "RAG根拠は「根拠を確認」の明示操作で確認します。",
+        "根拠資料は「根拠資料を確認」の明示操作で確認します。",
     ]
     if symbol_data_status == "unavailable":
         gaps.insert(0, "銘柄DBの確認情報がありません。")

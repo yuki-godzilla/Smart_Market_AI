@@ -2,18 +2,20 @@
 
 作成日: 2026-07-13
 
+> **後続UX/P0の扱い:** この報告は根拠追跡・RAG・Gateway境界の実装履歴である。画面構成、可視化、用語の後続要件は [39_Investment_Radar_UX_Visualization_Requirements.md](39_Investment_Radar_UX_Visualization_Requirements.md) を正本とし、実コードと通過テストを現在挙動の根拠とする。
+
 ## 実装範囲
 
 投資レーダーを、ニュース一覧から確認候補を辿る探索画面へ段階的に拡張した。既存の市場ヒートマップ、Ranking、Forecast、Investment Score、Research Scoreの計算・既定weight・表示順は変更していない。
 
 - `RadarCandidate` / `RadarCandidateEvidence` / `RadarCandidateMap` を導入し、news snapshotからnetwork-freeかつ安定順序で候補を集約する。
 - `direct_mention`、`inferred_candidate`、`macro_proxy` は候補ID・ラベル・形・通常候補として扱うかどうかまで分離する。マクロ代理は背景確認用であり、通常の銘柄候補としてCockpitやAI根拠整理へ進めない。
-- 候補マップは横軸を直接性、縦軸を確認優先度、円の大きさを独立根拠数、色を材料構成、形を由来として表示する。確認優先度は鮮度・根拠の広がり・材料種別・Watchlist一致だけから決め、投資魅力度や順位ではない。
-- candidate詳細には、候補理由、根拠記事、鮮度、材料構成、銘柄DB/価格/RAGの状態、確認不足、Cockpit handoffを集約した。候補選択や画面遷移だけでは外部取得、RAG、LLM、保存を開始しない。
+- 候補の主表示は `本文に出た銘柄`、`SMAI推測候補`、`市場背景の確認` の固定3レーンとする。連続値の散布図や、材料種別だけから好悪の色・方向を作る表示は後続UX/P0の対象外とする。確認の順番は鮮度・根拠の広がり・由来・Watchlist一致を使う確認順であり、投資魅力度や順位ではない。
+- candidate詳細には、候補理由、根拠記事、鮮度、材料種別、銘柄DB/価格/根拠資料の状態、確認不足、Cockpit handoffを集約する。材料種別と記事内容の方向は混同せず、方向が検証できないものは `方向未確認` と表示する。候補選択や画面遷移だけでは外部取得、RAG、LLM、保存を開始しない。
 
 ## RAG根拠束
 
-`根拠を確認（ローカルRAG）` の明示操作でのみ `RadarResearchContext` と `RadarEvidenceBundle` を生成する。既存のhybrid retrievalとrerankerを再利用し、短いsymbol・カテゴリ・見出し文脈だけを検索語に渡す。本文全体やprovider raw payloadはUI stateおよびGatewayへ渡さない。
+`根拠資料を確認` の明示操作でのみ `RadarResearchContext` と `RadarEvidenceBundle` を生成する。既存のhybrid retrievalとrerankerを再利用し、短いsymbol・カテゴリ・見出し文脈だけを検索語に渡す。`ローカルRAG` は技術詳細に限定し、本文全体やprovider raw payloadはUI stateおよびGatewayへ渡さない。
 
 - citationは安定ID、資料種別、公開時刻、検索時刻、鮮度、直接性、短い抜粋を持つ。
 - 選択候補と異なるsymbol、候補ニュース時点より未来の資料、relevance floor未満の資料は採用しない。

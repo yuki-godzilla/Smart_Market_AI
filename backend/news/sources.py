@@ -358,7 +358,7 @@ def dedupe_news_headline_cards(
     deduped: list[NewsHeadlineCard] = []
     seen: set[str] = set()
     for card in headlines:
-        key = _headline_dedupe_key(card)
+        key = news_headline_dedupe_key(card)
         if not key or key in seen:
             continue
         seen.add(key)
@@ -471,7 +471,9 @@ def _google_news_dashboard_card_from_item(
     )
 
 
-def _headline_dedupe_key(card: NewsHeadlineCard) -> str:
+def news_headline_dedupe_key(card: NewsHeadlineCard) -> str:
+    """Return the stable, display-safe duplicate key for a normalized headline."""
+
     if card.url:
         return re.sub(r"[?#].*$", "", card.url.strip()).casefold()
     normalized_title = re.sub(r"\s+", " ", card.title.strip()).casefold()

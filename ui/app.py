@@ -1828,7 +1828,10 @@ def main() -> None:
         message = "前回の状態を復元しました"
         st.toast(f"{message}: {detail}" if detail else message)
     reset_assistant_contexts()
-    if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING}:
+    # Investment Radar has its own concise task-oriented title.  Keeping the
+    # global brand hero above it pushes the market overview and candidate queue
+    # below the first viewport, especially on tablets and phones.
+    if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING, SIDEMENU_PAGE_NEWS}:
         render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()

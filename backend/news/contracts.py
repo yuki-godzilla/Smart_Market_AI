@@ -10,6 +10,7 @@ from backend.core.data_contracts import StrictBaseModel
 NEWS_DASHBOARD_SCHEMA_VERSION = "news-dashboard-snapshot-v1"
 
 NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+NewsHeatmapMetricSource = Literal["market_measured", "news_proxy"]
 RadarCandidateProvenance = Literal["direct_mention", "inferred_candidate", "macro_proxy"]
 RadarCandidateMaterialTone = Literal["positive", "caution", "mixed", "unknown"]
 RadarCandidateDataStatus = Literal["available", "partial", "unavailable", "not_checked"]
@@ -210,6 +211,9 @@ class NewsHeatmapCell(StrictBaseModel):
 
     category: str = Field(min_length=1)
     region: str | None = Field(default=None, min_length=1)
+    # Absent values in older cache snapshots must remain conservative.  Numeric
+    # fields alone are not sufficient evidence that a market metric was measured.
+    market_metric_source: NewsHeatmapMetricSource = "news_proxy"
     price_change_pct: float | None = None
     volume_activity_score: float | None = Field(default=None, ge=0.0)
     news_count: int = Field(ge=0)

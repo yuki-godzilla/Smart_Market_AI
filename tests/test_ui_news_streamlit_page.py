@@ -10,6 +10,7 @@ from backend.news import (
 )
 from ui import favorites, watchlist_snapshots
 from ui.views.news import (
+    NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT,
     NEWS_RADAR_CANDIDATE_STATE_KEY,
     _news_symbol_chip_preview_rows,
     combine_news_watchlist_symbols,
@@ -223,33 +224,41 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "キャッシュサイズ" not in page_text
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
-    assert "投資ヒートマップ" in page_text
+    assert "今日のテーママップ" in page_text
     assert "ニュースからの確認候補" in page_text
     assert "追加候補マップ" not in page_text
     assert "本文に出た銘柄" in page_text
     assert "確認の順番" in page_text
-    assert "市場確認指標は「確認候補を絞り込む」から追加できます" in page_text
+    assert "市場背景の確認は「詳しい探索条件」から追加できます" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
-    assert "根拠を確認（ローカルRAG）" in button_labels
+    assert "詳細を開く" in button_labels
     assert "Watchlist" in text_input_labels
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
     assert {"関連銘柄"}.issubset(set(selectbox_labels))
     assert "追加候補を選択" not in selectbox_labels
-    assert {"Watchlist一致を優先表示", "Watchlist一致だけ表示"}.issubset(set(checkbox_labels))
+    assert {
+        "Watchlist一致を優先表示",
+        "Watchlist一致だけ表示",
+        "本文に出た銘柄",
+        "Myウォッチリスト",
+        "資料未確認",
+    }.issubset(set(checkbox_labels))
 
     markdown_values = [str(element.value) for element in app.markdown]
     candidate_map_index = next(
         index for index, value in enumerate(markdown_values) if "ニュースからの確認候補" in value
     )
     heatmap_index = next(
-        index for index, value in enumerate(markdown_values) if "投資ヒートマップ" in value
+        index for index, value in enumerate(markdown_values) if "今日のテーママップ" in value
     )
-    assert candidate_map_index < heatmap_index
+    assert heatmap_index < candidate_map_index
 
-    detail_button = next(button for button in app.button if button.label == "詳細を見る")
+    detail_buttons = [button for button in app.button if button.label == "詳細を開く"]
+    assert 0 < len(detail_buttons) <= NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT * 2
+    detail_button = detail_buttons[0]
     detail_button.click().run()
 
     assert not app.exception
@@ -261,7 +270,9 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
         if getattr(element, "value", None) is not None
     )
     assert "選択中の候補" in selected_text
-    assert "未実行（銘柄コックピットで確認）" in selected_text
+    assert "材料種別" in selected_text
+    assert "未実行（「根拠資料を確認」で開始）" in selected_text
+    assert "根拠資料を確認" in [str(getattr(element, "label", "")) for element in app.button]
 
 
 def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch):

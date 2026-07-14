@@ -47,6 +47,7 @@ data/marketdata/symbol_universe_manual_patch_report.json
 
 # Local work/test outputs
 .tmp/
+/tmp/
 tmp-python-*.exe
 python-install*.log
 data/user/favorites.json

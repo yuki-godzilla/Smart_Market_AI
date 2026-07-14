@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 from zoneinfo import ZoneInfo
 
+import backend.news.sources as news_sources
 from backend.news import (
     NewsCategoryLane,
     NewsDashboardSnapshot,
@@ -31,7 +32,6 @@ from backend.news import (
     filter_radar_candidates,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
-    news_headline_dedupe_key,
     refresh_news_dashboard_cache,
 )
 from ui.components.mascot import (
@@ -1175,7 +1175,7 @@ def _heatmap_group_symbol_evidence_details(
     details: dict[str, dict[str, object]] = {}
     freshness_rank = {"unknown": 0, "stale": 1, "recent": 2, "latest": 3}
     for card in cards:
-        card_key = news_headline_dedupe_key(card)
+        card_key = _news_headline_dedupe_key(card)
         source_key = (card.source_name or card.source_type or "未確認").strip().lower()
         direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
         for relation, symbols in (
@@ -1219,6 +1219,26 @@ def _heatmap_group_symbol_evidence_details(
             "relationship": "direct" if bool(detail["has_direct_mention"]) else "inferred",
         }
     return normalized_details
+
+
+def _news_headline_dedupe_key(card: NewsHeadlineCard) -> str:
+    """Resolve the headline key across Streamlit partial module reloads.
+
+    Streamlit can reload this UI module while retaining a previously imported
+    ``backend.news.sources`` module. The helper was publicized from
+    ``_headline_dedupe_key`` to ``news_headline_dedupe_key`` during the Radar
+    update, so accept the immediately preceding private name until the server
+    process has been fully restarted.
+    """
+
+    for helper_name in ("news_headline_dedupe_key", "_headline_dedupe_key"):
+        helper = getattr(news_sources, helper_name, None)
+        if callable(helper):
+            return str(helper(card))
+    if card.url:
+        return re.sub(r"[?#].*$", "", card.url.strip()).casefold()
+    normalized_title = re.sub(r"\s+", " ", card.title.strip()).casefold()
+    return f"{card.category}|{normalized_title}"
 
 
 def _add_heatmap_symbol_score(

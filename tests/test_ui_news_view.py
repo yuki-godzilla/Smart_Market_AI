@@ -29,6 +29,25 @@ from ui.views.news import (
 )
 
 
+def test_news_headline_dedupe_key_accepts_pre_publication_helper(monkeypatch):
+    card = NewsHeadlineCard(
+        title="Streamlit partial reload",
+        source_type="news",
+        category="半導体・AI",
+        material_type="theme",
+        url="https://example.com/article?source=rss",
+    )
+    monkeypatch.setattr(
+        news_module.news_sources,
+        "_headline_dedupe_key",
+        lambda _: "legacy-key",
+        raising=False,
+    )
+    monkeypatch.delattr(news_module.news_sources, "news_headline_dedupe_key")
+
+    assert news_module._news_headline_dedupe_key(card) == "legacy-key"
+
+
 def test_news_dashboard_heatmap_frame_is_user_facing():
     snapshot = build_demo_news_dashboard_snapshot(
         now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),

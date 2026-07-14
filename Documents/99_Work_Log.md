@@ -4686,3 +4686,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 参照PDFと実画面を比較し、初期のテーママップを最大3テーマ・各最大3銘柄タイルへ戻した。4テーマ目で行が折れて候補キューを押し下げる状態を解消し、残るテーマは `ほか Nテーマを見る` に明示的に退避した。
 - タイル面積を企業規模や材料種別ではなく、転載・重複を除いた根拠記事数に固定し、独立出典数を補助表示へ変更した。色は鮮度だけ、直接性は `本文に出た` / `テーマ関連` のラベルだけで表し、ニュース代理の個別タイルに擬似的な価格方向・赤緑を戻さない。カテゴリ市場データが取得済みの場合も、見出しだけに区別して表示する。
 - PC/iPad縦横/iPhoneの実Streamlit responsive smokeで、テーママップ、横はみ出し、例外、タップ領域を確認した。対象network-free回帰505件、Ruff、Blackを確認した。テーマ選択から候補キューへ条件連動するP1後半、根拠タイムライン／ルートマップ、snapshot差分は未実装として残す。
+
+## 2026-07-14 投資レーダー hot-reload ImportError修正・実Chrome評価
+
+- 7月13日から常時稼働しているStreamlitを実Chromeで再読み込みし、変更前の `backend.news` module cacheに公開前のheadline dedupe helperが残ると、`ui/views/news.py` の新しい公開名importが `ImportError` になる事象を再現した。新規processのimport、サーバーhealth、Analytics healthは正常だった。
+- UIからpackage rootの新規symbol import依存を外し、`backend.news.sources` の公開名、直前版のprivate名、同じ決定論的キー計算の順に解決するhot-reload互換境界を追加した。ニュース重複判定の意味、候補抽出、Ranking、Forecast、Score、保存データは変更していない。
+- 同じ実Chromeタブで投資レーダーの復旧、テーママップ、候補詳細ダイアログ、根拠記事と次の操作を確認した。PC / iPad / iPhone相当で3列 / 2列 / 1列、ページ全体の横はみ出しなしを確認した。モバイルでテーママップまでの縦距離、凡例・補足文字の密度、固定Assistantの右下重なりは次のUI改善候補として残す。

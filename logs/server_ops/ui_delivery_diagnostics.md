@@ -8,10 +8,10 @@ This is a deterministic source/static-asset baseline. Runtime render time, rerun
 | Screen | Source bytes | base64 refs | data URI links | dataframe/editor | session_state refs | expanders |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 初期ユーザー選択 | 47,494 | 0 | 0 | 0 | 38 | 2 |
-| ランキング | 1,028,140 | 0 | 0 | 9 | 186 | 36 |
-| 銘柄コックピット | 960,373 | 0 | 0 | 9 | 186 | 36 |
-| Watchlist | 921,874 | 0 | 0 | 9 | 186 | 36 |
-| 投資レーダー | 104,958 | 0 | 0 | 0 | 17 | 4 |
+| ランキング | 1,031,243 | 0 | 0 | 9 | 186 | 36 |
+| 銘柄コックピット | 963,476 | 0 | 0 | 9 | 186 | 36 |
+| Watchlist | 924,977 | 0 | 0 | 9 | 186 | 36 |
+| 投資レーダー | 139,765 | 0 | 0 | 0 | 36 | 6 |
 | SMAIアシスタント | 218,598 | 0 | 0 | 0 | 83 | 2 |
 
 ## Interpretation

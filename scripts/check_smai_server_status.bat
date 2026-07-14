@@ -2,23 +2,30 @@
 setlocal EnableExtensions
 cd /d "%~dp0\.."
 
-set "SMAI_LAN_IP="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.IPv4Address -ne $null } | Select-Object -First 1 -ExpandProperty IPv4Address | Select-Object -ExpandProperty IPAddress" 2^>nul`) do set "SMAI_LAN_IP=%%I"
+set "SMAI_ROOT=%CD%"
+set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"
+if not defined SMAI_CONFIG_FILE set "SMAI_CONFIG_FILE=%SMAI_ROOT%\config\server.yaml"
+if not exist "%SMAI_PYTHON%" (
+    echo [ERROR] Python virtual environment was not found: %SMAI_PYTHON%
+    exit /b 1
+)
+for /f "usebackq delims=" %%I in (`"%SMAI_PYTHON%" -m backend.server_ops.network --emit-batch`) do %%I
+if errorlevel 1 (
+    echo [ERROR] SMAI MagicDNS URL could not be resolved. Check config\server.yaml or SMAI_TAILSCALE_HOSTNAME.
+    exit /b 2
+)
 
 echo [SMAI] Server status
 echo ====================
-call :check_url "SMAI Streamlit" "http://localhost:8501/_stcore/health"
+call :check_url "SMAI Streamlit" "%SMAI_LOCAL_APPLICATION_URL%/_stcore/health"
 set "SMAI_STATUS=%ERRORLEVEL%"
 
 if exist "%USERPROFILE%\workspace\SMAI_Server_Analytics\run_health.bat" (
     call "%USERPROFILE%\workspace\SMAI_Server_Analytics\run_health.bat"
 )
 
-if not "%SMAI_LAN_IP%"=="" (
-    echo [INFO] iPhone/iPad URL: http://%SMAI_LAN_IP%:8501
-) else (
-    echo [WARN] LAN IPv4 address could not be detected. Run ipconfig to check it.
-)
+echo [INFO] Normal access URL: %SMAI_MAIN_APPLICATION_URL%
+echo [INFO] Start Tailscale on the connecting device before opening the normal access URL.
 
 echo.
 echo [SMAI] Optional local dependencies
@@ -27,9 +34,9 @@ call :check_url "Ollama" "http://127.0.0.1:11434/api/tags"
 
 echo.
 if "%SMAI_STATUS%"=="0" (
-    echo [OK] SMAI is available at http://localhost:8501
+    echo [OK] SMAI is available at %SMAI_LOCAL_APPLICATION_URL%
 ) else (
-    echo [NG] SMAI is not responding at http://localhost:8501
+    echo [NG] SMAI is not responding at %SMAI_LOCAL_APPLICATION_URL%
 )
 exit /b %SMAI_STATUS%
 

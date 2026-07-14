@@ -27,6 +27,22 @@ class AppConfig(StrictConfigModel):
     log_json: bool = True
 
 
+class MainApplicationNetworkConfig(StrictConfigModel):
+    """Network settings for the user-facing Streamlit application."""
+
+    scheme: Literal["http"] = "http"
+    port: int = Field(default=8501, ge=1, le=65535)
+
+
+class NetworkConfig(StrictConfigModel):
+    """Stable names and ports used to reach SMAI from another device."""
+
+    tailscale_hostname: str | None = Field(default=None, min_length=1)
+    main_application: MainApplicationNetworkConfig = Field(
+        default_factory=MainApplicationNetworkConfig
+    )
+
+
 class CacheConfig(StrictConfigModel):
     """Cache backend and TTL settings for data-heavy services."""
 
@@ -429,6 +445,7 @@ class Settings(StrictConfigModel):
     """Root settings object for Smart Market AI."""
 
     app: AppConfig = Field(default_factory=AppConfig)
+    network: NetworkConfig = Field(default_factory=NetworkConfig)
     dataaccess: DataAccessConfig = Field(default_factory=DataAccessConfig)
     feature_builder: FeatureBuilderConfig = Field(default_factory=FeatureBuilderConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)

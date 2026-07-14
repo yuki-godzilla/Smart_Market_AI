@@ -1,13 +1,13 @@
 # Smart Market AI Desktop PCサーバー運用ガイド
 
-この文書は、Smart Market AI（SMAI）を家庭内LANのDesktop PCサーバーとして
+この文書は、Smart Market AI（SMAI）をTailscale tailnet内のDesktop PCサーバーとして
 継続運用するための手順です。iPhone / iPadでのSafariアクセスやホーム画面追加は
-[LAN / PWA風アクセスガイド](LAN_PWA_ACCESS_GUIDE.md)を参照してください。
+[MagicDNS / PWA風アクセスガイド](LAN_PWA_ACCESS_GUIDE.md)を参照してください。
 
 ## 1. 運用の全体像
 
 - SMAI本体と重い処理はDesktop PCで動きます。
-- iPhone / iPadは同じ家庭内Wi-Fiから閲覧・操作します。
+- iPhone / iPad、別PCはTailscaleを起動して同じtailnetから閲覧・操作します。
 - 手動利用は `scripts\run_lan_server.bat` を使います。
 - 手動・自動・監視復旧は共通の排他起動を使い、TCP 8501の競合を防ぎます。
 - ログオン時の自動起動はWindowsタスクスケジューラへ登録できます。
@@ -16,9 +16,9 @@
 - Assistant Gatewayは親SMAIのautostartを基本とし、常時起動タスクを別途追加しません。
 
 待受アドレス `0.0.0.0:8501` は全ネットワークインターフェースで接続を受けるための
-設定値であり、ブラウザーで開くURLではありません。Desktop PC自身は
-`http://localhost:8501`、iPhone / iPadは
-`http://<Desktop PCのIPv4>:8501` を開きます。
+設定値であり、ブラウザーで開くURLではありません。通常アクセスは
+`http://desktop-bqrpr4c:8501` に統一します。Desktop PC自身での確認だけは
+`http://localhost:8501` を使います。
 
 ## 2. 手動で起動する
 
@@ -28,9 +28,10 @@
 scripts\run_lan_server.bat
 ```
 
-BATは既定ゲートウェイを持つアダプターのIPv4を自動検出し、利用可能なLAN URLを
-表示します。IPを取得できない場合は、開けない仮URLではなく `localhost` を
-Streamlit表示へ渡し、`ipconfig` での確認を案内します。venvがない場合は起動しません。
+BATは `config/server.yaml`（または `SMAI_TAILSCALE_HOSTNAME`）からMagicDNS URLを
+解決して1つだけ表示します。Tailscale CLIが利用できない場合も、明示設定があれば
+起動は継続します。ブラウザー起動・health checkには `localhost` を使います。venvが
+ない場合は起動しません。
 
 ## 3. ログオン時の自動起動を登録する
 
@@ -84,7 +85,7 @@ scripts\check_smai_server_status.bat
 - Ollama（任意）: `http://127.0.0.1:11434/api/tags`
 
 GatewayやOllamaが `NG` でも、SMAI本体が `OK` なら通常画面とdeterministic fallbackは
-利用できます。LAN IPv4を取得できた場合はiPhone / iPad向けURLも表示します。
+利用できます。状態確認BATは通常アクセスURL `http://desktop-bqrpr4c:8501` も表示します。
 
 ## 5. SMAIサーバーを停止する
 
@@ -114,15 +115,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\unregister_sma
 タスクが存在しない場合もエラーにはせず、その旨を表示します。解除してもSMAI本体、
 設定、ログ、銘柄DBは削除しません。既に起動中のサーバーは停止BATで終了します。
 
-## 7. Windows FirewallとIP固定
+## 7. Windows FirewallとMagicDNS
 
-- Windows FirewallはTCP 8501をプライベートネットワークだけ許可します。
-- パブリックネットワークは許可しません。
+- Windows FirewallがTCP 8501のSMAI待受を遮断していないことを確認します。
 - ルーターのポート開放・ポート転送は行いません。
-- Desktop PCのIP固定はWindows側の手入力より、Deco X50などルーター側のDHCP予約を
-  推奨します。
-
-IPが変わるとiPhone / iPadのホーム画面ショートカットの接続先も変わります。
+- MagicDNS URLを使うため、LAN IPv4のDHCP予約やIP固定は通常不要です。
+- 接続端末とサーバーPCはTailscaleを起動し、同じtailnetへ参加させます。
 
 ## 8. 銘柄DBメンテナンス
 
@@ -240,16 +238,15 @@ metadata coverage、Yahoo coverageの個別定期ジョブ化、失敗通知、l
 
 ## 9. セキュリティ境界
 
-本MVPは信頼できる家庭内LANだけを対象とします。次は対象外です。
+本MVPはTailscale tailnet内の利用を対象とします。次は対象外です。
 
 - インターネットへの直接公開
 - ルーターのポート開放
 - 認証なしの外部公開
-- 外出先アクセス
-- HTTPS、VPN、Tailscale、Cloudflare Tunnel
+- Tailscale Funnel、Cloudflare Tunnelなどの公開経路
 - Service Workerを含む完全PWA
 
-外部アクセスが必要になった場合は、認証・HTTPS・VPN・ログ監視を含む別フェーズで
+インターネット上の外部公開が必要になった場合は、認証・HTTPS・ログ監視を含む別フェーズで
 設計してください。
 
 ## 10. トラブルシュート

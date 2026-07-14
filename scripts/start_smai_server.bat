@@ -7,6 +7,7 @@ if /i "%~1"=="/console" set "SMAI_CONSOLE_MODE=1"
 set "SMAI_ROOT=%CD%"
 set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"
 set "SMAI_LOG_DIR=%SMAI_ROOT%\logs\server_ops"
+if not defined SMAI_CONFIG_FILE set "SMAI_CONFIG_FILE=%SMAI_ROOT%\config\server.yaml"
 if not defined SMAI_PERFORMANCE_PROFILE set "SMAI_PERFORMANCE_PROFILE=workstation"
 set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"
 
@@ -18,9 +19,9 @@ set "SMAI_AUTOSTART_LOG=%SMAI_LOG_DIR%\autostart.log"
 
 call :log "============================================================"
 if "%SMAI_CONSOLE_MODE%"=="1" (
-    call :log "[SMAI] Interactive LAN server console"
+    call :log "[SMAI] Interactive Main Application server console"
 ) else (
-    call :log "[SMAI] Scheduled LAN server startup"
+    call :log "[SMAI] Scheduled Main Application server startup"
 )
 call :log "[SMAI] Root: %SMAI_ROOT%"
 call :log "[SMAI] Performance profile: %SMAI_PERFORMANCE_PROFILE%"
@@ -33,25 +34,26 @@ if not exist "%SMAI_PYTHON%" (
     exit /b 1
 )
 
-set "SMAI_LAN_IP="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.IPv4Address -ne $null } | Select-Object -First 1 -ExpandProperty IPv4Address | Select-Object -ExpandProperty IPAddress" 2^>nul`) do set "SMAI_LAN_IP=%%I"
-if "%SMAI_LAN_IP%"=="" set "SMAI_LAN_IP=localhost"
+for /f "usebackq delims=" %%I in (`"%SMAI_PYTHON%" -m backend.server_ops.network --emit-batch`) do %%I
+if errorlevel 1 (
+    call :log "[ERROR] SMAI MagicDNS URL could not be resolved. Check config/server.yaml or SMAI_TAILSCALE_HOSTNAME."
+    exit /b 2
+)
 
-call :log "[SMAI] Local URL: http://localhost:8501"
-call :log "[SMAI] Trusted LAN devices: http://%SMAI_LAN_IP%:8501"
-set "SMAI_TAILSCALE_IP="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-Command tailscale -ErrorAction SilentlyContinue; if($command){tailscale ip -4 2^>$null | Select-Object -First 1}" 2^>nul`) do set "SMAI_TAILSCALE_IP=%%I"
-if not "%SMAI_TAILSCALE_IP%"=="" call :log "[SMAI] Tailscale URL: http://%SMAI_TAILSCALE_IP%:8501"
-call :log "[SMAI] Listening on 0.0.0.0:8501 (bind address; do not open 0.0.0.0 in a browser)"
+call :log "[SMAI] SMAI Main Application started."
+call :log "[SMAI] Normal access: %SMAI_MAIN_APPLICATION_URL%"
+call :log "[SMAI] Server-local check: %SMAI_LOCAL_APPLICATION_URL%"
+call :log "[SMAI] Start Tailscale on the connecting device before opening the normal access URL."
+call :log "[SMAI] Listening on 0.0.0.0:%SMAI_MAIN_PORT% (bind address; do not open 0.0.0.0 in a browser)"
 call :log "[SMAI] Do not expose this port to the Internet."
 if "%SMAI_CONSOLE_MODE%"=="1" call :log "[SMAI] Keep this window open while SMAI is running."
 call :log "[SMAI] Starting Streamlit..."
 >> "%SMAI_AUTOSTART_LOG%" echo(%DATE% %TIME% [OK] Starting SMAI Streamlit server.
 if "%SMAI_CONSOLE_MODE%"=="1" (
-    "%SMAI_PYTHON%" -m backend.server_ops.launcher --browser-address %SMAI_LAN_IP% --maintenance-startup --resilient --visible-console
+    "%SMAI_PYTHON%" -m backend.server_ops.launcher --browser-address localhost --maintenance-startup --resilient --visible-console
 ) else (
     "%SMAI_PYTHON%" -m backend.server_ops.launcher ^
-      --browser-address %SMAI_LAN_IP% ^
+      --browser-address localhost ^
       --maintenance-startup ^
       --resilient >> "%SMAI_LOG_FILE%" 2>&1
 )

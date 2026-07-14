@@ -19,8 +19,9 @@
 - 管理者実行ではWindows起動60秒後、通常ユーザー実行ではログオン60秒後に、
   本体と5分監視の2タスクを登録します。
 
-SMAI を Windows PC 上で常時運用するための手順です。既存の LAN
-（`0.0.0.0:8501`）と Tailscale の接続方法は変更しません。
+SMAI を Windows PC 上で常時運用するための手順です。通常アクセスはTailscale
+MagicDNSの `http://desktop-bqrpr4c:8501` に統一します。`0.0.0.0:8501` は待受設定であり、
+ブラウザーで開くURLではありません。
 
 ## 初回設定
 
@@ -51,8 +52,9 @@ SMAI を Windows PC 上で常時運用するための手順です。既存の LA
 .\scripts\server_ops\unregister_smai_autostart_task.ps1
 ```
 
-Tailscale は `tailscale status` と `tailscale ip -4` で稼働とIPを確認します。
-LAN/Tailscaleともに `http://<PCのIP>:8501` を使用します。ルーターから8501番を
+Tailscale は `tailscale status` で稼働を確認します。LAN内・外出先ともに
+`http://desktop-bqrpr4c:8501` を使用し、接続端末でTailscaleを起動します。サーバーPC上の
+切り分けだけは `http://localhost:8501` を使用します。ルーターから8501番を
 インターネットへ直接公開しないでください。
 
 ## 推奨運用

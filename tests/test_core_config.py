@@ -17,6 +17,9 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     settings = get_settings()
 
     assert settings.app.base_currency == "JPY"
+    assert settings.network.main_application.scheme == "http"
+    assert settings.network.main_application.port == 8501
+    assert settings.network.tailscale_hostname is None
     assert settings.dataaccess.provider == "yahoo"
     assert settings.dataaccess.allow_external_providers is True
     assert settings.dataaccess.cache.backend == "memory"

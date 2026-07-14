@@ -11,16 +11,25 @@ $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $python = Join-Path $projectRoot "venv_SMAI\Scripts\python.exe"
 $stopRequestPath = Join-Path $projectRoot "data\ops\server_ops\streamlit.stop"
+if ([string]::IsNullOrWhiteSpace($env:SMAI_CONFIG_FILE)) {
+    $env:SMAI_CONFIG_FILE = Join-Path $projectRoot "config\server.yaml"
+}
 
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     Write-Error "SMAI Python environment was not found: $python"
     exit 1
 }
+$network = & $python -m backend.server_ops.network --emit-json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $null -eq $network) {
+    Write-Error "SMAI network settings could not be resolved. Nothing was stopped."
+    exit 1
+}
+$mainPort = [int]$network.port
 
-$connection = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue |
+$connection = Get-NetTCPConnection -LocalPort $mainPort -State Listen -ErrorAction SilentlyContinue |
     Select-Object -First 1
 if ($null -eq $connection) {
-    Write-Output "[INFO] No process is listening on TCP 8501."
+    Write-Output "[INFO] No process is listening on TCP $mainPort."
     exit 0
 }
 

@@ -51,7 +51,7 @@ def test_resilient_restart_delay_uses_bounded_exponential_backoff() -> None:
 
 
 def test_streamlit_command_uses_expected_lan_settings() -> None:
-    command = streamlit_command("192.168.1.20")
+    command = streamlit_command("localhost")
 
     assert command[:4] == [sys.executable, "-m", "streamlit", "run"]
     assert "ui/app.py" in command
@@ -59,7 +59,7 @@ def test_streamlit_command_uses_expected_lan_settings() -> None:
     assert command[command.index("--server.port") + 1] == "8501"
     assert command[command.index("--server.headless") + 1] == "true"
     assert command[command.index("--server.runOnSave") + 1] == "false"
-    assert command[command.index("--browser.serverAddress") + 1] == "192.168.1.20"
+    assert command[command.index("--browser.serverAddress") + 1] == "localhost"
 
 
 def test_server_lock_allows_only_one_launcher_and_is_reusable() -> None:

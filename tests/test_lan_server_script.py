@@ -1,13 +1,14 @@
 from pathlib import Path
 
 
-def test_lan_server_passes_detected_ip_to_streamlit_browser_address() -> None:
+def test_manual_server_uses_the_magicdns_url_and_localhost_browser_address() -> None:
     script = Path("scripts/run_lan_server.bat").read_text(encoding="utf-8")
 
     assert "-m backend.server_ops.launcher" in script
-    assert "--browser-address %SMAI_LAN_IP%" in script
-    assert "http://%SMAI_LAN_IP%:8501" in script
-    assert "tailscale ip -4" in script
+    assert "--browser-address localhost" in script
+    assert "SMAI_MAIN_APPLICATION_URL" in script
+    assert "SMAI_LOCAL_APPLICATION_URL" in script
+    assert "tailscale ip -4" not in script
     assert "WebSocket compression: enabled" in script
     assert "Duplicate-safe shared launcher: enabled" in script
     assert 'if "%SMAI_EXIT_CODE%"=="10"' in script
@@ -15,9 +16,9 @@ def test_lan_server_passes_detected_ip_to_streamlit_browser_address() -> None:
     assert "pause" not in script.lower()
 
 
-def test_lan_server_uses_localhost_when_lan_ip_detection_fails() -> None:
+def test_manual_server_resolves_magicdns_url_through_the_common_module() -> None:
     script = Path("scripts/run_lan_server.bat").read_text(encoding="utf-8")
 
-    assert 'set "SMAI_LAN_IP=localhost"' in script
-    assert 'set "SMAI_LAN_IP_FOUND=0"' in script
-    assert "YOUR_DESKTOP_PC_IP" not in script
+    assert "backend.server_ops.network --emit-batch" in script
+    assert "SMAI_TAILSCALE_HOSTNAME" in script
+    assert "SMAI_LAN_IP" not in script

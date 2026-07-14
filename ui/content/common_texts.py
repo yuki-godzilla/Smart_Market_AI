@@ -10,6 +10,18 @@ WARN_TEXT = "要確認"
 CAUTION_TEXT = "注意"
 NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
 
+MAIN_APPLICATION_ACCESS_URL_LABEL = "SMAI接続URL"
+MAIN_APPLICATION_ACCESS_URL_HELP = (
+    "このURLはLAN内・外出先で共通です。接続する端末でTailscaleを起動してください。"
+)
+MAIN_APPLICATION_MAGICDNS_HELP = (
+    "MagicDNSは、Tailscale上のサーバーPCをIPアドレスではなく端末名で接続する機能です。"
+)
+MAIN_APPLICATION_URL_UNAVAILABLE_TEXT = (
+    "SMAI接続URLを表示できません。"
+    "Tailscaleの起動状態とMagicDNSホスト名の設定を確認してください。"
+)
+
 MARKET_DATA_PERIOD_CUSTOM = "custom"
 MARKET_DATA_PERIOD_PRESETS = {
     MARKET_DATA_PERIOD_CUSTOM: "カスタム",

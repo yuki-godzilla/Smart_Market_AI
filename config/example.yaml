@@ -2,6 +2,13 @@ app:
   timezone: UTC
   log_json: true
 
+network:
+  # Set this to the MagicDNS hostname of the SMAI server.
+  tailscale_hostname: desktop-bqrpr4c
+  main_application:
+    scheme: http
+    port: 8501
+
 dataaccess:
   provider: yahoo
   csv_data_dir: data/marketdata

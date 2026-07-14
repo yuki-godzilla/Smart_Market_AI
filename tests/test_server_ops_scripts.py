@@ -4,7 +4,8 @@ from pathlib import Path
 def test_server_watcher_uses_two_stage_safe_restart_check() -> None:
     script = Path("scripts/server_ops/watch_smai_server.ps1").read_text(encoding="utf-8")
 
-    assert "Get-NetTCPConnection -LocalPort 8501" in script
+    assert "backend.server_ops.network --emit-json" in script
+    assert "Get-NetTCPConnection -LocalPort $mainPort" in script
     assert "backend.server_ops.maintenance evaluate" in script
     assert "Start-Sleep -Seconds 30" in script
     assert script.count("backend.server_ops.maintenance evaluate") == 2

@@ -5,7 +5,18 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-13
+Last updated: 2026-07-15
+
+## Main Application access / MagicDNS
+
+通常利用するSMAI Main ApplicationのURLはMagicDNSの
+`http://desktop-bqrpr4c:8501`へ統一した。LAN内・外出先ともに、接続端末で
+Tailscaleを起動して同じURLを使う。サーバーPCでは、ブラウザー自動起動、health check、
+障害切り分けだけに`http://localhost:8501`を使う。固定のhostnameとportは
+`config/server.yaml`で保持し、`SMAI_TAILSCALE_HOSTNAME`、`SMAI_MAIN_PORT`、
+`SMAI_MAIN_SCHEME`で共通URL resolverを上書きできる。listenerは引き続き
+`0.0.0.0:8501`だが、bind address、LAN IPv4、Tailscale IPをユーザー向けURLとして
+表示しない。
 
 Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
 as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,

@@ -13,14 +13,16 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
     assert 'set "SMAI_ASSISTANT_GATEWAY_AUTOSTART=1"' in script
     assert "logs\\server_ops" in script
     assert "-m backend.server_ops.launcher" in script
-    assert "--browser-address %SMAI_LAN_IP%" in script
+    assert "--browser-address localhost" in script
     assert "--maintenance-startup" in script
     assert "--resilient" in script
     assert 'if /i "%~1"=="/console"' in script
     assert "--visible-console" in script
-    assert "Interactive LAN server console" in script
+    assert "Interactive Main Application server console" in script
     assert "Keep this window open while SMAI is running." in script
-    assert "tailscale ip -4" in script
+    assert "SMAI_MAIN_APPLICATION_URL" in script
+    assert "SMAI_LOCAL_APPLICATION_URL" in script
+    assert "tailscale ip -4" not in script
     assert "websocket compression=enabled" in script
     assert "Duplicate-safe shared launcher: enabled" in script
     assert "run_symbol_universe_import_all.bat" not in script
@@ -31,17 +33,18 @@ def test_scheduled_start_script_has_guarded_logged_workstation_startup() -> None
 def test_status_script_checks_smai_gateway_and_ollama() -> None:
     script = _read("scripts/check_smai_server_status.bat")
 
-    assert "http://localhost:8501/_stcore/health" in script
+    assert "%SMAI_LOCAL_APPLICATION_URL%/_stcore/health" in script
     assert "http://127.0.0.1:8088/health" in script
     assert "http://127.0.0.1:11434/api/tags" in script
-    assert "http://%SMAI_LAN_IP%:8501" in script
+    assert "SMAI_MAIN_APPLICATION_URL" in script
 
 
 def test_stop_script_only_stops_matching_8501_smai_listener() -> None:
     wrapper = _read("scripts/stop_smai_server.bat")
     script = _read("scripts/server_ops/stop_smai_server.ps1")
 
-    assert "Get-NetTCPConnection -LocalPort 8501 -State Listen" in script
+    assert "backend.server_ops.network --emit-json" in script
+    assert "Get-NetTCPConnection -LocalPort $mainPort -State Listen" in script
     assert "CommandLine:" in script
     assert "streamlit.+ui[\\/]+app\\.py" in script
     assert 'if /i "%~1"=="/quiet"' in wrapper
@@ -61,7 +64,8 @@ def test_restart_script_reuses_guarded_stop_and_waits_for_health() -> None:
     assert "-WindowStyle Hidden" in implementation
     assert '"/k"' in implementation
     assert 'call "{0}" /console' in implementation
-    assert "http://127.0.0.1:8501/_stcore/health" in implementation
+    assert "backend.server_ops.network --emit-json" in implementation
+    assert "local_access_url" in implementation
     assert "AddSeconds(45)" in implementation
     assert "taskkill" not in implementation.lower()
 

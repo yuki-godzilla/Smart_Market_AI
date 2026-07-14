@@ -1,5 +1,23 @@
 # 99_Work_Log
 
+## 2026-07-15 Main Application MagicDNS対応・接続URL統一
+
+- Tailscale CLIのSelf statusから、このSMAIサーバーの端末名を`DESKTOP-BQRPR4C`、
+  MagicDNS短縮名を`desktop-bqrpr4c`として確認した。Main Applicationの正式ポートは
+  既存どおり`8501`である。
+- `backend.server_ops.network`へ、設定/環境変数/Tailscale CLI/OS hostnameの優先順位で
+  MagicDNS hostnameを解決する共通URL生成を追加した。通常アクセスURLとサーバーPC内の
+  localhost URLを分離し、IPアドレス、`localhost`、`0.0.0.0`を通常アクセスURLとして
+  誤設定できないようにした。
+- `config/server.yaml`で`desktop-bqrpr4c:8501`を明示し、通常起動、手動起動、状態確認、
+  設定画面のURL案内を同じ共通設定へ統一した。Streamlitは従来どおり`0.0.0.0:8501`へ
+  bindし、`--browser.serverAddress`とhealth checkはlocalhostを使用する。
+- LAN IPv4/Tailscale IPの並列案内を廃止し、README、運用ガイド、PWAガイド、接続診断、
+  UI文言をMagicDNS利用手順へ更新した。QRコード生成処理は現状存在しないため、追加・変更はない。
+- URL resolver / launcher / script / docs / UI diagnostic / config回帰63件、Ruff、対象Blackを確認。
+  `tools/run_local_checks.py`も成功した。pytestの標準temp/cacheには既存のWindows権限警告が
+  あるため、workspace内の隔離`--basetemp`を指定してテスト本体を実行した。
+
 ## 2026-07-12: SMAIアシスタント実アプリ・Ollama品質改善スプリント
 
 - ローカルGateway経由で、インストール済み `qwen3:1.7b / 4b / 8b / 14b / 30b` の全5モデルに、合成文脈だけを使う5ケース（自然会話、画面案内、予測・リスク、RAGニュース・開示、売買助言境界）を実行する`tools/evaluate_assistant_live_models.py --allow-live`を追加した。通常pytest/CIには含めない。

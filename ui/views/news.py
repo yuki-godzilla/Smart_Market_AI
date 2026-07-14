@@ -1551,6 +1551,7 @@ def _apply_stock_heatmap_tile_layout(tiles: list[dict[str, object]]) -> None:
     lead-tile hierarchy from the earlier map while its area remains traceable.
     """
 
+    layout_spans: tuple[tuple[int, int], ...]
     if len(tiles) == 1:
         layout_spans = ((6, 5),)
     elif len(tiles) == 2:
@@ -2228,21 +2229,24 @@ def _clear_radar_candidate_filters() -> None:
 def _render_radar_candidate_triage(candidates: Sequence[RadarCandidate]) -> None:
     active_provenance = st.session_state.get(NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY)
     active_priority = st.session_state.get(NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY)
-    triage_active = (
-        active_provenance in _RADAR_PROVENANCE_LABELS
-        and active_priority in _RADAR_TRIAGE_PRIORITY_LABELS
+    active_provenance_label = (
+        _RADAR_PROVENANCE_LABELS.get(active_provenance)
+        if isinstance(active_provenance, str)
+        else None
     )
+    active_priority_label = (
+        _RADAR_TRIAGE_PRIORITY_LABELS.get(active_priority)
+        if isinstance(active_priority, str)
+        else None
+    )
+    triage_active = active_provenance_label is not None and active_priority_label is not None
     with st.expander("確認トリアージ（候補を絞る）", expanded=triage_active):
         st.caption(
             "候補由来とニュース確認の順番を組み合わせた見取り図です。"
             "投資魅力度・予想収益・ランキングではありません。"
         )
-        if triage_active:
-            st.caption(
-                "適用中: "
-                f"{_RADAR_PROVENANCE_LABELS[active_provenance]} / "
-                f"{_RADAR_TRIAGE_PRIORITY_LABELS[active_priority]}"
-            )
+        if active_provenance_label is not None and active_priority_label is not None:
+            st.caption(f"適用中: {active_provenance_label} / {active_priority_label}")
             st.button(
                 "条件を解除",
                 key="investment_radar_triage_clear",

@@ -4,6 +4,7 @@ import asyncio
 import gc
 import hashlib
 import html
+import importlib
 import json
 import logging
 import math
@@ -33,6 +34,7 @@ import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
+import ui.styles as _ui_styles_module
 from backend.core.config import get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
     Bar,
@@ -485,6 +487,13 @@ from ui.watchlist_snapshots import (
     prune_snapshots_for_removed_favorites,
     save_watchlist_snapshots,
 )
+
+# Streamlit reloads the page script without necessarily reloading imported
+# modules. Refresh a stale style module once so a rolling Radar update cannot
+# leave the new heatmap markup without its matching responsive CSS. Existing
+# imported functions retain the module dictionary that reload updates.
+if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-14-radar-market-v1":
+    importlib.reload(_ui_styles_module)
 
 LOGGER = logging.getLogger(__name__)
 

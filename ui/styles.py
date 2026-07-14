@@ -5,6 +5,8 @@ import streamlit as st
 
 from ui import style_components as _components
 
+SMAI_STYLE_REVISION = "2026-07-14-radar-market-v1"
+
 badge_html = _components.badge_html
 compact_display_value = _components.compact_display_value
 dashboard_header_html = _components.dashboard_header_html

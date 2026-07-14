@@ -34,6 +34,7 @@ import streamlit as st
 from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
+import backend.news.radar_market as _radar_market_module
 import ui.styles as _ui_styles_module
 from backend.core.config import get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
@@ -70,6 +71,13 @@ from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.news import RadarCandidate
 from backend.news.background import start_news_background_refresh_worker
+
+# A long-running Streamlit process can retain the first Radar market module
+# revision across rolling updates. Reload only that stale revision before any
+# view imports bind its contracts and builder.
+if getattr(_radar_market_module, "SMAI_RADAR_MARKET_REVISION", "") != "2026-07-14-grouped-v2":
+    importlib.reload(_radar_market_module)
+
 from backend.news.radar_market import (
     RadarMarketSnapshot,
     build_radar_market_snapshot,
@@ -492,7 +500,7 @@ from ui.watchlist_snapshots import (
 # modules. Refresh a stale style module once so a rolling Radar update cannot
 # leave the new heatmap markup without its matching responsive CSS. Existing
 # imported functions retain the module dictionary that reload updates.
-if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-14-radar-market-v1":
+if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-14-radar-market-v4":
     importlib.reload(_ui_styles_module)
 
 LOGGER = logging.getLogger(__name__)
@@ -11087,6 +11095,7 @@ def _fetch_news_radar_market_snapshot(
         provider=provider,
         lookback_sessions=lookback_sessions,
         generated_at=now,
+        symbol_metadata_by_symbol=_symbol_universe_rows_by_symbol(),
     )
 
 

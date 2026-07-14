@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, date, datetime
@@ -40,6 +41,7 @@ from ui.components.mascot import (
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
+from ui.content.symbol_texts import SYMBOL_UNIVERSE_DISPLAY_LABELS
 from ui.favorites import (
     evaluate_favorite_refresh_status,
     is_favorite,
@@ -78,7 +80,9 @@ NEWS_RADAR_CANDIDATE_QUICK_UNCHECKED_ONLY_KEY = "investment_radar_candidate_quic
 NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY = "investment_radar_candidate_triage_provenance"
 NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY = "investment_radar_candidate_triage_priority"
 NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY = "investment_radar_market_snapshot"
-NEWS_RADAR_MARKET_PERIOD_STATE_KEY = "investment_radar_market_period"
+NEWS_RADAR_MARKET_GROUPING_STATE_KEY = "investment_radar_market_grouping"
+NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES = 15
+NEWS_RADAR_MARKET_GROUP_TILE_LIMIT = 8
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -474,12 +478,7 @@ def render_news_dashboard_page(
     _render_update_warning(status)
     symbol_name_map = _news_symbol_name_map()
     today_candidate_map = _radar_candidate_map_for_snapshot(snapshot)
-    today_tab, market_tab, evidence_tab, news_tab = st.tabs(
-        ["今日のレーダー", "市場ヒートマップ", "ニュース・根拠", "ニュース一覧"]
-    )
-    with today_tab:
-        _render_radar_today_summary(today_candidate_map)
-        _render_heatmap(snapshot)
+    market_tab, evidence_tab, news_tab = st.tabs(["市場レーダー", "ニュース・根拠", "ニュース一覧"])
     with market_tab:
         _render_market_heatmap(
             today_candidate_map,
@@ -2031,7 +2030,9 @@ def radar_market_treemap_rectangles(
     if not tiles or width <= 0 or height <= 0:
         return []
     ordered = sorted(tiles, key=lambda item: (-item.magnitude_pct, item.symbol))
-    raw_weights = [max(item.magnitude_pct, 0.25) for item in ordered]
+    maximum_weight = max(item.magnitude_pct for item in ordered)
+    minimum_display_weight = max(0.25, maximum_weight * 0.08)
+    raw_weights = [max(item.magnitude_pct, minimum_display_weight) for item in ordered]
     scale = (width * height) / sum(raw_weights)
     sizes = [value * scale for value in raw_weights]
     rectangles: list[tuple[RadarMarketTile, float, float, float, float]] = []
@@ -2090,37 +2091,60 @@ def radar_market_treemap_rectangles(
     return rectangles
 
 
-def radar_market_heatmap_html(snapshot: RadarMarketSnapshot) -> str:
-    """Return the verified price-movement map; missing values are never colored."""
+def radar_market_heatmap_groups(
+    snapshot: RadarMarketSnapshot,
+    *,
+    grouping: str,
+) -> list[tuple[str, list[RadarMarketTile]]]:
+    """Group verified price tiles by sector, industry, or news category."""
+
+    grouped: dict[str, list[RadarMarketTile]] = {}
+    for tile in snapshot.tiles:
+        if grouping == "sector":
+            labels = [_radar_market_sector_label(tile.sector)]
+        elif grouping == "industry":
+            labels = [tile.industry or "未分類"]
+        else:
+            labels = tile.news_categories or [tile.category]
+        for label in dict.fromkeys(label.strip() or "未分類" for label in labels):
+            grouped.setdefault(label, []).append(tile)
+    groups = [
+        (label, sorted(tiles, key=lambda item: (-item.magnitude_pct, item.symbol)))
+        for label, tiles in grouped.items()
+    ]
+    groups.sort(
+        key=lambda item: (
+            -max(tile.magnitude_pct for tile in item[1]),
+            -sum(tile.evidence_count for tile in item[1]),
+            item[0],
+        )
+    )
+    return groups
+
+
+def radar_market_heatmap_html(
+    snapshot: RadarMarketSnapshot,
+    *,
+    grouping: str = "sector",
+) -> str:
+    """Return grouped verified price maps; missing values are never colored."""
 
     if not snapshot.tiles:
         return ""
-    rectangles = radar_market_treemap_rectangles(snapshot.tiles)
     max_magnitude = max(tile.magnitude_pct for tile in snapshot.tiles) or 1.0
-    tile_html: list[str] = []
-    for tile, x, y, width, height in rectangles:
-        intensity = min(1.0, tile.magnitude_pct / max(max_magnitude, 1.0))
-        if tile.change_pct > 0.02:
-            direction_class, direction, arrow = "positive", "上昇", "▲"
-            background = f"rgba(12, 142, 99, {0.30 + intensity * 0.58:.3f})"
-        elif tile.change_pct < -0.02:
-            direction_class, direction, arrow = "negative", "下落", "▼"
-            background = f"rgba(184, 63, 86, {0.30 + intensity * 0.58:.3f})"
-        else:
-            direction_class, direction, arrow = "flat", "横ばい", "―"
-            background = "rgba(95, 112, 134, 0.52)"
-        change_label = f"{tile.change_pct:+.2f}%"
-        tile_html.append(
-            '<div class="investment-market-heatmap-tile '
-            f'{direction_class}" style="left:{x:.4f}%;top:{y / 56 * 100:.4f}%;'
-            f'width:{width:.4f}%;height:{height / 56 * 100:.4f}%;background:{background}" '
-            f'aria-label="{html.escape(tile.display_name)} {direction} {change_label}">'
-            f'<span class="investment-market-heatmap-name">{html.escape(tile.display_name)}</span>'
-            f'<span class="investment-market-heatmap-symbol">{html.escape(tile.symbol)}</span>'
-            f"<strong>{arrow} {change_label}</strong>"
-            f"<small>{html.escape(tile.category)} · 根拠{tile.evidence_count}件</small>"
-            "</div>"
+    featured = max(
+        snapshot.tiles,
+        key=lambda tile: (tile.confirmation_priority, tile.magnitude_pct, tile.symbol),
+    )
+    group_html = "".join(
+        _radar_market_group_html(
+            label,
+            tiles,
+            max_magnitude=max_magnitude,
+            featured_symbol=featured.symbol,
         )
+        for label, tiles in radar_market_heatmap_groups(snapshot, grouping=grouping)
+    )
     period_label = f"直近{snapshot.lookback_sessions}営業日"
     as_of = max(tile.as_of for tile in snapshot.tiles).astimezone(NEWS_DISPLAY_TIMEZONE)
     unavailable = (
@@ -2128,22 +2152,114 @@ def radar_market_heatmap_html(snapshot: RadarMarketSnapshot) -> str:
         if snapshot.unavailable_symbols
         else ""
     )
+    grouping_label = {"sector": "セクター", "industry": "業種", "news": "注目ニュース"}.get(
+        grouping, "注目ニュース"
+    )
     return (
         '<section class="investment-market-heatmap">'
         '<div class="investment-market-heatmap-meta">'
-        f"<strong>{period_label}の値動き</strong>"
-        "<span>面積: 変動の大きさ（最低表示面積あり）</span>"
-        "<span>色: 騰落方向</span>"
+        f"<strong>{period_label}の値動き · {html.escape(grouping_label)}別</strong>"
+        "<span>面積: 騰落幅（最低表示面積あり）</span>"
+        "<span>色: 上昇／下落</span>"
+        "<span>本文／推測: ニュースからの抽出方法</span>"
         f"<span>取得元: {html.escape(snapshot.provider)}</span>"
         f"<span>価格基準: {as_of:%Y-%m-%d %H:%M} {NEWS_DISPLAY_TIMEZONE_LABEL}</span>"
         f"{unavailable}"
         "</div>"
-        '<div class="investment-market-heatmap-canvas">' + "".join(tile_html) + "</div>"
+        f'<div class="investment-market-heatmap-groups">{group_html}</div>'
         '<div class="investment-market-heatmap-scale" aria-label="色の凡例">'
         '<span class="negative">▼ 下落</span><span class="flat">― 横ばい</span>'
         '<span class="positive">▲ 上昇</span></div>'
         "</section>"
     )
+
+
+def _radar_market_group_html(
+    label: str,
+    tiles: Sequence[RadarMarketTile],
+    *,
+    max_magnitude: float,
+    featured_symbol: str,
+) -> str:
+    displayed_tiles = list(tiles[:NEWS_RADAR_MARKET_GROUP_TILE_LIMIT])
+    featured_tile = next((tile for tile in tiles if tile.symbol == featured_symbol), None)
+    if featured_tile is not None and featured_tile not in displayed_tiles and displayed_tiles:
+        displayed_tiles[-1] = featured_tile
+        displayed_tiles.sort(key=lambda tile: (-tile.magnitude_pct, tile.symbol))
+    rectangles = radar_market_treemap_rectangles(displayed_tiles)
+    tile_html: list[str] = []
+    for tile, x, y, width, height in rectangles:
+        intensity = min(1.0, tile.magnitude_pct / max(max_magnitude, 1.0))
+        if tile.change_pct > 0.02:
+            direction_class, direction, arrow = "positive", "上昇", "▲"
+            leading_alpha = 0.45 + intensity * 0.42
+            background = (
+                "linear-gradient(135deg, "
+                f"rgba(16, 185, 129, {leading_alpha:.3f}) 0%, "
+                f"rgba(5, 75, 66, {0.58 + intensity * 0.24:.3f}) 100%)"
+            )
+        elif tile.change_pct < -0.02:
+            direction_class, direction, arrow = "negative", "下落", "▼"
+            leading_alpha = 0.45 + intensity * 0.42
+            background = (
+                "linear-gradient(135deg, "
+                f"rgba(244, 63, 94, {leading_alpha:.3f}) 0%, "
+                f"rgba(92, 28, 52, {0.58 + intensity * 0.24:.3f}) 100%)"
+            )
+        else:
+            direction_class, direction, arrow = "flat", "横ばい", "―"
+            background = (
+                "linear-gradient(135deg, rgba(100, 116, 139, 0.68), " "rgba(30, 41, 59, 0.88))"
+            )
+        change_label = f"{tile.change_pct:+.2f}%"
+        density_class = ""
+        if width < 15 or height / 56 * 100 < 17:
+            density_class = " minimal"
+        elif width < 26 or height / 56 * 100 < 27:
+            density_class = " compact"
+        featured_badge = (
+            '<span class="investment-market-heatmap-pick">先に確認</span>'
+            if tile.symbol == featured_symbol and tile.confirmation_priority > 0
+            else ""
+        )
+        relation = "本文" if tile.provenance == "direct_mention" else "テーマ推測"
+        watchlist = " · WL" if tile.watchlist_match else ""
+        href = news_dashboard_cockpit_href(tile.symbol)
+        tile_html.append(
+            '<a class="investment-market-heatmap-tile '
+            f'{direction_class}{density_class}" style="left:{x:.4f}%;top:{y / 56 * 100:.4f}%;'
+            f'width:{width:.4f}%;height:{height / 56 * 100:.4f}%;background:{background}" '
+            f'href="{html.escape(href)}" '
+            f'aria-label="{html.escape(tile.display_name)} {direction} {change_label}。'
+            f'{relation}、根拠{tile.evidence_count}件">'
+            f"{featured_badge}"
+            f'<span class="investment-market-heatmap-name">{html.escape(tile.display_name)}</span>'
+            f'<span class="investment-market-heatmap-symbol">{html.escape(tile.symbol)}</span>'
+            f"<strong>{arrow} {change_label}</strong>"
+            f"<small>{relation} · 根拠{tile.evidence_count}件{watchlist}</small>"
+            "</a>"
+        )
+    up_count = sum(tile.change_pct > 0.02 for tile in displayed_tiles)
+    down_count = sum(tile.change_pct < -0.02 for tile in displayed_tiles)
+    group_summary = (
+        f"{len(tiles)}銘柄 · 値動き上位{len(displayed_tiles)}表示"
+        if len(tiles) > len(displayed_tiles)
+        else f"{len(displayed_tiles)}銘柄 · 上昇{up_count} / 下落{down_count}"
+    )
+    return (
+        '<article class="investment-market-heatmap-group">'
+        '<header class="investment-market-heatmap-group-header">'
+        f"<strong>{html.escape(label)}</strong>"
+        f"<span>{group_summary}</span>"
+        "</header>"
+        '<div class="investment-market-heatmap-canvas">' + "".join(tile_html) + "</div>"
+        "</article>"
+    )
+
+
+def _radar_market_sector_label(sector: str) -> str:
+    labels = SYMBOL_UNIVERSE_DISPLAY_LABELS.get("sector", {})
+    return labels.get(sector, sector or "未分類")
 
 
 def _market_snapshot_from_state() -> RadarMarketSnapshot | None:
@@ -2158,48 +2274,78 @@ def _market_snapshot_from_state() -> RadarMarketSnapshot | None:
     return None
 
 
+def radar_market_snapshot_needs_refresh(
+    snapshot: RadarMarketSnapshot | None,
+    *,
+    lookback_sessions: int,
+    now: datetime | None = None,
+) -> bool:
+    """Return whether page entry should refresh the bounded daily-price snapshot."""
+
+    if snapshot is None or snapshot.lookback_sessions != lookback_sessions:
+        return True
+    checked_at = now or datetime.now(UTC)
+    age_seconds = (checked_at - snapshot.generated_at.astimezone(UTC)).total_seconds()
+    return age_seconds >= NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60
+
+
+def _radar_market_auto_fetch_enabled() -> bool:
+    return os.getenv("SMAI_RADAR_AUTO_FETCH", "1").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
+
+
+@st.fragment(run_every=NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60)
 def _render_market_heatmap(
     candidate_map: RadarCandidateMap,
     *,
     market_snapshot_callback: MarketSnapshotCallback,
 ) -> None:
-    st.markdown("### 値動き注目マップ")
+    _render_radar_today_summary(candidate_map)
+    st.markdown("### 市場ヒートマップ")
     st.caption(
-        "ニュースで見つかった銘柄の実価格を比較し、動きが大きい対象を見つけます。"
-        "投資魅力度や将来予測ではありません。"
+        "ニュースから抽出した候補を、セクター・業種・注目ニュース別に並べます。"
+        "タイルを選ぶと銘柄コックピットへ進めます。投資魅力度や将来予測ではありません。"
     )
-    period = int(
+    period = 20
+    grouping = str(
         st.radio(
-            "比較期間",
-            options=[1, 5, 20],
-            format_func=lambda value: f"{value}営業日",
+            "分類",
+            options=["sector", "industry", "news"],
+            format_func=lambda value: {
+                "sector": "セクター",
+                "industry": "業種",
+                "news": "注目ニュース",
+            }[value],
             horizontal=True,
-            key=NEWS_RADAR_MARKET_PERIOD_STATE_KEY,
+            key=NEWS_RADAR_MARKET_GROUPING_STATE_KEY,
         )
     )
-    if st.button(
-        "価格マップを更新",
+    refresh_requested = st.button(
+        "今すぐ更新",
         key="investment_radar_market_refresh",
-        type="primary",
-        use_container_width=True,
-    ):
+    )
+    market_snapshot = _market_snapshot_from_state()
+    auto_refresh = _radar_market_auto_fetch_enabled() and radar_market_snapshot_needs_refresh(
+        market_snapshot,
+        lookback_sessions=period,
+    )
+    if refresh_requested or auto_refresh:
         with st.spinner("候補銘柄の価格を確認しています…"):
             st.session_state[NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY] = market_snapshot_callback(
                 candidate_map.candidates, period
             )
-    market_snapshot = _market_snapshot_from_state()
+        market_snapshot = _market_snapshot_from_state()
     if market_snapshot is None:
         st.info(
-            "価格はまだ取得していません。「価格マップを更新」を押すと、"
-            "ニュース候補を最大24銘柄まで明示的に取得します。"
+            "価格はまだ取得していません。通常は画面表示時に、ニュース候補を"
+            "最大24銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
         )
         return
-    if market_snapshot.lookback_sessions != period:
-        st.info(
-            f"表示中は{market_snapshot.lookback_sessions}営業日の結果です。"
-            f"{period}営業日に切り替えるには価格マップを更新してください。"
-        )
-    heatmap_html = radar_market_heatmap_html(market_snapshot)
+    heatmap_html = radar_market_heatmap_html(market_snapshot, grouping=grouping)
     if not heatmap_html:
         st.warning(
             "比較に必要な価格履歴を取得できませんでした。Provider設定や銘柄コードを確認し、"
@@ -2208,7 +2354,9 @@ def _render_market_heatmap(
         return
     st.markdown(heatmap_html, unsafe_allow_html=True)
     st.caption(
-        "面積と色は概略比較のための表示です。正確な騰落率は各タイルの数値を確認してください。"
+        f"比較期間は約1か月（20営業日）固定です。画面表示時に取得し、開いている間は"
+        f"{NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES}分ごとにサーバー側で鮮度を確認して自動更新します。"
+        "正確な騰落率は各タイルの数値を確認してください。"
     )
 
 
@@ -2486,7 +2634,7 @@ def _render_radar_candidate_triage(candidates: Sequence[RadarCandidate]) -> None
 
 
 def _render_radar_today_summary(candidate_map: RadarCandidateMap) -> None:
-    """Render the selected confirmation path before the compact theme map."""
+    """Render today's extraction and first-check hook as a compact map preface."""
 
     candidates = candidate_map.candidates
     if not candidates:
@@ -2504,41 +2652,36 @@ def _render_radar_today_summary(candidate_map: RadarCandidateMap) -> None:
         provenance: sum(candidate.provenance == provenance for candidate in candidates)
         for provenance in _RADAR_PROVENANCE_LABELS
     }
-    st.markdown("### 今日の確認ポイント")
-    st.caption(
-        "ニュースから確認を始める候補と、市場背景として見る対象を分けて表示します。"
-        "投資魅力度・期待収益・ランキング順位ではありません。"
+    status_parts = [
+        _RADAR_PROVENANCE_LABELS[selected_candidate.provenance],
+        _radar_candidate_material_type_label(selected_candidate),
+        f"ニュース {_freshness_label(selected_candidate.freshness_status)}",
+    ]
+    if selected_candidate.watchlist_match:
+        status_parts.append("Myウォッチリスト一致")
+    st.markdown(
+        '<section class="investment-radar-market-summary" aria-label="今日の抽出状況">'
+        '<div class="investment-radar-market-summary-counts">'
+        f'<span>本文 <strong>{counts["direct_mention"]}</strong></span>'
+        f'<span>テーマ推測 <strong>{counts["inferred_candidate"]}</strong></span>'
+        f'<span>市場背景 <strong>{counts["macro_proxy"]}</strong></span>'
+        "</div>"
+        '<div class="investment-radar-market-summary-pick">'
+        '<span class="investment-radar-market-summary-label">最初に確認</span>'
+        f"<strong>{html.escape(_radar_candidate_display_name(selected_candidate))}</strong>"
+        f"<code>{html.escape(selected_candidate.symbol)}</code>"
+        f'<small>{html.escape(" · ".join(status_parts))}</small>'
+        "</div>"
+        "</section>",
+        unsafe_allow_html=True,
     )
-    direct_col, inferred_col, macro_col = st.columns(3)
-    for column, provenance in zip(
-        (direct_col, inferred_col, macro_col),
-        _RADAR_PROVENANCE_LABELS,
-        strict=False,
-    ):
-        with column:
-            column.metric(_RADAR_PROVENANCE_LABELS[provenance], f"{counts[provenance]}件")
-    with st.container(border=True):
-        st.markdown("**まず確認する候補**")
-        st.markdown(f"**{html.escape(_radar_candidate_display_name(selected_candidate))}**")
-        if _radar_candidate_display_name(selected_candidate) != selected_candidate.symbol:
-            st.caption(f"銘柄コード: {selected_candidate.symbol}")
-        status_parts = [
-            _RADAR_PROVENANCE_LABELS[selected_candidate.provenance],
-            _radar_candidate_material_type_label(selected_candidate),
-            f"ニュース: {_freshness_label(selected_candidate.freshness_status)}",
-            f"確認の順番: {_radar_candidate_priority_label(selected_candidate)}",
-        ]
-        if selected_candidate.watchlist_match:
-            status_parts.append("Myウォッチリスト一致")
-        st.caption(" / ".join(status_parts))
-        st.button(
-            "根拠と次の操作を開く",
-            key=f"investment_radar_today_candidate_detail_{selected_candidate.candidate_id}",
-            on_click=_request_radar_candidate_detail,
-            args=(selected_candidate.candidate_id,),
-            type="primary",
-            use_container_width=True,
-        )
+    st.button(
+        "最初の候補の根拠を見る",
+        key=f"investment_radar_today_candidate_detail_{selected_candidate.candidate_id}",
+        on_click=_request_radar_candidate_detail,
+        args=(selected_candidate.candidate_id,),
+        type="primary",
+    )
 
 
 def _render_radar_candidate_lanes(

@@ -5,7 +5,12 @@ from decimal import Decimal
 
 from backend.core.data_contracts import Bar, Symbol
 from backend.news import RadarCandidate, RadarCandidateProvenance, build_radar_market_snapshot
-from ui.views.news import radar_market_heatmap_html, radar_market_treemap_rectangles
+from ui.views.news import (
+    radar_market_heatmap_groups,
+    radar_market_heatmap_html,
+    radar_market_snapshot_needs_refresh,
+    radar_market_treemap_rectangles,
+)
 
 
 def _candidate(
@@ -87,6 +92,74 @@ def test_radar_market_snapshot_marks_missing_history_unavailable_without_neutral
     assert snapshot.unavailable_symbols == ["BBB"]
 
 
+def test_radar_market_snapshot_carries_sector_industry_and_pickup_context():
+    candidate = _candidate("AAA")
+    candidate.confirmation_priority = 88
+    candidate.watchlist_match = True
+    snapshot = build_radar_market_snapshot(
+        [candidate],
+        _bars("AAA", ["100", "103"]),
+        provider="fixture",
+        lookback_sessions=1,
+        symbol_metadata_by_symbol={
+            "aaa": {
+                "sector": "technology",
+                "industry_gics": "Semiconductors",
+            }
+        },
+    )
+
+    tile = snapshot.tiles[0]
+    assert tile.sector == "technology"
+    assert tile.industry == "Semiconductors"
+    assert tile.news_categories == ["半導体・AI"]
+    assert tile.confirmation_priority == 88
+    assert tile.watchlist_match is True
+
+
+def test_radar_market_groups_tiles_by_sector_industry_and_each_news_category():
+    candidate = _candidate("AAA")
+    candidate.categories = ["半導体・AI", "決算・業績修正"]
+    snapshot = build_radar_market_snapshot(
+        [candidate],
+        _bars("AAA", ["100", "103"]),
+        provider="fixture",
+        lookback_sessions=1,
+        symbol_metadata_by_symbol={"AAA": {"sector": "technology", "tse_33_industry": "電気機器"}},
+    )
+
+    assert [label for label, _ in radar_market_heatmap_groups(snapshot, grouping="sector")] == [
+        "テクノロジー"
+    ]
+    assert [label for label, _ in radar_market_heatmap_groups(snapshot, grouping="industry")] == [
+        "電気機器"
+    ]
+    assert {label for label, _ in radar_market_heatmap_groups(snapshot, grouping="news")} == {
+        "半導体・AI",
+        "決算・業績修正",
+    }
+
+
+def test_radar_market_snapshot_refreshes_on_entry_when_missing_stale_or_period_changes():
+    now = datetime(2026, 7, 3, 10, 0, tzinfo=UTC)
+    snapshot = build_radar_market_snapshot(
+        [_candidate("AAA")],
+        _bars("AAA", ["100", "103"]),
+        provider="fixture",
+        lookback_sessions=20,
+        generated_at=now - timedelta(minutes=14),
+    )
+
+    assert not radar_market_snapshot_needs_refresh(snapshot, lookback_sessions=20, now=now)
+    assert radar_market_snapshot_needs_refresh(snapshot, lookback_sessions=5, now=now)
+    assert radar_market_snapshot_needs_refresh(
+        snapshot.model_copy(update={"generated_at": now - timedelta(minutes=15)}),
+        lookback_sessions=20,
+        now=now,
+    )
+    assert radar_market_snapshot_needs_refresh(None, lookback_sessions=20, now=now)
+
+
 def test_radar_market_heatmap_keeps_area_proportional_and_shows_exact_direction():
     snapshot = build_radar_market_snapshot(
         [_candidate("AAA"), _candidate("BBB")],
@@ -97,12 +170,32 @@ def test_radar_market_heatmap_keeps_area_proportional_and_shows_exact_direction(
 
     rectangles = radar_market_treemap_rectangles(snapshot.tiles)
     areas = {tile.symbol: width * height for tile, _, _, width, height in rectangles}
-    html_text = radar_market_heatmap_html(snapshot)
+    html_text = radar_market_heatmap_html(snapshot, grouping="news")
 
     assert areas["AAA"] > areas["BBB"]
     assert "+8.00%" in html_text
     assert "-2.00%" in html_text
     assert "▲ 上昇" in html_text
     assert "▼ 下落" in html_text
-    assert "面積: 変動の大きさ" in html_text
+    assert "面積: 騰落幅" in html_text
     assert "取得元: fixture" in html_text
+    assert "半導体・AI" in html_text
+    assert "本文 · 根拠1件" in html_text
+    assert "smai_page=cockpit" in html_text
+    assert "先に確認" in html_text
+
+
+def test_radar_market_news_group_limits_dense_map_and_reports_hidden_tiles():
+    candidates = [_candidate(f"S{index:02d}") for index in range(10)]
+    bars = [bar for index in range(10) for bar in _bars(f"S{index:02d}", ["100", str(101 + index)])]
+    snapshot = build_radar_market_snapshot(
+        candidates,
+        bars,
+        provider="fixture",
+        lookback_sessions=1,
+    )
+
+    html_text = radar_market_heatmap_html(snapshot, grouping="news")
+
+    assert "10銘柄 · 値動き上位8表示" in html_text
+    assert html_text.count('class="investment-market-heatmap-tile ') == 8

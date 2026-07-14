@@ -62,56 +62,41 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("投資レーダー", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
-                assert page.get_by_role("tab").count() == 4
-                heatmap_tile = page.locator("a.investment-stock-heatmap-tile").first
-                heatmap_header = page.locator(".investment-stock-heatmap-group-header").first
+                assert page.get_by_role("tab").count() == 3
+                assert page.get_by_role("tab", name="市場レーダー").count() == 1
+                assert page.get_by_role("button", name="今すぐ更新").count() == 1
+                market_surface = page.locator("section.investment-market-heatmap")
+                market_surface.wait_for(state="visible", timeout=120_000)
+                assert page.get_by_text("比較期間は約1か月", exact=False).count() > 0
+                assert page.get_by_text("比較期間", exact=True).count() == 0
+                heatmap_tile = market_surface.locator("a.investment-market-heatmap-tile").first
+                heatmap_header = market_surface.locator(
+                    ".investment-market-heatmap-group-header"
+                ).first
                 assert heatmap_tile.count() > 0
                 assert heatmap_header.count() > 0
                 assert str(heatmap_tile.get_attribute("href")).startswith("?smai_start_profile=")
                 header_box = heatmap_header.bounding_box()
                 assert header_box is not None
                 assert header_box["height"] >= 40
-                assert page.get_by_text("8セクター", exact=False).count() == 0
-                assert page.locator(".investment-stock-heatmap-group-kind").count() > 0
-                primary_theme_map = page.locator(".investment-stock-heatmap-board").first
-                assert (
-                    primary_theme_map.locator(":scope > .investment-stock-heatmap-group").count()
-                    <= 3
-                )
-                primary_theme_surface = page.locator("section.investment-stock-heatmap").first
-                assert (
-                    primary_theme_surface.locator(
-                        ".investment-stock-heatmap-legend.evidence"
-                    ).count()
-                    == 1
-                )
-                assert (
-                    primary_theme_surface.locator(
-                        ".investment-stock-heatmap-legend.neutral"
-                    ).count()
-                    == 1
-                )
-                assert (
-                    primary_theme_surface.locator(
-                        'a.investment-stock-heatmap-tile[class*="freshness-"]'
-                    ).count()
-                    > 0
-                )
-                if 768 <= width <= 900:
-                    grid_column_count = primary_theme_map.evaluate(
+                assert page.get_by_text("直近20営業日の値動き", exact=False).count() > 0
+                assert page.get_by_text("本文／推測", exact=False).count() > 0
+                market_groups = market_surface.locator(".investment-market-heatmap-groups")
+                if 768 <= width <= 1200:
+                    grid_column_count = market_groups.evaluate(
                         "(element) => getComputedStyle(element).gridTemplateColumns"
                         ".split(' ').filter(Boolean).length"
                     )
                     assert grid_column_count == 1
-                elif 901 <= width <= 1200:
-                    grid_column_count = primary_theme_map.evaluate(
+                elif width > 1200:
+                    grid_column_count = market_groups.evaluate(
                         "(element) => getComputedStyle(element).gridTemplateColumns"
                         ".split(' ').filter(Boolean).length"
                     )
                     assert grid_column_count == 2
-                primary_theme_surface.scroll_into_view_if_needed()
+                market_surface.scroll_into_view_if_needed()
                 page.screenshot(
-                    path=str(screenshot_dir / f"{name}-theme-map.png"),
+                    path=str(screenshot_dir / f"{name}.png"),
                     full_page=False,
                 )
                 if width <= 767:
@@ -123,17 +108,11 @@ def test_investment_radar_responsive_viewports() -> None:
                     assert assistant_box is not None
                     assert 44 <= assistant_box["width"] <= 80
                     assert assistant_box["height"] >= 44
-                    final_map_tile = primary_theme_map.locator(
-                        "a.investment-stock-heatmap-tile"
-                    ).last
+                    final_map_tile = market_surface.locator("a.investment-market-heatmap-tile").last
                     final_map_tile.scroll_into_view_if_needed()
                     final_tile_box = final_map_tile.bounding_box()
                     assert final_tile_box is not None
                     assert final_tile_box["y"] + final_tile_box["height"] <= assistant_box["y"]
-
-                page.get_by_role("tab", name="市場ヒートマップ").click()
-                assert page.get_by_role("button", name="価格マップを更新").count() == 1
-                assert page.get_by_text("価格はまだ取得していません", exact=False).count() == 1
 
                 page.get_by_role("tab", name="ニュース一覧").click()
                 assert page.locator(".investment-news-ticker-item").count() <= 3

@@ -195,6 +195,7 @@ def test_news_symbol_chip_rows_show_favorite_state_and_skip_missing_symbol(tmp_p
 
 def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setenv("SMAI_RADAR_AUTO_FETCH", "0")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "news"
     app.session_state["smai_current_user_id"] = "default"
@@ -224,8 +225,8 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "キャッシュサイズ" not in page_text
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
-    assert "ニューステーマ" in page_text
-    assert "値動き注目マップ" in page_text
+    assert "市場ヒートマップ" in page_text
+    assert "ニュースから抽出した候補" in page_text
     assert "ニュースからの確認候補" in page_text
     assert "追加候補マップ" not in page_text
     assert "本文に出た銘柄" in page_text
@@ -235,7 +236,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
-    assert "価格マップを更新" in button_labels
+    assert "今すぐ更新" in button_labels
     assert "詳細を開く" in button_labels
     assert "Watchlist" in text_input_labels
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
@@ -253,10 +254,10 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     candidate_map_index = next(
         index for index, value in enumerate(markdown_values) if "ニュースからの確認候補" in value
     )
-    heatmap_index = next(
-        index for index, value in enumerate(markdown_values) if "ニューステーマ" in value
+    market_index = next(
+        index for index, value in enumerate(markdown_values) if "市場ヒートマップ" in value
     )
-    assert heatmap_index < candidate_map_index
+    assert market_index < candidate_map_index
 
     detail_buttons = [button for button in app.button if button.label == "詳細を開く"]
     assert 0 < len(detail_buttons) <= NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT * 2

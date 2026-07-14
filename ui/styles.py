@@ -5,7 +5,7 @@ import streamlit as st
 
 from ui import style_components as _components
 
-SMAI_STYLE_REVISION = "2026-07-14-radar-market-v1"
+SMAI_STYLE_REVISION = "2026-07-14-radar-market-v4"
 
 badge_html = _components.badge_html
 compact_display_value = _components.compact_display_value
@@ -2095,11 +2095,14 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-market-heatmap {
     margin: 0.45rem 0 0.85rem;
-    border: 1px solid rgba(125, 211, 252, 0.22);
-    border-radius: 10px;
-    background: linear-gradient(145deg, rgba(8, 18, 34, 0.98), rgba(4, 9, 19, 0.98));
-    padding: 0.7rem;
-    box-shadow: 0 1rem 2.6rem rgba(2, 6, 23, 0.26);
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.1), transparent 34%),
+        linear-gradient(145deg, rgba(8, 18, 34, 0.96), rgba(4, 9, 19, 0.985));
+    padding: 0.8rem;
+    box-shadow: 0 1.1rem 3rem rgba(2, 6, 23, 0.3), inset 0 1px rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(8px);
 }
 
 .investment-market-heatmap-meta,
@@ -2118,14 +2121,105 @@ div[data-testid="stElementContainer"]:has(
     font-size: 0.88rem;
 }
 
+.investment-radar-market-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem 1rem;
+    margin: 0.35rem 0 0.5rem;
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 12px;
+    background:
+        linear-gradient(110deg, rgba(14, 165, 233, 0.09), transparent 42%),
+        rgba(15, 23, 42, 0.5);
+    padding: 0.6rem 0.75rem;
+}
+
+.investment-radar-market-summary-counts,
+.investment-radar-market-summary-pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+}
+
+.investment-radar-market-summary-counts span,
+.investment-radar-market-summary-label {
+    color: rgba(203, 220, 233, 0.82);
+    font-size: 0.72rem;
+}
+
+.investment-radar-market-summary-counts span {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.48);
+    padding: 0.2rem 0.48rem;
+}
+
+.investment-radar-market-summary-counts strong {
+    color: #F8FAFC;
+    font-size: 0.86rem;
+}
+
+.investment-radar-market-summary-pick > strong {
+    color: #F8FAFC;
+    font-size: 0.94rem;
+    letter-spacing: 0.01em;
+}
+.investment-radar-market-summary-pick code { color: #7DD3FC; }
+.investment-radar-market-summary-pick small { color: rgba(203, 220, 233, 0.72); }
+
+.investment-market-heatmap-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0.65rem 0 0.5rem;
+}
+
+.investment-market-heatmap-group {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 10px;
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.62), rgba(8, 15, 29, 0.86));
+    box-shadow: 0 0.45rem 1.2rem rgba(2, 6, 23, 0.2);
+}
+
+.investment-market-heatmap-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 42px;
+    min-width: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.08), transparent 68%);
+    padding: 0.52rem 0.65rem;
+}
+
+.investment-market-heatmap-group-header strong {
+    overflow: hidden;
+    color: #F8FAFC;
+    font-size: 0.9rem;
+    letter-spacing: 0.015em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-group-header span {
+    flex: 0 0 auto;
+    color: rgba(203, 220, 233, 0.72);
+    font-size: 0.64rem;
+}
+
 .investment-market-heatmap-canvas {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 7;
-    margin: 0.65rem 0 0.5rem;
+    aspect-ratio: 16 / 6;
+    margin: 0;
     overflow: hidden;
-    border-radius: 7px;
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(8, 15, 29, 0.86);
 }
 
 .investment-market-heatmap-tile {
@@ -2134,14 +2228,34 @@ div[data-testid="stElementContainer"]:has(
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.12rem;
+    gap: 0.16rem;
     min-width: 0;
     overflow: hidden;
-    border: 2px solid rgba(7, 13, 25, 0.9);
+    border: 2px solid rgba(5, 10, 20, 0.82);
     color: #F8FAFC;
     padding: 0.3rem;
     text-align: center;
-    text-shadow: 0 1px 2px rgba(2, 6, 23, 0.72);
+    text-shadow: 0 1px 3px rgba(2, 6, 23, 0.82);
+    text-decoration: none;
+}
+
+.investment-market-heatmap-tile:hover,
+.investment-market-heatmap-tile:focus-visible {
+    z-index: 2;
+    outline: 2px solid #7DD3FC;
+    outline-offset: -3px;
+}
+
+.investment-market-heatmap-pick {
+    position: absolute;
+    top: 0.28rem;
+    left: 0.32rem;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.72);
+    color: #FDE68A;
+    font-size: 0.54rem;
+    font-weight: 800;
+    padding: 0.1rem 0.32rem;
 }
 
 .investment-market-heatmap-tile.positive { box-shadow: inset 0 0 0 1px rgba(110, 231, 183, 0.32); }
@@ -2151,25 +2265,52 @@ div[data-testid="stElementContainer"]:has(
 .investment-market-heatmap-name {
     max-width: 100%;
     overflow: hidden;
-    font-size: clamp(0.64rem, 0.9vw, 0.94rem);
+    display: -webkit-box;
+    font-size: clamp(0.7rem, 0.9vw, 1rem);
     font-weight: 850;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    letter-spacing: 0.01em;
+    line-height: 1.12;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .investment-market-heatmap-symbol,
 .investment-market-heatmap-tile small {
     max-width: 100%;
     overflow: hidden;
-    color: rgba(241, 245, 249, 0.82);
-    font-size: clamp(0.5rem, 0.65vw, 0.68rem);
+    color: rgba(241, 245, 249, 0.84);
+    font-size: clamp(0.54rem, 0.64vw, 0.7rem);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+.investment-market-heatmap-symbol {
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.28);
+    padding: 0.08rem 0.34rem;
+    letter-spacing: 0.04em;
+}
+
 .investment-market-heatmap-tile strong {
-    font-size: clamp(0.7rem, 1.05vw, 1.05rem);
+    color: #F8FAFC;
+    font-size: clamp(0.76rem, 1.02vw, 1.1rem);
+    letter-spacing: 0.015em;
     white-space: nowrap;
+}
+
+.investment-market-heatmap-tile.compact small,
+.investment-market-heatmap-tile.minimal small,
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+    display: none;
+}
+
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-name {
+    font-size: clamp(0.58rem, 0.72vw, 0.76rem);
+    -webkit-line-clamp: 1;
+}
+
+.investment-market-heatmap-tile.minimal strong {
+    font-size: clamp(0.62rem, 0.8vw, 0.82rem);
 }
 
 .investment-market-heatmap-scale {
@@ -2213,6 +2354,9 @@ div[data-testid="stElementContainer"]:has(
    the resulting main column as tablet-width rather than squeezing three
    theme groups into a desktop row. */
 @media (min-width: 768px) and (max-width: 1200px) {
+    .investment-market-heatmap-groups {
+        grid-template-columns: 1fr;
+    }
     .investment-stock-heatmap-board {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: auto;
@@ -2247,6 +2391,14 @@ div[data-testid="stElementContainer"]:has(
 }
 
 @media (max-width: 767px) {
+    .investment-radar-market-summary,
+    .investment-radar-market-summary-pick {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .investment-market-heatmap-groups {
+        grid-template-columns: 1fr;
+    }
     /* The fixed assistant remains reachable without covering the final theme
        tile: leave a scroll-safe tail and honour it for keyboard/programmatic
        focus as well as touch scrolling. */
@@ -2336,6 +2488,19 @@ div[data-testid="stElementContainer"]:has(
         border-radius: 6px;
         padding: 0.5rem 0.65rem;
         text-align: left;
+    }
+    .investment-market-heatmap-tile.compact small,
+    .investment-market-heatmap-tile.minimal small,
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+        display: block;
+    }
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.minimal strong {
+        font-size: 0.9rem;
+        -webkit-line-clamp: 2;
+    }
+    .investment-market-heatmap-pick {
+        position: static;
     }
     .investment-market-heatmap-name,
     .investment-market-heatmap-tile strong {

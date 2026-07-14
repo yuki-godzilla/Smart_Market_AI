@@ -82,6 +82,12 @@ from backend.news.radar_interpretation import (
     radar_interpretation_contract_metadata,
     radar_interpretation_from_gateway_response,
 )
+from backend.news.radar_market import (
+    RadarMarketSnapshot,
+    RadarMarketTile,
+    build_radar_market_snapshot,
+    radar_market_candidates,
+)
 from backend.news.radar_research import build_radar_evidence_bundle, build_radar_research_context
 from backend.news.radar_shadow_evaluation import (
     RadarInterpretationShadowCase,
@@ -170,6 +176,8 @@ __all__ = [
     "RadarCandidateMaterialTone",
     "RadarCandidatePriorityReason",
     "RadarCandidateProvenance",
+    "RadarMarketSnapshot",
+    "RadarMarketTile",
     "RadarEvidenceBundle",
     "RadarEvidenceBundleStatus",
     "RadarEvidenceCitation",
@@ -193,6 +201,7 @@ __all__ = [
     "build_deterministic_radar_interpretation",
     "build_radar_evidence_bundle",
     "build_radar_candidate_map",
+    "build_radar_market_snapshot",
     "build_radar_interpretation_context",
     "build_radar_interpretation_from_settings",
     "build_radar_research_context",
@@ -204,6 +213,7 @@ __all__ = [
     "evaluate_radar_interpretation_shadow_fixture",
     "get_news_cache_file_size",
     "filter_radar_candidates",
+    "radar_market_candidates",
     "google_news_dashboard_cards_from_rss",
     "google_news_dashboard_rss_url",
     "load_cached_news_dashboard_snapshot",

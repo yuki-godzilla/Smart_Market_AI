@@ -4692,3 +4692,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 7月13日から常時稼働しているStreamlitを実Chromeで再読み込みし、変更前の `backend.news` module cacheに公開前のheadline dedupe helperが残ると、`ui/views/news.py` の新しい公開名importが `ImportError` になる事象を再現した。新規processのimport、サーバーhealth、Analytics healthは正常だった。
 - UIからpackage rootの新規symbol import依存を外し、`backend.news.sources` の公開名、直前版のprivate名、同じ決定論的キー計算の順に解決するhot-reload互換境界を追加した。ニュース重複判定の意味、候補抽出、Ranking、Forecast、Score、保存データは変更していない。
 - 同じ実Chromeタブで投資レーダーの復旧、テーママップ、候補詳細ダイアログ、根拠記事と次の操作を確認した。PC / iPad / iPhone相当で3列 / 2列 / 1列、ページ全体の横はみ出しなしを確認した。モバイルでテーママップまでの縦距離、凡例・補足文字の密度、固定Assistantの右下重なりは次のUI改善候補として残す。
+
+## 2026-07-14 投資レーダー P1 タブ・実価格ヒートマップ・根拠経路
+
+- 画面を `今日のレーダー` / `市場ヒートマップ` / `ニュース・根拠` / `ニュース一覧` の4タブへ再編し、「市場変動を発見 → ニュース／RAGで理由をたどる → 次に確認する候補を決める」の目的別導線へ変更した。
+- `価格マップを更新` の明示操作でだけ、ニュース候補を最大24銘柄に制限してYahoo等の設定Providerから取得する `値動き注目マップ` を追加した。1/5/20営業日の絶対騰落率を面積、符号付き騰落を色とし、正確な率・取得元・価格基準日時を併記する。履歴不足・取得失敗には擬似方向を付けない。
+- ニュース側は `ニューステーマ` として実価格マップから分離し、展開時に先頭3テーマを重複していた表示を修正した。候補詳細には `ニュース根拠 → 本文言及/テーマ推測 → RAG確認状態 → 銘柄コックピット` の経路を追加し、由来別件数の重複表示を削減した。
+- TradingViewの面積／色の分離、NN/gの少数タブと既定タブ、Data Science Journal 2025年論文の2Dヒートマップの符号数を参考に表示契約を文書化した。iPhoneではニューステーマを3列コンパクト表示、実価格マップを数値付き縦カードへ切り替える。
+- 常駐Streamlitが旧`backend.news`を保持して新契約をimportできない問題を、独立`backend.news.radar_market`から直接読むhot-reload互換境界で解消した。本番8501のプロフィール画面復旧、隔離8511での実価格19銘柄表示、候補詳細、PC実ブラウザ、および375×812 / 810×1080 / 1080×810 / 1366×768 responsive smokeを確認した。

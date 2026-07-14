@@ -62,6 +62,7 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("投資レーダー", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
+                assert page.get_by_role("tab").count() == 4
                 heatmap_tile = page.locator("a.investment-stock-heatmap-tile").first
                 heatmap_header = page.locator(".investment-stock-heatmap-group-header").first
                 assert heatmap_tile.count() > 0
@@ -70,13 +71,8 @@ def test_investment_radar_responsive_viewports() -> None:
                 header_box = heatmap_header.bounding_box()
                 assert header_box is not None
                 assert header_box["height"] >= 40
-                assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
-                page.get_by_text("詳しい探索条件", exact=True).wait_for(
-                    state="visible", timeout=30_000
-                )
                 assert page.get_by_text("8セクター", exact=False).count() == 0
                 assert page.locator(".investment-stock-heatmap-group-kind").count() > 0
-                assert page.locator(".investment-news-ticker-item").count() <= 3
                 primary_theme_map = page.locator(".investment-stock-heatmap-board").first
                 assert (
                     primary_theme_map.locator(":scope > .investment-stock-heatmap-group").count()
@@ -118,7 +114,35 @@ def test_investment_radar_responsive_viewports() -> None:
                     path=str(screenshot_dir / f"{name}-theme-map.png"),
                     full_page=False,
                 )
+                if width <= 767:
+                    tile_box = heatmap_tile.bounding_box()
+                    assert tile_box is not None
+                    assert tile_box["height"] >= 44
+                    assistant_trigger = page.locator(".smai-floating-assistant-trigger")
+                    assistant_box = assistant_trigger.bounding_box()
+                    assert assistant_box is not None
+                    assert 44 <= assistant_box["width"] <= 80
+                    assert assistant_box["height"] >= 44
+                    final_map_tile = primary_theme_map.locator(
+                        "a.investment-stock-heatmap-tile"
+                    ).last
+                    final_map_tile.scroll_into_view_if_needed()
+                    final_tile_box = final_map_tile.bounding_box()
+                    assert final_tile_box is not None
+                    assert final_tile_box["y"] + final_tile_box["height"] <= assistant_box["y"]
 
+                page.get_by_role("tab", name="市場ヒートマップ").click()
+                assert page.get_by_role("button", name="価格マップを更新").count() == 1
+                assert page.get_by_text("価格はまだ取得していません", exact=False).count() == 1
+
+                page.get_by_role("tab", name="ニュース一覧").click()
+                assert page.locator(".investment-news-ticker-item").count() <= 3
+
+                page.get_by_role("tab", name="ニュース・根拠").click()
+                assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
+                page.get_by_text("詳しい探索条件", exact=True).wait_for(
+                    state="visible", timeout=30_000
+                )
                 radar_heading = page.get_by_text("ニュースからの確認候補", exact=True)
                 radar_heading.scroll_into_view_if_needed()
                 detail_button = page.get_by_role("button", name="詳細を開く").first
@@ -139,22 +163,6 @@ def test_investment_radar_responsive_viewports() -> None:
                     "})"
                 )
                 assert dialog_body_width["scrollWidth"] <= dialog_body_width["clientWidth"] + 2
-                if width <= 767:
-                    tile_box = heatmap_tile.bounding_box()
-                    assert tile_box is not None
-                    assert tile_box["height"] >= 44
-                    assistant_trigger = page.locator(".smai-floating-assistant-trigger")
-                    assistant_box = assistant_trigger.bounding_box()
-                    assert assistant_box is not None
-                    assert 44 <= assistant_box["width"] <= 80
-                    assert assistant_box["height"] >= 44
-                    final_map_tile = primary_theme_map.locator(
-                        "a.investment-stock-heatmap-tile"
-                    ).last
-                    final_map_tile.scroll_into_view_if_needed()
-                    final_tile_box = final_map_tile.bounding_box()
-                    assert final_tile_box is not None
-                    assert final_tile_box["y"] + final_tile_box["height"] <= assistant_box["y"]
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

@@ -447,6 +447,25 @@ def test_theme_map_compact_view_keeps_three_themes_and_labels_remaining_themes()
     assert "ほか " in html_text
 
 
+def test_theme_map_expanded_view_starts_after_compact_groups():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+    groups = news_dashboard_stock_heatmap_groups(snapshot, max_tiles_per_group=3)
+
+    expanded_html = news_dashboard_stock_heatmap_html(
+        snapshot,
+        max_groups=999,
+        max_tiles_per_group=3,
+        include_topline=False,
+        start_group=3,
+    )
+
+    assert len(groups) > 3
+    assert f">{groups[0]['category']}<" not in expanded_html
+    assert f">{groups[3]['category']}<" in expanded_html
+
+
 def test_material_taxonomy_does_not_assign_news_card_direction_colors():
     cards = (
         NewsHeadlineCard(

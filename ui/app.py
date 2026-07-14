@@ -5,6 +5,7 @@ import gc
 import hashlib
 import html
 import json
+import logging
 import math
 import os
 import re
@@ -65,7 +66,13 @@ from backend.llm_factor import (
 )
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
+from backend.news import RadarCandidate
 from backend.news.background import start_news_background_refresh_worker
+from backend.news.radar_market import (
+    RadarMarketSnapshot,
+    build_radar_market_snapshot,
+    radar_market_candidates,
+)
 from backend.reporting import (
     DecisionReportContext,
     DecisionReportSection,
@@ -478,6 +485,8 @@ from ui.watchlist_snapshots import (
     prune_snapshots_for_removed_favorites,
     save_watchlist_snapshots,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "REBALANCE_REQUEST_STATE_KEY",
@@ -1838,7 +1847,10 @@ def main() -> None:
     elif selected_page == SIDEMENU_PAGE_RANKING:
         _render_market_data_ranking()
     elif selected_page == SIDEMENU_PAGE_NEWS:
-        render_news_dashboard_page(open_symbol_callback=_select_news_symbol_for_cockpit)
+        render_news_dashboard_page(
+            open_symbol_callback=_select_news_symbol_for_cockpit,
+            market_snapshot_callback=_fetch_news_radar_market_snapshot,
+        )
     elif selected_page == SIDEMENU_PAGE_WATCHLIST:
         _render_my_watchlist_page()
     elif selected_page == SIDEMENU_PAGE_COPILOT:
@@ -11025,6 +11037,48 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
     }
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+
+
+def _fetch_news_radar_market_snapshot(
+    candidates: Sequence[RadarCandidate],
+    lookback_sessions: int,
+) -> RadarMarketSnapshot:
+    """Fetch a bounded live-price set only after the Radar's explicit action."""
+
+    settings = get_settings()
+    dataaccess = settings.dataaccess
+    provider = dataaccess.provider
+    selected = radar_market_candidates(candidates)
+    symbols = [candidate.symbol for candidate in selected]
+    provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
+    now = datetime.now(UTC)
+    bars: list[Bar] = []
+    try:
+        adapter = create_market_data_provider_adapter(dataaccess)
+        bars = asyncio.run(
+            adapter.fetch_ohlcv(
+                _unique_provider_symbols(provider_symbols_by_symbol.values()),
+                start=now - timedelta(days=90),
+                end=now + timedelta(days=1),
+                interval="1d",
+            )
+        )
+        bars = _bars_with_display_symbols(
+            bars,
+            provider_symbols_by_symbol=provider_symbols_by_symbol,
+        )
+    except (AppError, OSError, RuntimeError, ValueError) as exc:
+        # The snapshot explicitly records every requested symbol as unavailable;
+        # the UI must not turn a provider failure into neutral or invented prices.
+        LOGGER.warning("Investment Radar market price fetch failed: %s", type(exc).__name__)
+        bars = []
+    return build_radar_market_snapshot(
+        selected,
+        bars,
+        provider=provider,
+        lookback_sessions=lookback_sessions,
+        generated_at=now,
+    )
 
 
 def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") -> None:

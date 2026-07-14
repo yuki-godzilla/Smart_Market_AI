@@ -224,7 +224,8 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "キャッシュサイズ" not in page_text
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
-    assert "今日のテーママップ" in page_text
+    assert "ニューステーマ" in page_text
+    assert "値動き注目マップ" in page_text
     assert "ニュースからの確認候補" in page_text
     assert "追加候補マップ" not in page_text
     assert "本文に出た銘柄" in page_text
@@ -234,6 +235,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "表示中ニュース" in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
+    assert "価格マップを更新" in button_labels
     assert "詳細を開く" in button_labels
     assert "Watchlist" in text_input_labels
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
@@ -252,7 +254,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
         index for index, value in enumerate(markdown_values) if "ニュースからの確認候補" in value
     )
     heatmap_index = next(
-        index for index, value in enumerate(markdown_values) if "今日のテーママップ" in value
+        index for index, value in enumerate(markdown_values) if "ニューステーマ" in value
     )
     assert heatmap_index < candidate_map_index
 

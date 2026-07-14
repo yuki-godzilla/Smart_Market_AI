@@ -4,7 +4,7 @@ app:
 
 network:
   # Set this to the MagicDNS hostname of the SMAI server.
-  tailscale_hostname: desktop-bqrpr4c
+  tailscale_hostname: smai-server
   main_application:
     scheme: http
     port: 8501

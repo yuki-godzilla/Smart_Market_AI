@@ -10,7 +10,7 @@ Last updated: 2026-07-15
 ## Main Application access / MagicDNS
 
 通常利用するSMAI Main ApplicationのURLはMagicDNSの
-`http://desktop-bqrpr4c:8501`へ統一した。LAN内・外出先ともに、接続端末で
+`http://smai-server:8501`へ統一した。LAN内・外出先ともに、接続端末で
 Tailscaleを起動して同じURLを使う。サーバーPCでは、ブラウザー自動起動、health check、
 障害切り分けだけに`http://localhost:8501`を使う。固定のhostnameとportは
 `config/server.yaml`で保持し、`SMAI_TAILSCALE_HOSTNAME`、`SMAI_MAIN_PORT`、

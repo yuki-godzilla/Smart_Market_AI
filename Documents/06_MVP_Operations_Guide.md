@@ -383,7 +383,7 @@ SMAIアシスタントの自由会話 `free_chat` は、体感速度を優先す
 
 ### Streamlitサーバーの再起動
 
-稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動時にはSMAIのコマンド画面を開いたままにし、通常アクセスURL `http://desktop-bqrpr4c:8501`、サーバーPC内確認用の`localhost`、インターネット公開禁止の注意、およびStreamlitの起動ログを確認できます。通常の自動起動は従来どおり非対話のログ出力で動作します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
+稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動時にはSMAIのコマンド画面を開いたままにし、通常アクセスURL `http://smai-server:8501`、サーバーPC内確認用の`localhost`、インターネット公開禁止の注意、およびStreamlitの起動ログを確認できます。通常の自動起動は従来どおり非対話のログ出力で動作します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
 
 ```powershell
 .\scripts\restart_smai_server.bat
@@ -545,7 +545,7 @@ download buttonから取得してください。
 ### MagicDNSでiPad / iPhone / 別PCから使う
 
 `scripts\run_lan_server.bat` と自動起動は、待受を `0.0.0.0:8501` に維持しつつ、
-通常アクセスURLを `http://desktop-bqrpr4c:8501` に統一します。iPad / iPhone / 別PCでは
+通常アクセスURLを `http://smai-server:8501` に統一します。iPad / iPhone / 別PCでは
 Tailscaleを起動し、家庭内LAN・外出先を問わず同じURLをSafariまたはブラウザーで開きます。
 `localhost` はサーバーPC内の確認専用です。ホーム画面用アイコンとPWA風metadataも配信しますが、
 オフライン動作やService Workerを含む完全なPWAではありません。ルーターのポート開放、
@@ -559,7 +559,7 @@ Windowsログオン時の自動起動、状態確認、停止、タスク登録/
 失敗後24時間は再実行を抑制します。
 一括更新のreportは実施日時ごとに `reports/YYYY-MM-DD_HHMM/` へ保存します。
 ホーム画面アイコンは
-`http://desktop-bqrpr4c:8501/app/static/pwa/apple-touch-icon-v2.png`
+`http://smai-server:8501/app/static/pwa/apple-touch-icon-v2.png`
 で直接確認できます。旧アイコンが残る場合は既存ショートカットを削除し、
 Safariで再読み込みしてから追加し直します。
 
@@ -1103,7 +1103,7 @@ URL の `client=smai_client_...` に対応する
 手動確認では、ユーザー、Cockpit、銘柄を選択してF5更新またはPWAを閉じ、30分以内の
 再表示で同じ状態が復元されることを確認します。`last_seen_at` を30分超へ変更した場合は、
 ユーザー選択画面へ戻り、該当する `clients/<client_id>.json` が削除されることも確認します。
-MagicDNS URL `http://desktop-bqrpr4c:8501` で、LAN内と外出先の両方から同じ
+MagicDNS URL `http://smai-server:8501` で、LAN内と外出先の両方から同じ
 セッション復元手順を確認します。サーバーPC内の切り分けには `http://localhost:8501` を使います。
 
 ## Phase 33 Forecast Model Evaluation

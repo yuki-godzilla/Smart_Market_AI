@@ -231,7 +231,7 @@ http://127.0.0.1:8000/openapi.json
 
 Windowsサーバーとして日常利用する場合は `scripts\start_smai_server.bat`（手動確認は
 `scripts\run_lan_server.bat`）を使います。通常アクセスURLはTailscale MagicDNSの
-`http://desktop-bqrpr4c:8501` に統一し、LAN内・外出先の接続端末ではTailscaleを起動します。
+`http://smai-server:8501` に統一し、LAN内・外出先の接続端末ではTailscaleを起動します。
 サーバーPC内での確認だけは `http://localhost:8501` を使用します。詳細は
 [`docs/LAN_PWA_ACCESS_GUIDE.md`](docs/LAN_PWA_ACCESS_GUIDE.md)を参照してください。
 

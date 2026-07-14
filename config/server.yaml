@@ -1,6 +1,6 @@
 # SMAI Main Application network identity for this server.
 network:
-  tailscale_hostname: desktop-bqrpr4c
+  tailscale_hostname: smai-server
   main_application:
     scheme: http
     port: 8501

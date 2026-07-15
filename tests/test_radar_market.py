@@ -7,6 +7,7 @@ import pytest
 
 from backend.core.data_contracts import Bar, Symbol
 from backend.news import RadarCandidate, RadarCandidateProvenance, build_radar_market_snapshot
+from backend.news.radar_market import RADAR_MARKET_MAX_SYMBOLS, radar_market_candidates
 from ui.views.news import (
     radar_market_heatmap_groups,
     radar_market_heatmap_html,
@@ -92,6 +93,17 @@ def test_radar_market_snapshot_marks_missing_history_unavailable_without_neutral
     assert [tile.symbol for tile in snapshot.tiles] == ["AAA"]
     assert snapshot.tiles[0].change_pct == 10.0
     assert snapshot.unavailable_symbols == ["BBB"]
+
+
+def test_radar_market_candidate_request_keeps_the_wider_bounded_set():
+    candidates = [_candidate(f"S{index:02d}") for index in range(31)]
+
+    selected = radar_market_candidates(candidates)
+
+    assert RADAR_MARKET_MAX_SYMBOLS == 30
+    assert len(selected) == 30
+    expected_symbols = [f"S{index:02d}" for index in range(30)]
+    assert [candidate.symbol for candidate in selected] == expected_symbols
 
 
 def test_radar_market_snapshot_carries_sector_industry_and_pickup_context():
@@ -235,7 +247,7 @@ def test_radar_market_heatmap_marks_direction_and_value_as_one_readable_chip():
     assert 'title="Name AAA (AAA) · 上昇 +8.00%"' in html_text
 
 
-def test_radar_market_news_group_limits_dense_map_and_reports_hidden_tiles():
+def test_radar_market_news_group_expands_through_twelve_tiles_before_overflow():
     candidates = [_candidate(f"S{index:02d}") for index in range(10)]
     bars = [bar for index in range(10) for bar in _bars(f"S{index:02d}", ["100", str(101 + index)])]
     snapshot = build_radar_market_snapshot(
@@ -247,5 +259,26 @@ def test_radar_market_news_group_limits_dense_map_and_reports_hidden_tiles():
 
     html_text = radar_market_heatmap_html(snapshot, grouping="news")
 
-    assert "10銘柄 · 値動き上位8表示" in html_text
-    assert html_text.count('class="investment-market-heatmap-tile ') == 8
+    assert "全10銘柄 · 上昇10 / 下落0" in html_text
+    assert "investment-market-heatmap-group dense" in html_text
+    assert html_text.count('class="investment-market-heatmap-tile ') == 10
+    assert "あと" not in html_text
+
+
+def test_radar_market_news_group_exposes_overflow_after_readable_dynamic_limit():
+    candidates = [_candidate(f"S{index:02d}") for index in range(15)]
+    bars = [bar for index in range(15) for bar in _bars(f"S{index:02d}", ["100", str(101 + index)])]
+    snapshot = build_radar_market_snapshot(
+        candidates,
+        bars,
+        provider="fixture",
+        lookback_sessions=1,
+    )
+
+    html_text = radar_market_heatmap_html(snapshot, grouping="news")
+
+    assert "表示12 / 該当15銘柄" in html_text
+    assert "investment-market-heatmap-group dense" in html_text
+    assert html_text.count('class="investment-market-heatmap-tile ') == 12
+    assert "あと3銘柄を見る" in html_text
+    assert 'class="investment-market-heatmap-overflow-item"' in html_text

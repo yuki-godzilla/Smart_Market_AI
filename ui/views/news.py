@@ -82,7 +82,9 @@ NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY = "investment_radar_candidate_triage_priori
 NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY = "investment_radar_market_snapshot"
 NEWS_RADAR_MARKET_GROUPING_STATE_KEY = "investment_radar_market_grouping"
 NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES = 15
-NEWS_RADAR_MARKET_GROUP_TILE_LIMIT = 8
+# A dense sector should not be cut to the same number as a sparse one.  The
+# cap remains a readability guard, not a target or an investment ranking.
+NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM = 12
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -2157,6 +2159,9 @@ def radar_market_heatmap_html(
         if snapshot.unavailable_symbols
         else ""
     )
+    market_count = (
+        f"<span>実測表示 {len(snapshot.tiles)} / 取得対象 {snapshot.requested_count}銘柄</span>"
+    )
     grouping_label = {"sector": "セクター", "industry": "業種", "news": "注目ニュース"}.get(
         grouping, "注目ニュース"
     )
@@ -2169,6 +2174,7 @@ def radar_market_heatmap_html(
         "<span>本文／推測: ニュースからの抽出方法</span>"
         f"<span>取得元: {html.escape(snapshot.provider)}</span>"
         f"<span>価格基準: {as_of:%Y-%m-%d %H:%M} {NEWS_DISPLAY_TIMEZONE_LABEL}</span>"
+        f"{market_count}"
         f"{unavailable}"
         "</div>"
         f'<div class="investment-market-heatmap-groups">{group_html}</div>'
@@ -2186,7 +2192,7 @@ def _radar_market_group_html(
     max_magnitude: float,
     featured_symbol: str,
 ) -> str:
-    displayed_tiles = list(tiles[:NEWS_RADAR_MARKET_GROUP_TILE_LIMIT])
+    displayed_tiles = list(tiles[:NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM])
     featured_tile = next((tile for tile in tiles if tile.symbol == featured_symbol), None)
     if featured_tile is not None and featured_tile not in displayed_tiles and displayed_tiles:
         displayed_tiles[-1] = featured_tile
@@ -2255,18 +2261,67 @@ def _radar_market_group_html(
     up_count = sum(tile.change_pct > 0.02 for tile in displayed_tiles)
     down_count = sum(tile.change_pct < -0.02 for tile in displayed_tiles)
     group_summary = (
-        f"{len(tiles)}銘柄 · 値動き上位{len(displayed_tiles)}表示"
+        f"表示{len(displayed_tiles)} / 該当{len(tiles)}銘柄"
         if len(tiles) > len(displayed_tiles)
-        else f"{len(displayed_tiles)}銘柄 · 上昇{up_count} / 下落{down_count}"
+        else f"全{len(displayed_tiles)}銘柄 · 上昇{up_count} / 下落{down_count}"
     )
+    overflow_tiles = [tile for tile in tiles if tile not in displayed_tiles]
+    overflow_html = _radar_market_group_overflow_html(overflow_tiles)
+    density_class = _radar_market_group_density_class(len(displayed_tiles))
+    return "".join(
+        (
+            f'<article class="investment-market-heatmap-group {density_class}">',
+            '<header class="investment-market-heatmap-group-header">',
+            f"<strong>{html.escape(label)}</strong>",
+            f"<span>{group_summary}</span>",
+            "</header>",
+            '<div class="investment-market-heatmap-canvas">',
+            "".join(tile_html),
+            "</div>",
+            overflow_html,
+            "</article>",
+        )
+    )
+
+
+def _radar_market_group_density_class(displayed_count: int) -> str:
+    """Return a canvas-height class that keeps dense groups readable."""
+
+    if displayed_count >= 9:
+        return "dense"
+    if displayed_count >= 5:
+        return "medium"
+    return "compact"
+
+
+def _radar_market_group_overflow_html(tiles: Sequence[RadarMarketTile]) -> str:
+    """Expose capped tiles without turning them into unreadable treemap fragments."""
+
+    if not tiles:
+        return ""
+    item_html: list[str] = []
+    for tile in tiles:
+        if tile.change_pct > 0.02:
+            direction, arrow = "上昇", "▲"
+        elif tile.change_pct < -0.02:
+            direction, arrow = "下落", "▼"
+        else:
+            direction, arrow = "横ばい", "―"
+        href = news_dashboard_cockpit_href(tile.symbol)
+        item_html.append(
+            '<a class="investment-market-heatmap-overflow-item" '
+            f'href="{html.escape(href)}">'
+            f"<strong>{html.escape(tile.display_name)}</strong>"
+            f"<span>{html.escape(tile.symbol)} · {arrow} {direction} "
+            f"{tile.change_pct:+.2f}%</span>"
+            "</a>"
+        )
     return (
-        '<article class="investment-market-heatmap-group">'
-        '<header class="investment-market-heatmap-group-header">'
-        f"<strong>{html.escape(label)}</strong>"
-        f"<span>{group_summary}</span>"
-        "</header>"
-        '<div class="investment-market-heatmap-canvas">' + "".join(tile_html) + "</div>"
-        "</article>"
+        '<details class="investment-market-heatmap-overflow">'
+        f"<summary>あと{len(tiles)}銘柄を見る</summary>"
+        '<div class="investment-market-heatmap-overflow-list">'
+        + "".join(item_html)
+        + "</div></details>"
     )
 
 
@@ -2355,7 +2410,7 @@ def _render_market_heatmap(
     if market_snapshot is None:
         st.info(
             "価格はまだ取得していません。通常は画面表示時に、ニュース候補を"
-            "最大24銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
+            "最大30銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
         )
         return
     heatmap_html = radar_market_heatmap_html(market_snapshot, grouping=grouping)

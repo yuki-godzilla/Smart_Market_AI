@@ -2230,6 +2230,16 @@ div[data-testid="stElementContainer"]:has(
     background: rgba(8, 15, 29, 0.86);
 }
 
+/* The map receives more room as a category gains confirmed price tiles.
+   These are readability bands, not different data granularity per device. */
+.investment-market-heatmap-group.medium .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 7.5;
+}
+
+.investment-market-heatmap-group.dense .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 9.5;
+}
+
 .investment-market-heatmap-tile {
     position: absolute;
     display: flex;
@@ -2399,6 +2409,64 @@ div[data-testid="stElementContainer"]:has(
 .investment-market-heatmap-scale .flat { color: #CBD5E1; }
 .investment-market-heatmap-scale .positive { color: #6EE7B7; }
 
+.investment-market-heatmap-overflow {
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.22);
+}
+
+.investment-market-heatmap-overflow summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: #BAE6FD;
+    font-size: 0.72rem;
+    font-weight: 750;
+    padding: 0.48rem 0.65rem;
+}
+
+.investment-market-heatmap-overflow-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding: 0 0.65rem 0.6rem;
+}
+
+.investment-market-heatmap-overflow-item {
+    min-width: 0;
+    border: 1px solid rgba(125, 211, 252, 0.18);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.56);
+    color: #E0F2FE;
+    padding: 0.36rem 0.45rem;
+    text-decoration: none;
+}
+
+.investment-market-heatmap-overflow-item:hover,
+.investment-market-heatmap-overflow-item:focus-visible {
+    border-color: rgba(125, 211, 252, 0.64);
+    outline: none;
+}
+
+.investment-market-heatmap-overflow-item strong,
+.investment-market-heatmap-overflow-item span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-overflow-item strong {
+    color: #F8FAFC;
+    font-size: 0.72rem;
+}
+
+.investment-market-heatmap-overflow-item span {
+    color: rgba(203, 220, 233, 0.8);
+    font-size: 0.62rem;
+    margin-top: 0.12rem;
+}
+
 .investment-radar-evidence-path {
     display: flex;
     flex-wrap: wrap;
@@ -2566,6 +2634,9 @@ div[data-testid="stElementContainer"]:has(
         border-radius: 6px;
         padding: 0.5rem 0.65rem;
         text-align: left;
+    }
+    .investment-market-heatmap-overflow-list {
+        grid-template-columns: 1fr;
     }
     .investment-market-heatmap-tile.compact small,
     .investment-market-heatmap-tile.minimal small,

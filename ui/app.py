@@ -75,7 +75,10 @@ from backend.news.background import start_news_background_refresh_worker
 # A long-running Streamlit process can retain the first Radar market module
 # revision across rolling updates. Reload only that stale revision before any
 # view imports bind its contracts and builder.
-if getattr(_radar_market_module, "SMAI_RADAR_MARKET_REVISION", "") != "2026-07-14-grouped-v2":
+if (
+    getattr(_radar_market_module, "SMAI_RADAR_MARKET_REVISION", "")
+    != "2026-07-15-dynamic-density-v3"
+):
     importlib.reload(_radar_market_module)
 
 from backend.news.radar_market import (

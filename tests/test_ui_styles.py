@@ -118,6 +118,15 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert (
         ".investment-market-heatmap-groups {\n" "        grid-template-columns: 1fr;"
     ) in SMAI_GLOBAL_CSS
+    assert (
+        ".investment-market-heatmap-group.medium .investment-market-heatmap-canvas"
+        in SMAI_GLOBAL_CSS
+    )
+    assert (
+        ".investment-market-heatmap-group.dense .investment-market-heatmap-canvas"
+        in SMAI_GLOBAL_CSS
+    )
+    assert "min-height: 44px;" in SMAI_GLOBAL_CSS
     assert "animation: investment-news-board-cycle" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS

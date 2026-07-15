@@ -9,9 +9,11 @@ from pydantic import Field
 from backend.core.data_contracts import Bar, StrictBaseModel
 from backend.news.contracts import RadarCandidate, RadarCandidateProvenance
 
-RADAR_MARKET_MAX_SYMBOLS = 24
+# Keep the live request bounded, while allowing the grouped map to retain
+# enough context when wide layouts distribute candidates across many sectors.
+RADAR_MARKET_MAX_SYMBOLS = 30
 RADAR_MARKET_LOOKBACK_SESSIONS = (1, 5, 20)
-SMAI_RADAR_MARKET_REVISION = "2026-07-14-grouped-v2"
+SMAI_RADAR_MARKET_REVISION = "2026-07-15-dynamic-density-v3"
 
 
 class RadarMarketTile(StrictBaseModel):

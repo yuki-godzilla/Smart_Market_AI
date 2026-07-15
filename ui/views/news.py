@@ -2056,20 +2056,25 @@ def radar_market_treemap_rectangles(
     ) -> tuple[float, float, float, float]:
         total = sum(row_sizes)
         if dx >= dy:
-            row_height = total / dx
-            cursor = x
+            # The remaining canvas is wider than it is tall.  Place the next
+            # row as a vertical column so the largest tiles sit beside each
+            # other instead of becoming a stack of full-width strips.
+            # This is the orientation used by a squarified treemap: each row
+            # is laid out along the shorter remaining edge.
+            row_width = total / dy
+            cursor = y
             for tile, size in zip(row_tiles, row_sizes, strict=True):
-                tile_width = size / row_height
-                rectangles.append((tile, cursor, y, tile_width, row_height))
-                cursor += tile_width
-            return x, y + row_height, dx, max(0.0, dy - row_height)
-        row_width = total / dy
-        cursor = y
+                tile_height = size / row_width
+                rectangles.append((tile, x, cursor, row_width, tile_height))
+                cursor += tile_height
+            return x + row_width, y, max(0.0, dx - row_width), dy
+        row_height = total / dx
+        cursor = x
         for tile, size in zip(row_tiles, row_sizes, strict=True):
-            tile_height = size / row_width
-            rectangles.append((tile, x, cursor, row_width, tile_height))
-            cursor += tile_height
-        return x + row_width, y, max(0.0, dx - row_width), dy
+            tile_width = size / row_height
+            rectangles.append((tile, cursor, y, tile_width, row_height))
+            cursor += tile_width
+        return x, y + row_height, dx, max(0.0, dy - row_height)
 
     x = y = 0.0
     dx, dy = width, height
@@ -2225,17 +2230,25 @@ def _radar_market_group_html(
         relation = "本文" if tile.provenance == "direct_mention" else "テーマ推測"
         watchlist = " · WL" if tile.watchlist_match else ""
         href = news_dashboard_cockpit_href(tile.symbol)
+        tooltip = f"{tile.display_name} ({tile.symbol}) · {direction} {change_label}"
         tile_html.append(
             '<a class="investment-market-heatmap-tile '
             f'{direction_class}{density_class}" style="left:{x:.4f}%;top:{y / 56 * 100:.4f}%;'
             f'width:{width:.4f}%;height:{height / 56 * 100:.4f}%;background:{background}" '
             f'href="{html.escape(href)}" '
+            f'title="{html.escape(tooltip)}" '
             f'aria-label="{html.escape(tile.display_name)} {direction} {change_label}。'
             f'{relation}、根拠{tile.evidence_count}件">'
             f"{featured_badge}"
             f'<span class="investment-market-heatmap-name">{html.escape(tile.display_name)}</span>'
             f'<span class="investment-market-heatmap-symbol">{html.escape(tile.symbol)}</span>'
-            f"<strong>{arrow} {change_label}</strong>"
+            '<strong class="investment-market-heatmap-change">'
+            '<span class="investment-market-heatmap-change-direction">'
+            f'<span class="investment-market-heatmap-change-arrow">{arrow}</span>'
+            f'<span class="investment-market-heatmap-change-word">{direction}</span>'
+            "</span>"
+            f'<span class="investment-market-heatmap-change-value">{change_label}</span>'
+            "</strong>"
             f"<small>{relation} · 根拠{tile.evidence_count}件{watchlist}</small>"
             "</a>"
         )

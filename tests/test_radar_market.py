@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
 from backend.core.data_contracts import Bar, Symbol
 from backend.news import RadarCandidate, RadarCandidateProvenance, build_radar_market_snapshot
 from ui.views.news import (
@@ -183,6 +185,54 @@ def test_radar_market_heatmap_keeps_area_proportional_and_shows_exact_direction(
     assert "本文 · 根拠1件" in html_text
     assert "smai_page=cockpit" in html_text
     assert "先に確認" in html_text
+
+
+def test_radar_market_treemap_uses_short_edge_to_avoid_full_width_tile_strips():
+    candidates = [_candidate(symbol) for symbol in ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF")]
+    bars = [
+        *_bars("AAA", ["100", "110"]),
+        *_bars("BBB", ["100", "91"]),
+        *_bars("CCC", ["100", "102"]),
+        *_bars("DDD", ["100", "99.4"]),
+        *_bars("EEE", ["100", "100.1"]),
+        *_bars("FFF", ["100", "99.9"]),
+    ]
+    snapshot = build_radar_market_snapshot(
+        candidates,
+        bars,
+        provider="fixture",
+        lookback_sessions=1,
+    )
+
+    rectangles = radar_market_treemap_rectangles(snapshot.tiles)
+    layout = {tile.symbol: (x, y, width, height) for tile, x, y, width, height in rectangles}
+    total_area = sum(width * height for _, _, _, width, height in rectangles)
+
+    # A wide canvas should partition the largest tiles into side-by-side
+    # columns.  The previous orientation created a hard-to-scan stack of
+    # full-width ribbons for this common 20-session return distribution.
+    assert layout["AAA"][2] < 100.0
+    assert layout["BBB"][0] > 0.0
+    assert total_area == pytest.approx(100.0 * 56.0)
+
+
+def test_radar_market_heatmap_marks_direction_and_value_as_one_readable_chip():
+    snapshot = build_radar_market_snapshot(
+        [_candidate("AAA"), _candidate("BBB")],
+        [*_bars("AAA", ["100", "108"]), *_bars("BBB", ["100", "98"])],
+        provider="fixture",
+        lookback_sessions=1,
+    )
+
+    html_text = radar_market_heatmap_html(snapshot, grouping="news")
+
+    assert "investment-market-heatmap-change" in html_text
+    assert "investment-market-heatmap-change-direction" in html_text
+    assert 'investment-market-heatmap-change-word">上昇' in html_text
+    assert 'investment-market-heatmap-change-value">+8.00%' in html_text
+    assert 'investment-market-heatmap-change-word">下落' in html_text
+    assert 'investment-market-heatmap-change-value">-2.00%' in html_text
+    assert 'title="Name AAA (AAA) · 上昇 +8.00%"' in html_text
 
 
 def test_radar_market_news_group_limits_dense_map_and_reports_hidden_tiles():

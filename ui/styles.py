@@ -2233,7 +2233,7 @@ div[data-testid="stElementContainer"]:has(
     overflow: hidden;
     border: 2px solid rgba(5, 10, 20, 0.82);
     color: #F8FAFC;
-    padding: 0.3rem;
+    padding: clamp(0.32rem, 0.48vw, 0.58rem);
     text-align: center;
     text-shadow: 0 1px 3px rgba(2, 6, 23, 0.82);
     text-decoration: none;
@@ -2266,10 +2266,12 @@ div[data-testid="stElementContainer"]:has(
     max-width: 100%;
     overflow: hidden;
     display: -webkit-box;
-    font-size: clamp(0.7rem, 0.9vw, 1rem);
+    font-size: clamp(0.74rem, 0.95vw, 1.06rem);
     font-weight: 850;
     letter-spacing: 0.01em;
     line-height: 1.12;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
@@ -2293,20 +2295,88 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-market-heatmap-tile strong {
     color: #F8FAFC;
-    font-size: clamp(0.76rem, 1.02vw, 1.1rem);
-    letter-spacing: 0.015em;
+    font-size: clamp(0.76rem, 1.02vw, 1.12rem);
+}
+
+.investment-market-heatmap-change {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.32rem;
+    max-width: 100%;
+    min-height: 1.65rem;
+    border: 1px solid rgba(248, 250, 252, 0.24);
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.32);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+    padding: 0.14rem 0.46rem;
     white-space: nowrap;
 }
 
+.investment-market-heatmap-change-direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    font-size: 0.76em;
+    font-weight: 760;
+}
+
+.investment-market-heatmap-change-arrow {
+    font-size: 1.08em;
+}
+
+.investment-market-heatmap-change-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+}
+
+.investment-market-heatmap-tile.positive .investment-market-heatmap-change {
+    border-color: rgba(167, 243, 208, 0.54);
+    background: rgba(6, 78, 59, 0.32);
+    color: #ECFDF5;
+}
+
+.investment-market-heatmap-tile.negative .investment-market-heatmap-change {
+    border-color: rgba(254, 205, 211, 0.52);
+    background: rgba(136, 19, 55, 0.30);
+    color: #FFF1F2;
+}
+
+.investment-market-heatmap-tile.flat .investment-market-heatmap-change {
+    border-color: rgba(226, 232, 240, 0.42);
+    background: rgba(51, 65, 85, 0.34);
+    color: #F1F5F9;
+}
+
 .investment-market-heatmap-tile.compact small,
-.investment-market-heatmap-tile.minimal small,
-.investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+.investment-market-heatmap-tile.minimal small {
+    display: none;
+}
+
+.investment-market-heatmap-tile.compact .investment-market-heatmap-change,
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-change {
+    gap: 0.18rem;
+    min-height: 0;
+    padding: 0.1rem 0.28rem;
+}
+
+.investment-market-heatmap-tile.compact .investment-market-heatmap-change-word,
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-change-word {
     display: none;
 }
 
 .investment-market-heatmap-tile.minimal .investment-market-heatmap-name {
-    font-size: clamp(0.58rem, 0.72vw, 0.76rem);
-    -webkit-line-clamp: 1;
+    display: none;
+}
+
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+    display: inline-block;
+    max-width: 100%;
+    font-size: clamp(0.54rem, 0.7vw, 0.72rem);
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .investment-market-heatmap-tile.minimal strong {

@@ -4870,6 +4870,12 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
     assert session_state["market_data_period_preset"] == MARKET_DATA_PERIOD_CUSTOM
     assert session_state["market_data_start"] == date(2026, 5, 17)
     assert session_state["market_data_end"] == date(2026, 5, 24)
+    assert session_state["market_data_navigation_source"] == {
+        "source_page": "ranking",
+        "source_label": "銘柄ランキング",
+        "symbol": "7203.T",
+        "period_label": "2026-05-17〜2026-05-24",
+    }
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state
     assert "market_data_ranking_deep_dive_symbol" not in session_state
@@ -7650,8 +7656,7 @@ def test_ranking_summary_cards_describe_current_screening_scope():
     assert cards[1]["value"] == "2"
     assert cards[2]["value"] == "75.0"
     assert cards[3]["value"] == "1"
-    assert cards[4]["value"] == "成長投資枠"
-    assert cards[5]["value"] == "日本 / 個別株"
+    assert len(cards) == 4
 
 
 def test_ranking_visualization_frames_skip_missing_scores():
@@ -7870,7 +7875,10 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert cards[0]["research_status"] == "根拠あり"
     card_html = _ranking_candidate_card_html(cards[0], index=0)
     assert "Toyota Motor" in card_html
-    assert "総合スコア 82" in card_html
+    assert 'smai-ranking-card-metric-label">総合スコア' in card_html
+    assert 'smai-ranking-card-metric-value">82' in card_html
+    assert "総合スコア 82 / 総合スコア 82" not in card_html
+    assert card_html.count("総合スコア") == 1
     assert [row["観点"] for row in breakdown] == [
         "投資スコア",
         "基礎評価",

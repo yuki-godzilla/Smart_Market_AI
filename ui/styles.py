@@ -9209,6 +9209,15 @@ a.smai-ranking-history-card:focus-visible .smai-ranking-history-card-action {
     }
 
 }
+
+/* The persistent assistant overlaps primary forms on tablets and phones.
+   It remains available from the sidebar, while this floating shortcut is
+   reserved for layouts with enough room for both controls. */
+@media (max-width: 1024px) {
+    .smai-floating-assistant {
+        display: none;
+    }
+}
 </style>
 """
 

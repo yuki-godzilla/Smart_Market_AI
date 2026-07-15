@@ -366,6 +366,7 @@ from ui.ranking_presenter import full_confirmation_note as _ranking_full_confirm
 from ui.ranking_state import (
     current_ranking_filter_state,
     ensure_ranking_selection_widget_state,
+    persist_ranking_filter_state,
     ranking_filter_summary,
     sync_ranking_selection_state,
 )
@@ -1860,7 +1861,12 @@ def main() -> None:
     # Investment Radar has its own concise task-oriented title.  Keeping the
     # global brand hero above it pushes the market overview and candidate queue
     # below the first viewport, especially on tablets and phones.
-    if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING, SIDEMENU_PAGE_NEWS}:
+    if selected_page not in {
+        SIDEMENU_PAGE_COCKPIT,
+        SIDEMENU_PAGE_COPILOT,
+        SIDEMENU_PAGE_RANKING,
+        SIDEMENU_PAGE_NEWS,
+    }:
         render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()
@@ -4299,6 +4305,9 @@ def ranking_summary_cards(
     product_type: str,
     selected_count: int,
 ) -> list[dict[str, str]]:
+    # The ranking axis and scope already appear in the result header. Keep this
+    # row focused on quantities that change after a ranking run.
+    _ = ranking_axis, weight_preset, region, product_type
     scores = [
         score
         for row in display_rows
@@ -4337,16 +4346,6 @@ def ranking_summary_cards(
             "label": "データ信頼度高め",
             "value": str(high_confidence_count),
             "help": "DB信頼度が75以上の候補数です。投資魅力度ではなく評価信頼度です。",
-        },
-        {
-            "label": "ランキング軸",
-            "value": ranking_axis,
-            "help": weight_preset,
-        },
-        {
-            "label": "対象範囲",
-            "value": f"{region} / {product_type}",
-            "help": "取得前フィルターで選んだ地域と商品分類です。",
         },
     ]
 
@@ -4810,8 +4809,21 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
     render_section_heading("ランキングの見方")
     st.caption(ranking_purpose_focus_summary(ranking_purpose))
-    context_cards = ranking_purpose_context_cards(ranking_purpose, limit=4)
-    columns = st.columns(max(1, min(4, len(context_cards))))
+    if ranking_purpose == RANKING_PURPOSE_MULTI_FACTOR:
+        context_cards = [
+            {
+                "label": row["group"],
+                "value": row["weight"],
+                "help": "このランキング基準での合計重みです。",
+                "badge": "重み",
+            }
+            for row in ranking_weight_group_rows(weight_preset)
+        ]
+        column_count = 3
+    else:
+        context_cards = ranking_purpose_context_cards(ranking_purpose, limit=4)
+        column_count = 4
+    columns = st.columns(max(1, min(column_count, len(context_cards))))
     for index, card in enumerate(context_cards):
         value = card.get("value", "")
         progress = metric_progress_from_value(value) if value.endswith("%") else None
@@ -5158,14 +5170,13 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
     primary_value = card.get("primary_value") or card["score"]
     name = card.get("name") or card.get("symbol") or "名称未登録"
     symbol_line = f"#{card.get('rank', '')} {card.get('symbol', '')}".strip()
-    score_line = (
-        f"{card.get('score_label', '総合スコア')} {card['score']}" if card.get("score") else ""
-    )
+    primary_score_line = f"{primary_label} {primary_value}".strip()
     reason = card.get("reason", "")
+    if reason.startswith(primary_score_line):
+        reason = reason[len(primary_score_line) :].lstrip(" /\u3000")
     progress = metric_progress_from_value(primary_value)
     safe_progress = min(100, max(0, int(progress))) if progress is not None else 0
     badges = (
-        badge_html(primary_label, "info") if primary_label else "",
         badge_html(card["view"], "info") if card["view"] else "",
         (
             badge_html("下降警戒", "caution")
@@ -5177,8 +5188,7 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
         badge_html("要確認", "caution") if card["caution"] else "",
     )
     badge_row = "".join(badge for badge in badges if badge)
-    caption_parts = [score_line, reason]
-    caption = " / ".join(part for part in caption_parts if part)
+    caption = reason
     return (
         '<div class="smai-ranking-card" '
         f'data-emphasis="{"spotlight" if index == 0 else "normal"}">'
@@ -5330,12 +5340,9 @@ def _render_ranking_profile_chart(
         _render_ranking_reversal_evidence_map(display_rows, requested_profile)
         return
     selection = ranking_chart_frame(display_rows, requested_profile)
-    render_section_heading(selection.profile.title if selection else requested_profile.title)
     if selection is None:
-        st.info(
-            "この条件で使える既存列が不足しているため、メインチャートは表示していません。詳細表で候補を確認してください。"
-        )
         return
+    render_section_heading(selection.profile.title)
     if selection.used_fallback:
         st.caption(
             "指定条件向けの列が不足している、または同じ値に偏っているため、"
@@ -5738,6 +5745,12 @@ def _render_ranking_data_state(
         updated_at=updated_at,
     )
     st.caption(state_text)
+    if error_rows:
+        total_count = len(display_rows) + len(error_rows)
+        st.warning(
+            f"対象 {total_count}件のうち {len(error_rows)}件は価格データを取得できませんでした。"
+            "結果には取得できた銘柄のみ表示しています。"
+        )
     with st.expander("データ状態", expanded=False):
         st.dataframe(detail_rows, hide_index=True, use_container_width=True)
         st.caption("テーブル内のソート、検索、絞り込みでは外部取得を実行しません。")
@@ -6605,7 +6618,7 @@ def _render_ranking_filter_panel(
             unsafe_allow_html=True,
         )
 
-    with st.expander("詳細条件で候補を絞り込む", expanded=True):
+    with st.expander("詳細条件・キーワードで候補を絞り込む", expanded=False):
         render_ranking_exploration_filter_cards(
             symbol_options,
             product_type=product_type,
@@ -6910,26 +6923,10 @@ def _render_ranking_filter_panel(
             )
             _render_metric_filter_grid(metric_filters, columns_per_row=4, compact=True)
 
-        st.markdown(
-            '<div class="smai-ranking-builder-subhead">キーワード検索</div>'
-            '<p class="smai-ranking-builder-caption">銘柄コード、会社名、テーマで候補を探します。</p>',
-            unsafe_allow_html=True,
+        st.button(
+            "詳細条件・検索をクリア",
+            on_click=clear_ranking_detail_condition_state,
         )
-        col_keyword, col_clear = st.columns([3.0, 0.8])
-        with col_keyword:
-            st.text_input(
-                "キーワード",
-                value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-                key="market_data_ranking_symbol_query",
-                placeholder="銘柄コード、会社名、テーマ",
-                help=RANKING_FILTER_HELP_TEXTS["keyword"],
-            )
-        with col_clear:
-            st.write("")
-            st.button(
-                "詳細条件をクリア",
-                on_click=clear_ranking_detail_condition_state,
-            )
 
     # The dedicated candidate breakdown card was removed from the main path.
     # Ranking candidates are summarized by _ranking_condition_summary_html instead,
@@ -8295,6 +8292,14 @@ def _render_market_data_cockpit() -> None:
         "1銘柄の価格・予測・根拠を確認します。",
         "cockpit",
     )
+    navigation_source = st.session_state.get("market_data_navigation_source")
+    if isinstance(navigation_source, dict) and navigation_source.get("source_page") == "ranking":
+        st.session_state.pop("market_data_navigation_source", None)
+        period_label = str(navigation_source.get("period_label") or "ランキングの比較期間")
+        st.info(
+            "ランキングの比較候補から移動しました。ランキング時点の比較値を引き継いでいます。"
+            f"{period_label}の価格・予測を最新データで確認するには、下の「データを取得」を実行してください。"
+        )
     symbol_options = symbol_universe_rows()
     filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     st.markdown(
@@ -8717,6 +8722,14 @@ def _render_market_data_ranking() -> None:
                     ),
                 ),
             )
+        st.text_input(
+            "キーワード",
+            value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+            key="market_data_ranking_symbol_query",
+            placeholder="銘柄コード、会社名、テーマ",
+            help=RANKING_FILTER_HELP_TEXTS["keyword"],
+        )
+        st.caption("キーワードを入力してEnterを押すと、候補数と現在の条件へ反映されます。")
 
     with detail_conditions:
         with col_period:
@@ -8761,6 +8774,10 @@ def _render_market_data_ranking() -> None:
             "探索条件モーダルを表示中です。ランキング候補・結果の再描画はスキップしています。"
         )
         return
+    # Widget state is removed by Streamlit after navigating to Cockpit. Persist
+    # the active values so a ranking-to-detail round trip keeps the comparison
+    # conditions visible and reusable.
+    persist_ranking_filter_state()
     filter_values = _ranking_filter_state_snapshot()
     market = "all"
     asset_type = "all"
@@ -9029,6 +9046,11 @@ def _render_market_data_ranking() -> None:
             st.success(f"✅ {history_message}")
         elif history_status == "failed":
             st.warning(history_message)
+        elif history_status == "skipped_default":
+            st.info(
+                "SMAIデフォルトではランキング履歴を保存しません。履歴を残す場合は、"
+                "ローカルプロフィールを選択または作成してください。"
+            )
         else:
             st.info(history_message)
 
@@ -11043,6 +11065,12 @@ def _select_ranking_symbol_for_cockpit_with_period(
     st.session_state["market_data_period_preset"] = MARKET_DATA_PERIOD_CUSTOM
     st.session_state["market_data_start"] = start
     st.session_state["market_data_end"] = end
+    st.session_state["market_data_navigation_source"] = {
+        "source_page": "ranking",
+        "source_label": "銘柄ランキング",
+        "symbol": symbol.strip().upper(),
+        "period_label": f"{start.isoformat()}〜{end.isoformat()}",
+    }
 
 
 def _select_news_symbol_for_cockpit(symbol: str) -> None:
@@ -12977,11 +13005,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         summary_items,
         header_action=render_cockpit_favorite_action if symbol else None,
     )
-    render_mascot_panel(
-        "cockpit",
-        message="判断サマリーとチャートで全体感をつかみ、AI調査で背景材料を確認します。",
-        layout="compact",
-    )
     _render_favorite_next_action_hint()
     score_row = _render_investment_score_section(
         preview,
@@ -13309,13 +13332,19 @@ def _render_cockpit_llm_factor(
         return None
     response = response or _cockpit_llm_factor_result(preview)
     result = response.result
+    source_rows = _llm_factor_evidence_display_rows(result)
     st.markdown("#### AI調査から見た材料分析")
+    if not source_rows:
+        st.info(
+            "出典付きのAI調査材料はまだありません。上の「AI調査を開始・更新」で"
+            "資料・ニュースを取得してから確認してください。"
+        )
+        return response
     st.caption(
         "根拠資料をLLMで上昇材料・注意材料へ整理する補助メモです。"
         "スコアやランキングには反映しません。"
     )
     st.markdown(_llm_factor_panel_html(result), unsafe_allow_html=True)
-    source_rows = _llm_factor_evidence_display_rows(result)
     with st.expander("AI材料分析の詳細（出典・実行情報）", expanded=False):
         st.caption(_llm_factor_cache_caption(response.cache))
         st.markdown(_llm_factor_runtime_html(result), unsafe_allow_html=True)
@@ -13338,6 +13367,21 @@ def _render_cockpit_interpretation(
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
+    report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    research_evidence = _cockpit_interpretation_research_evidence_rows(
+        report=report,
+        news_report=news_report,
+        external_result=external_result,
+    )
+    st.subheader("04 確認メモ")
+    if not research_evidence:
+        st.info(
+            "AI調査の出典がまだないため、確認メモは表示していません。"
+            "先に「AI調査を開始・更新」で材料を取得してください。"
+        )
+        return
     response = _cockpit_interpretation_result(
         preview,
         llm_factor_result=llm_factor_result,
@@ -13346,7 +13390,6 @@ def _render_cockpit_interpretation(
         advanced_forecast_summary=advanced_forecast_summary,
         investment_score_summary=investment_score_summary,
     )
-    st.subheader("04 確認メモ")
     st.caption("価格・予測・AI調査を合わせ、次に見ることを短い確認メモに整理します。")
     st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
     with st.expander("AI解釈メモの詳細（実行情報）", expanded=False):

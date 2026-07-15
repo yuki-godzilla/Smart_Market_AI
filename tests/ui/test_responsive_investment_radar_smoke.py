@@ -63,9 +63,10 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("投資レーダー", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
-                assert page.get_by_role("tab").count() == 3
+                assert page.get_by_role("tab").count() == 2
                 assert page.get_by_role("tab", name="市場レーダー").count() == 1
                 assert page.get_by_role("button", name="今すぐ更新").count() == 1
+                assert page.locator(".investment-news-ticker-item").count() <= 3
                 market_surface = page.locator("section.investment-market-heatmap")
                 market_surface.wait_for(state="visible", timeout=120_000)
                 assert page.get_by_text("比較期間は約1か月", exact=False).count() > 0
@@ -123,32 +124,12 @@ def test_investment_radar_responsive_viewports() -> None:
 
                 page.get_by_role("tab", name="ニュース一覧").click()
                 assert page.locator(".investment-news-ticker-item").count() <= 3
-
-                page.get_by_role("tab", name="ニュース・根拠").click()
-                assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
-                page.get_by_text("詳しい探索条件", exact=True).wait_for(
-                    state="visible", timeout=30_000
-                )
-                radar_heading = page.get_by_text("ニュースからの確認候補", exact=True)
-                radar_heading.scroll_into_view_if_needed()
-                detail_button = page.get_by_role("button", name="詳細を開く").first
-                assert detail_button.count() == 1
-                detail_button.click()
-                dialog = page.locator('[data-testid="stDialog"]')
-                dialog.wait_for(state="visible", timeout=30_000)
-                assert (
-                    dialog.locator(".investment-radar-candidate-detail-dialog-marker").count() == 1
-                )
-                assert dialog.get_by_text("選択中の候補", exact=False).count() > 0
-                assert dialog.get_by_role("button", name="根拠資料を確認").count() == 1
-
-                dialog_body_width = page.locator("body").evaluate(
-                    "(element) => ({"
-                    "scrollWidth: element.scrollWidth, "
-                    "clientWidth: element.clientWidth"
-                    "})"
-                )
-                assert dialog_body_width["scrollWidth"] <= dialog_body_width["clientWidth"] + 2
+                candidate_footer = page.get_by_text("確認候補（補助）", exact=False)
+                assert candidate_footer.count() <= 1
+                if candidate_footer.count():
+                    candidate_footer.scroll_into_view_if_needed()
+                assert page.get_by_role("tab", name="ニュース・根拠").count() == 0
+                assert page.get_by_role("button", name="詳細を開く").count() == 0
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

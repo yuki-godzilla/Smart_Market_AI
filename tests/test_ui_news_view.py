@@ -616,6 +616,26 @@ def test_radar_confirmation_triage_frame_keeps_provenance_and_confirmation_order
     assert set(frame["候補由来"]) == {"本文に出た銘柄", "SMAI推測候補", "市場背景の確認"}
 
 
+def test_radar_candidate_footer_keeps_a_bounded_cockpit_only_handoff():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+    candidates = [
+        candidate
+        for candidate in news_module.build_radar_candidate_map(snapshot).candidates
+        if candidate.is_investigation_candidate
+    ]
+    news_module.st.session_state.clear()
+
+    html_text = news_module._radar_candidate_footer_html(candidates[:2])
+
+    assert html_text.count("investment-radar-candidate-footer-item") == 2
+    assert "smai_page=cockpit" in html_text
+    assert "本文言及" in html_text or "テーマ関連" in html_text
+    assert "確認の順番" not in html_text
+    assert "根拠" in html_text
+
+
 def test_news_dashboard_cockpit_href_normalizes_symbol_for_same_app_navigation():
     news_module.st.session_state.clear()
     assert news_dashboard_cockpit_href(" nvda ") == "?smai_page=cockpit&smai_symbol=NVDA"

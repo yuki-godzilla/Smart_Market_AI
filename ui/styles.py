@@ -2274,6 +2274,50 @@ div[data-testid="stElementContainer"]:has(
     white-space: nowrap;
 }
 
+/* The news-list footer deliberately stays lighter than the main news lanes. */
+.investment-radar-candidate-footer-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem;
+}
+
+.investment-radar-candidate-footer-item {
+    min-width: 0;
+    border: 1px solid rgba(125, 211, 252, 0.18);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.46);
+    color: #E0F2FE;
+    padding: 0.44rem 0.56rem;
+    text-decoration: none;
+}
+
+.investment-radar-candidate-footer-item:hover,
+.investment-radar-candidate-footer-item:focus-visible {
+    border-color: rgba(125, 211, 252, 0.68);
+    background: rgba(14, 116, 144, 0.2);
+    outline: none;
+}
+
+.investment-radar-candidate-footer-item strong,
+.investment-radar-candidate-footer-item span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-radar-candidate-footer-item strong {
+    color: #F8FAFC;
+    font-size: 0.76rem;
+}
+
+.investment-radar-candidate-footer-item span {
+    color: rgba(203, 220, 233, 0.78);
+    font-size: 0.63rem;
+    margin-top: 0.12rem;
+}
+
 .investment-market-heatmap-canvas {
     position: relative;
     width: 100%;

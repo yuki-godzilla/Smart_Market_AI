@@ -68,6 +68,7 @@ NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 NEWS_FEATURED_HEADLINE_LIMIT = 3
+NEWS_RADAR_CANDIDATE_FOOTER_LIMIT = 6
 NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
 NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY = "investment_radar_candidate_detail_request_id"
 NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY = "investment_radar_evidence_bundles"
@@ -480,30 +481,22 @@ def render_news_dashboard_page(
     _render_update_warning(status)
     symbol_name_map = _news_symbol_name_map()
     today_candidate_map = _radar_candidate_map_for_snapshot(snapshot)
-    market_tab, evidence_tab, news_tab = st.tabs(["市場レーダー", "ニュース・根拠", "ニュース一覧"])
+    market_tab, news_tab = st.tabs(["市場レーダー", "ニュース一覧"])
     with market_tab:
+        _render_news_stream(snapshot)
         _render_market_heatmap(
             today_candidate_map,
             market_snapshot_callback=market_snapshot_callback,
             news_context_by_category=_radar_market_news_context_by_category(snapshot),
         )
-    with evidence_tab:
-        filtered_snapshot = _render_news_detail_filters(snapshot)
-        candidate_map = _radar_candidate_map_for_snapshot(filtered_snapshot)
-        _render_radar_candidate_map(candidate_map)
-        _render_requested_radar_candidate_detail(
-            candidate_map.candidates,
-            as_of=filtered_snapshot.generated_at.date(),
-            open_symbol_callback=open_symbol_callback,
-        )
     with news_tab:
-        st.caption("「ニュース・根拠」タブの探索条件を共有して表示します。")
-        _render_news_stream(filtered_snapshot)
+        _render_news_stream(snapshot)
         _render_category_lanes(
-            filtered_snapshot,
+            snapshot,
             open_symbol_callback=open_symbol_callback,
             symbol_name_map=symbol_name_map,
         )
+        _render_radar_candidate_footer(today_candidate_map)
 
 
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
@@ -2014,7 +2007,7 @@ def _render_news_detail_filters(
 def _render_news_stream(
     snapshot: NewsDashboardSnapshot,
 ) -> None:
-    st.markdown("### 重要ニュース")
+    st.markdown("### 市場ニュースヘッドライン")
     featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_LIMIT]
     if not featured:
         st.info("表示できるニュースはまだありません。")
@@ -2032,6 +2025,51 @@ def _radar_market_news_context_by_category(
         for lane in snapshot.category_lanes
         if lane.category and lane.headlines
     }
+
+
+def _render_radar_candidate_footer(candidate_map: RadarCandidateMap) -> None:
+    """Keep the deterministic candidate list as a quiet follow-up to the news list."""
+
+    candidates = [
+        candidate for candidate in candidate_map.candidates if candidate.is_investigation_candidate
+    ]
+    if not candidates:
+        return
+    visible_candidates = candidates[:NEWS_RADAR_CANDIDATE_FOOTER_LIMIT]
+    hidden_count = len(candidates) - len(visible_candidates)
+    with st.expander(f"確認候補（補助）・{len(candidates)}件", expanded=False):
+        st.caption(
+            "記事に明示された銘柄とテーマ関連候補の簡易一覧です。"
+            "投資魅力度やランキングではありません。詳しい確認は銘柄コックピットで行えます。"
+        )
+        st.markdown(_radar_candidate_footer_html(visible_candidates), unsafe_allow_html=True)
+        if hidden_count:
+            st.caption(f"ほか {hidden_count}件は、この一覧では表示を省略しています。")
+
+
+def _radar_candidate_footer_html(candidates: Sequence[RadarCandidate]) -> str:
+    """Return a bounded, click-through candidate summary without evidence tooling."""
+
+    if not candidates:
+        return ""
+    item_html: list[str] = []
+    for candidate in candidates:
+        provenance = "本文言及" if candidate.provenance == "direct_mention" else "テーマ関連"
+        evidence_count = max(len(candidate.evidence_ids), len(candidate.evidence), 1)
+        watchlist = " · WL" if candidate.watchlist_match else ""
+        display_name = _radar_candidate_display_name(candidate)
+        item_html.append(
+            '<a class="investment-radar-candidate-footer-item" '
+            f'href="{html.escape(news_dashboard_cockpit_href(candidate.symbol))}" '
+            f'aria-label="{html.escape(display_name)}を銘柄コックピットで確認">'
+            f"<strong>{html.escape(display_name)}</strong>"
+            f"<span>{html.escape(candidate.symbol)} · {provenance} · 根拠{evidence_count}件{watchlist}</span>"
+            "</a>"
+        )
+    return (
+        '<div class="investment-radar-candidate-footer-list" '
+        'aria-label="ニュース確認候補の簡易一覧">' + "".join(item_html) + "</div>"
+    )
 
 
 def radar_market_treemap_rectangles(
@@ -2757,7 +2795,7 @@ def _render_radar_candidate_triage(candidates: Sequence[RadarCandidate]) -> None
 
 
 def _render_radar_today_summary(candidate_map: RadarCandidateMap) -> None:
-    """Render today's extraction and first-check hook as a compact map preface."""
+    """Render today's extraction context as a compact map preface."""
 
     candidates = candidate_map.candidates
     if not candidates:
@@ -2797,13 +2835,6 @@ def _render_radar_today_summary(candidate_map: RadarCandidateMap) -> None:
         "</div>"
         "</section>",
         unsafe_allow_html=True,
-    )
-    st.button(
-        "最初の候補の根拠を見る",
-        key=f"investment_radar_today_candidate_detail_{selected_candidate.candidate_id}",
-        on_click=_request_radar_candidate_detail,
-        args=(selected_candidate.candidate_id,),
-        type="primary",
     )
 
 

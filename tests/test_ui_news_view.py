@@ -762,13 +762,13 @@ def test_news_ticker_html_uses_paged_unique_headline_board():
     assert "investment-news-board-nav" not in html_text
     assert "investment-news-ticker-title" in html_text
     assert "HEADLINE FLOW" in html_text
-    assert "2件を自動ハイライト" in html_text
+    assert "2件を3件ずつ表示" in html_text
     assert "最新公開 未確認" in html_text
     assert "--investment-news-flow-delay:0s" in html_text
     assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
 
 
-def test_news_ticker_html_groups_four_items_per_page_without_duplicates():
+def test_news_ticker_html_groups_three_items_per_page_without_duplicates():
     cards = [
         NewsHeadlineCard(
             title=f"ニュース{index}",
@@ -783,9 +783,35 @@ def test_news_ticker_html_groups_four_items_per_page_without_duplicates():
 
     assert html_text.count('class="investment-news-board-page ') == 2
     assert html_text.count("investment-news-ticker-item") == 5
-    assert "investment-news-board-page-1" in html_text
-    assert "investment-news-board-cycle" in html_text
-    assert "--investment-news-flow-delay:9s" in html_text
+    assert "investment-news-headlines-page-1" in html_text
+    assert "investment-news-headlines-cycle" in html_text
+    assert "--investment-news-flow-delay:3s" in html_text
+
+
+def test_news_ticker_html_rotates_three_cards_and_keeps_article_links_clickable():
+    cards = [
+        NewsHeadlineCard(
+            title=f"ニュース{index}",
+            url=f"https://example.test/news-{index}",
+            source_type="news",
+            category="日本株",
+            material_type="theme",
+        )
+        for index in range(7)
+    ]
+
+    html_text = _news_ticker_html(cards, ticker_id="market-headline-flow")
+
+    assert html_text.count('class="investment-news-board-page ') == 3
+    assert html_text.count("investment-news-ticker-item") == 7
+    assert "7件を3件ずつ表示" in html_text
+    assert "8秒ごとに切替" in html_text
+    assert 'id="market-headline-flow"' in html_text
+    assert 'name="market-headline-flow-page"' in html_text
+    assert 'for="market-headline-flow-page-2"' in html_text
+    assert 'href="https://example.test/news-6"' in html_text
+    assert 'target="_blank"' in html_text
+    assert 'rel="noopener noreferrer"' in html_text
 
 
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():

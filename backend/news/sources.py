@@ -27,7 +27,7 @@ from backend.news.dashboard import build_demo_news_dashboard_snapshot, build_new
 
 STANDARD_NEWS_RAW_FETCH_TARGET = 250
 STANDARD_NEWS_NORMALIZED_TARGET = MAX_NEWS_ITEMS
-STANDARD_NEWS_CATEGORY_QUERY_COUNT = 12
+STANDARD_NEWS_CATEGORY_QUERY_COUNT = 17
 STANDARD_NEWS_PER_QUERY_LIMIT = 15
 STANDARD_NEWS_LOOKBACK_DAYS = 7
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
@@ -303,6 +303,41 @@ STANDARD_NEWS_CATEGORY_QUERIES: tuple[NewsCategoryQuery, ...] = (
         query="小売 消費 インフレ 決算 消費者 株",
         related_symbols=("AMZN", "7203.T", "HD", "WMT", "COST", "9983.T"),
     ),
+    NewsCategoryQuery(
+        category="不動産・REIT",
+        region="日本",
+        material_type="theme",
+        query="不動産 REIT 賃料 住宅 オフィス 金利 株",
+        related_symbols=("1488.T", "8801.T", "8802.T"),
+    ),
+    NewsCategoryQuery(
+        category="通信・メディア",
+        region="グローバル",
+        material_type="theme",
+        query="通信 メディア 5G コンテンツ 広告 プラットフォーム 株",
+        related_symbols=("9432.T", "9984.T", "GOOGL", "META"),
+    ),
+    NewsCategoryQuery(
+        category="工業・資本財",
+        region="日本",
+        material_type="theme",
+        query="防衛 航空宇宙 建設機械 設備投資 工場自動化 株",
+        related_symbols=("7011.T", "6301.T", "6503.T"),
+    ),
+    NewsCategoryQuery(
+        category="ヘルスケア",
+        region="グローバル",
+        material_type="theme",
+        query="医薬品 医療 バイオ 臨床試験 薬価 ヘルスケア 株",
+        related_symbols=("4502.T", "4568.T", "JNJ"),
+    ),
+    NewsCategoryQuery(
+        category="素材・化学",
+        region="日本",
+        material_type="theme",
+        query="化学 素材 半導体材料 シリコンウエハ 資源価格 株",
+        related_symbols=("4063.T", "5706.T", "5108.T"),
+    ),
 )
 
 
@@ -434,7 +469,7 @@ def _google_news_dashboard_card_from_item(
     description = _description_text(_rss_child_text(item, "description"))
     published_at = _rss_datetime(_rss_child_text(item, "pubDate"))
     symbol_text = f"{title} {description}"
-    symbol_extraction = _extract_news_symbols(symbol_text, category_query)
+    symbol_extraction = extract_news_symbols(symbol_text, category_query)
     ai_comment = _standard_news_ai_comment(
         category_query,
         title=title,
@@ -530,10 +565,17 @@ def _freshness_from_published_at(
     return "stale"
 
 
-def _extract_news_symbols(
+def extract_news_symbols(
     text: str,
     category_query: NewsCategoryQuery,
 ) -> NewsSymbolExtractionResult:
+    """Extract direct, thematic, and macro symbols from one normalized headline.
+
+    This deterministic boundary is deliberately public so the labelled regression
+    suite can assess the same logic used by the dashboard.  It does not fetch
+    external data or invoke an LLM.
+    """
+
     related_symbols = _symbols_from_text(
         text,
         fallback=category_query.related_symbols,
@@ -584,6 +626,15 @@ def _extract_news_symbols(
     )
 
 
+def _extract_news_symbols(
+    text: str,
+    category_query: NewsCategoryQuery,
+) -> NewsSymbolExtractionResult:
+    """Backward-compatible private alias for existing internal callers."""
+
+    return extract_news_symbols(text, category_query)
+
+
 def _symbols_from_text(
     text: str,
     *,
@@ -609,6 +660,8 @@ def _symbols_from_text(
             r"(?<![A-Za-z0-9])alphabet(?![A-Za-z0-9])|(?<![A-Za-z0-9])google(?![A-Za-z0-9])|グーグル",
             "GOOGL",
         ),
+        (r"(?<![A-Za-z0-9])tesla(?![A-Za-z0-9])|テスラ", "TSLA"),
+        (r"(?<![A-Za-z0-9])palantir(?![A-Za-z0-9])|パランティア", "PLTR"),
         (r"東京エレクトロン|tokyo electron", "8035.T"),
         (r"アドバンテスト|advantest", "6857.T"),
         (r"トヨタ|toyota", "7203.T"),
@@ -644,6 +697,9 @@ def _symbols_from_text(
         (r"ifreeetf\s*東証reit|東証REIT指数", "1488.T"),
         (r"三菱重工|mitsubishi heavy", "7011.T"),
         (r"三菱電機|mitsubishi electric", "6503.T"),
+        (r"信越化学|shin-?etsu chemical", "4063.T"),
+        (r"武田薬品|takeda pharmaceutical", "4502.T"),
+        (r"富士通|fujitsu", "6702.T"),
         (r"住友商事|sumitomo corp", "8053.T"),
         (r"アトラ[ＧG]|アトラグループ", "6029.T"),
         (r"燦[ＨH][ＤD]|燦ホールディングス", "9628.T"),
@@ -652,15 +708,34 @@ def _symbols_from_text(
     )
     matches: dict[str, tuple[int, int]] = {}
     for match in re.finditer(r"【(\d{4})】", text):
-        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+        symbol = f"{match.group(1)}.T"
+        if _is_known_symbol(symbol):
+            matches[symbol] = (match.start(), -1)
     for match in re.finditer(r"[（(［\[](\d{4})[）)］\]]", text):
-        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+        symbol = f"{match.group(1)}.T"
+        if _is_known_symbol(symbol):
+            matches[symbol] = (match.start(), -1)
     for match in re.finditer(
         r"(?<![A-Za-z0-9])(\d{4})\.T(?![A-Za-z0-9])",
         text,
         re.IGNORECASE,
     ):
-        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+        symbol = f"{match.group(1)}.T"
+        if _is_known_symbol(symbol):
+            matches[symbol] = (match.start(), -1)
+    for ticker_pattern in (
+        r"(?<![A-Za-z0-9])\$([A-Za-z][A-Za-z0-9.-]{0,7})(?![A-Za-z0-9])",
+        r"(?<![A-Za-z0-9])(?:NASDAQ|NYSE|AMEX)\s*[:：]\s*([A-Za-z][A-Za-z0-9.-]{0,7})(?![A-Za-z0-9])",
+        r"(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9.-]{0,7})\s*[（(]\s*(?:NASDAQ|NYSE|AMEX)\s*[）)]",
+    ):
+        for match in re.finditer(ticker_pattern, text, flags=re.IGNORECASE):
+            symbol = match.group(1).upper()
+            if _is_known_symbol(symbol):
+                matches[symbol] = (match.start(1), -2)
+    for match in re.finditer(r"(?:東証|TSE)\s*[:：]\s*(\d{4})(?!\d)", text, flags=re.IGNORECASE):
+        symbol = f"{match.group(1)}.T"
+        if _is_known_symbol(symbol):
+            matches[symbol] = (match.start(1), -2)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
         pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
         if pattern_match is None:
@@ -946,6 +1021,28 @@ def _symbol_universe_aliases() -> tuple[tuple[str, str], ...]:
     )
 
 
+@lru_cache(maxsize=1)
+def _symbol_universe_symbols() -> frozenset[str]:
+    """Read local symbols once to reject number-like text as false tickers."""
+
+    if not SYMBOL_UNIVERSE_CSV.exists():
+        return frozenset()
+    try:
+        with SYMBOL_UNIVERSE_CSV.open("r", encoding="utf-8-sig", newline="") as file:
+            return frozenset(
+                symbol.strip().upper()
+                for row in csv.DictReader(file)
+                if (symbol := row.get("symbol") or "").strip()
+            )
+    except OSError:
+        return frozenset()
+
+
+def _is_known_symbol(symbol: str) -> bool:
+    known_symbols = _symbol_universe_symbols()
+    return not known_symbols or symbol.strip().upper() in known_symbols
+
+
 def _symbol_alias_candidates(row: dict[str, str]) -> list[str]:
     alias_tokens = (row.get("aliases") or "").split()
     raw_values = [row.get("name") or ""]
@@ -1080,6 +1177,15 @@ def _inferred_symbols_from_text(
         )
 
     context_candidates: list[str] = []
+    category_context_candidates: tuple[str, ...] = ()
+    if category_query is not None:
+        category_context_candidates = {
+            "不動産・REIT": ("1488.T", "8801.T", "8802.T"),
+            "通信・メディア": ("9432.T", "9984.T", "GOOGL", "META"),
+            "工業・資本財": ("7011.T", "6301.T", "6503.T"),
+            "ヘルスケア": ("4502.T", "4568.T", "JNJ"),
+            "素材・化学": ("4063.T", "5706.T", "5108.T"),
+        }.get(category_query.category, ())
     context_rules = (
         (
             ("金価格", "金相場", "ゴールド"),
@@ -1133,13 +1239,33 @@ def _inferred_symbols_from_text(
             ("小売", "消費", "個人消費", "retail"),
             ("AMZN", "WMT", "COST"),
         ),
+        (
+            ("reit", "不動産投信", "不動産", "賃料", "住宅", "オフィス"),
+            ("1488.T", "8801.T", "8802.T"),
+        ),
+        (
+            ("通信", "5g", "メディア", "コンテンツ", "広告", "telecom"),
+            ("9432.T", "9984.T", "GOOGL", "META"),
+        ),
+        (
+            ("航空宇宙", "建設機械", "工場自動化", "設備投資", "産業機械"),
+            ("7011.T", "6301.T", "6503.T"),
+        ),
+        (
+            ("医薬", "医療", "バイオ", "臨床試験", "pharma", "drug"),
+            ("4502.T", "4568.T", "JNJ"),
+        ),
+        (
+            ("化学", "素材", "半導体材料", "シリコンウエハ", "silicon wafer"),
+            ("4063.T", "5706.T", "5108.T"),
+        ),
     )
     for keywords, symbols in context_rules:
         if any(keyword.casefold() in lowered for keyword in keywords):
             context_candidates.extend(symbols)
     return _dedupe_inferred_symbols(
         related_symbols,
-        [*context_candidates, *fallback],
+        [*category_context_candidates, *context_candidates, *fallback],
         limit=limit,
     )
 

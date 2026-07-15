@@ -18,6 +18,7 @@ from backend.research import ResearchEvidence, ResearchRetrievalQuality, Researc
 
 _MIN_RELEVANCE = 0.10
 _MAX_CITATIONS = 5
+_MAX_RETRIEVAL_CANDIDATES = 12
 _MAX_QUERY_CHARS = 360
 _MAX_EXCERPT_CHARS = 320
 
@@ -63,16 +64,21 @@ def build_radar_evidence_bundle(
         ResearchSearchRequest(
             symbol=context.symbol,
             query=context.query,
-            top_k=_MAX_CITATIONS,
+            # Ask the local retriever for a wider, bounded pool before choosing
+            # citations.  This avoids filling the evidence panel with adjacent
+            # chunks from one document when different source documents exist.
+            top_k=_MAX_RETRIEVAL_CANDIDATES,
             as_of=context.as_of,
         )
     )
     citations: list[RadarEvidenceCitation] = []
     gaps: list[str] = []
     seen_chunks: set[tuple[str, str]] = set()
+    seen_documents: set[str] = set()
     future_filtered = False
     low_relevance_filtered = False
     wrong_symbol_filtered = False
+    duplicate_document_filtered = False
     for evidence in retrieved:
         if evidence.symbol.strip().upper() != context.symbol.strip().upper():
             wrong_symbol_filtered = True
@@ -87,6 +93,10 @@ def build_radar_evidence_bundle(
         if identity in seen_chunks:
             continue
         seen_chunks.add(identity)
+        if evidence.document_id in seen_documents:
+            duplicate_document_filtered = True
+            continue
+        seen_documents.add(evidence.document_id)
         citations.append(
             RadarEvidenceCitation(
                 citation_id=f"radar-rag:{evidence.document_id}:{evidence.chunk_id}",
@@ -109,6 +119,8 @@ def build_radar_evidence_bundle(
         gaps.append("関連度が低い資料は根拠に採用していません。")
     if wrong_symbol_filtered:
         gaps.append("別銘柄の資料は根拠に採用していません。")
+    if duplicate_document_filtered:
+        gaps.append("同一資料の近接断片はまとめ、異なる資料を優先して表示しています。")
     quality = _radar_retrieval_quality(getattr(retriever, "last_search_quality", None))
     if not citations:
         gaps.append("候補に対応するローカルRAG根拠は確認できませんでした。")

@@ -1070,7 +1070,7 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-ticker {
     position: relative;
-    min-height: 12.25rem;
+    min-height: 9.7rem;
     overflow: hidden;
     margin: 0.35rem 0 1rem;
     padding: 0.72rem 0.78rem 0.55rem;
@@ -1138,20 +1138,21 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-board-viewport {
     position: relative;
-    min-height: 8.45rem;
+    min-height: 5.55rem;
 }
 
 .investment-news-board-page {
     position: absolute;
     inset: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(3.75rem, auto));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(5.1rem, auto);
     gap: 0.55rem;
     opacity: 0;
     pointer-events: none;
-    animation: investment-news-board-cycle var(--investment-news-board-duration) ease-in-out
-        infinite;
+    animation-duration: var(--investment-news-board-duration);
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
     will-change: opacity, transform;
 }
 
@@ -1318,7 +1319,7 @@ div[data-testid="stElementContainer"]:has(
 
 @media (max-width: 767px) {
     .investment-news-ticker {
-        min-height: 19.85rem;
+        min-height: 16.25rem;
     }
 
     .investment-news-ticker-flow {
@@ -1337,16 +1338,31 @@ div[data-testid="stElementContainer"]:has(
     }
 
     .investment-news-board-viewport {
-        min-height: 15.8rem;
+        min-height: 12.1rem;
     }
 
     .investment-news-board-page {
         grid-template-columns: 1fr;
-        grid-template-rows: repeat(4, minmax(3.45rem, auto));
+        grid-template-rows: repeat(3, minmax(3.45rem, auto));
     }
 
     .investment-news-board-nav-note {
         display: none;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1200px) {
+    .investment-news-ticker {
+        min-height: 12.85rem;
+    }
+
+    .investment-news-board-viewport {
+        min-height: 8.6rem;
+    }
+
+    .investment-news-board-page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(3.75rem, auto));
     }
 }
 

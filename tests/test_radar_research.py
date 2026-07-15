@@ -47,13 +47,14 @@ def _candidate() -> RadarCandidate:
 def _evidence(
     *,
     chunk_id: str,
+    document_id: str | None = None,
     symbol: str = "7203.T",
     published_at: date | None = date(2026, 7, 10),
     relevance: str = "0.80",
 ) -> ResearchEvidence:
     return ResearchEvidence(
         symbol=symbol,
-        document_id=f"doc-{chunk_id}",
+        document_id=document_id or f"doc-{chunk_id}",
         chunk_id=chunk_id,
         title=f"資料 {chunk_id}",
         source_type="company_ir",
@@ -84,6 +85,7 @@ def test_radar_evidence_bundle_uses_only_candidate_symbol_timely_relevant_local_
     )
 
     assert retriever.requests[0].symbol == "7203.T"
+    assert retriever.requests[0].top_k == 12
     assert "7203.T" in context.query
     assert bundle.status == "available"
     assert [citation.research_evidence_id for citation in bundle.citations] == ["accepted"]
@@ -109,3 +111,26 @@ def test_radar_evidence_bundle_keeps_missing_material_as_confirmation_gap():
     assert bundle.status == "confirmation_gap"
     assert bundle.citations == []
     assert any("確認できません" in gap for gap in bundle.confirmation_gaps)
+
+
+def test_radar_evidence_bundle_prefers_distinct_documents_from_the_local_rag_pool():
+    candidate = _candidate()
+    context = build_radar_research_context(candidate, as_of=date(2026, 7, 13))
+    retriever = _FakeRetriever(
+        [
+            _evidence(chunk_id="first", document_id="doc-a"),
+            _evidence(chunk_id="nearby", document_id="doc-a"),
+            _evidence(chunk_id="second", document_id="doc-b"),
+        ]
+    )
+
+    bundle = build_radar_evidence_bundle(
+        candidate,
+        context=context,
+        retriever=retriever,
+        now=datetime(2026, 7, 13, 9, 0, tzinfo=UTC),
+    )
+
+    assert retriever.requests[0].top_k == 12
+    assert [citation.research_evidence_id for citation in bundle.citations] == ["first", "second"]
+    assert any("同一資料の近接断片" in gap for gap in bundle.confirmation_gaps)

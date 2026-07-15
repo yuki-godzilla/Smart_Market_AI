@@ -67,7 +67,11 @@ NEWS_MARKET_PROXY_SYMBOL_DISPLAY_LIMIT = 5
 NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
-NEWS_FEATURED_HEADLINE_LIMIT = 3
+# Keep a bounded rotating pool, while showing only three readable cards at a
+# time.  The source snapshot is already normalized and bounded separately.
+NEWS_FEATURED_HEADLINE_PAGE_SIZE = 3
+NEWS_FEATURED_HEADLINE_POOL_LIMIT = 12
+NEWS_FEATURED_HEADLINE_ROTATION_SECONDS = 8
 NEWS_RADAR_CANDIDATE_FOOTER_LIMIT = 6
 NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
 NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY = "investment_radar_candidate_detail_request_id"
@@ -487,14 +491,14 @@ def render_news_dashboard_page(
     today_candidate_map = _radar_candidate_map_for_snapshot(snapshot)
     market_tab, news_tab = st.tabs(["市場レーダー", "ニュース一覧"])
     with market_tab:
-        _render_news_stream(snapshot)
+        _render_news_stream(snapshot, ticker_id="investment-news-market-headlines")
         _render_market_heatmap(
             today_candidate_map,
             market_snapshot_callback=market_snapshot_callback,
             news_context_by_category=_radar_market_news_context_by_category(snapshot),
         )
     with news_tab:
-        _render_news_stream(snapshot)
+        _render_news_stream(snapshot, ticker_id="investment-news-list-headlines")
         _render_category_lanes(
             snapshot,
             open_symbol_callback=open_symbol_callback,
@@ -2010,13 +2014,15 @@ def _render_news_detail_filters(
 
 def _render_news_stream(
     snapshot: NewsDashboardSnapshot,
+    *,
+    ticker_id: str,
 ) -> None:
     st.markdown("### 市場ニュースヘッドライン")
-    featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_LIMIT]
+    featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_POOL_LIMIT]
     if not featured:
         st.info("表示できるニュースはまだありません。")
         return
-    st.markdown(_news_ticker_html(featured), unsafe_allow_html=True)
+    st.markdown(_news_ticker_html(featured, ticker_id=ticker_id), unsafe_allow_html=True)
 
 
 def _radar_market_news_context_by_category(
@@ -3716,14 +3722,21 @@ def _lane_heading_html(category: str) -> str:
     )
 
 
-def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
+def _news_ticker_html(
+    cards: list[NewsHeadlineCard],
+    *,
+    ticker_id: str = "investment-news-headlines",
+) -> str:
     if not cards:
         return ""
     unique_cards = _unique_news_ticker_cards(cards)
-    pages = [unique_cards[index : index + 4] for index in range(0, len(unique_cards), 4)]
+    pages = [
+        unique_cards[index : index + NEWS_FEATURED_HEADLINE_PAGE_SIZE]
+        for index in range(0, len(unique_cards), NEWS_FEATURED_HEADLINE_PAGE_SIZE)
+    ]
     page_count = len(pages)
-    duration_seconds = max(6, page_count * 6)
-    flow_duration_seconds = max(6, min(12, len(unique_cards) * 3))
+    page_duration_seconds = NEWS_FEATURED_HEADLINE_ROTATION_SECONDS
+    duration_seconds = max(page_duration_seconds, page_count * page_duration_seconds)
     latest_published = max(
         (card.published_at for card in unique_cards if card.published_at), default=None
     )
@@ -3733,14 +3746,14 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
         if page_count == 1
         else (
             "<style>"
-            f"@keyframes investment-news-board-cycle{{0%,{visible_percent - 1}%{{opacity:1;transform:translateY(0);pointer-events:auto}}"
-            f"{visible_percent}%,100%{{opacity:0;transform:translateY(10px);pointer-events:none}}}}"
+            f"@keyframes {ticker_id}-cycle{{0%,{visible_percent - 1}%{{opacity:1;transform:translateX(0);pointer-events:auto}}"
+            f"{visible_percent}%,100%{{opacity:0;transform:translateX(2rem);pointer-events:none}}}}"
             + "".join(
                 (
-                    f".investment-news-board-page--{index}{{animation-delay:{index * 6}s}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page{{animation:none;opacity:0;transform:none;pointer-events:none}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page--{index}{{opacity:1;pointer-events:auto}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-nav label[for=investment-news-board-page-{index}]{{background:#67e8f9;transform:scale(1.18)}}"
+                    f"#{ticker_id} .investment-news-board-page--{index}{{animation-name:{ticker_id}-cycle;animation-delay:{index * page_duration_seconds}s}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page{{animation:none;opacity:0;transform:none;pointer-events:none}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page--{index}{{opacity:1;pointer-events:auto}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-nav label[for={ticker_id}-page-{index}]{{background:#67e8f9;transform:scale(1.18)}}"
                 )
                 for index in range(page_count)
             )
@@ -3748,14 +3761,14 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
         )
     )
     controls = "".join(
-        f'<input class="investment-news-board-radio" type="radio" name="investment-news-board-page" id="investment-news-board-page-{index}" />'
+        f'<input class="investment-news-board-radio" type="radio" name="{ticker_id}-page" id="{ticker_id}-page-{index}" />'
         for index in range(page_count)
     )
     page_html = "".join(
         (
             f'<div class="investment-news-board-page investment-news-board-page--{page_index}" '
             f'style="--investment-news-board-duration:{duration_seconds}s;'
-            f'--investment-news-flow-duration:{flow_duration_seconds}s">'
+            f'--investment-news-flow-duration:{max(6, len(page) * 3)}s">'
             + "".join(
                 _news_ticker_item_html(card, flow_index=item_index)
                 for item_index, card in enumerate(page)
@@ -3767,20 +3780,20 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     navigation = (
         '<div class="investment-news-board-nav" aria-label="ヘッドラインページ">'
         + "".join(
-            f'<label for="investment-news-board-page-{index}" title="{index + 1}ページ目"><span>{index + 1}</span></label>'
+            f'<label for="{ticker_id}-page-{index}" title="{index + 1}ページ目"><span>{index + 1}</span></label>'
             for index in range(page_count)
         )
-        + '<span class="investment-news-board-nav-note">ホバーで一時停止</span></div>'
+        + '<span class="investment-news-board-nav-note">ホバーで一時停止 · 8秒ごとに切替</span></div>'
         if page_count > 1
         else ""
     )
     return (
         animation_css
-        + '<section class="investment-news-ticker investment-news-board" aria-label="市場ニュースヘッドライン">'
+        + f'<section id="{ticker_id}" class="investment-news-ticker investment-news-board" aria-label="市場ニュースヘッドライン">'
         + controls
         + '<div class="investment-news-ticker-flow" aria-label="ヘッドラインの更新表示">'
         + '<span class="investment-news-ticker-flow-label"><i aria-hidden="true"></i>HEADLINE FLOW</span>'
-        + f'<span class="investment-news-ticker-flow-count">{len(unique_cards)}件を自動ハイライト</span>'
+        + f'<span class="investment-news-ticker-flow-count">{len(unique_cards)}件を{NEWS_FEATURED_HEADLINE_PAGE_SIZE}件ずつ表示</span>'
         + f'<time class="investment-news-ticker-flow-time">最新公開 {_datetime_label(latest_published)}</time>'
         + "</div>"
         + f'<div class="investment-news-board-viewport">{page_html}</div>'

@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import unquote_plus
 
 import pytest
 
@@ -3250,7 +3251,7 @@ def test_google_news_rss_adapter_parses_investment_headlines_without_live_call()
         ExternalResearchFetchRequest(
             symbol="7203.T",
             company_name="Toyota Motor",
-            related_keywords=["トヨタ自動車"],
+            related_keywords=["トヨタ自動車", "ハイブリッド", "販売"],
             provider=adapter.provider,
             as_of=date(2026, 6, 2),
             allow_network=True,
@@ -3260,6 +3261,11 @@ def test_google_news_rss_adapter_parses_investment_headlines_without_live_call()
     assert requested_urls
     assert "news.google.com/rss/search" in requested_urls[0]
     assert "when%3A7d" in requested_urls[0]
+    decoded_query_url = unquote_plus(requested_urls[0])
+    assert '"Toyota Motor"' in decoded_query_url
+    assert "トヨタ自動車" in decoded_query_url
+    assert "7203.T" in decoded_query_url
+    assert "7203" in decoded_query_url
     assert payloads[0].symbol == "7203.T"
     assert payloads[0].title == "Toyota raises guidance after strong hybrid demand"
     assert payloads[0].source_type == "news"

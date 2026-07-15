@@ -113,6 +113,7 @@ COMPANY_IR_CANDIDATE_PATHS: tuple[str, ...] = (
 TDNET_BASE_URL = "https://www.release.tdnet.info/inbs/"
 TDNET_LIST_URL_TEMPLATE = TDNET_BASE_URL + "I_list_{page:03d}_{yyyymmdd}.html"
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
+GOOGLE_NEWS_QUERY_TERM_LIMIT = 4
 GOOGLE_NEWS_INVESTMENT_QUERY_TERMS: tuple[str, ...] = (
     "株価",
     "決算",
@@ -790,7 +791,12 @@ def _google_news_query(
     base_terms = _google_news_query_base_terms(request)
     if not base_terms:
         return ""
-    base_query = " OR ".join(_google_news_quote_query_term(term) for term in base_terms[:3])
+    # Retain the company alias plus both exchange-form and numeric ticker forms.
+    # Japanese and US articles often use different representations, and this is
+    # still a single provider request rather than a wider fetch fan-out.
+    base_query = " OR ".join(
+        _google_news_quote_query_term(term) for term in base_terms[:GOOGLE_NEWS_QUERY_TERM_LIMIT]
+    )
     if len(base_terms) > 1:
         base_query = f"({base_query})"
     investment_query = " OR ".join(GOOGLE_NEWS_INVESTMENT_QUERY_TERMS)
@@ -798,15 +804,18 @@ def _google_news_query(
 
 
 def _google_news_query_base_terms(request: ExternalResearchFetchRequest) -> list[str]:
-    terms: list[str] = []
-    if request.company_name:
-        terms.append(request.company_name)
-    terms.extend(request.related_keywords)
+    company_terms = [request.company_name] if request.company_name else []
+    related_terms = _dedupe_non_empty_text(request.related_keywords)
     symbol = _normalize_symbol(request.symbol)
-    terms.append(symbol)
+    symbol_terms = [symbol]
     if "." in symbol:
-        terms.append(symbol.split(".", 1)[0])
-    return _dedupe_non_empty_text(terms)
+        symbol_terms.append(symbol.split(".", 1)[0])
+    # The query is bounded to four terms.  Put the first user/company alias
+    # before the exchange forms, then retain the rest only if the bound allows.
+    # This prevents a long keyword list from crowding out the unambiguous ticker.
+    return _dedupe_non_empty_text(
+        [*company_terms, *related_terms[:1], *symbol_terms, *related_terms[1:]]
+    )
 
 
 def _dedupe_non_empty_text(values: Sequence[str]) -> list[str]:

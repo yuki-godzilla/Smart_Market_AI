@@ -761,6 +761,10 @@ def test_news_ticker_html_uses_paged_unique_headline_board():
     assert "investment-news-board-page--0" in html_text
     assert "investment-news-board-nav" not in html_text
     assert "investment-news-ticker-title" in html_text
+    assert "HEADLINE FLOW" in html_text
+    assert "2件を自動ハイライト" in html_text
+    assert "最新公開 未確認" in html_text
+    assert "--investment-news-flow-delay:0s" in html_text
     assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
 
 
@@ -781,6 +785,7 @@ def test_news_ticker_html_groups_four_items_per_page_without_duplicates():
     assert html_text.count("investment-news-ticker-item") == 5
     assert "investment-news-board-page-1" in html_text
     assert "investment-news-board-cycle" in html_text
+    assert "--investment-news-flow-delay:9s" in html_text
 
 
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():

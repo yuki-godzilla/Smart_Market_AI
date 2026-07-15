@@ -1070,7 +1070,7 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-ticker {
     position: relative;
-    min-height: 10.8rem;
+    min-height: 12.25rem;
     overflow: hidden;
     margin: 0.35rem 0 1rem;
     padding: 0.72rem 0.78rem 0.55rem;
@@ -1080,6 +1080,52 @@ div[data-testid="stElementContainer"]:has(
         linear-gradient(90deg, rgba(34, 211, 238, 0.13), rgba(251, 191, 36, 0.08)),
         linear-gradient(180deg, rgba(8, 27, 42, 0.95), rgba(11, 18, 32, 0.94));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.investment-news-ticker-flow {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem 0.72rem;
+    min-height: 1.48rem;
+    margin: 0 0 0.48rem;
+    color: var(--text-muted);
+    font-size: 0.67rem;
+    font-weight: 720;
+    letter-spacing: 0.015em;
+}
+
+.investment-news-ticker-flow-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    color: #a5f3fc;
+    font-size: 0.7rem;
+    font-weight: 850;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+}
+
+.investment-news-ticker-flow-label i {
+    display: inline-block;
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.62);
+    animation: investment-news-flow-pulse 1.8s ease-out infinite;
+}
+
+.investment-news-ticker-flow-count {
+    padding-left: 0.7rem;
+    border-left: 1px solid rgba(125, 211, 252, 0.2);
+    white-space: nowrap;
+}
+
+.investment-news-ticker-flow-time {
+    overflow: hidden;
+    margin-left: auto;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .investment-news-board-radio {
@@ -1117,6 +1163,11 @@ div[data-testid="stElementContainer"]:has(
     animation-play-state: paused;
 }
 
+.investment-news-ticker:hover .investment-news-ticker-item,
+.investment-news-ticker:hover .investment-news-ticker-flow-label i {
+    animation-play-state: paused;
+}
+
 .investment-news-ticker-item {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -1136,12 +1187,40 @@ div[data-testid="stElementContainer"]:has(
         border-color 0.16s ease,
         background-color 0.16s ease,
         transform 0.16s ease;
+    animation: investment-news-ticker-spotlight var(--investment-news-flow-duration) ease-in-out
+        var(--investment-news-flow-delay) infinite;
 }
 
 .investment-news-ticker-item:hover {
     border-color: rgba(103, 232, 249, 0.42);
     background: rgba(8, 47, 73, 0.62);
     transform: translateY(-1px);
+}
+
+@keyframes investment-news-flow-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.62);
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 0.42rem rgba(52, 211, 153, 0);
+    }
+}
+
+@keyframes investment-news-ticker-spotlight {
+    0%,
+    18%,
+    100% {
+        border-color: rgba(125, 211, 252, 0.18);
+        background: rgba(15, 23, 42, 0.5);
+        box-shadow: none;
+    }
+    25%,
+    43% {
+        border-color: rgba(103, 232, 249, 0.62);
+        background: rgba(8, 47, 73, 0.72);
+        box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08), 0 0.55rem 1.25rem rgba(8, 145, 178, 0.12);
+    }
 }
 
 .investment-news-ticker-category {
@@ -1230,11 +1309,31 @@ div[data-testid="stElementContainer"]:has(
         opacity: 1;
         pointer-events: auto;
     }
+
+    .investment-news-ticker-item,
+    .investment-news-ticker-flow-label i {
+        animation: none;
+    }
 }
 
 @media (max-width: 767px) {
     .investment-news-ticker {
-        min-height: 18.2rem;
+        min-height: 19.85rem;
+    }
+
+    .investment-news-ticker-flow {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 0.22rem 0.52rem;
+    }
+
+    .investment-news-ticker-flow-count {
+        padding-left: 0.52rem;
+    }
+
+    .investment-news-ticker-flow-time {
+        width: 100%;
+        margin-left: 0;
     }
 
     .investment-news-board-viewport {
@@ -2207,6 +2306,7 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-market-heatmap-group-header strong {
+    flex: 0 1 45%;
     overflow: hidden;
     color: #F8FAFC;
     font-size: 0.9rem;
@@ -2216,9 +2316,13 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-market-heatmap-group-header span {
-    flex: 0 0 auto;
+    flex: 1 1 55%;
+    min-width: 0;
     color: rgba(203, 220, 233, 0.72);
     font-size: 0.64rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-align: right;
 }
 
 /* Only the news-category view receives this context card.  It keeps the

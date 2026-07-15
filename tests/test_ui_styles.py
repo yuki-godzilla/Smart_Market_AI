@@ -131,7 +131,12 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".investment-radar-candidate-footer-list" in SMAI_GLOBAL_CSS
     assert ".investment-radar-candidate-footer-item:focus-visible" in SMAI_GLOBAL_CSS
     assert "min-height: 44px;" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-group-header span" in SMAI_GLOBAL_CSS
+    assert "overflow-wrap: anywhere;" in SMAI_GLOBAL_CSS
     assert "animation: investment-news-board-cycle" in SMAI_GLOBAL_CSS
+    assert ".investment-news-ticker-flow" in SMAI_GLOBAL_CSS
+    assert "@keyframes investment-news-flow-pulse" in SMAI_GLOBAL_CSS
+    assert "@keyframes investment-news-ticker-spotlight" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS
     assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS

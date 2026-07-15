@@ -67,6 +67,8 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.get_by_role("tab", name="市場レーダー").count() == 1
                 assert page.get_by_role("button", name="今すぐ更新").count() == 1
                 assert page.locator(".investment-news-ticker-item").count() <= 3
+                assert page.locator(".investment-news-ticker-flow").count() == 1
+                assert page.get_by_text("HEADLINE FLOW", exact=True).count() == 1
                 market_surface = page.locator("section.investment-market-heatmap")
                 market_surface.wait_for(state="visible", timeout=120_000)
                 assert page.get_by_text("比較期間は約1か月", exact=False).count() > 0
@@ -124,6 +126,7 @@ def test_investment_radar_responsive_viewports() -> None:
 
                 page.get_by_role("tab", name="ニュース一覧").click()
                 assert page.locator(".investment-news-ticker-item").count() <= 3
+                assert page.locator(".investment-news-ticker-flow").count() == 1
                 candidate_footer = page.get_by_text("確認候補（補助）", exact=False)
                 assert candidate_footer.count() <= 1
                 if candidate_footer.count():

@@ -17,6 +17,7 @@ from backend.news import (
 from backend.news.radar_market import RADAR_MARKET_MAX_SYMBOLS, radar_market_candidates
 from ui.views.news import (
     _radar_market_news_context_by_category,
+    radar_market_heatmap_display_groups,
     radar_market_heatmap_groups,
     radar_market_heatmap_html,
     radar_market_snapshot_needs_refresh,
@@ -160,6 +161,42 @@ def test_radar_market_groups_tiles_by_sector_industry_and_each_news_category():
         "半導体・AI",
         "決算・業績修正",
     }
+
+
+def test_radar_market_display_groups_consolidate_multiple_sparse_sector_cards():
+    candidates = [_candidate(symbol) for symbol in ("AAA", "AAB", "AAC", "BBB", "CCC", "DDD")]
+    bars = [
+        bar
+        for index, candidate in enumerate(candidates)
+        for bar in _bars(candidate.symbol, ["100", str(102 + index)])
+    ]
+    snapshot = build_radar_market_snapshot(
+        candidates,
+        bars,
+        provider="fixture",
+        lookback_sessions=1,
+        symbol_metadata_by_symbol={
+            "AAA": {"sector": "technology"},
+            "AAB": {"sector": "technology"},
+            "AAC": {"sector": "technology"},
+            "BBB": {"sector": "financial"},
+            "CCC": {"sector": "real_estate"},
+            "DDD": {"sector": "consumer"},
+        },
+    )
+
+    display_groups = radar_market_heatmap_display_groups(snapshot, grouping="sector")
+    display_by_label = {
+        label: (tiles, grouped_labels) for label, tiles, grouped_labels in display_groups
+    }
+    html_text = radar_market_heatmap_html(snapshot, grouping="sector")
+
+    assert len(display_by_label["テクノロジー"][0]) == 3
+    sparse_tiles, sparse_labels = display_by_label["少数セクター"]
+    assert [tile.symbol for tile in sparse_tiles] == ["DDD", "CCC", "BBB"]
+    assert sparse_labels == ["消費財・サービス", "不動産", "金融"]
+    assert "少数分類: 2銘柄以下はまとめて表示" in html_text
+    assert "消費財・サービス / 不動産 / 金融 · 全3銘柄" in html_text
 
 
 def test_radar_market_snapshot_refreshes_on_entry_when_missing_stale_or_period_changes():

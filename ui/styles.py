@@ -2292,9 +2292,9 @@ div[data-testid="stElementContainer"]:has(
     margin: 0.65rem 0 0.5rem;
 }
 
-/* Wide desktop canvases can show three category maps without reducing the
-   readable tile area.  Standard desktop widths keep the two-column map. */
-@media (min-width: 1600px) {
+/* Three columns keep the now-distinct sparse classifications comparable on a
+   normal desktop.  Tablet remains one column to protect tap and text space. */
+@media (min-width: 1280px) {
     .investment-market-heatmap-groups {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }

@@ -92,18 +92,12 @@ def test_investment_radar_responsive_viewports() -> None:
                         ".split(' ').filter(Boolean).length"
                     )
                     assert grid_column_count == 1
-                elif width >= 1600:
+                elif width >= 1280:
                     grid_column_count = market_groups.evaluate(
                         "(element) => getComputedStyle(element).gridTemplateColumns"
                         ".split(' ').filter(Boolean).length"
                     )
                     assert grid_column_count == 3
-                elif width > 1200:
-                    grid_column_count = market_groups.evaluate(
-                        "(element) => getComputedStyle(element).gridTemplateColumns"
-                        ".split(' ').filter(Boolean).length"
-                    )
-                    assert grid_column_count == 2
                 market_surface.scroll_into_view_if_needed()
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

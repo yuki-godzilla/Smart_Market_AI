@@ -51,9 +51,16 @@ def radar_market_candidates(
     *,
     limit: int = RADAR_MARKET_MAX_SYMBOLS,
 ) -> list[RadarCandidate]:
-    """Select a bounded, stable set of symbol candidates for a live price check."""
+    """Select a bounded, category-balanced set for a live price check.
 
-    selected: list[RadarCandidate] = []
+    The map may display only a bounded set of price requests.  When the news
+    evidence has more candidates than that cap, preserve the existing candidate
+    priority inside each category while giving less-represented categories a
+    chance to appear.  This keeps one high-volume news theme from consuming the
+    entire sector / industry / news comparison surface.
+    """
+
+    eligible: list[RadarCandidate] = []
     seen: set[str] = set()
     for candidate in candidates:
         symbol = candidate.symbol.strip().upper()
@@ -63,11 +70,46 @@ def radar_market_candidates(
             or symbol in seen
         ):
             continue
-        selected.append(candidate)
+        eligible.append(candidate)
         seen.add(symbol)
-        if len(selected) >= max(1, limit):
-            break
+    if len(eligible) <= max(1, limit):
+        return eligible
+
+    selected: list[RadarCandidate] = []
+    category_counts: dict[str, int] = {}
+    remaining = list(enumerate(eligible))
+    while remaining and len(selected) < max(1, limit):
+        remaining_index, (_, candidate) = min(
+            enumerate(remaining),
+            key=lambda item: _radar_market_candidate_selection_key(
+                item[1][1],
+                category_counts=category_counts,
+                original_index=item[1][0],
+            ),
+        )
+        _, candidate = remaining.pop(remaining_index)
+        selected.append(candidate)
+        for category in _radar_market_candidate_categories(candidate):
+            category_counts[category] = category_counts.get(category, 0) + 1
     return selected
+
+
+def _radar_market_candidate_selection_key(
+    candidate: RadarCandidate,
+    *,
+    category_counts: Mapping[str, int],
+    original_index: int,
+) -> tuple[int, int, int]:
+    categories = _radar_market_candidate_categories(candidate)
+    counts = [category_counts.get(category, 0) for category in categories]
+    return (min(counts), sum(counts), original_index)
+
+
+def _radar_market_candidate_categories(candidate: RadarCandidate) -> tuple[str, ...]:
+    categories = tuple(
+        dict.fromkeys(category.strip() for category in candidate.categories if category.strip())
+    )
+    return categories or ("その他",)
 
 
 def build_radar_market_snapshot(

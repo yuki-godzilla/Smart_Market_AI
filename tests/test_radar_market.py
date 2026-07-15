@@ -30,13 +30,14 @@ def _candidate(
     *,
     provenance: RadarCandidateProvenance = "direct_mention",
     investigation: bool = True,
+    categories: list[str] | None = None,
 ) -> RadarCandidate:
     return RadarCandidate(
         candidate_id=f"radar:{provenance}:{symbol}",
         symbol=symbol,
         display_name=f"Name {symbol}",
         provenance=provenance,
-        categories=["半導体・AI"],
+        categories=categories or ["半導体・AI"],
         evidence_ids=[f"evidence-{symbol}"],
         directness=1.0,
         confirmation_priority=70,
@@ -115,6 +116,22 @@ def test_radar_market_candidate_request_keeps_the_wider_bounded_set():
     assert [candidate.symbol for candidate in selected] == expected_symbols
 
 
+def test_radar_market_candidate_request_keeps_a_less_common_news_category_at_the_cap():
+    candidates = [
+        *[_candidate(f"TECH{index:02d}", categories=["半導体・AI"]) for index in range(30)],
+        _candidate("ENERGY", categories=["エネルギー"]),
+    ]
+
+    selected = radar_market_candidates(candidates)
+
+    assert len(selected) == RADAR_MARKET_MAX_SYMBOLS
+    assert "ENERGY" in {candidate.symbol for candidate in selected}
+    assert (
+        len({candidate.symbol for candidate in selected if candidate.symbol.startswith("TECH")})
+        == 29
+    )
+
+
 def test_radar_market_snapshot_carries_sector_industry_and_pickup_context():
     candidate = _candidate("AAA")
     candidate.confirmation_priority = 88
@@ -163,7 +180,7 @@ def test_radar_market_groups_tiles_by_sector_industry_and_each_news_category():
     }
 
 
-def test_radar_market_display_groups_consolidate_multiple_sparse_sector_cards():
+def test_radar_market_display_groups_keep_sparse_sector_cards_distinct_for_broader_comparison():
     candidates = [_candidate(symbol) for symbol in ("AAA", "AAB", "AAC", "BBB", "CCC", "DDD")]
     bars = [
         bar
@@ -192,11 +209,12 @@ def test_radar_market_display_groups_consolidate_multiple_sparse_sector_cards():
     html_text = radar_market_heatmap_html(snapshot, grouping="sector")
 
     assert len(display_by_label["テクノロジー"][0]) == 3
-    sparse_tiles, sparse_labels = display_by_label["少数セクター"]
-    assert [tile.symbol for tile in sparse_tiles] == ["DDD", "CCC", "BBB"]
-    assert sparse_labels == ["消費財・サービス", "不動産", "金融"]
-    assert "少数分類: 2銘柄以下はまとめて表示" in html_text
-    assert "消費財・サービス / 不動産 / 金融 · 全3銘柄" in html_text
+    assert [tile.symbol for tile in display_by_label["消費財・サービス"][0]] == ["DDD"]
+    assert [tile.symbol for tile in display_by_label["不動産"][0]] == ["CCC"]
+    assert [tile.symbol for tile in display_by_label["金融"][0]] == ["BBB"]
+    assert all(grouped_labels == [] for _, grouped_labels in display_by_label.values())
+    assert "少数セクター" not in html_text
+    assert "分類 4 · 実測 6銘柄を分類ごとに表示" in html_text
 
 
 def test_radar_market_snapshot_refreshes_on_entry_when_missing_stale_or_period_changes():

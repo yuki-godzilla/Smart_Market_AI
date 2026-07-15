@@ -12,6 +12,7 @@ VIEWPORTS = (
     ("ipad8_portrait", 810, 1080),
     ("ipad8_landscape", 1080, 810),
     ("pc_1366", 1366, 768),
+    ("pc_wide", 1600, 900),
 )
 
 
@@ -88,6 +89,12 @@ def test_investment_radar_responsive_viewports() -> None:
                         ".split(' ').filter(Boolean).length"
                     )
                     assert grid_column_count == 1
+                elif width >= 1600:
+                    grid_column_count = market_groups.evaluate(
+                        "(element) => getComputedStyle(element).gridTemplateColumns"
+                        ".split(' ').filter(Boolean).length"
+                    )
+                    assert grid_column_count == 3
                 elif width > 1200:
                     grid_column_count = market_groups.evaluate(
                         "(element) => getComputedStyle(element).gridTemplateColumns"

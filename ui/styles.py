@@ -2177,6 +2177,14 @@ div[data-testid="stElementContainer"]:has(
     margin: 0.65rem 0 0.5rem;
 }
 
+/* Wide desktop canvases can show three category maps without reducing the
+   readable tile area.  Standard desktop widths keep the two-column map. */
+@media (min-width: 1600px) {
+    .investment-market-heatmap-groups {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 .investment-market-heatmap-group {
     min-width: 0;
     overflow: hidden;

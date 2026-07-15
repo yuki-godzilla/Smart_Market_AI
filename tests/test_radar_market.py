@@ -6,9 +6,17 @@ from decimal import Decimal
 import pytest
 
 from backend.core.data_contracts import Bar, Symbol
-from backend.news import RadarCandidate, RadarCandidateProvenance, build_radar_market_snapshot
+from backend.news import (
+    NewsCategoryLane,
+    NewsDashboardSnapshot,
+    NewsHeadlineCard,
+    RadarCandidate,
+    RadarCandidateProvenance,
+    build_radar_market_snapshot,
+)
 from backend.news.radar_market import RADAR_MARKET_MAX_SYMBOLS, radar_market_candidates
 from ui.views.news import (
+    _radar_market_news_context_by_category,
     radar_market_heatmap_groups,
     radar_market_heatmap_html,
     radar_market_snapshot_needs_refresh,
@@ -245,6 +253,53 @@ def test_radar_market_heatmap_marks_direction_and_value_as_one_readable_chip():
     assert 'investment-market-heatmap-change-word">下落' in html_text
     assert 'investment-market-heatmap-change-value">-2.00%' in html_text
     assert 'title="Name AAA (AAA) · 上昇 +8.00%"' in html_text
+
+
+def test_radar_market_news_groups_show_a_compact_clickable_source_card():
+    candidate = _candidate("AAA")
+    source_card = NewsHeadlineCard(
+        title="半導体需要に関する決算ニュース",
+        url="https://example.test/articles/semiconductor-results",
+        source_name="Fixture News",
+        source_type="news",
+        published_at=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
+        category="半導体・AI",
+        material_type="earnings",
+    )
+    news_snapshot = NewsDashboardSnapshot(
+        generated_at=datetime(2026, 7, 3, tzinfo=UTC),
+        category_lanes=[NewsCategoryLane(category="半導体・AI", headlines=[source_card])],
+    )
+    market_snapshot = build_radar_market_snapshot(
+        [candidate],
+        _bars("AAA", ["100", "108"]),
+        provider="fixture",
+        lookback_sessions=1,
+    )
+
+    contexts = _radar_market_news_context_by_category(news_snapshot)
+    news_html = radar_market_heatmap_html(
+        market_snapshot,
+        grouping="news",
+        news_context_by_category=contexts,
+    )
+    sector_html = radar_market_heatmap_html(
+        market_snapshot,
+        grouping="sector",
+        news_context_by_category=contexts,
+    )
+
+    assert contexts == {"半導体・AI": source_card}
+    assert 'class="investment-market-news-context is-link"' in news_html
+    assert 'href="https://example.test/articles/semiconductor-results"' in news_html
+    assert 'target="_blank" rel="noopener noreferrer"' in news_html
+    assert "根拠ニュース" in news_html
+    assert "半導体需要に関する決算ニュース" in news_html
+    assert "元記事を開く ↗" in news_html
+    assert news_html.index("investment-market-news-context") < news_html.index(
+        "investment-market-heatmap-canvas"
+    )
+    assert "investment-market-news-context" not in sector_html
 
 
 def test_radar_market_news_group_expands_through_twelve_tiles_before_overflow():

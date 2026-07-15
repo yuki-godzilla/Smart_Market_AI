@@ -2221,6 +2221,59 @@ div[data-testid="stElementContainer"]:has(
     font-size: 0.64rem;
 }
 
+/* Only the news-category view receives this context card.  It keeps the
+   article evidence adjacent to, but visually distinct from, price movement. */
+.investment-market-news-context {
+    display: block;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    background: linear-gradient(90deg, rgba(14, 116, 144, 0.18), rgba(15, 23, 42, 0.34));
+    color: #E0F2FE;
+    min-width: 0;
+    padding: 0.42rem 0.62rem 0.46rem;
+    text-decoration: none;
+}
+
+.investment-market-news-context.is-link {
+    cursor: pointer;
+}
+
+.investment-market-news-context.is-link:hover,
+.investment-market-news-context.is-link:focus-visible {
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.28), rgba(30, 41, 59, 0.56));
+    outline: 2px solid rgba(125, 211, 252, 0.78);
+    outline-offset: -2px;
+}
+
+.investment-market-news-context-label {
+    color: #7DD3FC;
+    display: block;
+    font-size: 0.59rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+}
+
+.investment-market-news-context strong {
+    color: #F8FAFC;
+    display: -webkit-box;
+    font-size: 0.73rem;
+    line-height: 1.28;
+    margin-top: 0.13rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.investment-market-news-context small {
+    color: rgba(203, 220, 233, 0.78);
+    display: block;
+    font-size: 0.6rem;
+    margin-top: 0.18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .investment-market-heatmap-canvas {
     position: relative;
     width: 100%;

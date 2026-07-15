@@ -485,6 +485,7 @@ def render_news_dashboard_page(
         _render_market_heatmap(
             today_candidate_map,
             market_snapshot_callback=market_snapshot_callback,
+            news_context_by_category=_radar_market_news_context_by_category(snapshot),
         )
     with evidence_tab:
         filtered_snapshot = _render_news_detail_filters(snapshot)
@@ -2021,6 +2022,18 @@ def _render_news_stream(
     st.markdown(_news_ticker_html(featured), unsafe_allow_html=True)
 
 
+def _radar_market_news_context_by_category(
+    snapshot: NewsDashboardSnapshot,
+) -> dict[str, NewsHeadlineCard]:
+    """Return the first traceable headline for each category market group."""
+
+    return {
+        lane.category: lane.headlines[0]
+        for lane in snapshot.category_lanes
+        if lane.category and lane.headlines
+    }
+
+
 def radar_market_treemap_rectangles(
     tiles: Sequence[RadarMarketTile],
     *,
@@ -2133,6 +2146,7 @@ def radar_market_heatmap_html(
     snapshot: RadarMarketSnapshot,
     *,
     grouping: str = "sector",
+    news_context_by_category: Mapping[str, NewsHeadlineCard] | None = None,
 ) -> str:
     """Return grouped verified price maps; missing values are never colored."""
 
@@ -2149,6 +2163,9 @@ def radar_market_heatmap_html(
             tiles,
             max_magnitude=max_magnitude,
             featured_symbol=featured.symbol,
+            news_context=(
+                (news_context_by_category or {}).get(label) if grouping == "news" else None
+            ),
         )
         for label, tiles in radar_market_heatmap_groups(snapshot, grouping=grouping)
     )
@@ -2191,6 +2208,7 @@ def _radar_market_group_html(
     *,
     max_magnitude: float,
     featured_symbol: str,
+    news_context: NewsHeadlineCard | None = None,
 ) -> str:
     displayed_tiles = list(tiles[:NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM])
     featured_tile = next((tile for tile in tiles if tile.symbol == featured_symbol), None)
@@ -2268,6 +2286,7 @@ def _radar_market_group_html(
     overflow_tiles = [tile for tile in tiles if tile not in displayed_tiles]
     overflow_html = _radar_market_group_overflow_html(overflow_tiles)
     density_class = _radar_market_group_density_class(len(displayed_tiles))
+    news_context_html = _radar_market_news_context_card_html(news_context)
     return "".join(
         (
             f'<article class="investment-market-heatmap-group {density_class}">',
@@ -2275,11 +2294,42 @@ def _radar_market_group_html(
             f"<strong>{html.escape(label)}</strong>",
             f"<span>{group_summary}</span>",
             "</header>",
+            news_context_html,
             '<div class="investment-market-heatmap-canvas">',
             "".join(tile_html),
             "</div>",
             overflow_html,
             "</article>",
+        )
+    )
+
+
+def _radar_market_news_context_card_html(card: NewsHeadlineCard | None) -> str:
+    """Render one compact source-news card above a news-category treemap."""
+
+    if card is None:
+        return ""
+    source = card.source_name or _source_type_label(card.source_type)
+    published = _datetime_label(card.published_at)
+    context = " · ".join(item for item in (source, f"公開 {published}") if item)
+    link_label = "元記事を開く ↗" if card.url else "元記事URL未取得"
+    if card.url:
+        wrapper_open = (
+            '<a class="investment-market-news-context is-link" '
+            f'href="{html.escape(card.url)}" target="_blank" rel="noopener noreferrer" '
+            f'aria-label="{html.escape(card.title)}。元記事を開く">'
+        )
+        wrapper_close = "</a>"
+    else:
+        wrapper_open = '<div class="investment-market-news-context">'
+        wrapper_close = "</div>"
+    return "".join(
+        (
+            wrapper_open,
+            '<span class="investment-market-news-context-label">根拠ニュース</span>',
+            f'<strong title="{html.escape(card.title)}">{html.escape(card.title)}</strong>',
+            f"<small>{html.escape(context)} · {link_label}</small>",
+            wrapper_close,
         )
     )
 
@@ -2371,6 +2421,7 @@ def _render_market_heatmap(
     candidate_map: RadarCandidateMap,
     *,
     market_snapshot_callback: MarketSnapshotCallback,
+    news_context_by_category: Mapping[str, NewsHeadlineCard],
 ) -> None:
     _render_radar_today_summary(candidate_map)
     st.markdown("### 市場ヒートマップ")
@@ -2413,7 +2464,11 @@ def _render_market_heatmap(
             "最大30銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
         )
         return
-    heatmap_html = radar_market_heatmap_html(market_snapshot, grouping=grouping)
+    heatmap_html = radar_market_heatmap_html(
+        market_snapshot,
+        grouping=grouping,
+        news_context_by_category=news_context_by_category,
+    )
     if not heatmap_html:
         st.warning(
             "比較に必要な価格履歴を取得できませんでした。Provider設定や銘柄コードを確認し、"

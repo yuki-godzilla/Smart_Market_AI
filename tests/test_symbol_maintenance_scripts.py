@@ -48,9 +48,20 @@ def test_maintenance_task_is_delayed_guarded_and_indirect() -> None:
     assert "-MultipleInstances IgnoreNew" in script
     assert "-RestartCount 1" in script
     assert "-RestartInterval (New-TimeSpan -Minutes 30)" in script
-    assert "run_symbol_maintenance_if_due.bat" in script
+    assert "run_symbol_maintenance_if_due_hidden.vbs" in script
     assert "run_symbol_universe_import_all.bat" in script
-    assert "-Execute $env:ComSpec" in script
+    assert "wscript.exe" in script
+    assert "//B //Nologo" in script
+    assert "-Execute $wscript" in script
+
+
+def test_hidden_maintenance_launcher_waits_for_the_batch_without_a_console() -> None:
+    launcher = _read("scripts/run_symbol_maintenance_if_due_hidden.vbs")
+
+    assert "run_symbol_maintenance_if_due.bat" in launcher
+    assert "shell.Run" in launcher
+    assert ", 0, True" in launcher
+    assert "WScript.Quit exitCode" in launcher
 
 
 def test_maintenance_task_unregistration_is_idempotent() -> None:

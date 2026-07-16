@@ -44,15 +44,18 @@ function Write-MaintenanceLog {
     Add-Content -LiteralPath $maintenanceLogPath -Value $line -Encoding UTF8
 }
 
-function Test-SmaiListener {
+function Get-SmaiListenerState {
     $connection = Get-NetTCPConnection -LocalPort $mainPort -State Listen -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    if ($null -eq $connection) { return $false }
+    if ($null -eq $connection) { return "down" }
     $process = Get-CimInstance Win32_Process `
         -Filter ("ProcessId=" + $connection.OwningProcess) `
         -ErrorAction SilentlyContinue
-    if ($null -eq $process) { return $false }
-    return ([string]$process.CommandLine -match "(?i)streamlit.+ui[\\/]+app\.py")
+    if ($null -eq $process) { return "unknown" }
+    $commandLine = [string]$process.CommandLine
+    if ([string]::IsNullOrWhiteSpace($commandLine)) { return "unknown" }
+    if ($commandLine -match "(?i)streamlit.+ui[\\/]+app\.py") { return "healthy" }
+    return "unknown"
 }
 
 function Start-SmaiRecovery {
@@ -63,7 +66,7 @@ function Start-SmaiRecovery {
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden
     Start-Sleep -Seconds 20
-    if (Test-SmaiListener) {
+    if ((Get-SmaiListenerState) -eq "healthy") {
         Write-WatchLog "[OK] SMAI recovery succeeded."
     } else {
         Write-WatchLog "[ERROR] SMAI recovery did not open TCP $mainPort."
@@ -147,11 +150,14 @@ function Invoke-MaintenanceCheck {
 Write-WatchLog "[START] SMAI server watcher started (interval=${IntervalMinutes}m)."
 do {
     try {
-        if (Test-SmaiListener) {
+        $listenerState = Get-SmaiListenerState
+        if ($listenerState -eq "healthy") {
             Write-WatchLog "[OK] Streamlit process and TCP $mainPort listener are healthy."
             Invoke-MaintenanceCheck
-        } else {
+        } elseif ($listenerState -eq "down") {
             Start-SmaiRecovery
+        } else {
+            Write-WatchLog "[WARN] TCP $mainPort listener ownership could not be verified. Recovery skipped."
         }
     } catch {
         Write-WatchLog ("[ERROR] Watch cycle failed: " + $_.Exception.Message)

@@ -72,6 +72,22 @@ cache TTLを実行PC向けに切り替えます。Assistant GatewayはSMAIアシ
 親SMAIから必要に応じて起動します。Gateway専用タスクやOllama自動起動の追加は
 本MVP対象外です。
 
+### 3.1 サーバー監視タスク
+
+現在の常時運用では、次の二つをまとめて登録します。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server_ops\register_smai_autostart_task.ps1
+```
+
+- `SmartMarketAI-Server-Autostart`: 起動時に `start_smai_server.bat` を呼ぶ。
+- `SmartMarketAI-Server-Watch`: 同じ作業ディレクトリを5分ごとに監視する。
+
+Watch は TCP 8501 の待受がない場合だけ排他的な復旧起動を試みます。待受はあるが
+所有プロセスを確認できない場合は、別プロセスを停止・再起動しないため `unknown` として
+`logs\server_ops\watch_server.log` に記録して復旧を抑止します。Tailscale CLIのJSONは
+UTF-8で読み取り、Windowsのロケール差で監視開始を失敗させません。
+
 ## 4. 状態を確認する
 
 ```text

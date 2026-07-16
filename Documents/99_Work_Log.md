@@ -4753,3 +4753,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - セクター／業種で1〜2銘柄の異なる分類を`少数セクター`／`少数業種`へ一括統合していたため、実測銘柄は残っていても分類の広がりが見えにくくなっていた。各分類を独立した小マップへ戻し、上部メタ情報に分類数と実測銘柄数を表示した。1280px以上のPCでは3列で比較し、タブレットとiPhoneでは同じタイル対象を読みやすく再配置する。
 - 価格取得対象が30銘柄上限に達する場合、既存の確認優先順をカテゴリ内で維持しつつ、低頻度のニュース分類を残す決定論的なカテゴリ均衡選定を追加した。候補抽出、Ranking、Forecast、各Score、価格方向の計算は変更していない。
 - CIで失敗していたMypyの`display_groups`空リスト型推論を、少数分類統合の撤廃と明示的な表示group contractへ置換して解消した。Ruff／Black／MypyはCIと同じnetwork-freeコマンドで成功を確認し、全pytestはpush後のCIで再確認する。
+
+## 2026-07-16 Server Watch 実運用整合
+
+- `SMAI_Projects\Smart_Market_AI` は実体 `workspace\Smart_Market_AI` への Junction であり、既存Autostart／Watchタスクが実体パスを参照していても二重のワークスペースではないことを確認した。
+- Watch の `exit 1` はTailscale CLIのJSONをWindows既定CP932で復号した例外だった。CLI出力をUTF-8固定で読むようにし、Watcherを通常タスクで再起動して`Running`、8501正常、保守不要のログを確認した。
+- 8501の所有プロセスを権限上検証できない状態は、停止と誤認して復旧を試みない。`unknown`として記録し復旧を抑止するfail-closed分岐を追加した。通常のS4Uタスクでは所有プロセスを検証でき、正常ログを確認した。

@@ -178,6 +178,8 @@ def discover_tailscale_hostname() -> str | None:
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=2.0,
         )
     except (OSError, subprocess.SubprocessError):

@@ -96,17 +96,25 @@ def test_old_configuration_without_network_section_remains_valid() -> None:
 
 def test_discover_tailscale_hostname_uses_own_host_name(monkeypatch) -> None:
     monkeypatch.setattr("backend.server_ops.network.shutil.which", lambda _name: "tailscale")
-    monkeypatch.setattr(
-        "backend.server_ops.network.subprocess.run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+    observed: dict[str, object] = {}
+
+    def fake_run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        observed.update(kwargs)
+        return subprocess.CompletedProcess(
             args=["tailscale"],
             returncode=0,
             stdout='{"Self": {"HostName": "SMAI-SERVER"}}',
             stderr="",
-        ),
+        )
+
+    monkeypatch.setattr(
+        "backend.server_ops.network.subprocess.run",
+        fake_run,
     )
 
     assert discover_tailscale_hostname() == "SMAI-SERVER"
+    assert observed["encoding"] == "utf-8"
+    assert observed["errors"] == "replace"
 
 
 def test_discover_tailscale_hostname_handles_missing_cli(monkeypatch) -> None:

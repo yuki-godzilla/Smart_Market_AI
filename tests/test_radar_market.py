@@ -180,7 +180,7 @@ def test_radar_market_groups_tiles_by_sector_industry_and_each_news_category():
     }
 
 
-def test_radar_market_display_groups_keep_sparse_sector_cards_distinct_for_broader_comparison():
+def test_radar_market_display_groups_consolidate_multiple_sparse_sector_cards():
     candidates = [_candidate(symbol) for symbol in ("AAA", "AAB", "AAC", "BBB", "CCC", "DDD")]
     bars = [
         bar
@@ -209,12 +209,26 @@ def test_radar_market_display_groups_keep_sparse_sector_cards_distinct_for_broad
     html_text = radar_market_heatmap_html(snapshot, grouping="sector")
 
     assert len(display_by_label["テクノロジー"][0]) == 3
-    assert [tile.symbol for tile in display_by_label["消費財・サービス"][0]] == ["DDD"]
-    assert [tile.symbol for tile in display_by_label["不動産"][0]] == ["CCC"]
-    assert [tile.symbol for tile in display_by_label["金融"][0]] == ["BBB"]
-    assert all(grouped_labels == [] for _, grouped_labels in display_by_label.values())
-    assert "少数セクター" not in html_text
-    assert "分類 4 · 実測 6銘柄を分類ごとに表示" in html_text
+    sparse_tiles, sparse_labels = display_by_label["少数セクター"]
+    assert [tile.symbol for tile in sparse_tiles] == ["DDD", "CCC", "BBB"]
+    assert sparse_labels == ["消費財・サービス", "不動産", "金融"]
+    assert "少数分類: 2銘柄以下は元の分類名を示してまとめて表示" in html_text
+    assert "消費財・サービス / 不動産 / 金融 · 全3銘柄" in html_text
+
+
+def test_radar_market_single_sparse_group_uses_a_compact_canvas_without_hiding_its_label():
+    snapshot = build_radar_market_snapshot(
+        [_candidate("AAA")],
+        _bars("AAA", ["100", "103"]),
+        provider="fixture",
+        lookback_sessions=1,
+        symbol_metadata_by_symbol={"AAA": {"sector": "technology"}},
+    )
+
+    html_text = radar_market_heatmap_html(snapshot, grouping="sector")
+
+    assert "テクノロジー" in html_text
+    assert "investment-market-heatmap-group compact singleton" in html_text
 
 
 def test_radar_market_snapshot_refreshes_on_entry_when_missing_stale_or_period_changes():

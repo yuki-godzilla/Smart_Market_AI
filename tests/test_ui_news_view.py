@@ -765,6 +765,7 @@ def test_news_ticker_html_uses_paged_unique_headline_board():
     assert "2件を3件ずつ表示" in html_text
     assert "最新公開 未確認" in html_text
     assert "--investment-news-flow-delay:0s" in html_text
+    assert 'title="長い市場ニュース見出しを折り返して表示できるようにするテスト"' in html_text
     assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
 
 

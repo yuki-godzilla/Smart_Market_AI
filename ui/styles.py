@@ -1070,6 +1070,7 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-ticker {
     position: relative;
+    container-type: inline-size;
     min-height: 9.7rem;
     overflow: hidden;
     margin: 0.35rem 0 1rem;
@@ -1225,6 +1226,7 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-news-ticker-category {
+    align-self: start;
     flex: 0 0 auto;
     border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 999px;
@@ -1240,6 +1242,7 @@ div[data-testid="stElementContainer"]:has(
 .investment-news-ticker-title {
     min-width: 0;
     display: -webkit-box;
+    line-height: 1.42;
     overflow: hidden;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
@@ -1319,7 +1322,7 @@ div[data-testid="stElementContainer"]:has(
 
 @media (max-width: 767px) {
     .investment-news-ticker {
-        min-height: 16.25rem;
+        min-height: 20.1rem;
     }
 
     .investment-news-ticker-flow {
@@ -1338,12 +1341,24 @@ div[data-testid="stElementContainer"]:has(
     }
 
     .investment-news-board-viewport {
-        min-height: 12.1rem;
+        min-height: 19.45rem;
     }
 
     .investment-news-board-page {
         grid-template-columns: 1fr;
-        grid-template-rows: repeat(3, minmax(3.45rem, auto));
+        grid-template-rows: repeat(3, minmax(6.1rem, auto));
+    }
+
+    .investment-news-ticker-title {
+        -webkit-line-clamp: 3;
+    }
+
+    .investment-news-ticker-item {
+        grid-template-columns: 1fr;
+    }
+
+    .investment-news-ticker-item small {
+        display: none;
     }
 
     .investment-news-board-nav-note {
@@ -1353,16 +1368,38 @@ div[data-testid="stElementContainer"]:has(
 
 @media (min-width: 768px) and (max-width: 1200px) {
     .investment-news-ticker {
-        min-height: 12.85rem;
+        min-height: 15.4rem;
     }
 
     .investment-news-board-viewport {
-        min-height: 8.6rem;
+        min-height: 10.4rem;
     }
 
     .investment-news-board-page {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: repeat(2, minmax(3.75rem, auto));
+        grid-template-rows: repeat(2, minmax(4.9rem, auto));
+    }
+
+    .investment-news-ticker-title {
+        -webkit-line-clamp: 3;
+    }
+
+    .investment-news-ticker-item small {
+        display: none;
+    }
+
+    /* A Streamlit sidebar can make a tablet's content column much narrower
+       than its viewport.  Show the same three headlines in one full-width
+       column so the category chip does not consume the title's reading room. */
+    @container (max-width: 36rem) {
+        .investment-news-board-viewport {
+            min-height: 16rem;
+        }
+
+        .investment-news-board-page {
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(3, minmax(4.9rem, auto));
+        }
     }
 }
 
@@ -2457,6 +2494,12 @@ div[data-testid="stElementContainer"]:has(
     aspect-ratio: 16 / 9.5;
 }
 
+/* A lone verified name is still useful, but it should read as a compact
+   movement card rather than consuming a full treemap-sized canvas. */
+.investment-market-heatmap-group.singleton .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 3.1;
+}
+
 .investment-market-heatmap-tile {
     position: absolute;
     display: flex;
@@ -2488,7 +2531,7 @@ div[data-testid="stElementContainer"]:has(
     border-radius: 999px;
     background: rgba(2, 6, 23, 0.72);
     color: #FDE68A;
-    font-size: 0.54rem;
+    font-size: 0.6rem;
     font-weight: 800;
     padding: 0.1rem 0.32rem;
 }
@@ -2501,7 +2544,7 @@ div[data-testid="stElementContainer"]:has(
     max-width: 100%;
     overflow: hidden;
     display: -webkit-box;
-    font-size: clamp(0.74rem, 0.95vw, 1.06rem);
+    font-size: clamp(1rem, 1.18vw, 1.25rem);
     font-weight: 850;
     letter-spacing: 0.01em;
     line-height: 1.12;
@@ -2516,7 +2559,7 @@ div[data-testid="stElementContainer"]:has(
     max-width: 100%;
     overflow: hidden;
     color: rgba(241, 245, 249, 0.84);
-    font-size: clamp(0.54rem, 0.64vw, 0.7rem);
+    font-size: clamp(0.7rem, 0.78vw, 0.82rem);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -2530,7 +2573,7 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-market-heatmap-tile strong {
     color: #F8FAFC;
-    font-size: clamp(0.76rem, 1.02vw, 1.12rem);
+    font-size: clamp(1rem, 1.2vw, 1.28rem);
 }
 
 .investment-market-heatmap-change {
@@ -2608,14 +2651,14 @@ div[data-testid="stElementContainer"]:has(
 .investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
     display: inline-block;
     max-width: 100%;
-    font-size: clamp(0.54rem, 0.7vw, 0.72rem);
+    font-size: clamp(0.6rem, 0.72vw, 0.78rem);
     font-weight: 850;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .investment-market-heatmap-tile.minimal strong {
-    font-size: clamp(0.62rem, 0.8vw, 0.82rem);
+    font-size: clamp(0.7rem, 0.88vw, 0.9rem);
 }
 
 .investment-market-heatmap-scale {

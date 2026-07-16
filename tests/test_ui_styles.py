@@ -137,6 +137,17 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".investment-news-ticker-flow" in SMAI_GLOBAL_CSS
     assert "@keyframes investment-news-flow-pulse" in SMAI_GLOBAL_CSS
     assert "@keyframes investment-news-ticker-spotlight" in SMAI_GLOBAL_CSS
+    assert "min-height: 15.4rem;" in SMAI_GLOBAL_CSS
+    assert "grid-template-rows: repeat(2, minmax(4.9rem, auto));" in SMAI_GLOBAL_CSS
+    assert "container-type: inline-size;" in SMAI_GLOBAL_CSS
+    assert "@container (max-width: 36rem)" in SMAI_GLOBAL_CSS
+    assert "grid-template-rows: repeat(3, minmax(6.1rem, auto));" in SMAI_GLOBAL_CSS
+    assert "-webkit-line-clamp: 3;" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1rem, 1.18vw, 1.25rem);" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1rem, 1.2vw, 1.28rem);" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-group.singleton .investment-market-heatmap-canvas" in (
+        SMAI_GLOBAL_CSS
+    )
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS
     assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS

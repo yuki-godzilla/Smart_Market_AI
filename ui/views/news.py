@@ -90,8 +90,10 @@ NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES = 15
 # A dense sector should not be cut to the same number as a sparse one.  The
 # cap remains a readability guard, not a target or an investment ranking.
 NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM = 12
-# Preserve low-cardinality classifications as their own compact maps so sector
-# and industry comparisons retain their actual breadth.
+# Sector and industry groups with one or two names do not form a useful map by
+# themselves.  Consolidate only the presentation while retaining the original
+# labels in the group summary; news groups remain one-to-one with their source.
+NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM = 2
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -2193,16 +2195,46 @@ def radar_market_heatmap_display_groups(
     *,
     grouping: str,
 ) -> list[tuple[str, list[RadarMarketTile], list[str]]]:
-    """Keep each source classification visible in its own heatmap card.
+    """Return readable heatmap cards without fragmenting sparse classifications.
 
-    A prior compacting rule merged unrelated one- and two-tile classifications
-    into ``少数セクター`` / ``少数業種``.  It made the page shorter, but hid the
-    breadth of the available evidence and made sector and industry views look
-    too similar.  The responsive grid now handles those compact cards directly.
+    The underlying sector and industry grouping remains exact.  Only the
+    presentation combines multiple one- or two-tile groups into one card, and
+    lists the original classifications in that card's summary.  News groups
+    stay one-to-one with their source-news cards.
     """
 
     groups = radar_market_heatmap_groups(snapshot, grouping=grouping)
-    return [(label, tiles, []) for label, tiles in groups]
+    if grouping not in {"sector", "industry"}:
+        return [(label, tiles, []) for label, tiles in groups]
+
+    sparse_groups = [
+        (label, tiles)
+        for label, tiles in groups
+        if len(tiles) <= NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM
+    ]
+    if len(sparse_groups) < 2:
+        return [(label, tiles, []) for label, tiles in groups]
+
+    sparse_labels = [label for label, _ in sparse_groups]
+    sparse_tiles = sorted(
+        (tile for _, tiles in sparse_groups for tile in tiles),
+        key=lambda item: (-item.magnitude_pct, item.symbol),
+    )
+    consolidated_label = "少数セクター" if grouping == "sector" else "少数業種"
+    display_groups = [
+        (label, tiles, [])
+        for label, tiles in groups
+        if len(tiles) > NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM
+    ]
+    display_groups.append((consolidated_label, sparse_tiles, sparse_labels))
+    display_groups.sort(
+        key=lambda item: (
+            -max(tile.magnitude_pct for tile in item[1]),
+            -sum(tile.evidence_count for tile in item[1]),
+            item[0],
+        )
+    )
+    return display_groups
 
 
 def radar_market_heatmap_html(
@@ -2247,8 +2279,14 @@ def radar_market_heatmap_html(
     grouping_label = {"sector": "セクター", "industry": "業種", "news": "注目ニュース"}.get(
         grouping, "注目ニュース"
     )
+    source_group_count = len(radar_market_heatmap_groups(snapshot, grouping=grouping))
     classification_coverage = (
-        f"<span>分類 {len(display_groups)} · 実測 {len(snapshot.tiles)}銘柄を分類ごとに表示</span>"
+        f"<span>分類 {source_group_count} · 実測 {len(snapshot.tiles)}銘柄</span>"
+    )
+    sparse_group_note = (
+        "<span>少数分類: 2銘柄以下は元の分類名を示してまとめて表示</span>"
+        if grouping in {"sector", "industry"}
+        else ""
     )
     return (
         '<section class="investment-market-heatmap">'
@@ -2262,6 +2300,7 @@ def radar_market_heatmap_html(
         f"{market_count}"
         f"{unavailable}"
         f"{classification_coverage}"
+        f"{sparse_group_note}"
         "</div>"
         f'<div class="investment-market-heatmap-groups">{group_html}</div>'
         '<div class="investment-market-heatmap-scale" aria-label="色の凡例">'
@@ -2361,10 +2400,11 @@ def _radar_market_group_html(
     overflow_tiles = [tile for tile in tiles if tile not in displayed_tiles]
     overflow_html = _radar_market_group_overflow_html(overflow_tiles)
     density_class = _radar_market_group_density_class(len(displayed_tiles))
+    singleton_class = " singleton" if len(displayed_tiles) == 1 else ""
     news_context_html = _radar_market_news_context_card_html(news_context)
     return "".join(
         (
-            f'<article class="investment-market-heatmap-group {density_class}">',
+            f'<article class="investment-market-heatmap-group {density_class}{singleton_class}">',
             '<header class="investment-market-heatmap-group-header">',
             f"<strong>{html.escape(label)}</strong>",
             f"<span>{group_summary}</span>",
@@ -2502,7 +2542,7 @@ def _render_market_heatmap(
     st.markdown("### 市場ヒートマップ")
     st.caption(
         "ニュースから抽出した候補を、セクター・業種・注目ニュース別に並べます。"
-        "少数の分類も統合せず表示するため、広がりを確認できます。"
+        "少数のセクター・業種は元の分類名を示してまとめ、見やすく表示します。"
         "タイルを選ぶと銘柄コックピットへ進めます。投資魅力度や将来予測ではありません。"
     )
     period = 20
@@ -3792,7 +3832,8 @@ def _news_ticker_item_html(card: NewsHeadlineCard, *, flow_index: int = 0) -> st
         f'<{tag} class="investment-news-ticker-item" '
         f'style="--investment-news-flow-delay:{flow_index * 3}s"{link_attributes}>'
         f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
-        f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
+        f'<span class="investment-news-ticker-title" title="{html.escape(card.title, quote=True)}">'
+        f"{html.escape(card.title)}</span>"
         f"<small>{html.escape(source)}</small>"
         f"</{tag}>"
     )

@@ -2221,7 +2221,7 @@ def radar_market_heatmap_display_groups(
         key=lambda item: (-item.magnitude_pct, item.symbol),
     )
     consolidated_label = "少数セクター" if grouping == "sector" else "少数業種"
-    display_groups = [
+    display_groups: list[tuple[str, list[RadarMarketTile], list[str]]] = [
         (label, tiles, [])
         for label, tiles in groups
         if len(tiles) > NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM

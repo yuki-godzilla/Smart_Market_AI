@@ -139,6 +139,49 @@ def test_live_llm_factor_service_falls_back_when_gateway_fails(tmp_path) -> None
     assert any("live生成に失敗" in warning for warning in result.result.warnings)
 
 
+def test_live_llm_factor_service_calibrates_scores_from_limited_evidence(tmp_path) -> None:
+    source = _evidence_source()
+    request = build_llm_factor_generation_request(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        company_name="Toyota Motor",
+        evidence_sources=[source],
+    )
+    payload = _gateway_response(request).model_dump(mode="json")
+    payload.update(
+        {
+            "confidence": 0.98,
+            "factors": [
+                {
+                    "title": "株主還元",
+                    "direction": "positive",
+                    "summary": "増配と自社株買いが確認できます。",
+                    "strength": 0.98,
+                    "evidence_ids": ["evidence_001"],
+                }
+            ],
+        }
+    )
+    response = LLMFactorGenerationResponse.model_validate(payload)
+    service = LiveLLMFactorGenerationService(
+        FakeGatewayClient(response=response),
+        config=_live_config(),
+        cache_dir=tmp_path,
+    )
+
+    result = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        company_name="Toyota Motor",
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    ).result
+
+    assert result.llm_confidence_score <= Decimal("70")
+    assert result.llm_catalyst_score <= Decimal("80")
+    assert result.evidence_selection.retained_count == 1
+
+
 def test_llm_factor_reference_from_settings_stays_deterministic_by_default(tmp_path) -> None:
     result = build_llm_factor_reference_result_from_settings(
         ticker="7203.T",

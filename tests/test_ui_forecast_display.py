@@ -11927,6 +11927,8 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
     assert "AI材料分析" in html
     assert "参考表示" in html
     assert "根拠資料の補助" in html
+    assert "実行方式:" in html
+    assert "根拠候補 1件 / 採用 1件" in html
     assert "Ranking・予測・Investment Scoreには反映していません" in html
     assert "売買推奨ではありません" in html
     assert "&lt;script&gt;増配&lt;/script&gt;" in html

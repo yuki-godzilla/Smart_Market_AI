@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import unicodedata
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -26,6 +28,7 @@ from backend.llm_factor.contracts import (
     EvidenceSource,
     LLMFactorCacheMetadata,
     LLMFactorCacheStatus,
+    LLMFactorEvidenceSelection,
     LLMFactorResult,
     LLMFactorServiceResult,
 )
@@ -34,6 +37,12 @@ _DEFAULT_DISCLAIMER = "本結果は投資判断材料の整理であり、売買
 _NO_LLM_WARNING = "LLM実行はまだ接続していないため、SMAIのローカル規則で参考表示しています。"
 _NO_SOURCE_WARNING = (
     "出典付きのニュース・IR・Research情報が少ないため、LLM材料分析の信頼度を低くしています。"
+)
+_NO_OFFICIAL_SOURCE_WARNING = (
+    "公式開示を根拠として確認できないため、AI材料分析の確信度を控えめにしています。"
+)
+_NO_PRIMARY_DISCLOSURE_WARNING = (
+    "TDnet・EDINETなどの一次開示が少ないため、AI材料分析は補助情報として確認してください。"
 )
 
 _BULLISH_KEYWORDS = (
@@ -87,10 +96,16 @@ class FakeLLMFactorService:
         ticker: str,
         as_of: date,
         evidence_sources: Iterable[EvidenceSource] = (),
+        company_name: str | None = None,
         generated_at: datetime | None = None,
     ) -> LLMFactorResult:
         generated_at = generated_at or datetime.now(UTC)
-        sources = list(evidence_sources)
+        selection = select_evidence_sources_for_factor(
+            ticker=ticker,
+            evidence_sources=evidence_sources,
+            company_name=company_name,
+        )
+        sources = selection.sources
         has_source_backing = bool(sources)
         warnings = [_NO_LLM_WARNING]
         if not sources:
@@ -100,6 +115,7 @@ class FakeLLMFactorService:
                 evidence_sources=sources,
             )
             warnings.append(_NO_SOURCE_WARNING)
+        warnings.extend(_evidence_selection_warnings(selection.summary))
 
         source_hash = source_hash_for_evidence(sources)
         evidence_quality = _evidence_quality_score(sources)
@@ -108,8 +124,11 @@ class FakeLLMFactorService:
             evidence_quality=evidence_quality,
             freshness=freshness,
         )
-        if not has_source_backing:
-            confidence = min(confidence, Decimal("30"))
+        confidence = min(
+            confidence,
+            evidence_confidence_cap(sources, has_source_backing=has_source_backing),
+            Decimal("75"),
+        )
         bullish_factors = _bullish_factors_from_sources(sources, confidence=confidence)
         bearish_factors = _bearish_factors_from_sources(sources, confidence=confidence)
         bullish_score = _material_score(bullish_factors, base=Decimal("50"))
@@ -136,6 +155,9 @@ class FakeLLMFactorService:
             bullish_factors=bullish_factors[:3],
             bearish_factors=bearish_factors[:3],
             evidence_sources=sources,
+            evidence_selection=selection.summary.model_copy(
+                update={"fallback_used": not has_source_backing}
+            ),
             summary=_summary_text(
                 bullish_score=bullish_score,
                 bearish_score=bearish_score,
@@ -152,6 +174,7 @@ class FakeLLMFactorService:
         ticker: str,
         as_of: date,
         fallback_sources: Iterable[EvidenceSource] = (),
+        company_name: str | None = None,
         generated_at: datetime | None = None,
     ) -> LLMFactorResult:
         """Validate provider JSON and return a conservative fallback on invalid output."""
@@ -164,6 +187,7 @@ class FakeLLMFactorService:
                 ticker=ticker,
                 as_of=as_of,
                 evidence_sources=fallback_sources,
+                company_name=company_name,
                 generated_at=generated_at,
             )
             return result.model_copy(
@@ -200,16 +224,23 @@ class CachedLLMFactorService:
         ticker: str,
         as_of: date,
         evidence_sources: Iterable[EvidenceSource] = (),
+        company_name: str | None = None,
         now: datetime | None = None,
     ) -> LLMFactorServiceResult:
         now_utc = _ensure_utc(now or datetime.now(UTC))
         raw_sources = list(evidence_sources)
+        selection = select_evidence_sources_for_factor(
+            ticker=ticker,
+            evidence_sources=raw_sources,
+            company_name=company_name,
+        )
         cache_sources = normalized_evidence_sources_for_factor(
             ticker=ticker,
             as_of=as_of,
-            evidence_sources=raw_sources,
+            evidence_sources=selection.sources,
         )
-        source_hash = source_hash_for_evidence(cache_sources)
+        cache_input_sources = raw_sources or cache_sources
+        source_hash = source_hash_for_evidence(cache_input_sources)
         cache_key = llm_factor_cache_key(
             ticker=ticker,
             as_of=as_of,
@@ -238,6 +269,7 @@ class CachedLLMFactorService:
             ticker=ticker,
             as_of=as_of,
             evidence_sources=raw_sources,
+            company_name=company_name,
             generated_at=now_utc,
         )
         expires_at = llm_factor_cache_expires_at(now=now_utc, ttl_seconds=self.ttl_seconds)
@@ -287,6 +319,179 @@ def normalized_evidence_sources_for_factor(
     if sources:
         return sources
     return [_fallback_evidence_source(ticker=ticker, as_of=as_of)]
+
+
+class _EvidenceSelection:
+    """Internal pairing of retained evidence and its UI-safe audit summary."""
+
+    def __init__(self, sources: list[EvidenceSource], summary: LLMFactorEvidenceSelection) -> None:
+        self.sources = sources
+        self.summary = summary
+
+
+def select_evidence_sources_for_factor(
+    *,
+    ticker: str,
+    evidence_sources: Iterable[EvidenceSource],
+    company_name: str | None = None,
+) -> _EvidenceSelection:
+    """Retain entity-matched, non-duplicate sources for qualitative analysis.
+
+    A company name activates strict entity matching.  Callers without a company
+    identity retain their supplied sources because relevance cannot be judged
+    safely from a ticker alone in all markets.  Cockpit and live generation
+    always provide the company identity.
+    """
+
+    candidates = list(evidence_sources)
+    retained: list[EvidenceSource] = []
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+    duplicate_count = 0
+    unrelated_count = 0
+    strict_matching = bool(str(company_name or "").strip())
+    for source in candidates:
+        if strict_matching and not _source_matches_entity(
+            source,
+            ticker=ticker,
+            company_name=company_name or "",
+        ):
+            unrelated_count += 1
+            continue
+        canonical_url = _canonical_source_url(source.source_url)
+        canonical_title = _canonical_source_title(source.title)
+        is_duplicate = (bool(canonical_url) and canonical_url in seen_urls) or (
+            len(canonical_title) >= 12 and canonical_title in seen_titles
+        )
+        if is_duplicate:
+            duplicate_count += 1
+            continue
+        if canonical_url:
+            seen_urls.add(canonical_url)
+        if len(canonical_title) >= 12:
+            seen_titles.add(canonical_title)
+        retained.append(source)
+
+    official_count = sum(1 for source in retained if _is_official_source(source))
+    primary_disclosure_count = sum(
+        1 for source in retained if source.source_type in {"tdnet", "edinet"}
+    )
+    return _EvidenceSelection(
+        sources=retained,
+        summary=LLMFactorEvidenceSelection(
+            input_count=len(candidates),
+            retained_count=len(retained),
+            duplicate_count=duplicate_count,
+            unrelated_count=unrelated_count,
+            official_count=official_count,
+            primary_disclosure_count=primary_disclosure_count,
+        ),
+    )
+
+
+def evidence_confidence_cap(
+    sources: Iterable[EvidenceSource],
+    *,
+    has_source_backing: bool = True,
+) -> Decimal:
+    """Return an evidence-based upper bound for an AI confidence score."""
+
+    source_list = [source for source in sources if source.source_type != "local_reference"]
+    if not has_source_backing or not source_list:
+        return Decimal("30")
+    official_count = sum(1 for source in source_list if _is_official_source(source))
+    primary_disclosure_count = sum(
+        1 for source in source_list if source.source_type in {"tdnet", "edinet"}
+    )
+    if official_count == 0:
+        return Decimal("60")
+    if primary_disclosure_count == 0:
+        return Decimal("70")
+    if len(source_list) < 3:
+        return Decimal("75")
+    return Decimal("85")
+
+
+def _evidence_selection_warnings(summary: LLMFactorEvidenceSelection) -> list[str]:
+    warnings: list[str] = []
+    if summary.unrelated_count:
+        warnings.append(
+            f"対象銘柄との関連を確認できない根拠 {summary.unrelated_count}件を除外しました。"
+        )
+    if summary.duplicate_count:
+        warnings.append(f"重複と判定した根拠 {summary.duplicate_count}件を除外しました。")
+    if summary.retained_count and summary.official_count == 0:
+        warnings.append(_NO_OFFICIAL_SOURCE_WARNING)
+    elif summary.retained_count and summary.primary_disclosure_count == 0:
+        warnings.append(_NO_PRIMARY_DISCLOSURE_WARNING)
+    return warnings
+
+
+def _source_matches_entity(
+    source: EvidenceSource,
+    *,
+    ticker: str,
+    company_name: str,
+) -> bool:
+    if source.source_type == "local_reference":
+        return True
+    # ``smai://research-evidence/<ticker>/...`` is an internal locator, not a
+    # publisher URL.  It carries the selected ticker for storage purposes, so
+    # treating it as entity evidence would incorrectly retain any unrelated
+    # research chunk (for example, an unrelated news headline returned by a
+    # broad search query).
+    source_url = "" if source.source_url.startswith("smai://") else source.source_url
+    haystack = _normalise_match_text(
+        " ".join([source.title, source.summary or "", source_url, source.provider or ""])
+    )
+    ticker_tokens = {
+        _normalise_match_text(ticker),
+        _normalise_match_text(ticker.split(".", maxsplit=1)[0]),
+    }
+    if any(token and token in haystack for token in ticker_tokens):
+        return True
+    company_token = _company_match_token(company_name)
+    return bool(company_token and company_token in haystack)
+
+
+def _company_match_token(company_name: str) -> str:
+    normalized = _normalise_match_text(company_name)
+    normalized = re.sub(
+        r"(corporation|corp|company|co|ltd|limited|inc|plc|holdings|group|株式会社|株式|会社)$",
+        "",
+        normalized,
+    )
+    return normalized
+
+
+def _normalise_match_text(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKC", value).lower()
+        if character.isalnum()
+    )
+
+
+def _canonical_source_title(value: str) -> str:
+    return _normalise_match_text(value)
+
+
+def _canonical_source_url(value: str) -> str:
+    normalized = value.strip().lower().split("#", maxsplit=1)[0]
+    if "?" not in normalized:
+        return normalized.rstrip("/")
+    base, raw_query = normalized.split("?", maxsplit=1)
+    retained_query = [
+        item
+        for item in raw_query.split("&")
+        if item and not item.startswith(("utm_", "ref=", "source="))
+    ]
+    suffix = f"?{'&'.join(sorted(retained_query))}" if retained_query else ""
+    return f"{base.rstrip('/')}{suffix}"
+
+
+def _is_official_source(source: EvidenceSource) -> bool:
+    return source.source_type in {"tdnet", "edinet", "company_ir"}
 
 
 def _fallback_evidence_source(*, ticker: str, as_of: date) -> EvidenceSource:

@@ -10,7 +10,7 @@ from backend.core.data_contracts import StrictBaseModel
 
 LLM_FACTOR_SCHEMA_VERSION = "llm-factor-result-v1"
 LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION = "llm-factor-cache-entry-v1"
-LLM_FACTOR_PROMPT_VERSION = "llm-factor-reference-v0"
+LLM_FACTOR_PROMPT_VERSION = "llm-factor-reference-v2"
 LLM_FACTOR_FAKE_MODEL_NAME = "deterministic_fake_llm_factor"
 
 LLMFactorCacheStatus = Literal["hit", "miss", "expired", "invalid"]
@@ -41,6 +41,22 @@ class EvidenceSource(StrictBaseModel):
     provider: str | None = Field(default=None, min_length=1)
     summary: str | None = Field(default=None, min_length=1)
     reliability_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+
+
+class LLMFactorEvidenceSelection(StrictBaseModel):
+    """Audit metadata for evidence retained for an LLM Factor result.
+
+    Counts describe the supplied candidates before the local fallback source is
+    added.  This keeps the UI honest when a result is only a local reference.
+    """
+
+    input_count: int = Field(default=0, ge=0)
+    retained_count: int = Field(default=0, ge=0)
+    duplicate_count: int = Field(default=0, ge=0)
+    unrelated_count: int = Field(default=0, ge=0)
+    official_count: int = Field(default=0, ge=0)
+    primary_disclosure_count: int = Field(default=0, ge=0)
+    fallback_used: bool = False
 
 
 class BullishFactor(StrictBaseModel):
@@ -88,6 +104,9 @@ class LLMFactorResult(StrictBaseModel):
     bullish_factors: list[BullishFactor] = Field(default_factory=list)
     bearish_factors: list[BearishFactor] = Field(default_factory=list)
     evidence_sources: list[EvidenceSource] = Field(default_factory=list)
+    evidence_selection: LLMFactorEvidenceSelection = Field(
+        default_factory=LLMFactorEvidenceSelection
+    )
     summary: str = Field(min_length=1)
     disclaimer: str = Field(
         default="本結果は投資判断材料の整理であり、売買推奨ではありません。",

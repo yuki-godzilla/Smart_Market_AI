@@ -13198,10 +13198,12 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     st.caption(RESEARCH_COCKPIT_INTRO)
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
+    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
     fetch_clicked = _render_research_operation_card(
         preview,
         report=report,
         news_report=news_report,
+        external_result=external_research_result,
     )
     should_rerun_after_refresh = False
     if fetch_clicked:
@@ -13469,7 +13471,7 @@ def _cockpit_interpretation_research_evidence_rows(
     *,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     if report is not None:
@@ -13527,7 +13529,7 @@ def _llm_factor_evidence_sources(
     as_of: date,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[EvidenceSource]:
     sources: list[EvidenceSource] = []
     if external_result is not None:
@@ -13545,7 +13547,9 @@ def _llm_factor_evidence_sources(
                     as_of=as_of,
                 )
             )
-    return _dedupe_llm_factor_sources(sources)
+    # Keep all candidates here.  The backend applies entity matching and
+    # canonical duplicate removal, then returns the audit counts for the UI.
+    return sources
 
 
 def _llm_factor_source_from_external_entry(
@@ -13643,18 +13647,6 @@ def _llm_factor_source_reliability(source_type: str, *, provider: str | None) ->
     return Decimal("45")
 
 
-def _dedupe_llm_factor_sources(sources: Sequence[EvidenceSource]) -> list[EvidenceSource]:
-    deduped: list[EvidenceSource] = []
-    seen: set[tuple[str, str]] = set()
-    for source in sources:
-        key = (source.source_url.strip(), source.title.strip())
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(source)
-    return deduped
-
-
 def _percent_from_unit_decimal(value: Decimal) -> Decimal:
     return max(
         Decimal("0"),
@@ -13695,15 +13687,19 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
     if result.missing_fields:
         missing = "、".join(result.missing_fields)
         missing_html = f"<p>不足項目: {html.escape(missing)}</p>"
+    evidence_summary = _llm_factor_evidence_selection_display(result)
+    runtime_state = _llm_factor_runtime_state_label(_llm_factor_runtime_state(result))
     return (
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-header">'
         '<span class="research-evidence-pill positive">参考表示</span>'
         '<span class="research-evidence-pill">根拠資料の補助</span>'
+        f'<span class="research-evidence-pill">実行方式: {html.escape(runtime_state)}</span>'
         "</div>"
         "<h4>AI材料分析</h4>"
         f"<p>{html.escape(result.summary)}</p>"
         "<p>このAI材料分析は根拠資料の読み取り補助です。Ranking・予測・Investment Scoreには反映していません。</p>"
+        f"<p>{html.escape(evidence_summary)}</p>"
         f'<div class="research-brief-metric-grid">{score_cards}</div>'
         '<div class="research-brief-reading-grid">'
         '<section class="research-brief-reading-item tone-positive">'
@@ -13783,6 +13779,7 @@ def _llm_factor_fallback_reason_label(reason: str | None) -> str:
         "cache_miss": "cache未取得",
         "cache_corrupt": "cache読込失敗",
         "provider_error": "LLM providerエラー",
+        "insufficient_evidence": "対象銘柄に紐づく根拠が不足",
     }
     return f"{labels.get(reason, '応答検証エラー')} ({reason})"
 
@@ -13948,9 +13945,9 @@ def _llm_factor_score_note(label: str, score: Decimal) -> str:
     if label == "確信度":
         if score < Decimal("35"):
             return "出典が少ないため低信頼です。"
-        if score < Decimal("70"):
+        if score < Decimal("75"):
             return "参考材料として確認します。"
-        return "出典が比較的そろっています。"
+        return "複数の根拠を確認しています。一次開示も本文で確認します。"
     if score >= Decimal("70"):
         return "強めに確認したい材料です。"
     if score >= Decimal("45"):
@@ -13961,7 +13958,7 @@ def _llm_factor_score_note(label: str, score: Decimal) -> str:
 def _llm_factor_confidence_tone(result: LLMFactorResult) -> str:
     if result.llm_confidence_score < Decimal("35"):
         return "warning"
-    if result.llm_confidence_score >= Decimal("70"):
+    if result.llm_confidence_score >= Decimal("75"):
         return "positive"
     return "info"
 
@@ -13977,6 +13974,20 @@ def _llm_factor_evidence_display_rows(result: LLMFactorResult) -> list[dict[str,
         }
         for source in result.evidence_sources
     ]
+
+
+def _llm_factor_evidence_selection_display(result: LLMFactorResult) -> str:
+    selection = result.evidence_selection
+    input_count = max(selection.input_count, len(result.evidence_sources))
+    retained_count = max(selection.retained_count, len(result.evidence_sources))
+    items = [f"根拠候補 {input_count}件", f"採用 {retained_count}件"]
+    if selection.duplicate_count:
+        items.append(f"重複除外 {selection.duplicate_count}件")
+    if selection.unrelated_count:
+        items.append(f"対象外除外 {selection.unrelated_count}件")
+    if selection.fallback_used:
+        items.append("ローカル参考表示")
+    return " / ".join(items)
 
 
 def _llm_factor_cache_caption(cache: LLMFactorCacheMetadata) -> str:
@@ -14675,15 +14686,20 @@ def _render_research_operation_card(
     *,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
-    status_chips = _research_operation_status_chips(report, news_report)
+    status_chips = _research_operation_status_chips(report, news_report, external_result)
     status_chips_html = "".join(
         f'<span class="research-ai-state-chip">{html.escape(label)}: '
         f"{html.escape(value)}</span>"
         for label, value in status_chips
     )
-    title, summary, materials_html = _research_operation_card_content(report, news_report)
+    title, summary, materials_html = _research_operation_card_content(
+        report,
+        news_report,
+        external_result,
+    )
     with st.container(border=True):
         st.markdown(
             (
@@ -14711,6 +14727,7 @@ def _render_research_operation_card(
 def _research_operation_card_content(
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> tuple[str, str, str]:
     if report is None:
         return (
@@ -14720,11 +14737,17 @@ def _research_operation_card_content(
         )
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)
-    status = dict(_research_operation_status_chips(report, news_report))
-    summary = (
-        f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
-        f"外部データ{status['外部データ']}を確認"
-    )
+    status = dict(_research_operation_status_chips(report, news_report, external_result))
+    if external_result is not None:
+        summary = (
+            f"重複なしの根拠候補{status['根拠候補']}（公式{status['公式']} / "
+            f"ニュース{status['ニュース']} / 外部プロファイル{status['外部プロファイル']}）を確認"
+        )
+    else:
+        summary = (
+            f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
+            f"外部データ{status['外部データ']}を確認"
+        )
     positive = [
         _research_brief_ui_text(item.summary, max_chars=88) for item in brief.positive_materials[:3]
     ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.positive_candidates[:3]]
@@ -14752,7 +14775,33 @@ def _research_operation_material_list_html(label: str, items: list[str]) -> str:
 def _research_operation_status_chips(
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[tuple[str, str]]:
+    if external_result is not None:
+        official_source_types = {
+            "annual_report",
+            "earnings_report",
+            "earnings_presentation",
+            "medium_term_plan",
+            "integrated_report",
+            "company_ir",
+            "tdnet",
+        }
+        official_count = sum(
+            1 for entry in external_result.entries if entry.source_type in official_source_types
+        )
+        news_count = sum(1 for entry in external_result.entries if entry.source_type == "news")
+        profile_count = sum(
+            1 for entry in external_result.entries if entry.source_type == "provider_profile"
+        )
+        return [
+            ("レポート", "作成済み" if report is not None else "未取得"),
+            ("根拠候補", f"{len(external_result.entries)}件"),
+            ("公式", f"{official_count}件"),
+            ("ニュース", f"{news_count}件"),
+            ("外部プロファイル", f"{profile_count}件"),
+            ("最終取得", _datetime_display_text(external_result.fetched_at)),
+        ]
     source_types = {
         evidence.source_type.strip().lower()
         for evidence in (report.evidence if report is not None else [])

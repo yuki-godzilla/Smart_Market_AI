@@ -22653,7 +22653,10 @@ def _advanced_forecast_warning_display(value: str) -> str:
             "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
         ),
     }
-    warnings = [part.strip() for part in value.split(";") if part.strip()]
+    localized_value = value
+    for source, target in warning_map.items():
+        localized_value = localized_value.replace(source, target)
+    warnings = [part.strip() for part in localized_value.split(";") if part.strip()]
     return " / ".join(warning_map.get(warning, warning) for warning in warnings)
 
 

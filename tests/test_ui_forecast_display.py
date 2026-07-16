@@ -81,6 +81,7 @@ from ui.app import (
     _advanced_forecast_model_help,
     _advanced_forecast_ranking_signal_fields,
     _advanced_forecast_rows_for_ranking,
+    _advanced_forecast_warning_display,
     _apply_navigation_query_params,
     _background_workers_disabled,
     _build_market_data_ranking_rows,
@@ -10856,6 +10857,22 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
     assert "統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
     assert "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数" in help_text
     assert "予測価格 = 最新価格 × (1 + 統合予測)" in help_text
+
+
+def test_advanced_forecast_warning_display_localizes_semicolon_in_source_message():
+    displayed = _advanced_forecast_warning_display(
+        "Advanced forecast consensus is reference information, not investment advice.; "
+        "Consensus weights are capped; validation metrics support comparison but do not "
+        "guarantee future accuracy.; "
+        "At least one advanced model did not improve RMSE over the zero-return baseline."
+    )
+
+    assert displayed == (
+        "AI予測インサイトは参考情報です。売買判断そのものではありません。 / "
+        "重みは保守的に制限しています。検証指標は比較材料であり、将来精度の保証ではありません。 / "
+        "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
+    )
+    assert "Consensus weights" not in displayed
 
 
 def test_advanced_forecast_insight_card_html_is_information_dense():

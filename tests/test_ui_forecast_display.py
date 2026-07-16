@@ -1211,7 +1211,7 @@ def test_market_data_period_help_explains_review_basis():
     assert "自由に指定" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
     assert "決算" in market_data_period_help("medium_3m")
     assert "長期の変化" in market_data_period_help("long_5y")
-    assert "任意の期間" in market_data_period_help("unknown")
+    assert "自由に指定" in market_data_period_help("unknown")
 
 
 def test_market_data_provider_defaults_to_yahoo_without_config(monkeypatch):
@@ -2776,10 +2776,10 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "Auto Manufacturers" not in markup
     assert "主要数値" in markup
     assert "売上高" in markup
-    assert "IR情報サマリー" in markup
+    assert "IR・開示" in markup
     assert "関連候補あり" in markup
     assert "取得済み・要約済み" not in markup
-    assert "最新ニュース・開示サマリー" in markup
+    assert "ニュース・開示" in markup
     assert "market-intelligence-panel" in markup
     assert "Market Intelligence" in markup
     assert "market-news-grid" in markup
@@ -4748,8 +4748,8 @@ def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
     assert "通常表示は、比較に使う列だけ" in RANKING_TABLE_SORT_GUIDANCE
     assert "詳細列を表示する" in RANKING_TABLE_SORT_GUIDANCE
     assert "ニュース材料は順位に反映していません" in RANKING_TABLE_SORT_GUIDANCE
-    assert "ランキング順位には反映していません" in RANKING_TABLE_SORT_GUIDANCE
-    assert "N/Aは未取得または未評価" in RANKING_TABLE_SORT_GUIDANCE
+    assert "N/Aは未取得・未評価" in RANKING_TABLE_SORT_GUIDANCE
+    assert "N/Aは未取得・未評価" in RANKING_TABLE_SORT_GUIDANCE
 
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():

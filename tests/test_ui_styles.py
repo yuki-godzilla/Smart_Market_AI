@@ -104,11 +104,14 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "height: auto;" in SMAI_GLOBAL_CSS
     assert ".investment-news-board-page" in SMAI_GLOBAL_CSS
     assert ".investment-stock-heatmap-board" in SMAI_GLOBAL_CSS
-    assert "@media (min-width: 1280px)" in SMAI_GLOBAL_CSS
+    assert "@container (min-width: 78rem)" in SMAI_GLOBAL_CSS
     assert (
         ".investment-market-heatmap-groups {\n"
         "        grid-template-columns: repeat(3, minmax(0, 1fr));"
     ) in SMAI_GLOBAL_CSS
+    assert "container-type: inline-size;" in SMAI_GLOBAL_CSS
+    assert "@container (min-width: 78rem)" in SMAI_GLOBAL_CSS
+    assert "@container (max-height: 3.6rem)" in SMAI_GLOBAL_CSS
     tablet_media = "@media (min-width: 768px) and (max-width: 1200px) {"
     assert tablet_media in SMAI_GLOBAL_CSS
     assert (
@@ -145,6 +148,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "-webkit-line-clamp: 3;" in SMAI_GLOBAL_CSS
     assert "font-size: clamp(1rem, 1.18vw, 1.25rem);" in SMAI_GLOBAL_CSS
     assert "font-size: clamp(1rem, 1.2vw, 1.28rem);" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-tile.micro" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1.06rem, 1.26vw, 1.34rem);" in SMAI_GLOBAL_CSS
     assert ".investment-market-heatmap-group.singleton .investment-market-heatmap-canvas" in (
         SMAI_GLOBAL_CSS
     )

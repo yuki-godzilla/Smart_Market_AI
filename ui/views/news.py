@@ -2350,11 +2350,7 @@ def _radar_market_group_html(
                 "linear-gradient(135deg, rgba(100, 116, 139, 0.68), " "rgba(30, 41, 59, 0.88))"
             )
         change_label = f"{tile.change_pct:+.2f}%"
-        density_class = ""
-        if width < 15 or height / 56 * 100 < 17:
-            density_class = " minimal"
-        elif width < 26 or height / 56 * 100 < 27:
-            density_class = " compact"
+        density_class = _radar_market_tile_density_class(width, height)
         featured_badge = (
             '<span class="investment-market-heatmap-pick">先に確認</span>'
             if tile.symbol == featured_symbol and tile.confirmation_priority > 0
@@ -2457,6 +2453,25 @@ def _radar_market_group_density_class(displayed_count: int) -> str:
     if displayed_count >= 5:
         return "medium"
     return "compact"
+
+
+def _radar_market_tile_density_class(width: float, height: float) -> str:
+    """Choose a text layout that fits the assigned treemap rectangle.
+
+    A small proportional rectangle must not retain a larger card's four lines
+    of text and then crop them.  The exact symbol and return remain available
+    in the link label and tooltip; the micro form keeps the return visible in
+    the limited space available on the map itself.
+    """
+
+    height_percent = height / 56 * 100
+    if width < 14 or height_percent < 13:
+        return " micro"
+    if width < 22 or height_percent < 23:
+        return " minimal"
+    if width < 34 or height_percent < 35:
+        return " compact"
+    return ""
 
 
 def _radar_market_group_overflow_html(tiles: Sequence[RadarMarketTile]) -> str:

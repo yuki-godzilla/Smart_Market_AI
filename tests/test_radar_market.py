@@ -17,6 +17,7 @@ from backend.news import (
 from backend.news.radar_market import RADAR_MARKET_MAX_SYMBOLS, radar_market_candidates
 from ui.views.news import (
     _radar_market_news_context_by_category,
+    _radar_market_tile_density_class,
     radar_market_heatmap_display_groups,
     radar_market_heatmap_groups,
     radar_market_heatmap_html,
@@ -322,6 +323,15 @@ def test_radar_market_heatmap_marks_direction_and_value_as_one_readable_chip():
     assert 'investment-market-heatmap-change-word">下落' in html_text
     assert 'investment-market-heatmap-change-value">-2.00%' in html_text
     assert 'title="Name AAA (AAA) · 上昇 +8.00%"' in html_text
+
+
+def test_radar_market_tiny_treemap_rectangles_use_a_non_clipping_density_class():
+    assert _radar_market_tile_density_class(width=13.9, height=56.0) == " micro"
+    assert _radar_market_tile_density_class(width=30.0, height=7.0) == " micro"
+    assert _radar_market_tile_density_class(width=21.9, height=56.0) == " minimal"
+    assert _radar_market_tile_density_class(width=40.0, height=12.0) == " minimal"
+    assert _radar_market_tile_density_class(width=33.9, height=56.0) == " compact"
+    assert _radar_market_tile_density_class(width=50.0, height=24.0) == ""
 
 
 def test_radar_market_news_groups_show_a_compact_clickable_source_card():

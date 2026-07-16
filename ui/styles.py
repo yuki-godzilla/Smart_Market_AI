@@ -5,7 +5,7 @@ import streamlit as st
 
 from ui import style_components as _components
 
-SMAI_STYLE_REVISION = "2026-07-14-radar-market-v4"
+SMAI_STYLE_REVISION = "2026-07-16-radar-market-v7"
 
 badge_html = _components.badge_html
 compact_display_value = _components.compact_display_value
@@ -2246,6 +2246,7 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-market-heatmap {
+    container-type: inline-size;
     margin: 0.45rem 0 0.85rem;
     border: 1px solid rgba(125, 211, 252, 0.2);
     border-radius: 14px;
@@ -2329,9 +2330,10 @@ div[data-testid="stElementContainer"]:has(
     margin: 0.65rem 0 0.5rem;
 }
 
-/* Three columns keep the now-distinct sparse classifications comparable on a
-   normal desktop.  Tablet remains one column to protect tap and text space. */
-@media (min-width: 1280px) {
+/* Use the actual content width, rather than the browser width.  A desktop
+   with Streamlit's sidebar open has substantially less room than the same
+   viewport with the sidebar collapsed. */
+@container (min-width: 78rem) {
     .investment-market-heatmap-groups {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -2501,6 +2503,7 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-market-heatmap-tile {
+    container-type: size;
     position: absolute;
     display: flex;
     flex-direction: column;
@@ -2659,6 +2662,101 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-market-heatmap-tile.minimal strong {
     font-size: clamp(0.7rem, 0.88vw, 0.9rem);
+}
+
+/* A proportional treemap can legitimately produce a very short rectangle.
+   In that case, retain the exact movement value rather than rendering a
+   clipped stack of name, code, and value.  The full identity remains in the
+   link's accessible name and hover tooltip. */
+.investment-market-heatmap-tile.micro {
+    gap: 0;
+    padding: 0.06rem 0.14rem;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-name,
+.investment-market-heatmap-tile.micro .investment-market-heatmap-symbol,
+.investment-market-heatmap-tile.micro small {
+    display: none;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-change {
+    gap: 0.08rem;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-change-word {
+    display: none;
+}
+
+.investment-market-heatmap-tile.micro strong {
+    font-size: clamp(0.62rem, 0.7vw, 0.82rem);
+    line-height: 1;
+}
+
+/* The generator classifies proportional rectangles before the browser knows
+   their physical size.  These container queries make the final choice using
+   the rendered height, so a sidebar or narrower window cannot crop text. */
+@container (max-height: 3.6rem) {
+    .investment-market-heatmap-tile {
+        gap: 0.06rem;
+        padding: 0.1rem 0.18rem;
+    }
+
+    .investment-market-heatmap-name,
+    .investment-market-heatmap-tile small {
+        display: none;
+    }
+
+    .investment-market-heatmap-change {
+        gap: 0.12rem;
+        min-height: 0;
+        padding: 0.04rem 0.22rem;
+    }
+
+    .investment-market-heatmap-change-word {
+        display: none;
+    }
+
+    .investment-market-heatmap-tile strong {
+        font-size: clamp(0.78rem, 0.9vw, 0.94rem);
+    }
+}
+
+@container (max-height: 2.4rem) {
+    .investment-market-heatmap-tile .investment-market-heatmap-symbol {
+        display: none;
+    }
+
+    .investment-market-heatmap-tile {
+        gap: 0;
+        padding: 0.04rem 0.12rem;
+    }
+
+    .investment-market-heatmap-change {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .investment-market-heatmap-tile strong {
+        font-size: clamp(0.62rem, 0.74vw, 0.84rem);
+        line-height: 1;
+    }
+}
+
+/* Give cards with room for their complete content a slightly stronger visual
+   hierarchy without affecting compact or minimal treemap fragments. */
+.investment-market-heatmap-tile:not(.compact):not(.minimal):not(.micro) .investment-market-heatmap-name {
+    font-size: clamp(1.06rem, 1.26vw, 1.34rem);
+}
+
+.investment-market-heatmap-tile:not(.compact):not(.minimal):not(.micro) .investment-market-heatmap-change {
+    font-size: clamp(1.04rem, 1.26vw, 1.34rem);
 }
 
 .investment-market-heatmap-scale {
@@ -2885,6 +2983,9 @@ div[data-testid="stElementContainer"]:has(
         background: transparent;
     }
     .investment-market-heatmap-tile {
+        /* Mobile uses a stacked card, so let content determine its height and
+           restore the identity hidden by the desktop micro-tile rules. */
+        container-type: inline-size;
         position: static;
         align-items: flex-start;
         width: 100% !important;
@@ -2900,13 +3001,23 @@ div[data-testid="stElementContainer"]:has(
     }
     .investment-market-heatmap-tile.compact small,
     .investment-market-heatmap-tile.minimal small,
-    .investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+    .investment-market-heatmap-tile.micro small,
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-symbol {
         display: block;
     }
     .investment-market-heatmap-tile.minimal .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-name {
+        display: -webkit-box;
+    }
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-name,
     .investment-market-heatmap-tile.minimal strong {
         font-size: 0.9rem;
         -webkit-line-clamp: 2;
+    }
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-change-word {
+        display: inline;
     }
     .investment-market-heatmap-pick {
         position: static;

@@ -504,7 +504,7 @@ from ui.watchlist_snapshots import (
 # modules. Refresh a stale style module once so a rolling Radar update cannot
 # leave the new heatmap markup without its matching responsive CSS. Existing
 # imported functions retain the module dictionary that reload updates.
-if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-14-radar-market-v4":
+if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-16-radar-market-v7":
     importlib.reload(_ui_styles_module)
 
 LOGGER = logging.getLogger(__name__)

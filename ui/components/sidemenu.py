@@ -74,19 +74,19 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
             if runtime_settings["provider"] == "csv":
                 st.write(f"CSVデータ: `{runtime_settings['csv_data_dir']}`")
 
-        st.caption("分析結果は投資判断の補助であり、売買推奨ではありません。")
+        st.caption("個人用の分析ツール。データ更新日時と根拠も見比べます。")
 
     return _current_sidemenu_page()
 
 
 def _sidebar_mascot_message(page: SideMenuPage) -> str:
     messages = {
-        SIDEMENU_PAGE_WATCHLIST: "気になる銘柄をまとめて、次に確認する候補を整理します。",
-        SIDEMENU_PAGE_COCKPIT: "1銘柄の確認ポイントを一緒に整理します。",
-        SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとリスク確認で見比べます。",
-        SIDEMENU_PAGE_NEWS: "市場ニュースから確認すべきテーマと関連銘柄を整理します。",
-        SIDEMENU_PAGE_COPILOT: "画面横断で、確認材料と次に見る点を整理します。",
-        SIDEMENU_PAGE_REBALANCE: "配分のズレと見直し候補を確認します。",
-        SIDEMENU_PAGE_SETTINGS: "データ設定と取得元を確認します。",
+        SIDEMENU_PAGE_WATCHLIST: "気になる銘柄をまとめます。",
+        SIDEMENU_PAGE_COCKPIT: "1銘柄を深掘りします。",
+        SIDEMENU_PAGE_RANKING: "注目候補を見比べます。",
+        SIDEMENU_PAGE_NEWS: "市場テーマと関連銘柄を追います。",
+        SIDEMENU_PAGE_COPILOT: "気になる点をすぐ聞けます。",
+        SIDEMENU_PAGE_REBALANCE: "配分のズレを見ます。",
+        SIDEMENU_PAGE_SETTINGS: "データ取得の設定です。",
     }
     return messages[page]

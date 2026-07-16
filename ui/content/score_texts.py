@@ -14,35 +14,35 @@ SCORE_TEXTS = {
     "investment_score": ScoreText(
         label="投資スコア",
         short_label="総合スコア",
-        description="複数観点を統合した比較・分析用スコアです。高い値でも売買指示ではありません。",
+        description="スコア・予測・リスク・根拠をまとめた比較の目安です。",
     ),
     "decision_view": ScoreText(
         label="総合評価",
         short_label="評価",
-        description="スコア帯を確認レベルに置き換えた見方です。判断を急がず、内訳と注意点を合わせて確認します。",
+        description="総合スコアをひと目で読むためのラベルです。内訳も見比べます。",
     ),
     "upside_signal_score": ScoreText(
         label="上昇気配",
         short_label="上向きシグナル",
-        description="予測エッジ、モデル別の上向き強度、直近モメンタム、トレンド確認を合わせた補助指標です。",
+        description="予測、直近の勢い、トレンドを合わせた上向きの目安です。",
     ),
     "downside_signal_score": ScoreText(
         label="下降警戒",
         short_label="下向きシグナル",
-        description="下向きの予測エッジ、モデル別の下向き強度、直近モメンタム、トレンド確認を合わせた警戒指標です。",
+        description="下向き予測、直近の勢い、トレンドを合わせた警戒の目安です。",
     ),
     "forecast_return_pct": ScoreText(
         label="予測変化率",
-        description="平均予測価格が直近終値からどの程度離れているかを示します。将来の保証ではありません。",
+        description="平均予測価格が直近終値からどれだけ動く見込みかを示します。",
     ),
     "data_confidence": ScoreText(
         label="データ信頼度",
         short_label="データ信頼度",
-        description="投資魅力度ではなく、評価に使えるデータの充実度を示します。",
+        description="評価に使えるデータがどれだけそろっているかの目安です。",
     ),
     "risk": ScoreText(
         label="リスク確認",
-        description="取得期間の値動きや警告を整理したリスク確認材料です。高い値でも安全保証ではありません。",
+        description="期間内の値動きと警戒材料をまとめた目安です。",
     ),
 }
 

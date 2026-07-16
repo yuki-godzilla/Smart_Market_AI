@@ -677,8 +677,7 @@ RANKING_TABLE_HIDDEN_COLUMNS = (
 )
 LLM_FACTOR_RANKING_COLUMNS = ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度")
 LLM_FACTOR_RANKING_REFERENCE_NOTICE = (
-    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
-    "売買推奨ではありません。"
+    "ニュース材料はAI要約です。現在のランキング順位には反映していません。"
 )
 LLM_FACTOR_RANKING_COLUMN_TOOLTIPS = {
     "ニュース材料": "AI要約で確認したポジティブ/ネガティブ材料の参考値です。",
@@ -716,10 +715,9 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "経費率": "asc",
 }
 RANKING_TABLE_SORT_GUIDANCE = (
-    "通常表示では投資判断に必要な列だけを表示します。"
-    "ニュース材料やモデル別情報などの補助情報は「詳細列を表示する」で確認できます。"
-    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
-    "N/Aは未取得または未評価を表します。"
+    "通常表示は、比較に使う列だけです。"
+    "ニュース・モデル別情報は「詳細列を表示する」で開けます。"
+    "ニュース材料は順位に反映していません。N/Aは未取得・未評価です。"
 )
 RANKING_LOW_VALUE_BETTER_COLUMNS = {
     "PER",
@@ -752,7 +750,7 @@ MARKET_CHART_HEIGHT = 540
 ADVANCED_FORECAST_CONSENSUS_LABEL = "AI予測インサイト"
 ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL = "統合予測"
 FORECAST_DECISION_SUPPORT_NOTE = (
-    "この予測は過去データに基づく参考情報であり、将来の値動きを保証するものではありません。"
+    "過去データから計算した参考予測です。予測レンジと根拠も見比べます。"
 )
 RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE = (
     "下降警戒は低いほど良い指標です。ランキングでは、警戒が低いほど加点されます。"

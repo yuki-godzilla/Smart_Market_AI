@@ -1208,9 +1208,9 @@ def test_market_data_period_dates_clamp_month_end_and_leap_day():
 
 
 def test_market_data_period_help_explains_review_basis():
-    assert "任意の期間" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
+    assert "自由に指定" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
     assert "決算" in market_data_period_help("medium_3m")
-    assert "長期保有" in market_data_period_help("long_5y")
+    assert "長期の変化" in market_data_period_help("long_5y")
     assert "任意の期間" in market_data_period_help("unknown")
 
 
@@ -2663,7 +2663,7 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     markup = "\n".join(markdown_calls)
 
     assert clicked is True
-    assert [label for label, _ in button_calls] == ["AI調査を開始・更新"]
+    assert [label for label, _ in button_calls] == ["AIメモを更新"]
     assert "AI調査はまだ未取得です" in markup
     assert "未取得通知" not in markup
     assert "確認方針" not in markup
@@ -2767,14 +2767,14 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     markup += _ir_summary_html(summary.ir_items)
     markup += _news_summary_html(summary.news_items)
 
-    assert "企業リサーチサマリー" in markup
+    assert "企業メモ" in markup
     assert "企業概要" in markup
     assert "事業内容" in markup
     assert "セクター: 一般消費財" in markup
     assert "業種: 自動車メーカー" in markup
     assert "Consumer Cyclical" not in markup
     assert "Auto Manufacturers" not in markup
-    assert "定量情報サマリー" in markup
+    assert "主要数値" in markup
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
     assert "関連候補あり" in markup
@@ -2829,7 +2829,7 @@ def test_company_research_summary_panel_hides_ai_reading_notes_initially(monkeyp
     _render_company_research_summary_panel(summary)
 
     markup = "".join(markdown_calls)
-    assert "企業リサーチサマリー" in markup
+    assert "企業メモ" in markup
     assert "AI読み取りメモ" not in markup
     assert "AI内部メモです。" not in markup
 
@@ -3057,7 +3057,7 @@ def test_investment_question_summary_html_prioritizes_initial_questions():
         "valuation",
         "recent_news_impact",
     ]
-    assert "企業理解の確認ポイント" in markup
+    assert "次に見ること" in markup
     assert "Q. この会社は何で稼いでいるか？" in markup
     assert "根拠: 中" in markup
     assert "根拠: 不足" in markup
@@ -3127,7 +3127,7 @@ def test_research_summary_advanced_detail_omits_duplicate_reading_sections(monke
     _render_research_summary_panel(report, detail_expanded=False)
 
     rendered_text = "\n".join(rendered)
-    assert "詳細情報・開発者向け" in rendered_text
+    assert "詳細・開発者向け" in rendered_text
     assert "Research Score" in rendered_text
     assert "検索品質" in rendered_text or "根拠資料の詳細" in rendered_text
     assert "AI読み取りメモ" not in rendered_text
@@ -4745,9 +4745,9 @@ def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
 
 
 def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
-    assert "通常表示では投資判断に必要な列だけ" in RANKING_TABLE_SORT_GUIDANCE
+    assert "通常表示は、比較に使う列だけ" in RANKING_TABLE_SORT_GUIDANCE
     assert "詳細列を表示する" in RANKING_TABLE_SORT_GUIDANCE
-    assert "ニュース材料はAI要約による参考情報" in RANKING_TABLE_SORT_GUIDANCE
+    assert "ニュース材料は順位に反映していません" in RANKING_TABLE_SORT_GUIDANCE
     assert "ランキング順位には反映していません" in RANKING_TABLE_SORT_GUIDANCE
     assert "N/Aは未取得または未評価" in RANKING_TABLE_SORT_GUIDANCE
 
@@ -8238,8 +8238,8 @@ def test_ranking_table_renders_llm_reference_columns():
 
 
 def test_llm_reference_disclaimer_is_visible():
-    assert "ニュース材料はAI要約による参考情報" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
-    assert "売買推奨ではありません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ニュース材料はAI要約です" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ランキング順位には反映していません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
     assert "ランキング順位には反映していません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
 
 
@@ -9410,7 +9410,7 @@ def test_decision_report_download_buttons_explain_export_roles(monkeypatch):
         "manifest（内容確認）をダウンロード",
         "一式ZIP（保存用）をダウンロード",
     ]
-    assert "人が読むため" in str(button_calls[0][1]["help"])
+    assert "読み返し用" in str(button_calls[0][1]["help"])
     assert "再現確認" in str(button_calls[1][1]["help"])
     assert "ファイル" in str(button_calls[2][1]["help"])
     assert "保存用パッケージ" in str(button_calls[3][1]["help"])

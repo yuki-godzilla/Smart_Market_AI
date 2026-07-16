@@ -84,7 +84,7 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
     ]
     assert [card["value"] for card in cards] == ["72", "76", "64", "38", "95"]
     assert "買い推奨ではありません" in cards[2]["help_text"]
-    assert "投資魅力度ではなく" in cards[4]["help_text"]
+    assert "評価に使えるデータ" in cards[4]["help_text"]
     assert "今回: 強め" in cards[1]["caption"]
     assert cards[2]["caption"] == "確認優先"
     assert "今回: 低め" in cards[3]["caption"]
@@ -125,7 +125,7 @@ def test_cockpit_research_and_forecast_labels_match_primary_flow():
     forecast_source = inspect.getsource(app_module._render_price_forecast_hero)
 
     assert RESEARCH_COCKPIT_SECTION_TITLE == "03 AI調査・材料分析"
-    assert RESEARCH_FETCH_BUTTON_LABEL == "AI調査を開始・更新"
+    assert RESEARCH_FETCH_BUTTON_LABEL == "AIメモを更新"
     assert research_source.count('type="primary"') == 1
     assert "st.columns" not in research_source
     assert "調査アクション" not in research_source
@@ -157,7 +157,7 @@ def test_cockpit_direction_signal_cards_use_existing_direction_values():
     assert "今回: 強め" in cards[0]["caption"]
     assert "今回: 低め" in cards[1]["caption"]
     assert "今回: やや上向き" in cards[2]["caption"]
-    assert "予測エッジ" in cards[0]["help_text"]
+    assert "直近の勢い" in cards[0]["help_text"]
 
 
 def test_cockpit_direction_signal_detail_rows_explain_balance_and_model_spread():

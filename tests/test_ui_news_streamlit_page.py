@@ -224,7 +224,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
     assert "市場ヒートマップ" in page_text
-    assert "ニュースから抽出した候補" in page_text
+    assert "ニュース候補を、セクター・業種・注目ニュースで並べます。" in page_text
     assert "追加候補マップ" not in page_text
     assert "ニュース・根拠" not in {item.label for item in app.tabs}
     assert {item.label for item in app.tabs} == {"市場レーダー", "ニュース一覧"}
@@ -233,7 +233,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "カテゴリ別ニュースレーン" in page_text
     assert "表示中ニュース" not in page_text
     assert "データ状態" not in page_text
-    assert "ニュース表示を更新" in button_labels
+    assert "ニュースを更新" in button_labels
     assert "今すぐ更新" in button_labels
     assert "最初の候補の根拠を見る" not in button_labels
     assert not text_input_labels

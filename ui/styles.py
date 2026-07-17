@@ -7807,8 +7807,8 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 
 [data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
     + div[data-testid="stButton"] button {
-    min-height: 4rem;
-    width: 100%;
+    min-height: 2.7rem;
+    width: min(100%, 14rem);
     border: 1px solid rgba(103, 232, 249, 0.78) !important;
     border-radius: 10px;
     background:
@@ -7832,7 +7832,7 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 [data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
     + div[data-testid="stButton"] button * {
     color: #FFFFFF !important;
-    font-size: 1.12rem !important;
+    font-size: .98rem !important;
     font-weight: 880 !important;
 }
 

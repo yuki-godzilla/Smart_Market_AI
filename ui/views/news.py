@@ -479,7 +479,7 @@ def render_news_dashboard_page(
     snapshot, status = _load_dashboard_snapshot()
     render_page_title(
         "投資レーダー",
-        "市場ニュースとテーマから、根拠を確認する候補を整理します。",
+        "ニュースから注目テーマと銘柄を見つけます。",
         "investment_radar",
         accessory_html=news_dashboard_freshness_badge_html(snapshot),
     )
@@ -1820,72 +1820,66 @@ def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]
 
 
 def _render_refresh_controls() -> None:
-    col_action, col_note = st.columns([1.05, 1.95])
-    with col_action:
-        st.markdown(
-            '<div class="smai-news-refresh-action-anchor"></div>',
+    st.markdown(
+        '<div class="smai-news-refresh-action-anchor"></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "ニュースを更新",
+        key="investment_news_refresh",
+        type="primary",
+        use_container_width=False,
+    ):
+        now = datetime.now(UTC)
+        loading_slot = st.empty()
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+        loading_slot.markdown(
+            workflow_loading_html(
+                title="最新ニュースを更新中",
+                message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
+                current_step="外部ニュースRSSへ接続しています。",
+                progress=0.12,
+                mode="blocking",
+                headlines=loading_headlines,
+                headline_note=loading_headline_note,
+            ),
             unsafe_allow_html=True,
         )
-        if st.button(
-            "ニュース表示を更新",
-            key="investment_news_refresh",
-            type="primary",
-            use_container_width=True,
-        ):
-            now = datetime.now(UTC)
-            loading_slot = st.empty()
-            loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+        try:
+            result = refresh_news_dashboard_cache(
+                lambda: build_standard_news_dashboard_snapshot(
+                    allow_network=True,
+                    now=now,
+                    fallback_to_demo=False,
+                ),
+                force=True,
+            )
             loading_slot.markdown(
                 workflow_loading_html(
                     title="最新ニュースを更新中",
                     message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
-                    current_step="外部ニュースRSSへ接続しています。",
-                    progress=0.12,
+                    current_step="ニュースを分類して表示を更新しています。",
+                    progress=0.9,
                     mode="blocking",
                     headlines=loading_headlines,
                     headline_note=loading_headline_note,
                 ),
                 unsafe_allow_html=True,
             )
-            try:
-                result = refresh_news_dashboard_cache(
-                    lambda: build_standard_news_dashboard_snapshot(
-                        allow_network=True,
-                        now=now,
-                        fallback_to_demo=False,
-                    ),
-                    force=True,
-                )
-                loading_slot.markdown(
-                    workflow_loading_html(
-                        title="最新ニュースを更新中",
-                        message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
-                        current_step="ニュースを分類して表示を更新しています。",
-                        progress=0.9,
-                        mode="blocking",
-                        headlines=loading_headlines,
-                        headline_note=loading_headline_note,
-                    ),
-                    unsafe_allow_html=True,
-                )
-            finally:
-                loading_slot.empty()
-            if result.refreshed:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = "ニュース表示を更新しました。"
-            elif result.used_fallback_cache:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
-                    "更新に失敗したため、前回保存データを表示しています。"
-                )
-            else:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
-                    "ニュース表示を更新できませんでした。"
-                )
-            st.rerun()
-    with col_note:
-        st.caption(
-            "手動更新では外部ニュースRSSを広めに取得し、重複を除いて最大100件の確認材料に整理します。"
-            "スコアやランキング順位は変更しません。"
-        )
+        finally:
+            loading_slot.empty()
+        if result.refreshed:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = "ニュース表示を更新しました。"
+        elif result.used_fallback_cache:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
+                "更新に失敗したため、前回保存データを表示しています。"
+            )
+        else:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
+                "ニュース表示を更新できませんでした。"
+            )
+        st.rerun()
+    st.caption("外部ニュースを取得して重複を除きます。スコア・ランキングは変わりません。")
 
 
 def _render_status_message() -> None:
@@ -2556,9 +2550,7 @@ def _render_market_heatmap(
     _render_radar_today_summary(candidate_map)
     st.markdown("### 市場ヒートマップ")
     st.caption(
-        "ニュースから抽出した候補を、セクター・業種・注目ニュース別に並べます。"
-        "少数のセクター・業種は元の分類名を示してまとめ、見やすく表示します。"
-        "タイルを選ぶと銘柄コックピットへ進めます。投資魅力度や将来予測ではありません。"
+        "ニュース候補を、セクター・業種・注目ニュースで並べます。" "タイルを選ぶと銘柄を開けます。"
     )
     period = 20
     grouping = str(

@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest
 SCREEN_CASES = (
     ("cockpit", "銘柄コックピット", ("データを取得", "データ取得元")),
     ("ranking", "銘柄ランキング", ("ランキングを作成", "ランキング作成")),
-    ("news", "投資レーダー", ("ニュース表示を更新", "Watchlist")),
+    ("news", "投資レーダー", ("ニュースを更新", "Watchlist")),
     ("watchlist", "Myウォッチリスト", ("銘柄ランキングで探す", "投資レーダーを見る")),
     ("copilot", "SMAIアシスタント", ("新しい会話", "メッセージ")),
     ("rebalance", "リバランス", ("配分見直しを確認", "シナリオ")),

@@ -8287,7 +8287,7 @@ def _render_market_data_preview() -> None:
 def _render_market_data_cockpit() -> None:
     render_page_title(
         "銘柄コックピット",
-        "1銘柄の価格・予測・根拠を確認します。",
+        "価格・予測・根拠を確認します。",
         "cockpit",
     )
     navigation_source = st.session_state.get("market_data_navigation_source")
@@ -8304,7 +8304,7 @@ def _render_market_data_cockpit() -> None:
         '<section class="smai-cockpit-prefetch-header">'
         '<div class="smai-cockpit-prefetch-heading">銘柄を探す</div>'
         '<p class="smai-cockpit-prefetch-caption">'
-        "分析したい銘柄を検索し、データ取得元と候補を選びます。"
+        "検索して、分析する銘柄を選びます。"
         "</p>"
         "</section>",
         unsafe_allow_html=True,
@@ -8850,23 +8850,21 @@ def _render_market_data_ranking() -> None:
     selected_count_for_summary = display_candidate_count
     load_state = ranking_condition_load_state(selected_count_for_summary)
 
-    ranking_condition_slot, policy_summary_slot = st.columns([1.12, 1.0])
-    with ranking_condition_slot:
-        st.markdown(
-            _ranking_condition_summary_html(
-                filter_values,
-                region=region,
-                product_type=product_type,
-                ranking_policy=ranking_policy,
-                period_preset=period_preset,
-                candidate_count=display_candidate_count,
-                load_state=load_state,
-                extra_chips=ranking_exploration_filter_chip_labels(),
-                draft=False,
-            ),
-            unsafe_allow_html=True,
-        )
-    with policy_summary_slot:
+    st.markdown(
+        _ranking_condition_summary_html(
+            filter_values,
+            region=region,
+            product_type=product_type,
+            ranking_policy=ranking_policy,
+            period_preset=period_preset,
+            candidate_count=display_candidate_count,
+            load_state=load_state,
+            extra_chips=ranking_exploration_filter_chip_labels(),
+            draft=False,
+        ),
+        unsafe_allow_html=True,
+    )
+    with st.expander("ランキング基準の内訳", expanded=False):
         st.markdown(
             ranking_policy_builder_card_html(ranking_policy, policy_preset),
             unsafe_allow_html=True,
@@ -8917,7 +8915,7 @@ def _render_market_data_ranking() -> None:
         )
         selected_count_for_summary = len(selected_labels)
     else:
-        st.caption("比較銘柄リストは未生成です。通常は現在の候補から取得上限まで自動選定します。")
+        st.caption("候補は自動選定します。必要なときだけ手動選択を開いてください。")
         effective_selected_labels = _default_effective_ranking_labels(
             filtered_symbol_rows,
             preset=RANKING_FETCH_LIMIT_PRESET,

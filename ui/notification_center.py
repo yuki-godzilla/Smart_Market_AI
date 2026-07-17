@@ -369,8 +369,7 @@ def _select_user(
 ) -> SmaiUser | None:
     if not users:
         return None
-    st.markdown(
-        """
+    profile_gate_header = """
         <style>
         [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
         [data-testid="stHeader"] { background: transparent !important; }
@@ -379,20 +378,24 @@ def _select_user(
             radial-gradient(circle at 50% 12%, rgba(8,145,178,.16), transparent 34rem),
             linear-gradient(180deg, #050d1a 0%, #071426 100%);
         }
-        .block-container { max-width: 960px; padding: 7vh 1.5rem 4rem !important; }
+        .block-container { max-width: 960px; padding: 4.5vh 1.5rem 3rem !important; }
         .smai-profile-gate-brand {
           color: #67e8f9; font-size: .86rem; font-weight: 900; letter-spacing: .24em;
           text-align: center; text-transform: uppercase;
         }
         .smai-profile-gate-title {
-          margin: .8rem 0 .35rem; color: #f8fbff; font-size: clamp(2rem, 4vw, 3.4rem);
+          margin: .55rem 0 .22rem; color: #f8fbff; font-size: clamp(1.7rem, 3.4vw, 2.7rem);
           font-weight: 850; text-align: center; letter-spacing: -.035em;
         }
         .smai-profile-gate-note {
-          margin-bottom: 1.7rem; color: #91a8bf; text-align: center;
+          margin-bottom: 1.15rem; color: #91a8bf; text-align: center;
+        }
+        .smai-profile-grid {
+          display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+          gap: .85rem; width: min(100%, 760px); margin: 0 auto;
         }
         .smai-profile-card {
-          width: min(100%, 220px); margin: 0 auto .45rem; padding: .72rem;
+          width: 100%; max-width: 180px; margin: 0 auto; padding: .58rem;
           border: 2px solid #203b59; border-radius: 18px; background: #0b1b30;
           cursor: pointer;
           box-shadow: 0 15px 35px rgba(0,0,0,.24);
@@ -418,18 +421,18 @@ def _select_user(
           width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; display: block;
         }
         .smai-profile-name {
-          margin: .75rem 0 .15rem; color: #edf8ff; font-size: 1.05rem;
+          margin: .52rem 0 .08rem; color: #edf8ff; font-size: .98rem;
           font-weight: 850; text-align: center;
         }
         .smai-add-profile {
-          display: grid; place-items: center; width: min(100%, 220px); aspect-ratio: 1;
-          margin: 0 auto .45rem; border: 2px dashed #35516e; border-radius: 18px;
-          background: #0b1b30; color: #8ca6bd; font-size: 4rem; cursor: pointer;
+          display: grid; place-items: center; width: 100%; max-width: 180px; aspect-ratio: 1;
+          margin: 0 auto; border: 2px dashed #35516e; border-radius: 18px;
+          background: #0b1b30; color: #8ca6bd; font-size: 3rem; cursor: pointer;
         }
         .smai-profile-link { display: block; color: inherit; text-decoration: none !important; }
         .smai-start-button {
           display: flex; align-items: center; justify-content: center;
-          width: min(100%, 260px); min-height: 44px; margin: 1.1rem auto 0;
+          width: min(100%, 260px); min-height: 44px; margin: .85rem auto 0;
           border: 1px solid #22d3ee; border-radius: .55rem; background: #0891b2;
           color: #fff !important; font-weight: 800; text-decoration: none !important;
           box-shadow: 0 0 18px rgba(34,211,238,.2);
@@ -444,18 +447,17 @@ def _select_user(
         div[data-testid="stCheckbox"] { width: fit-content; margin: 1.2rem auto .5rem; }
         div[data-testid="stCheckbox"] label { justify-content: center; }
         @media (max-width: 767px) {
-          .block-container { padding-top: 3rem !important; }
+          .block-container { padding-top: 2.5rem !important; }
+          .smai-profile-grid { grid-template-columns: 1fr; width: min(100%, 280px); }
           .smai-profile-card, .smai-add-profile { max-width: 280px; }
         }
         </style>
         <div class="smai-profile-gate-brand">Smart Market AI</div>
         <div class="smai-profile-gate-title">どのユーザーで使いますか？</div>
         <div class="smai-profile-gate-note">
-          表示するユーザーを選択してください。これはログイン認証ではありません。
+          使うユーザーを選んでください。この端末だけで使うプロフィールです。
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """
     query_candidate = _query_value(PROFILE_QUERY_KEY)
     client_query_suffix = _client_query_suffix()
     selected_user_id = (
@@ -465,49 +467,45 @@ def _select_user(
     )
     if selected_user_id:
         st.session_state["smai_profile_candidate"] = selected_user_id
-    card_count = len(users) + 1
-    column_count = min(5, card_count)
-    columns = st.columns(column_count, gap="medium")
-    for index, candidate in enumerate(users):
+    profile_cards: list[str] = []
+    for candidate in users:
         icon = resolve_user_icon(candidate.icon_id)
         selected_class = " selected" if candidate.user_id == selected_user_id else ""
         selected_value = "true" if candidate.user_id == selected_user_id else "false"
         source = user_icon_browser_source(icon)
-        with columns[index % column_count]:
-            if source:
-                st.markdown(
-                    f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
-                    f'{html.escape(candidate.user_id)}{client_query_suffix}" target="_self" '
-                    f'data-user-id="{html.escape(candidate.user_id)}" '
-                    f'aria-current="{selected_value}" '
-                    f'aria-label="{html.escape(candidate.display_name)}を選択">'
-                    f'<div class="smai-profile-card{selected_class}" '
-                    f'data-user-id="{html.escape(candidate.user_id)}" '
-                    f'data-selected="{selected_value}">'
-                    f'<img src="{html.escape(source)}" alt="" loading="lazy">'
-                    f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
-                    "</div></a>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div class="smai-profile-card{selected_class}" '
-                    f'data-user-id="{html.escape(candidate.user_id)}" '
-                    f'data-selected="{selected_value}">'
-                    '<div class="smai-add-profile" aria-label="ユーザーアイコン"></div>'
-                    f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-    with columns[len(users) % column_count]:
-        st.markdown(
-            f'<a class="smai-profile-link" href="?{ADD_PROFILE_QUERY_KEY}=1'
-            f'{client_query_suffix}" '
-            'target="_self" aria-label="ユーザー追加">'
-            '<div class="smai-add-profile" aria-hidden="true">＋</div>'
-            '<div class="smai-profile-name">ユーザー追加</div></a>',
-            unsafe_allow_html=True,
-        )
+        if source:
+            profile_cards.append(
+                f'<a class="smai-profile-link" href="?{PROFILE_QUERY_KEY}='
+                f'{html.escape(candidate.user_id)}{client_query_suffix}" target="_self" '
+                f'data-user-id="{html.escape(candidate.user_id)}" '
+                f'aria-current="{selected_value}" '
+                f'aria-label="{html.escape(candidate.display_name)}を選択">'
+                f'<div class="smai-profile-card{selected_class}" '
+                f'data-user-id="{html.escape(candidate.user_id)}" '
+                f'data-selected="{selected_value}">'
+                f'<img src="{html.escape(source)}" alt="" loading="lazy">'
+                f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
+                "</div></a>"
+            )
+        else:
+            profile_cards.append(
+                f'<div class="smai-profile-card{selected_class}" '
+                f'data-user-id="{html.escape(candidate.user_id)}" '
+                f'data-selected="{selected_value}">'
+                '<div class="smai-add-profile" aria-label="ユーザーアイコン"></div>'
+                f'<div class="smai-profile-name">{html.escape(candidate.display_name)}</div>'
+                "</div>"
+            )
+    profile_cards.append(
+        f'<a class="smai-profile-link" href="?{ADD_PROFILE_QUERY_KEY}=1{client_query_suffix}" '
+        'target="_self" aria-label="ユーザー追加">'
+        '<div class="smai-add-profile" aria-hidden="true">＋</div>'
+        '<div class="smai-profile-name">ユーザー追加</div></a>'
+    )
+    st.markdown(
+        profile_gate_header + '<div class="smai-profile-grid">' + "".join(profile_cards) + "</div>",
+        unsafe_allow_html=True,
+    )
     if _query_value(ADD_PROFILE_QUERY_KEY) == "1":
         _render_add_user_form()
 

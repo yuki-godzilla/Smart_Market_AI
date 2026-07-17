@@ -23,6 +23,7 @@ from ui.ranking import (
     symbol_candidate_labels,
     valid_ranking_selected_labels,
 )
+from ui.streamlit_widget_state import install_metric_checkbox_state_sync
 from ui.state import (
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
     MARKET_DATA_RANKING_FILTERS_STATE_KEY,
@@ -31,6 +32,9 @@ from ui.state import (
     MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY,
     RANKING_FILTER_DIALOG_STATE_KEY,
 )
+
+
+install_metric_checkbox_state_sync(st)
 
 
 @dataclass(frozen=True)

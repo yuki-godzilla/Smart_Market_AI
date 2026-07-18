@@ -59,6 +59,16 @@ def normalize_client_type(value: object) -> str:
     return normalized if normalized in CLIENT_TYPES else "unknown"
 
 
+def normalize_device_id(value: object) -> str:
+    """Keep only random UUIDv4 values for privacy-safe session aggregation."""
+
+    try:
+        parsed = uuid.UUID(str(value or "").strip())
+    except (ValueError, AttributeError):
+        return ""
+    return str(parsed) if parsed.version == 4 else ""
+
+
 def classify_client_type(user_agent: object) -> str:
     """Classify a request locally without persisting its raw User-Agent value."""
 
@@ -269,6 +279,7 @@ class MaintenanceManager:
         session_id: str,
         *,
         client_type: str = "unknown",
+        device_id: str = "",
         now: datetime | None = None,
     ) -> None:
         now = now or _utc_now()
@@ -281,6 +292,7 @@ class MaintenanceManager:
             sessions[session_id] = {
                 "last_seen_at": _iso(now),
                 "client_type": normalize_client_type(client_type),
+                "device_id": normalize_device_id(device_id),
                 "connection_state": "connected",
             }
             activity["sessions"] = sessions

@@ -31,6 +31,7 @@ from uuid import uuid4
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
@@ -262,6 +263,7 @@ from ui.last_session import (
 )
 from ui.notification_center import render_user_notification_area
 from ui.pwa import inject_pwa_head_metadata
+from ui.server_ops_device import device_id_from_query, device_identity_bridge_html
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
@@ -1900,12 +1902,17 @@ def main() -> None:
 
 
 def _render_maintenance_status() -> None:
+    components.html(device_identity_bridge_html(), height=0, width=0)
     session_key = "smai_server_ops_session_id"
     session_id = str(st.session_state.get(session_key) or "")
     if not session_id:
         session_id = uuid4().hex
         st.session_state[session_key] = session_id
-    _maintenance_heartbeat_fragment(session_id, _current_client_type())
+    _maintenance_heartbeat_fragment(
+        session_id,
+        _current_client_type(),
+        device_id_from_query(getattr(st, "query_params", None)),
+    )
 
 
 def _current_client_type() -> str:
@@ -1916,9 +1923,18 @@ def _current_client_type() -> str:
 
 
 @st.fragment(run_every=60)
-def _maintenance_heartbeat_fragment(session_id: str, client_type: str) -> None:
+def _maintenance_heartbeat_fragment(session_id: str, client_type: str, device_id: str) -> None:
     manager = MaintenanceManager()
-    manager.heartbeat(session_id, client_type=client_type)
+    try:
+        manager.heartbeat(session_id, client_type=client_type, device_id=device_id)
+    except TypeError as exc:
+        # Streamlit may reload this UI module before the imported maintenance
+        # module after a rolling local update.  Keep the Operations Console
+        # usable during that short window; the next process restart enables
+        # device-aware heartbeats.  Do not mask unrelated TypeErrors.
+        if "unexpected keyword argument 'device_id'" not in str(exc):
+            raise
+        manager.heartbeat(session_id, client_type=client_type)
     notice = manager.notice()
     if notice:
         st.warning(str(notice.get("message") or "30秒後にメンテナンス再起動を行います。"))

@@ -6,10 +6,10 @@ from pathlib import Path
 from backend.server_ops.maintenance import (
     MaintenanceManager,
     classify_client_type,
-    normalize_device_id,
     normalize_client_type,
+    normalize_device_id,
 )
-from ui.server_ops_device import DEVICE_QUERY_KEY, device_identity_bridge_html, device_id_from_query
+from ui.server_ops_device import DEVICE_QUERY_KEY, device_id_from_query, device_identity_bridge_html
 
 
 def _manager(tmp_path: Path) -> MaintenanceManager:
@@ -34,7 +34,9 @@ def test_client_type_classifier_keeps_only_coarse_device_categories() -> None:
     assert normalize_client_type("untrusted-device-label") == "unknown"
 
 
-def test_heartbeat_records_client_type_and_anonymous_device_id_without_retaining_the_user_agent(tmp_path: Path) -> None:
+def test_heartbeat_records_client_type_and_anonymous_device_id_without_retaining_the_user_agent(
+    tmp_path: Path,
+) -> None:
     manager = _manager(tmp_path)
     now = datetime(2026, 7, 12, 0, 0, tzinfo=UTC)
     manager.activity_path.write_text(

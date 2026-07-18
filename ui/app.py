@@ -140,7 +140,6 @@ from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
 from backend.server_ops import maintenance as maintenance_module
 from backend.server_ops.maintenance import (
-    MaintenanceManager,
     classify_client_type,
     maintenance_operation,
 )
@@ -265,7 +264,6 @@ from ui.last_session import (
 )
 from ui.notification_center import render_user_notification_area
 from ui.pwa import inject_pwa_head_metadata
-from ui.server_ops_device import device_id_from_query, device_identity_bridge_html
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
@@ -412,6 +410,7 @@ from ui.research_state import (
     fetch_external_research_for_symbol,
     research_store,
 )
+from ui.server_ops_device import device_id_from_query, device_identity_bridge_html
 from ui.state import (
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,

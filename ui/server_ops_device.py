@@ -6,7 +6,6 @@ import html
 from typing import Any, Mapping
 from uuid import UUID
 
-
 DEVICE_QUERY_KEY = "smai_ops_device"
 DEVICE_STORAGE_KEY = "smai_ops_device_id"
 

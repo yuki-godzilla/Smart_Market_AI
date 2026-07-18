@@ -35,6 +35,18 @@ from ui.app import (
     risk_breach_display_rows,
     risk_breach_message,
 )
+from ui.content.common_texts import (
+    DECISION_REPORT_DOWNLOAD_GUIDE,
+    DECISION_REPORT_JSON_DOWNLOAD_HELP,
+    DECISION_REPORT_JSON_DOWNLOAD_LABEL,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_HELP,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
+    DECISION_REPORT_SUPPORT_MESSAGE,
+    DECISION_REPORT_ZIP_DOWNLOAD_HELP,
+    DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
+)
 from ui.rebalance_app import (
     DEFAULT_ACCOUNT_ID,
     DEFAULT_AS_OF,
@@ -1535,23 +1547,18 @@ def test_rebalance_decision_report_downloads_explain_export_roles(monkeypatch):
     _render_rebalance_decision_report(result, request)
 
     assert any("売買指示ではありません" in info for info in infos)
-    assert any(
-        "あとから見返すための確認メモです" in caption for caption in captions
-    )
-    assert (
-        "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
-        in captions
-    )
+    assert DECISION_REPORT_SUPPORT_MESSAGE in captions
+    assert DECISION_REPORT_DOWNLOAD_GUIDE in captions
     assert [label for label, _ in button_calls] == [
-        "Markdown（読む用）をダウンロード",
-        "JSON（再現用）をダウンロード",
-        "manifest（内容確認）をダウンロード",
-        "一式ZIP（保存用）をダウンロード",
+        DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
+        DECISION_REPORT_JSON_DOWNLOAD_LABEL,
+        DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
+        DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
     ]
-    assert "人が読むため" in str(button_calls[0][1]["help"])
-    assert "再現確認" in str(button_calls[1][1]["help"])
-    assert "ファイル" in str(button_calls[2][1]["help"])
-    assert "保存用パッケージ" in str(button_calls[3][1]["help"])
+    assert button_calls[0][1]["help"] == DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP
+    assert button_calls[1][1]["help"] == DECISION_REPORT_JSON_DOWNLOAD_HELP
+    assert button_calls[2][1]["help"] == DECISION_REPORT_MANIFEST_DOWNLOAD_HELP
+    assert button_calls[3][1]["help"] == DECISION_REPORT_ZIP_DOWNLOAD_HELP
 
 
 def test_rebalance_result_from_state_returns_stored_result(monkeypatch):

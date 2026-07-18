@@ -13,6 +13,11 @@ from backend.forecast.advanced_registry import (
     advanced_forecast_adapter_keys,
     advanced_forecast_adapter_spec,
 )
+from backend.forecast.regime_gated_ensemble import (
+    REGIME_GATED_ENSEMBLE_MODEL_NAME,
+    classify_forecast_regime,
+    summarize_regime_gated_forecasts,
+)
 from backend.forecast.service import (
     AdvancedForecastEvaluation,
     evaluate_advanced_forecast,
@@ -154,7 +159,11 @@ def evaluate_forecast_models(
             )
             points.extend(case_points)
             present_models = {point.model_name for point in case_points}
-            for model_name in (*resolved_adapters, CONSENSUS_MODEL_NAME):
+            for model_name in (
+                *resolved_adapters,
+                CONSENSUS_MODEL_NAME,
+                REGIME_GATED_ENSEMBLE_MODEL_NAME,
+            ):
                 if model_name not in present_models:
                     skipped[(model_name, horizon)] += 1
             predictions.extend(
@@ -170,7 +179,11 @@ def evaluate_forecast_models(
         points,
         cases=cases,
         horizons=resolved_horizons,
-        model_names=(*resolved_adapters, CONSENSUS_MODEL_NAME),
+        model_names=(
+            *resolved_adapters,
+            CONSENSUS_MODEL_NAME,
+            REGIME_GATED_ENSEMBLE_MODEL_NAME,
+        ),
         skipped=skipped,
     )
     adjustments = _build_weight_adjustments(
@@ -316,6 +329,26 @@ def _evaluate_case_origins(
                     model_disagreement=consensus.predicted_return_range,
                 )
             )
+        regime_gated = summarize_regime_gated_forecasts(
+            evaluations,
+            regime=classify_forecast_regime(history),
+        )
+        if regime_gated is not None:
+            points.append(
+                ForecastValidationPoint(
+                    symbol=case.symbol,
+                    market=case.market,
+                    asset_type=case.asset_type,
+                    regime=case.regime,
+                    model_name=REGIME_GATED_ENSEMBLE_MODEL_NAME,
+                    horizon_days=horizon_days,
+                    origin_at=bars[origin_index].ts,
+                    target_at=target.ts,
+                    predicted_return=regime_gated.predicted_return,
+                    actual_return=actual_return,
+                    model_disagreement=regime_gated.predicted_return_range,
+                )
+            )
     return points
 
 
@@ -361,6 +394,25 @@ def _latest_predictions(
                 predicted_return=consensus.consensus_predicted_return,
                 confidence=consensus.confidence,
                 model_disagreement=consensus.predicted_return_range,
+            )
+        )
+    regime_gated = summarize_regime_gated_forecasts(
+        evaluations,
+        regime=classify_forecast_regime(bars),
+    )
+    if regime_gated is not None:
+        rows.append(
+            ForecastPredictionRow(
+                symbol=case.symbol,
+                market=case.market,
+                asset_type=case.asset_type,
+                regime=case.regime,
+                model_name=REGIME_GATED_ENSEMBLE_MODEL_NAME,
+                horizon_days=horizon_days,
+                as_of=bars[-1].ts,
+                predicted_return=regime_gated.predicted_return,
+                confidence=regime_gated.confidence,
+                model_disagreement=regime_gated.predicted_return_range,
             )
         )
     return rows

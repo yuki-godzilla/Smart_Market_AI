@@ -45,6 +45,12 @@ from backend.forecast.evaluation import (
     evaluated_consensus_prediction,
     write_forecast_evaluation_artifacts,
 )
+from backend.forecast.regime_gated_ensemble import (
+    REGIME_GATED_ENSEMBLE_MODEL_NAME,
+    RegimeGatedForecastConsensus,
+    classify_forecast_regime,
+    summarize_regime_gated_forecasts,
+)
 from backend.forecast.registry import (
     ForecastModelSpec,
     available_forecast_models,
@@ -94,6 +100,7 @@ from backend.forecast.tuning import (
 __all__ = [
     "DirectionSignalLabel",
     "CONSENSUS_MODEL_NAME",
+    "REGIME_GATED_ENSEMBLE_MODEL_NAME",
     "DEFAULT_EVALUATION_HORIZONS",
     "ADVANCED_GBDT_SKLEARN_ADAPTER_NAME",
     "ADVANCED_LINEAR_ADAPTER_NAME",
@@ -118,6 +125,7 @@ __all__ = [
     "AdvancedTreeSklearnForecastResult",
     "FeatureContribution",
     "ForecastConsensus",
+    "RegimeGatedForecastConsensus",
     "ForecastDatasetCoverageRow",
     "ForecastDatasetLoadResult",
     "ForecastEvaluation",
@@ -142,6 +150,7 @@ __all__ = [
     "calculate_model_forecast_strength_score",
     "calculate_trend_confirmation_score",
     "calculate_upside_signal_score",
+    "classify_forecast_regime",
     "direction_signal_label",
     "direction_confidence_factor",
     "edge_to_down_score",
@@ -164,6 +173,7 @@ __all__ = [
     "forecast_model_specs",
     "load_forecast_evaluation_dataset",
     "summarize_advanced_forecast_evaluations",
+    "summarize_regime_gated_forecasts",
     "summarize_forecast_evaluations",
     "tune_forecast_adapters",
     "volatility_adjusted_edge",

@@ -454,10 +454,9 @@ def _export_row(
         )
 
     dividend = value("dividend_yield_pct", "配当利回り")
+    dividend_value = _number(dividend)
     warning = (
-        ""
-        if not dividend or _number(dividend) is not None and 0 <= _number(dividend) <= 20
-        else "要確認"
+        "" if not dividend or dividend_value is not None and 0 <= dividend_value <= 20 else "要確認"
     )
     return {
         column: {
@@ -540,8 +539,11 @@ def _overlap_rows(rows: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
         groups[(row.get("ranking_region", ""), row.get("symbol", "").upper())].append(row)
     result = []
     for (_, symbol), items in groups.items():
-        ranks = [_number(item.get("rank", "")) for item in items]
-        ranks = [rank for rank in ranks if rank is not None]
+        ranks: list[float] = []
+        for item in items:
+            rank = _number(item.get("rank", ""))
+            if rank is not None:
+                ranks.append(rank)
         result.append(
             {
                 "symbol": symbol,

@@ -5,6 +5,7 @@ import gc
 import hashlib
 import html
 import importlib
+import inspect
 import json
 import logging
 import math
@@ -137,6 +138,7 @@ from backend.research import (
 from backend.scoring import InvestmentScoringService
 from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
+from backend.server_ops import maintenance as maintenance_module
 from backend.server_ops.maintenance import (
     MaintenanceManager,
     classify_client_type,
@@ -1924,17 +1926,13 @@ def _current_client_type() -> str:
 
 @st.fragment(run_every=60)
 def _maintenance_heartbeat_fragment(session_id: str, client_type: str, device_id: str) -> None:
-    manager = MaintenanceManager()
-    try:
-        manager.heartbeat(session_id, client_type=client_type, device_id=device_id)
-    except TypeError as exc:
-        # Streamlit may reload this UI module before the imported maintenance
-        # module after a rolling local update.  Keep the Operations Console
-        # usable during that short window; the next process restart enables
-        # device-aware heartbeats.  Do not mask unrelated TypeErrors.
-        if "unexpected keyword argument 'device_id'" not in str(exc):
-            raise
-        manager.heartbeat(session_id, client_type=client_type)
+    manager = maintenance_module.MaintenanceManager()
+    if "device_id" not in inspect.signature(manager.heartbeat).parameters:
+        # Streamlit can reload this UI module while retaining an older imported
+        # maintenance module. Reload that local module once so a deployment
+        # does not require a forced process restart merely to resume telemetry.
+        manager = importlib.reload(maintenance_module).MaintenanceManager()
+    manager.heartbeat(session_id, client_type=client_type, device_id=device_id)
     notice = manager.notice()
     if notice:
         st.warning(str(notice.get("message") or "30秒後にメンテナンス再起動を行います。"))

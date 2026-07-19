@@ -2,6 +2,7 @@ from decimal import Decimal
 
 import pytest
 
+from backend.forecast import ForecastEvaluationCase
 from tools.compare_forecast_baselines import (
     ComparisonPoint,
     aggregate_comparison_points,
@@ -60,16 +61,13 @@ def test_limit_recent_case_bars_keeps_original_case_unchanged() -> None:
         def __init__(self, ts: int) -> None:
             self.ts = ts
 
-    class _Case:
-        def __init__(self) -> None:
-            self.bars = [_Bar(index) for index in range(150)]
-
-        def model_copy(self, *, update):
-            copied = _Case()
-            copied.bars = update["bars"]
-            return copied
-
-    case = _Case()
+    case = ForecastEvaluationCase.model_construct(
+        symbol="AAA",
+        bars=[_Bar(index) for index in range(150)],
+        market="us",
+        asset_type="stock",
+        regime="sideways",
+    )
     limited = limit_recent_case_bars([case], 120)
 
     assert len(case.bars) == 150

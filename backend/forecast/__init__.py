@@ -39,6 +39,18 @@ from backend.forecast.advanced_registry import (
     advanced_forecast_adapter_specs,
     advanced_forecast_supported_horizons,
 )
+from backend.forecast.anchored_residual_calibration import (
+    ANCHORED_RESIDUAL_CALIBRATION_MODEL_NAME,
+    AnchoredResidualCalibrationDecision,
+    AnchoredResidualCalibrationEvaluationReport,
+    AnchoredResidualCalibrationMetric,
+    AnchoredResidualCalibrationPrediction,
+    apply_anchored_residual_calibration,
+    build_anchored_residual_calibration_report,
+    evaluate_anchored_residual_calibration_metrics,
+    evaluate_point_in_time_anchored_residual_calibration,
+    fit_point_in_time_anchored_residual,
+)
 from backend.forecast.conservative_calibration import (
     CALIBRATION_GROUP_TYPES,
     CONSERVATIVE_CALIBRATION_MODEL_NAME,
@@ -125,6 +137,7 @@ from backend.forecast.tuning import (
 )
 
 __all__ = [
+    "ANCHORED_RESIDUAL_CALIBRATION_MODEL_NAME",
     "ADAPTIVE_CALIBRATION_MODEL_NAME",
     "ADAPTIVE_SOURCE_MODEL_NAMES",
     "DirectionSignalLabel",
@@ -157,6 +170,10 @@ __all__ = [
     "AdaptiveCalibrationEvaluationReport",
     "AdaptiveCalibrationPrediction",
     "AdaptiveCalibrationWeightDecision",
+    "AnchoredResidualCalibrationDecision",
+    "AnchoredResidualCalibrationEvaluationReport",
+    "AnchoredResidualCalibrationMetric",
+    "AnchoredResidualCalibrationPrediction",
     "ConservativeCalibrationEvaluationReport",
     "ConservativeCalibrationMetric",
     "ConservativeCalibrationObservation",
@@ -185,8 +202,10 @@ __all__ = [
     "ZERO_RETURN_MODEL_NAME",
     "available_forecast_models",
     "apply_horizon_conditioned_calibration",
+    "apply_anchored_residual_calibration",
     "apply_point_in_time_adaptive_calibration",
     "build_adaptive_calibration_report",
+    "build_anchored_residual_calibration_report",
     "build_point_in_time_calibration_observations",
     "build_conservative_calibration_report",
     "calculate_momentum_edge_score",
@@ -208,8 +227,10 @@ __all__ = [
     "evaluate_advanced_forecast",
     "evaluate_advanced_linear_forecast",
     "evaluate_adaptive_calibration_metrics",
+    "evaluate_anchored_residual_calibration_metrics",
     "evaluate_models",
     "evaluate_point_in_time_adaptive_calibration",
+    "evaluate_point_in_time_anchored_residual_calibration",
     "evaluated_consensus_prediction",
     "evaluate_forecast_models",
     "evaluate_horizon_conditioned_calibration",
@@ -221,6 +242,7 @@ __all__ = [
     "forecast_model_specs",
     "fit_horizon_conditioned_calibration",
     "fit_point_in_time_adaptive_weights",
+    "fit_point_in_time_anchored_residual",
     "load_forecast_evaluation_dataset",
     "summarize_advanced_forecast_evaluations",
     "summarize_regime_gated_forecasts",

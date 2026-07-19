@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-07-19 固定anchor残差Ridgeの新規symbol監査
+
+- `backend/forecast/anchored_residual_calibration.py`へ評価専用の残差calibrationを追加した。固定20日・60日profileをanchorとし、global Ridge（alpha 10）とmarket / asset type / regimeを含むcontext Ridge（alpha 25）の2候補だけを比較する。各監査originまでにtarget確定済みのdevelopment labelを時間順70% fit / 30% validationへ分け、固定anchor比1%以上を両方で満たさない場合は補正ゼロへfallbackする。補正はfit残差90%点または25%でclipし、directionはConsensus、総returnは絶対75%上限を維持した。
+- 全既存point / symbol artifact 22ファイルの258銘柄を除外し、data quality OK、平均出来高10万以上、非leveraged / 非inverseから固定SHA-256順で76銘柄を事前固定した。全76銘柄・143,349日足を取得し、履歴800 bars以上の52銘柄（日本株20、日本ETF3、米国株15、米国ETF14）、2016-12-21〜2026-06-19、20日・60日各624点、合計1,248点を監査した。24銘柄の履歴不足はcoverageへ記録した。
+- 新規監査で残差RidgeはConsensus比20日2.94%、60日10.40%改善したが、固定anchor比では20日3.49%、60日1.16%悪化した。20日downtrend 28点はanchor比13.21%・絶対0.0103悪化し、補正採用率も42.79%で50% gate未満だった。旧39銘柄・936点の参考再現もanchor比20日0.06%、60日1.10%悪化した。parameterの後付け調整は行わず、Forecast、Cockpit、Ranking、Investment Scoreへ接続していない。
+- 実装は未来label遮断、内部時系列validation、symbol非重複、fallback、direction保持、clip / cap、one-to-one metric、CLI manifestをnetwork-free回帰で確認した。詳細は`Documents/40_Forecast_Model_Selection_Report.md`とローカル`reports/2026-07-19_1300/anchored_residual_calibration/`に記録した。
+
 ## 2026-07-19 Point-in-time適応型Forecast weight分離監査
 
 - `backend/forecast/adaptive_calibration.py`へ評価専用の適応型price-centerを追加した。各評価originでtarget確定済みのdevelopment labelだけを使い、asset type / 20・60日別にConsensus、advanced quantile、moving average、zero-returnの非負weightを0.1刻みで選ぶ。古いoriginをfit、新しい内部originを通過判定専用とし、履歴不足・1%改善gate未通過はConsensusへfallbackする。direction headと0.75 return安全上限は維持した。

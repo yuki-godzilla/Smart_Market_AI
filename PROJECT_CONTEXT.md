@@ -97,8 +97,17 @@ labels, using only labels observable at each origin. Its separate audit used 39 
 RMSE by 4.95% but worsened 60-day RMSE by 0.53%; adaptive selection covered 47.01%, below the
 predefined 50% gate. The frozen profile was better on the same audit at 8.11% / 2.46%, but its
 earlier period-specific subgroup failures still prevent adoption. Runtime Forecast, Cockpit,
-Ranking, and scores therefore remain unchanged. Next evidence priorities are a genuinely
-later-period audit and a real
+Ranking, and scores therefore remain unchanged. An evaluation-only anchored residual Ridge was
+then frozen before collecting a new cohort. It used the frozen conservative profile as its anchor,
+fit only labels already observable at each origin, and required a newer internal temporal segment
+to improve the anchor by at least 1%. A deterministic, liquidity-filtered 76-symbol cohort excluded
+all 258 symbols found in prior point/symbol artifacts; 52 symbols met the 800-bar requirement and
+produced 1,248 points from 2016-12-21 through 2026-06-19. The residual candidate improved over
+Consensus by 2.94% / 10.40% at 20/60 days, but worsened against the stronger frozen anchor by
+3.49% / 1.16%. Its 20-day downtrend subgroup worsened 13.21% and correction selection covered only
+42.79%. A retrospective 39-symbol replay also failed to beat the anchor. The residual model is not
+connected to runtime and is not retuned from these audit results. Next evidence priorities are a
+genuinely later-period audit and a real
 point-in-time LLM material archive; existing synthetic/static LLM Factor results cannot justify
 integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
 

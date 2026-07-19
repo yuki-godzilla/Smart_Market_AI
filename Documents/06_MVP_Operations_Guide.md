@@ -1134,6 +1134,20 @@ market、asset type、regime別集計、最新point-in-time予測、誤差上位
 ```
 
 `data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。
+`--recent-bars 750`を指定すると、eligibility判定後に各symbolを直近750 barsへ揃えて評価できる。
+大規模cohort間で履歴長を統一する場合に使い、120未満は受け付けない。
+
+advanced validation pointsへ旧`naive` / `moving_average_3` / `momentum_3`を同一originで追加比較する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\compare_forecast_baselines.py `
+  --ohlcv data\phase34_evaluation\ohlcv.csv `
+  --metadata data\phase34_evaluation\symbols.csv `
+  --manifest data\phase34_evaluation\splits\phase34_split_manifest.csv `
+  --advanced-report-root reports\2026-07-19_1300
+```
+
+RMSEとdirection accuracyのwinnerを別々に表示し、単一指標でruntime採用しない。
 
 明示live評価datasetを更新する場合:
 
@@ -1163,3 +1177,14 @@ Phase 34の追加銘柄評価では、`prepare_phase34_dataset.py`でmarket / as
 ```
 
 監査groupは最終1回だけ確認し、結果を見たthreshold調整には使わない。Phase 34ではconsensus weightと予測幅校正が採用gateを通らなかったため、runtime予測は変更していない。
+
+LLM Factorのsynthetic/static fixture評価を再出力する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_llm_factor_validation.py `
+  --output reports\llm_factor_validation
+```
+
+この出力はschema、metric、warning、再現性の確認用であり、実ニュースに対するalpha証明ではない。
+`should_integrate_into_forecast_now`、`should_integrate_into_ranking_now`、
+`should_integrate_into_investment_score_now`はfalseを維持する。

@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-19 将来価格モデル広範比較・LLM scoring選定
+
+- Phase 34の評価可能62銘柄に、非重複の日本株・米国株・ETF 71銘柄、88,044日足を追加した。合計133銘柄を直近750 bars、20日・60日、最大3 rolling originsで比較した。
+- `naive`、`moving_average_3`、`momentum_3`をadvanced validation pointsと同一originで比較するCLIと、評価履歴長を揃える`--recent-bars`を追加した。20日・60日で単一winnerはなく、中心価格、方向、予測幅を分離する方針とした。
+- `advanced_regime_gated_ensemble`は一部splitで改善したが、全validation / audit gateを通過しなかったためshadowを継続する。runtime Forecast、Ranking、Investment Scoreは変更していない。
+- LLM Factorのdeterministic validation report CLIを追加した。35symbol・280 samplesの既存fixtureはsynthetic/staticであり、実市場統合の根拠に使わない。LLM scoringは最初にevent / adverse risk / freshness / evidence qualityによるconfidence・range調整として実ニュース履歴で検証する。
+- 詳細な指標、最新研究、次の採用gateを`Documents/40_Forecast_Model_Selection_Report.md`へ記録した。
+
 ## 2026-07-16 投資レーダーの文字切れ・単独ヒートマップ修正
 
 - 実画面のフィードバックで、タブレット幅の`HEADLINE FLOW`が固定行高より長い見出しと補助メタデータを同時に置き、文字の下端が切れることを確認した。タブレット／iPhoneでは見出しを3行まで優先して表示できる行高へ広げ、カード内の補助メタデータは隠した。サイドバーで本文幅が狭くなる場合は3カードを一列にして、カテゴリchipが見出しの幅を過度に奪わないようにした。ニュース候補、表示順、更新間隔、外部取得は変更していない。

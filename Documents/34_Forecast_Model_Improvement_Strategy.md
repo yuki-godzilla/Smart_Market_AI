@@ -60,3 +60,16 @@ forecast return、up/down model count、consensus confidence、model disagreemen
 - 過去foldのdirection accuracyとzero-return baseline比RMSE improvementから保守的な候補weightを作る。
 - 前半rolling originsで候補weightを作り、後半originを時系列holdoutとして現行consensusと比較する。holdoutでRMSE改善かつ方向一致率維持の場合だけ採用候補にする。
 - gate未通過weightは通常Rankingや通常Forecastへ適用できない。
+
+## 10. 2026-07-19 広範比較後の選定
+
+非重複133symbol、20日・60日、各最大3 rolling originsの比較では、単一modelがRMSEと方向一致率を
+全horizon・全cohortで同時に支配しなかった。中心価格は`moving_average_3`または
+`advanced_quantile`の保守的予測、方向はadvanced consensus、rangeは`advanced_quantile`へ分ける。
+長期ほどzero-return近傍へ縮める`horizon-conditioned conservative calibration`を次の
+evaluation-only候補とする。
+
+LLM material scoreはprice headへ直接加えず、point-in-timeのevent / adverse risk / freshness /
+evidence qualityによるconfidence上限・range調整候補として実ニュース履歴で別評価する。
+synthetic/static fixtureの高指標はruntime採用根拠にしない。詳細は
+`Documents/40_Forecast_Model_Selection_Report.md`を参照する。

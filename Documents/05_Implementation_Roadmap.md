@@ -2682,6 +2682,14 @@ Markdown UTF-8 check:
 
 2026-07-10実績: Phase 33と非重複の66銘柄・最大10年・160,555日足を、固定hashで調整23 / 検証22 / 監査19へ銘柄分離した。極端な価格不連続2銘柄を品質gateで除外し、底打ち・蓄積形状へhigher-lowまたは出来高回復確認を追加した。封印監査群では成功平均63.96、失敗平均51.37、Top10狙い形状10/10だったが、Top10成功3/10で目標未達。追加調整は監査群への過学習となるため停止し、次回は新規銘柄・新規期間で継続する。詳細は`reports/phase34_sprint_summary.md`。
 
+2026-07-19追加実績: 非重複71銘柄・88,044日足を全件取得し、既存の評価可能62銘柄と合わせて
+133銘柄を同じ750 bars / 20・60日 / 最大3 originsで比較した。旧モデルを含む比較では、
+20日中心値は`advanced_quantile`または`moving_average_3`、60日は`moving_average_3`が有力だが、
+単一modelはRMSEと方向一致率を全cohortで同時に改善しなかった。regime-gated候補はgate未通過。
+次はhorizon別の保守的calibrationをevaluation-onlyで検証し、LLM材料scoreは実ニュース履歴が
+揃うまでconfidence / range候補に限定する。runtimeは未変更。詳細は
+`Documents/40_Forecast_Model_Selection_Report.md`。
+
 ## Phase 35: 既存モデル活用による上向き兆候改善
 
 状態: 🟨 **Phase 35-A 評価専用slice実装 / runtime採用保留**

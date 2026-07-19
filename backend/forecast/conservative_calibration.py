@@ -16,6 +16,14 @@ from typing import Iterable, Self
 from pydantic import ConfigDict, Field, model_validator
 
 from backend.core.data_contracts import StrictBaseModel
+from backend.forecast.adapters import ADVANCED_QUANTILE_ADAPTER_NAME
+from backend.forecast.evaluation import (
+    CONSENSUS_MODEL_NAME,
+    ForecastEvaluationCase,
+    ForecastValidationPoint,
+)
+from backend.forecast.regime_gated_ensemble import classify_forecast_regime
+from backend.forecast.service import MovingAverageForecastModel
 
 CONSERVATIVE_CALIBRATION_MODEL_NAME = "horizon_conditioned_conservative_calibration"
 DEFAULT_CONSERVATIVE_MODEL_NAMES = ("advanced_quantile", "moving_average_3")
@@ -26,6 +34,7 @@ MAX_SUBGROUP_ABSOLUTE_RMSE_DEGRADATION = Decimal("0.005")
 MIN_SUBGROUP_SAMPLE_COUNT = 10
 MAX_ABSOLUTE_CALIBRATED_RETURN = Decimal("0.75")
 CALIBRATION_GROUP_TYPES = ("overall", "cohort", "market", "asset_type", "regime")
+MOVING_AVERAGE_3_MODEL_NAME = "moving_average_3"
 
 
 class ConservativeCalibrationObservation(StrictBaseModel):
@@ -236,6 +245,90 @@ def fit_horizon_conditioned_calibration(
             )
         )
     return profiles
+
+
+def build_point_in_time_calibration_observations(
+    cases: Iterable[ForecastEvaluationCase],
+    validation_points: Iterable[ForecastValidationPoint],
+    *,
+    cohort: str,
+    split: str,
+) -> list[ConservativeCalibrationObservation]:
+    """Join frozen-candidate inputs at identical future-safe origins.
+
+    Regime labels and the moving-average baseline use only bars available at
+    each origin.  Actual returns remain evaluation labels and never enter a
+    prediction input.
+    """
+
+    if not cohort.strip() or not split.strip():
+        raise ValueError("cohort and split must not be empty")
+    cases_by_symbol = {case.symbol: case for case in cases}
+    selected_points = list(validation_points)
+
+    def point_key(point: ForecastValidationPoint) -> tuple[str, int, datetime, datetime]:
+        return (
+            point.symbol,
+            point.horizon_days,
+            point.origin_at,
+            point.target_at,
+        )
+
+    consensus_points = {
+        point_key(point): point
+        for point in selected_points
+        if point.model_name == CONSENSUS_MODEL_NAME
+    }
+    quantile_points = {
+        point_key(point): point
+        for point in selected_points
+        if point.model_name == ADVANCED_QUANTILE_ADAPTER_NAME
+    }
+    moving_average = MovingAverageForecastModel(window=3)
+    observations: list[ConservativeCalibrationObservation] = []
+    for key, consensus in sorted(consensus_points.items()):
+        quantile = quantile_points.get(key)
+        case = cases_by_symbol.get(consensus.symbol)
+        if quantile is None or case is None:
+            continue
+        if quantile.actual_return != consensus.actual_return:
+            raise ValueError(f"actual return mismatch for calibration point: {key}")
+        bars = sorted(case.bars, key=lambda bar: bar.ts)
+        origin_index = next(
+            (index for index, bar in enumerate(bars) if bar.ts == consensus.origin_at),
+            None,
+        )
+        if origin_index is None or origin_index + consensus.horizon_days >= len(bars):
+            raise ValueError(f"origin is not available in calibration case: {key}")
+        target = bars[origin_index + consensus.horizon_days]
+        if target.ts != consensus.target_at:
+            raise ValueError(f"target does not match calibration horizon: {key}")
+        history = bars[: origin_index + 1]
+        origin = history[-1]
+        if origin.close <= 0:
+            raise ValueError(f"origin close must be positive: {key}")
+        baseline = moving_average.predict(history, horizon_days=consensus.horizon_days)
+        moving_average_return = baseline.forecast_close / origin.close - Decimal("1")
+        observations.append(
+            ConservativeCalibrationObservation(
+                cohort=cohort,
+                split=split,
+                symbol=consensus.symbol,
+                market=consensus.market,
+                asset_type=consensus.asset_type,
+                regime=classify_forecast_regime(history),
+                horizon_days=consensus.horizon_days,
+                origin_at=consensus.origin_at,
+                target_at=consensus.target_at,
+                consensus_return=consensus.predicted_return,
+                actual_return=consensus.actual_return,
+                conservative_returns={
+                    ADVANCED_QUANTILE_ADAPTER_NAME: quantile.predicted_return,
+                    MOVING_AVERAGE_3_MODEL_NAME: moving_average_return,
+                },
+            )
+        )
+    return observations
 
 
 def apply_horizon_conditioned_calibration(

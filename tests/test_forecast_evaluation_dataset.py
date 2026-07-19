@@ -2,6 +2,8 @@ import csv
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
 from backend.core.data_contracts import Bar, Symbol
 from backend.forecast.dataset import (
     load_forecast_evaluation_dataset,
@@ -76,6 +78,35 @@ def test_dataset_loader_deduplicates_symbol_timestamp(tmp_path):
     )
 
     assert len(result.cases[0].bars) == 80
+
+
+def test_dataset_loader_applies_historical_cutoff_before_eligibility_and_regime(tmp_path):
+    ohlcv = tmp_path / "ohlcv.csv"
+    metadata = tmp_path / "symbols.csv"
+    _write_metadata(metadata)
+    _write_ohlcv(ohlcv, {"AAPL": 120})
+    cutoff = datetime(2025, 3, 31, tzinfo=UTC)
+
+    result = load_forecast_evaluation_dataset(
+        ohlcv,
+        metadata,
+        required_bar_count=80,
+        end_at=cutoff,
+    )
+
+    assert len(result.cases) == 1
+    assert len(result.cases[0].bars) == 90
+    assert result.cases[0].bars[-1].ts == cutoff
+    assert all(bar.ts <= cutoff for bar in result.cases[0].bars)
+
+
+def test_dataset_loader_rejects_naive_historical_cutoff(tmp_path):
+    with pytest.raises(ValueError, match="timezone-aware"):
+        load_forecast_evaluation_dataset(
+            tmp_path / "ohlcv.csv",
+            tmp_path / "symbols.csv",
+            end_at=datetime(2025, 3, 31),
+        )
 
 
 def test_tuning_compares_bounded_candidate_for_all_existing_adapters(tmp_path):

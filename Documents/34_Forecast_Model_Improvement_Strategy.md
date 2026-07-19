@@ -70,7 +70,13 @@ forecast return、up/down model count、consensus confidence、model disagreemen
 実装した。tuningは20日をconsensus 30% + `moving_average_3` 70%、60日を
 `moving_average_3` 100%として固定した。overall RMSEはvalidation / auditの両horizonで改善したが、
 validationの20日downtrend群で10.92%悪化してsubgroup gateを通過しなかった。結果を見た再調整は
-行わず、runtimeへ接続しない。次は固定profileを新規symbol / 新期間で再評価する。
+行わず、runtimeへ接続しない。固定profileを過去3評価群と重複しない60symbolへ適用した直近再現は
+20日14.96%、60日7.42%のoverall RMSE改善でgateを通過した。一方、2021年末cutoffの履歴再現は
+overallで20日15.13%、60日12.55%改善しても、ETF・60日が19.08%悪化してsubgroup gate未通過と
+なった。2023年末cutoffもoverallで20日13.59%、60日2.80%改善した一方、ETF・60日27.18%、
+downtrend・60日36.70%悪化でgate未通過だった。3期間、重複なし1,074評価点、2019〜2026年へ
+拡張してもasset type / regimeをまたぐ安定性が証明できないため、Cockpit、Ranking、Forecast consensusへ
+接続しない。後付けでETF weightを調整せず、次は後日の新暦期間をsealed auditとして使う。
 
 LLM material scoreはprice headへ直接加えず、point-in-timeのevent / adverse risk / freshness /
 evidence qualityによるconfidence上限・range調整候補として実ニュース履歴で別評価する。

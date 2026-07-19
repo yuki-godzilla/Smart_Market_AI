@@ -3,14 +3,77 @@ from decimal import Decimal
 
 import pytest
 
+from backend.core.data_contracts import Bar, Symbol
 from backend.forecast import (
     ConservativeCalibrationObservation,
+    ForecastEvaluationCase,
+    ForecastValidationPoint,
     HorizonConservativeCalibrationProfile,
     apply_horizon_conditioned_calibration,
     build_conservative_calibration_report,
+    build_point_in_time_calibration_observations,
     evaluate_horizon_conditioned_calibration,
     fit_horizon_conditioned_calibration,
 )
+
+
+def test_point_in_time_observations_do_not_reuse_case_level_future_regime() -> None:
+    symbol = Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD")
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    bars = [
+        Bar(
+            symbol=symbol,
+            ts=start + timedelta(days=index),
+            open=Decimal(100 + index),
+            high=Decimal(101 + index),
+            low=Decimal(99 + index),
+            close=Decimal(100 + index),
+            volume=Decimal(1000 + index),
+            interval="1d",
+            provider="fixture",
+        )
+        for index in range(100)
+    ]
+    origin_at = bars[79].ts
+    target_at = bars[99].ts
+    points = [
+        ForecastValidationPoint(
+            symbol="AAPL",
+            market="us",
+            asset_type="stock",
+            regime="downtrend",
+            model_name=model_name,
+            horizon_days=20,
+            origin_at=origin_at,
+            target_at=target_at,
+            predicted_return=predicted_return,
+            actual_return=Decimal("0.05"),
+        )
+        for model_name, predicted_return in (
+            ("forecast_consensus", Decimal("0.08")),
+            ("advanced_quantile", Decimal("0.04")),
+        )
+    ]
+
+    observations = build_point_in_time_calibration_observations(
+        [
+            ForecastEvaluationCase(
+                symbol="AAPL",
+                bars=bars,
+                market="us",
+                asset_type="stock",
+                regime="downtrend",
+            )
+        ],
+        points,
+        cohort="new_symbols",
+        split="new_audit",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].regime == "uptrend"
+    assert observations[0].origin_at == origin_at
+    assert observations[0].target_at == target_at
 
 
 def test_fit_uses_tuning_only_and_shrinks_longer_horizon_more() -> None:

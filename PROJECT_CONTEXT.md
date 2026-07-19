@@ -82,9 +82,18 @@ separate price and retained-consensus direction heads. Tuning selected 30% conse
 `moving_average_3` at 20 days and 100% `moving_average_3` at 60 days. Overall RMSE improved on both
 validation (15.65% / 12.26%) and audit (4.61% / 19.23%), but 20-day validation downtrend RMSE
 worsened 10.92% and failed the subgroup gate. The profile was not retuned and runtime Forecast,
-Ranking, and Investment Score remain unchanged. Next evidence priorities are a new-period cohort
-for the frozen profile and a real point-in-time LLM material archive; existing synthetic/static
-LLM Factor results cannot justify integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
+Ranking, and Investment Score remain unchanged. The profile is now frozen as a versioned JSON and
+was replicated without refitting on 60 symbols disjoint from all three prior forecast cohorts.
+The recent replication improved overall RMSE by 14.96% / 7.42% at 20/60 days and passed its gate.
+A 2021-12-31 point-in-time cutoff replication improved overall RMSE by 15.13% / 12.55%, but its
+60-day ETF subgroup worsened 19.08% and failed the material subgroup gate. This historical replay
+A 2023-12-31 cutoff improved overall RMSE by 13.59% / 2.80%, while 60-day ETF and downtrend
+subgroups worsened 27.18% and 36.70%. The three non-duplicated replication windows contain 1,074
+points from 2019-02-05 through 2026-06-19. These historical replays are not a later-calendar sealed
+audit. Runtime Forecast, Cockpit, Ranking, and scores therefore
+remain unchanged. Next evidence priorities are a genuinely later-period audit and a real
+point-in-time LLM material archive; existing synthetic/static LLM Factor results cannot justify
+integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
 
 Phase 35-A evaluation-only slice is implemented in `backend/scoring/upward_signal_forecast_integration.py`. It reads existing Forecast consensus or ranking-row evidence, calculates bounded forecast-upside, downside-safety, direction-agreement, confidence-ceiling, and disagreement warnings, and compares the result with the current Upward Signal score. It can also reconstruct one contribution case per point-in-time consensus origin from existing validation points; actual forward return is retained only as an evaluation label and never enters the integration score. Validation cases can be summarized by horizon, market, asset type, regime, confidence, and disagreement band with positive-return rate, direction accuracy, mean actual/predicted return, integration score, and warning rate. `tools/evaluate_upward_signal_forecast_integration.py` now reads the existing `forecast_model_validation_points.csv` contract and writes point-in-time cases plus `upward_signal_forecast_validation_summary.csv` without changing Ranking, Forecast API/UI, or runtime weights. A smoke run on the existing Phase 34 validation report processed 1,050 points into 210 consensus-origin cases; this is evaluation coverage, not a runtime accuracy claim. Adoption remains pending new-symbol / new-period walk-forward holdout validation.
 

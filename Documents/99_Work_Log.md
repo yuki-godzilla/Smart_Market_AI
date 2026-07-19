@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-19 固定Forecast profileの新規symbol・履歴再現
+
+- 保守的price-center profileをversioned JSONとして固定し、fit経路を持たない再現評価toolを追加した。既定の過去3評価群symbol台帳が存在しない場合や、1symbolでも重複する場合は評価を拒否する。
+- 過去3評価群と重複しない日本株25、米国株25、ETF10の計60symbolから、10年分148,370日足を隔離領域へ取得した。各originのregimeとmoving averageはorigin時点までのbarだけで算出し、履歴cutoffはeligibility判定前に適用する。
+- 直近再現は60/60symbol、360点で、overall RMSEを20日14.96%、60日7.42%改善しgateを通過した。60日downtrend 11点は6.68%悪化したが、重大劣化の相対閾値10%未満だった。
+- 2021-12-31 cutoff再現は59/60symbol、354点で、overall RMSEを20日15.13%、60日12.55%改善した。一方、ETF・60日27点が19.08%・絶対0.0094悪化し、subgroup gate不通過となった。QQQMはcutoff以前308 barsで必要500 barsに届かず除外した。
+- 2023-12-31 cutoff再現は60/60symbol、360点で、overall RMSEを20日13.59%、60日2.80%改善した。一方、ETF・60日30点が27.18%・絶対0.0199、downtrend・60日14点が36.70%・絶対0.0399悪化してgate不通過となった。3期間の1,074評価点に重複はなく、originは2019-02-05〜2026-06-19を覆う。
+- 同日中の履歴再現は後日の新暦期間監査を代替しない。結果に合わせたETF専用weightの再調整は行わず、Cockpit、Ranking、Forecast consensus、Investment Scoreを変更していない。
+
 ## 2026-07-19 Horizon-conditioned conservative calibration評価
 
 - `backend/forecast/conservative_calibration.py`へ評価専用typed contractを追加し、price centerと元のadvanced consensus由来direction headを分離した。profile fitはtuning splitだけを受理し、長期horizonのconsensus weightが短期を超えない制約を持つ。

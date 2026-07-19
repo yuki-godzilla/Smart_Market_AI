@@ -1164,6 +1164,25 @@ profile fitは`split=tuning`以外を拒否し、direction headは元のconsensu
 validation群のRMSEが10.92%悪化してsubgroup gate未通過となった。結果を見たprofile再調整や
 Cockpit / Ranking / Forecast APIへの接続は行わない。
 
+固定profileを過去評価と非重複のcohortへ再調整なしで適用する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_frozen_forecast_calibration.py `
+  --ohlcv reports\2026-07-19_1300\frozen_profile_replication\live_data\ohlcv.csv `
+  --metadata reports\2026-07-19_1300\frozen_profile_replication\live_data\symbols.csv `
+  --output reports\2026-07-19_1300\frozen_profile_replication\recent_new_symbols `
+  --cohort-name new_symbols_recent --split-name new_audit
+```
+
+`data\forecast_evaluation\profiles\horizon_conditioned_conservative_calibration_2026-07-19.json`
+を読み込むだけで、fit経路は持たない。既定の3つの追跡済みsymbol台帳との重複を拒否し、台帳が
+見つからない場合も評価を開始しない。`--evaluation-end 2021-12-31`のように指定すると、その終端
+より後のbarを除去してからeligibility / regime / discontinuityを判定する。各originのregimeと
+moving averageもorigin時点までのbarだけで再計算する。2026-07-19の直近60symbol再現は通過したが、
+2021年末cutoff再現はETF・60日が19.08%悪化してgate未通過だった。2023年末cutoffもETF・60日が
+27.18%、downtrend・60日が36.70%悪化して不通過だった。3期間の評価点は重複しない。runtime採用や
+profile再調整を自動実行しない。
+
 明示live評価datasetを更新する場合:
 
 ```powershell

@@ -36,6 +36,7 @@ from backend.forecast.conservative_calibration import (
     HorizonConservativeCalibrationProfile,
     apply_horizon_conditioned_calibration,
     build_conservative_calibration_report,
+    build_point_in_time_calibration_observations,
     evaluate_horizon_conditioned_calibration,
     fit_horizon_conditioned_calibration,
 )
@@ -165,6 +166,7 @@ __all__ = [
     "NaiveForecastModel",
     "available_forecast_models",
     "apply_horizon_conditioned_calibration",
+    "build_point_in_time_calibration_observations",
     "build_conservative_calibration_report",
     "calculate_momentum_edge_score",
     "calculate_direction_net_score",

@@ -2689,8 +2689,13 @@ Markdown UTF-8 check:
 2026-07-19にhorizon別の保守的calibrationをevaluation-onlyで実装・検証した。20日をconsensus
 30% + `moving_average_3` 70%、60日を`moving_average_3` 100%にtuningだけで固定し、overall
 RMSEはvalidation / auditの両方で改善した。ただし20日downtrend validation群が10.92%悪化して
-subgroup gate未通過となったため、runtimeへ接続しない。固定profileの新規期間評価を次の価格予測
-evidenceとし、LLM材料scoreは実ニュース履歴が揃うまでconfidence / range候補に限定する。詳細は
+subgroup gate未通過となったため、runtimeへ接続しない。profileを固定し、過去評価と非重複の
+60symbolへ再調整なしで適用した直近再現は20日14.96%、60日7.42%改善してgateを通過したが、
+2021年末cutoffの履歴再現はETF・60日が19.08%悪化してsubgroup gate未通過となった。全体平均だけで
+2023年末cutoffもETF・60日27.18%、downtrend・60日36.70%悪化して不通過だった。3期間、
+2019〜2026年、重複なし1,074評価点へ広げても時期・asset type・regime依存が残る。全体平均だけで
+採用せず、Cockpit / Ranking / Forecast consensusは変更しない。次は後日の新暦期間監査を待ち、
+LLM材料scoreは実ニュース履歴が揃うまでconfidence / range候補に限定する。詳細は
 `Documents/40_Forecast_Model_Selection_Report.md`。
 
 ## Phase 35: 既存モデル活用による上向き兆候改善

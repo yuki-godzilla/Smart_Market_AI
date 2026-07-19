@@ -75,9 +75,17 @@ outputs/work/ui_sprint_streamlit_*.stderr.log
 outputs/work/ui_sprint_streamlit_*.stdout.log
 docs/responsive/screenshots/user_paths/
 exports/decision_reports/
+# Generated ranking/export bundles; keep local results out of version control.
+exports/investment_candidates/
 data/cache/llm_factor_results.json
 # Local RAG retrieval cache; it can contain session-local source excerpts.
 data/cache/research_vectors_v1.jsonl
+# Live dashboard/background-refresh state; recreated safely when absent.
+data/cache/news_dashboard_snapshot.json
+data/cache/news_dashboard_snapshot.prev.json
+data/cache/news_update_status.json
+data/cache/symbol_refresh_queue.json
+data/cache/symbol_refresh_status.json
 data/cache/*.lock
 data/cache/*.sqlite
 data/cache/*.sqlite-*

@@ -2686,8 +2686,11 @@ Markdown UTF-8 check:
 133銘柄を同じ750 bars / 20・60日 / 最大3 originsで比較した。旧モデルを含む比較では、
 20日中心値は`advanced_quantile`または`moving_average_3`、60日は`moving_average_3`が有力だが、
 単一modelはRMSEと方向一致率を全cohortで同時に改善しなかった。regime-gated候補はgate未通過。
-次はhorizon別の保守的calibrationをevaluation-onlyで検証し、LLM材料scoreは実ニュース履歴が
-揃うまでconfidence / range候補に限定する。runtimeは未変更。詳細は
+2026-07-19にhorizon別の保守的calibrationをevaluation-onlyで実装・検証した。20日をconsensus
+30% + `moving_average_3` 70%、60日を`moving_average_3` 100%にtuningだけで固定し、overall
+RMSEはvalidation / auditの両方で改善した。ただし20日downtrend validation群が10.92%悪化して
+subgroup gate未通過となったため、runtimeへ接続しない。固定profileの新規期間評価を次の価格予測
+evidenceとし、LLM材料scoreは実ニュース履歴が揃うまでconfidence / range候補に限定する。詳細は
 `Documents/40_Forecast_Model_Selection_Report.md`。
 
 ## Phase 35: 既存モデル活用による上向き兆候改善

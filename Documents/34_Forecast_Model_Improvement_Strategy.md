@@ -66,8 +66,11 @@ forecast return、up/down model count、consensus confidence、model disagreemen
 非重複133symbol、20日・60日、各最大3 rolling originsの比較では、単一modelがRMSEと方向一致率を
 全horizon・全cohortで同時に支配しなかった。中心価格は`moving_average_3`または
 `advanced_quantile`の保守的予測、方向はadvanced consensus、rangeは`advanced_quantile`へ分ける。
-長期ほどzero-return近傍へ縮める`horizon-conditioned conservative calibration`を次の
-evaluation-only候補とする。
+長期ほどzero-return近傍へ縮める`horizon-conditioned conservative calibration`をevaluation-onlyで
+実装した。tuningは20日をconsensus 30% + `moving_average_3` 70%、60日を
+`moving_average_3` 100%として固定した。overall RMSEはvalidation / auditの両horizonで改善したが、
+validationの20日downtrend群で10.92%悪化してsubgroup gateを通過しなかった。結果を見た再調整は
+行わず、runtimeへ接続しない。次は固定profileを新規symbol / 新期間で再評価する。
 
 LLM material scoreはprice headへ直接加えず、point-in-timeのevent / adverse risk / freshness /
 evidence qualityによるconfidence上限・range調整候補として実ニュース履歴で別評価する。

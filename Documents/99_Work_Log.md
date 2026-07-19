@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-07-19 Horizon-conditioned conservative calibration評価
+
+- `backend/forecast/conservative_calibration.py`へ評価専用typed contractを追加し、price centerと元のadvanced consensus由来direction headを分離した。profile fitはtuning splitだけを受理し、長期horizonのconsensus weightが短期を超えない制約を持つ。
+- 既存2cohortの同一originで`forecast_consensus`、`advanced_quantile`、`moving_average_3`をjoinする再実行toolを追加した。798 pointを使用し、20日profileはconsensus 30% + moving average 70%、60日はmoving average 100%となった。
+- overall RMSEはvalidationで20日15.65%・60日12.26%、auditで20日4.61%・60日19.23%改善した。direction headは元のconsensusを完全保持し、price centerの最大絶対returnも0.75以内だった。
+- validationの20日downtrend 21点でRMSEが10.92%・絶対0.0065悪化し、subgroup gate未通過と判定した。profileは再調整せず、Cockpit、Ranking、Forecast API、Investment Scoreへ接続していない。
+
 ## 2026-07-19 将来価格モデル広範比較・LLM scoring選定
 
 - Phase 34の評価可能62銘柄に、非重複の日本株・米国株・ETF 71銘柄、88,044日足を追加した。合計133銘柄を直近750 bars、20日・60日、最大3 rolling originsで比較した。

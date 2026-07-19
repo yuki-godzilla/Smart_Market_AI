@@ -82,3 +82,18 @@ LLM material scoreはprice headへ直接加えず、point-in-timeのevent / adve
 evidence qualityによるconfidence上限・range調整候補として実ニュース履歴で別評価する。
 synthetic/static fixtureの高指標はruntime採用根拠にしない。詳細は
 `Documents/40_Forecast_Model_Selection_Report.md`を参照する。
+
+## 11. Point-in-time適応型weightの評価結果
+
+固定profileの時期・asset type依存に対して、`forecast_consensus`、`advanced_quantile`、
+`moving_average_3`、zero-returnの非負weightをasset type / horizon別に推定する評価専用候補を
+実装した。各評価originでは、その時点までにtargetが確定したdevelopment履歴だけを利用し、古い
+originでweightを選択、新しい内部originは1%改善gateだけに使う。履歴不足・gate未通過は現行
+Consensusへfallbackし、direction headは変更しない。
+
+development 60symbol / 1,440点とsymbol非重複の新規監査39symbol / 936点では、20日RMSEは
+4.95%改善したが、60日は0.53%悪化した。適応weight採用率も440 / 936点、47.01%で事前条件50%を
+下回った。同一監査の固定profileは20日8.11%、60日2.46%改善して適応型より良かったが、固定型は
+2021年末・2023年末のETF / downtrend重大劣化が残る。両候補をruntimeへ接続せず、監査結果を
+使った閾値・weight再調整も行わない。次の採用判断には、事前固定policyと後日の新暦期間監査を
+必要とする。

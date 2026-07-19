@@ -19,6 +19,19 @@ from backend.forecast.adapters import (
     AdvancedTreeSklearnForecastResult,
     FeatureContribution,
 )
+from backend.forecast.adaptive_calibration import (
+    ADAPTIVE_CALIBRATION_MODEL_NAME,
+    ADAPTIVE_SOURCE_MODEL_NAMES,
+    ZERO_RETURN_MODEL_NAME,
+    AdaptiveCalibrationEvaluationReport,
+    AdaptiveCalibrationPrediction,
+    AdaptiveCalibrationWeightDecision,
+    apply_point_in_time_adaptive_calibration,
+    build_adaptive_calibration_report,
+    evaluate_adaptive_calibration_metrics,
+    evaluate_point_in_time_adaptive_calibration,
+    fit_point_in_time_adaptive_weights,
+)
 from backend.forecast.advanced_registry import (
     AdvancedForecastAdapterSpec,
     advanced_forecast_adapter_keys,
@@ -112,6 +125,8 @@ from backend.forecast.tuning import (
 )
 
 __all__ = [
+    "ADAPTIVE_CALIBRATION_MODEL_NAME",
+    "ADAPTIVE_SOURCE_MODEL_NAMES",
     "DirectionSignalLabel",
     "CONSENSUS_MODEL_NAME",
     "CONSERVATIVE_CALIBRATION_MODEL_NAME",
@@ -139,6 +154,9 @@ __all__ = [
     "AdvancedQuantileForecastResult",
     "AdvancedTreeSklearnForecastAdapter",
     "AdvancedTreeSklearnForecastResult",
+    "AdaptiveCalibrationEvaluationReport",
+    "AdaptiveCalibrationPrediction",
+    "AdaptiveCalibrationWeightDecision",
     "ConservativeCalibrationEvaluationReport",
     "ConservativeCalibrationMetric",
     "ConservativeCalibrationObservation",
@@ -164,8 +182,11 @@ __all__ = [
     "MomentumForecastModel",
     "MovingAverageForecastModel",
     "NaiveForecastModel",
+    "ZERO_RETURN_MODEL_NAME",
     "available_forecast_models",
     "apply_horizon_conditioned_calibration",
+    "apply_point_in_time_adaptive_calibration",
+    "build_adaptive_calibration_report",
     "build_point_in_time_calibration_observations",
     "build_conservative_calibration_report",
     "calculate_momentum_edge_score",
@@ -186,7 +207,9 @@ __all__ = [
     "default_forecast_models",
     "evaluate_advanced_forecast",
     "evaluate_advanced_linear_forecast",
+    "evaluate_adaptive_calibration_metrics",
     "evaluate_models",
+    "evaluate_point_in_time_adaptive_calibration",
     "evaluated_consensus_prediction",
     "evaluate_forecast_models",
     "evaluate_horizon_conditioned_calibration",
@@ -197,6 +220,7 @@ __all__ = [
     "forecast_model_registry_rows",
     "forecast_model_specs",
     "fit_horizon_conditioned_calibration",
+    "fit_point_in_time_adaptive_weights",
     "load_forecast_evaluation_dataset",
     "summarize_advanced_forecast_evaluations",
     "summarize_regime_gated_forecasts",

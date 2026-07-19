@@ -86,12 +86,19 @@ Ranking, and Investment Score remain unchanged. The profile is now frozen as a v
 was replicated without refitting on 60 symbols disjoint from all three prior forecast cohorts.
 The recent replication improved overall RMSE by 14.96% / 7.42% at 20/60 days and passed its gate.
 A 2021-12-31 point-in-time cutoff replication improved overall RMSE by 15.13% / 12.55%, but its
-60-day ETF subgroup worsened 19.08% and failed the material subgroup gate. This historical replay
-A 2023-12-31 cutoff improved overall RMSE by 13.59% / 2.80%, while 60-day ETF and downtrend
+60-day ETF subgroup worsened 19.08% and failed the material subgroup gate. A 2023-12-31 cutoff
+improved overall RMSE by 13.59% / 2.80%, while 60-day ETF and downtrend
 subgroups worsened 27.18% and 36.70%. The three non-duplicated replication windows contain 1,074
 points from 2019-02-05 through 2026-06-19. These historical replays are not a later-calendar sealed
-audit. Runtime Forecast, Cockpit, Ranking, and scores therefore
-remain unchanged. Next evidence priorities are a genuinely later-period audit and a real
+audit. A new evaluation-only point-in-time adaptive calibration then learned non-negative
+consensus / quantile / moving-average / zero-return weights from 60 development symbols and 1,440
+labels, using only labels observable at each origin. Its separate audit used 39 eligible symbols,
+936 points, and no symbol shared with development or prior forecast cohorts. It improved 20-day
+RMSE by 4.95% but worsened 60-day RMSE by 0.53%; adaptive selection covered 47.01%, below the
+predefined 50% gate. The frozen profile was better on the same audit at 8.11% / 2.46%, but its
+earlier period-specific subgroup failures still prevent adoption. Runtime Forecast, Cockpit,
+Ranking, and scores therefore remain unchanged. Next evidence priorities are a genuinely
+later-period audit and a real
 point-in-time LLM material archive; existing synthetic/static LLM Factor results cannot justify
 integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
 

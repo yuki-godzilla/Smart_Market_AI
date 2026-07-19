@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-19 Point-in-time適応型Forecast weight分離監査
+
+- `backend/forecast/adaptive_calibration.py`へ評価専用の適応型price-centerを追加した。各評価originでtarget確定済みのdevelopment labelだけを使い、asset type / 20・60日別にConsensus、advanced quantile、moving average、zero-returnの非負weightを0.1刻みで選ぶ。古いoriginをfit、新しい内部originを通過判定専用とし、履歴不足・1%改善gate未通過はConsensusへfallbackする。direction headと0.75 return安全上限は維持した。
+- 既存60symbolの10年履歴から1,440点をdevelopment historyとして作成し、全既存評価群・development群と非重複の日本株15、米国株15、ETF10を新規取得した。40symbol・96,580日足からSPLGを履歴不足で除外し、39symbol、20/60日各468点、計936点、2016-12-26〜2026-06-19を監査した。両symbol台帳をversioned CSVへ固定した。
+- 適応型は20日RMSEを0.0848から0.0806へ4.95%改善したが、60日は0.1584から0.1592へ0.53%悪化した。適応weight採用も440 / 936点、47.01%で事前条件50%未満となり、不採用とした。2024年以降60日は7.24%、drawdown 60日は5.86%、日本株60日は3.88%悪化した。
+- 同一の未使用symbol監査では固定profileが20日8.11%、60日2.46%改善し、適応型を上回った。ただし固定profileには2021年末・2023年末のETF / downtrend重大劣化が残るため、固定型・適応型ともForecast、Cockpit、Ranking、Investment Scoreへ接続していない。監査結果を使ったweight、最低標本数、採用率閾値の再調整も行っていない。
+- CSV loaderのsource保全、symbol非重複、future-label除外、内部validation fallback、履歴不足fallback、direction保持、return安全性、期間別group、重複prediction拒否、空metricのfail-closed、manifest / 日本語report出力をnetwork-freeテストで固定した。
+
 ## 2026-07-19 固定Forecast profileの新規symbol・履歴再現
 
 - 保守的price-center profileをversioned JSONとして固定し、fit経路を持たない再現評価toolを追加した。既定の過去3評価群symbol台帳が存在しない場合や、1symbolでも重複する場合は評価を拒否する。

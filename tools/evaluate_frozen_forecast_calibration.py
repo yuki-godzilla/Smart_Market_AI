@@ -378,6 +378,7 @@ def _write_points(
         "origin_at",
         "target_at",
         "consensus_return",
+        "advanced_quantile_return",
         "moving_average_3_return",
         "candidate_price_center_return",
         "retained_direction_return",
@@ -402,6 +403,9 @@ def _write_points(
                     "origin_at": observation.origin_at.isoformat(),
                     "target_at": observation.target_at.isoformat(),
                     "consensus_return": observation.consensus_return,
+                    "advanced_quantile_return": observation.conservative_returns[
+                        "advanced_quantile"
+                    ],
                     "moving_average_3_return": observation.conservative_returns["moving_average_3"],
                     "candidate_price_center_return": prediction.price_center_return,
                     "retained_direction_return": prediction.direction_return,

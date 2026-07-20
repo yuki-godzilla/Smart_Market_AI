@@ -8,6 +8,11 @@
   `RankingPolicyPort`とUI edge adapterへ反転した。CLI composition rootが既存ranking policyを注入する。
 - `backend`から`ui`へのimportをASTで拒否するboundary regressionを追加した。Forecast、Ranking、
   Scoring、Risk、export schema、順位計算は変更していない。
+- Assistant loading headlineのNews package façade参照、RadarのAssistant / Research package façade参照を
+  直接実装・contract importへ置換した。相互package初期化を避け、eager import cycleは0件になった。
+- `tools/audit_python_architecture.py`を追加し、module / internal edge、backend-to-UI、eager cycle、
+  巨大module / function、fan-outをimport実行なしで再現可能にした。lazy importと`TYPE_CHECKING`は
+  fan-outには含めるが、eager cycleには数えない。
 - 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
   `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
 

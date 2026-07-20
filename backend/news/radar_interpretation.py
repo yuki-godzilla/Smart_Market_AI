@@ -11,16 +11,18 @@ from typing import Literal, Mapping
 import httpx
 from pydantic import Field, ValidationError
 
-from backend.assistant import (
+from backend.assistant.gateway_client import (
+    AssistantGatewayClient,
+    AssistantGatewayError,
+    AssistantGatewayTimeoutError,
+    HttpAssistantGatewayClient,
+)
+from backend.assistant.gateway_contracts import (
     ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION,
     AssistantContextBundle,
     AssistantContextSection,
-    AssistantGatewayClient,
-    AssistantGatewayError,
     AssistantGatewayEvidencePoint,
     AssistantGatewayResponse,
-    AssistantGatewayTimeoutError,
-    HttpAssistantGatewayClient,
     build_assistant_gateway_request,
 )
 from backend.core.config import RadarInterpretationConfig, Settings, get_settings

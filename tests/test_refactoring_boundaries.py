@@ -12,6 +12,24 @@ from ui.style_components import compact_display_value
 from ui.styles import compact_display_value as legacy_compact_display_value
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CYCLE_SENSITIVE_MODULES = (
+    "backend/assistant/loading_headlines.py",
+    "backend/news/radar_interpretation.py",
+    "backend/news/radar_research.py",
+    "backend/news/radar_shadow_evaluation.py",
+)
+PACKAGE_FACADES = {"backend.assistant", "backend.news", "backend.research"}
+
+
+def _imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+    return modules
 
 
 def test_backend_does_not_depend_on_ui_modules() -> None:
@@ -29,6 +47,14 @@ def test_backend_does_not_depend_on_ui_modules() -> None:
                 violations.append(str(path.relative_to(PROJECT_ROOT)))
 
     assert violations == []
+
+
+def test_cycle_sensitive_modules_use_direct_contract_imports() -> None:
+    violations = {
+        module: sorted(_imported_modules(PROJECT_ROOT / module) & PACKAGE_FACADES)
+        for module in CYCLE_SENSITIVE_MODULES
+    }
+    assert not {module: imports for module, imports in violations.items() if imports}
 
 
 def test_style_component_legacy_import_keeps_the_same_callable() -> None:

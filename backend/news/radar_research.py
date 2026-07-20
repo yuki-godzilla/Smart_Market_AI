@@ -14,7 +14,11 @@ from backend.news.contracts import (
     RadarResearchContext,
     RadarRetrievalQuality,
 )
-from backend.research import ResearchEvidence, ResearchRetrievalQuality, ResearchSearchRequest
+from backend.research.contracts import (
+    ResearchEvidence,
+    ResearchRetrievalQuality,
+    ResearchSearchRequest,
+)
 
 _MIN_RELEVANCE = 0.10
 _MAX_CITATIONS = 5

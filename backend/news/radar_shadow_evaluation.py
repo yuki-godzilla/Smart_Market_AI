@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, ValidationError
 
-from backend.assistant import AssistantGatewayResponse
+from backend.assistant.gateway_contracts import AssistantGatewayResponse
 from backend.core.data_contracts import StrictBaseModel
 from backend.news.contracts import RadarCandidate, RadarEvidenceBundle
 from backend.news.radar_interpretation import (

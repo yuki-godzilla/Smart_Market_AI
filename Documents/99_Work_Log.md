@@ -13,6 +13,9 @@
 - `tools/audit_python_architecture.py`を追加し、module / internal edge、backend-to-UI、eager cycle、
   巨大module / function、fan-outをimport実行なしで再現可能にした。lazy importと`TYPE_CHECKING`は
   fan-outには含めるが、eager cycleには数えない。
+- `backend/research/service.py`に混在していた事業、補助事業、製品・サービス、地域、顧客の
+  決定論的分類policy約1,660行をbusiness / product moduleへ分離した。薄いprofile façadeと同名importで
+  既存呼出しを維持し、serviceは8,791行から7,140行になった。Research関連回帰129件を通過した。
 - 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
   `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
 

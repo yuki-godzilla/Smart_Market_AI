@@ -2,6 +2,14 @@ import ast
 from pathlib import Path
 
 from backend.research import ExternalResearchFetchService
+from backend.research.company_business_policy import _company_research_business_terms
+from backend.research.company_product_policy import _company_research_products_services
+from backend.research.company_profile_policy import (
+    _company_research_business_terms as FacadeBusinessTerms,
+)
+from backend.research.company_profile_policy import (
+    _company_research_products_services as FacadeProductsServices,
+)
 from backend.research.external_fetch_service import (
     ExternalResearchFetchService as DirectExternalResearchFetchService,
 )
@@ -65,6 +73,11 @@ def test_style_component_legacy_import_keeps_the_same_callable() -> None:
 def test_research_package_keeps_lazy_external_fetch_public_contract() -> None:
     assert ExternalResearchFetchService is DirectExternalResearchFetchService
     assert normalize_symbol(" 7203.t ") == "7203.T"
+
+
+def test_company_profile_policy_facade_keeps_extracted_callables() -> None:
+    assert FacadeBusinessTerms is _company_research_business_terms
+    assert FacadeProductsServices is _company_research_products_services
 
 
 def test_copilot_streaming_keeps_progressive_final_text() -> None:

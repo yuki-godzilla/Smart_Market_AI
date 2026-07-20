@@ -207,6 +207,11 @@ unchanged. Subsequent slices will extract Ranking and Cockpit application flows 
 split Research use cases and large UI views, move CSS to scoped assets, and remove package cycles
 with compatibility façades. See `Documents/46_Large_Scale_Refactoring_Plan.md`.
 
+The first Research split is also complete: deterministic company business, supporting-business,
+product/service, region, and customer classification policies now live outside the aggregate
+Research service behind a thin compatibility façade. This removes about 1,660 lines from
+`backend/research/service.py` without changing Research contracts or classification results.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

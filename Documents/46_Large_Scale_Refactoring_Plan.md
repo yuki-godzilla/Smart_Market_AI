@@ -108,6 +108,12 @@ ui/assets/styles/      # base / component / page別CSS
 - 正規化、要約、永続化、外部取得の境界を明示する。
 - 現在の`backend.research`公開contractは互換testを維持する。
 
+進捗: 第一sliceとして、事業分類、補助事業分類、製品・サービス分類、地域・顧客分類の
+決定論的heuristicを`company_business_policy.py`と`company_product_policy.py`へ分離した。
+`company_profile_policy.py`は薄いcompatibility façadeとし、`service.py`からstore、provider、UIに
+依存しない約1,660行を除去した。次のsliceではsummary builderが依存する会社概要・定量・IR整形を
+contract単位で分ける。
+
 ### R4: UI viewとstyleを分割
 
 - Copilot / Newsをpage-controller-presenterへ分ける。

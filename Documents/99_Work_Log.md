@@ -1,5 +1,23 @@
 # 99_Work_Log
 
+## 2026-07-20 Point-in-Time材料archive・長期confidence監査
+
+- 実ニュース・IRのURL、短いsummary、symbol、source、hash、published / available / first archived / last seenを
+  atomic保存する`point-in-time-material-archive-v1`を追加した。
+- `7203.T`、`NVDA`と広域ニュースをlive取得し、113件をlocal archiveへ保存。今日取得した過去記事を
+  古いoriginへ遡及投入しないことを確認した。
+- LLM材料riskを中心returnへ加算せず、confidence上限とrange 1.15 / 1.25倍だけで比較するtyped shadow契約、
+  proper interval score評価、100成熟case gateを追加した。
+- Forecast評価CSVへrange lower / upper、coverage、width、confidence、policy metadataを追加し、CLIの
+  `--horizons`で20 / 40 / 60 / 80 / 100 / 120日を指定可能にした。
+- split metadata外のOHLCV symbolまで読むdataset境界不備を検出し、metadata明示symbolだけを読むよう修正。
+  誤実行を停止し、Phase 34 validation 21、audit 19で再実行した。
+- pooled validation 132点/horizon、audit 126点/horizonを監査。長期price centerと固定range 1.50倍は
+  gate未通過で不採用。中心confidence lowを維持し、61〜120日の方向だけ内部検証medium以上なら最大mediumとする
+  `role_separated_confidence_v1`を追加した。Rankingは中心confidenceを継続利用する。
+- network-free全体回帰は2394 passed / 16 skipped、Ruff、Black、変更9ファイルのMypyを通過した。
+  skippedは既存の任意環境依存、warning 1件は既存Altair APIの非推奨通知である。
+
 ## 2026-07-20 取得履歴連動Forecastモデル選択・役割別Consensus
 
 - `backend/forecast/model_policy.py`へ`horizon_validation_router_v1`を追加した。取得履歴から決まる

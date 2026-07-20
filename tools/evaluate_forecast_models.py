@@ -41,13 +41,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-origins", type=int, default=5)
     parser.add_argument(
+        "--horizons",
+        default="20,60",
+        help="Comma-separated positive forecast horizons, for example 20,60,90,120.",
+    )
+    parser.add_argument(
         "--skip-tuning",
         action="store_true",
         help="Write evaluation artifacts without repeating bounded adapter tuning.",
     )
     args = parser.parse_args(argv)
-    if args.recent_bars is not None and args.recent_bars < 120:
-        parser.error("--recent-bars must be at least 120")
+    try:
+        horizons = _parse_horizons(args.horizons)
+    except ValueError as exc:
+        parser.error(str(exc))
+    minimum_recent_bars = max(120, max(horizons) + 24)
+    if args.recent_bars is not None and args.recent_bars < minimum_recent_bars:
+        parser.error(f"--recent-bars must be at least {minimum_recent_bars}")
 
     output_dir = Path(args.output)
     dataset = load_forecast_evaluation_dataset(
@@ -59,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     evaluation_cases = limit_recent_case_bars(dataset.cases, args.recent_bars)
     report = evaluate_forecast_models(
         evaluation_cases,
+        horizons=horizons,
         max_origins=args.max_origins,
     )
     evaluation_paths = write_forecast_evaluation_artifacts(report, output_dir)
@@ -67,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         tuning_paths = write_forecast_tuning_artifacts(
             tune_forecast_adapters(
                 evaluation_cases,
+                horizons=horizons,
                 max_origins=args.max_origins,
             ),
             output_dir,
@@ -98,6 +110,20 @@ def limit_recent_case_bars(
         )
         for case in cases
     ]
+
+
+def _parse_horizons(value: str) -> tuple[int, ...]:
+    try:
+        parsed = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise ValueError("--horizons must contain comma-separated integers") from exc
+    if not parsed:
+        raise ValueError("--horizons must contain at least one horizon")
+    if any(horizon < 1 for horizon in parsed):
+        raise ValueError("--horizons must contain only positive integers")
+    if len(parsed) != len(set(parsed)):
+        raise ValueError("--horizons must not contain duplicates")
+    return tuple(sorted(parsed))
 
 
 if __name__ == "__main__":

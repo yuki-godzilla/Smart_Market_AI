@@ -147,7 +147,8 @@ def select_advanced_forecast_models(
         )
     elif audit_status == "outside_sealed_audit":
         warnings.append(
-            "This horizon is outside the sealed 20-day and 60-day audits; confidence is capped low."
+            "This horizon is outside the sealed 20-day and 60-day price-center audits; "
+            "price-center confidence is capped low."
         )
     if center_excluded_names:
         warnings.append(

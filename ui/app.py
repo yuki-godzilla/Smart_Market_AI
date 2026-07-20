@@ -9597,6 +9597,12 @@ def _ranking_advanced_forecast_fields(
         fields.update(_advanced_forecast_ranking_signal_fields(consensus_row))
         if confidence:
             fields["advanced_forecast_confidence"] = confidence
+        center_confidence = str(consensus_row.get("center_confidence", "")).strip()
+        direction_confidence = str(consensus_row.get("direction_confidence", "")).strip()
+        if center_confidence:
+            fields["advanced_forecast_center_confidence"] = center_confidence
+        if direction_confidence:
+            fields["advanced_forecast_direction_confidence"] = direction_confidence
         if consensus_row.get("predicted_return_lower") or consensus_row.get(
             "predicted_return_upper"
         ):
@@ -18061,6 +18067,12 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
     range_display = str(summary["range_display"])
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+    center_confidence = _advanced_forecast_confidence_label(
+        row.get("center_confidence", row.get("confidence", ""))
+    )
+    direction_confidence = _advanced_forecast_confidence_label(
+        row.get("direction_confidence", row.get("confidence", ""))
+    )
     horizon = row.get("horizon_days", "").strip()
     progress = metric_progress_from_value(row.get("weighted_direction_score", "")) or 0
     safe_progress = min(100, max(0, int(progress)))
@@ -18081,7 +18093,8 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
     )
     metrics = (
-        ("信頼度", confidence),
+        ("中心予測の信頼度", center_confidence),
+        ("方向判定の信頼度", direction_confidence),
         ("モデル合意度", agreement_count),
         ("予測ばらつき", dispersion),
         ("予測期間", f"{horizon}日" if horizon else "未計算"),
@@ -22610,6 +22623,8 @@ def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
         "レンジモデルがある場合は中心重みを50%以上にします。"
         "予測価格 = 最新価格 × (1 + 統合予測)。"
         "方向判定は60日以内では監査済みの従来合議を維持し、中心価格とは別に評価します。"
+        "60日超120日以下は、長期historical backtestに基づき中心予測の信頼度を低めに維持しつつ、"
+        "Quantile方向判定は個別検証が中以上の場合だけ中くらいまで表示します。"
         "レンジは選択モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )
 

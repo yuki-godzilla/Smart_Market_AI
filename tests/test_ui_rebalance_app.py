@@ -826,6 +826,9 @@ def test_advanced_forecast_consensus_rows_use_selected_common_horizon():
     assert consensus_rows[0]["forecast_close"]
     assert consensus_rows[0]["direction_agreement_score"]
     assert consensus_rows[0]["confidence"] in {"low", "medium", "high"}
+    assert consensus_rows[0]["center_confidence"] in {"low", "medium", "high"}
+    assert consensus_rows[0]["direction_confidence"] in {"low", "medium", "high"}
+    assert consensus_rows[0]["confidence_policy_version"] == "role_separated_confidence_v1"
     assert consensus_rows[0]["selection_policy_version"] == "horizon_validation_router_v1"
     assert consensus_rows[0]["center_models"]
     assert consensus_rows[0]["direction_models"]

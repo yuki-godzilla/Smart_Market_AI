@@ -9,7 +9,7 @@ from tools.compare_forecast_baselines import (
     render_comparison_markdown,
     rolling_origin_indexes,
 )
-from tools.evaluate_forecast_models import limit_recent_case_bars
+from tools.evaluate_forecast_models import _parse_horizons, limit_recent_case_bars
 
 
 def test_rolling_origin_indexes_matches_future_safe_bounds() -> None:
@@ -78,6 +78,14 @@ def test_limit_recent_case_bars_keeps_original_case_unchanged() -> None:
 def test_limit_recent_case_bars_rejects_too_small_window() -> None:
     with pytest.raises(ValueError, match="at least 120"):
         limit_recent_case_bars([], 119)
+
+
+def test_parse_horizons_normalizes_order_and_rejects_invalid_values() -> None:
+    assert _parse_horizons("120, 20,60") == (20, 60, 120)
+    with pytest.raises(ValueError, match="positive"):
+        _parse_horizons("20,0")
+    with pytest.raises(ValueError, match="duplicates"):
+        _parse_horizons("20,20")
 
 
 def _point(

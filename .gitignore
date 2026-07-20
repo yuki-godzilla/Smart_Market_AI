@@ -78,6 +78,9 @@ exports/decision_reports/
 # Generated ranking/export bundles; keep local results out of version control.
 exports/investment_candidates/
 data/cache/llm_factor_results.json
+# Live-observed point-in-time news/IR metadata; local evidence history is not source code.
+data/cache/point_in_time_material_archive_v1.json
+data/cache/llm_material_risk_signals_v1.json
 # Local RAG retrieval cache; it can contain session-local source excerpts.
 data/cache/research_vectors_v1.jsonl
 # Live dashboard/background-refresh state; recreated safely when absent.

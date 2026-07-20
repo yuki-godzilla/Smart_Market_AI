@@ -10916,6 +10916,8 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
             "forecast_close_upper": "3120.1",
             "agreement": "MEDIUM",
             "confidence": "low",
+            "center_confidence": "low",
+            "direction_confidence": "medium",
             "direction_agreement_score": "50",
             "mean_direction_accuracy": "54.20%",
             "mean_rmse": "0.0412",
@@ -10934,6 +10936,9 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "主な理由" in html
     assert "注意点" in html
     assert "予測期間" in html
+    assert "中心予測の信頼度" in html
+    assert "方向判定の信頼度" in html
+    assert "中くらい" in html
     assert "モデル合意度" in html
     assert "4モデル中2モデルが中立寄り" in html
     assert "smai-insight-mini-grid" in html

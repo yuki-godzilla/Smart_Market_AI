@@ -125,13 +125,29 @@ the predefined relative 10% plus absolute 0.005 material-degradation gate. This 
 safety regression, not a later-calendar sealed audit. Previously rejected calibration, adaptive,
 residual, cross-sectional, and LLM candidates remain disconnected.
 
+The 2026-07-20 long-horizon confidence audit extends the two fixed validation and two fixed audit
+cohorts to 20/40/60/80/100/120 days, with 132 validation and 126 audit points per horizon. Long
+direction accuracy was 56.06%/55.30%/55.30% on validation and 57.14%/57.94%/57.14% on audit at
+80/100/120 days, but the price center did not consistently beat the zero-return baseline and its
+nominal 60% range covered only 33.33%/30.30%/35.61% of validation and
+40.48%/36.51%/37.30% of audit outcomes. A validation-selected 1.50 range multiplier improved audit
+proper interval score by only 0.06%/0.33%/0.72%, below the predeclared 1% gate, so long price-center
+confidence remains low and the multiplier is not adopted. `role_separated_confidence_v1` now
+exposes a separate direction confidence: from 61 through 120 days it may be medium only when the
+quantile adapter's origin-time validation is medium/high; Ranking still uses the conservative
+price-center confidence. A local `point-in-time-material-archive-v1` and confidence/range-only LLM
+shadow evaluator are implemented. The first live collection stored 113 news/IR metadata records,
+but no target has matured, so LLM output remains disconnected from runtime. See
+`Documents/42_Point_In_Time_Material_Archive_And_Long_Horizon_Confidence_Report.md`.
+
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,
 `backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,
 future/late-archive/duplicate/peer filtering, horizon-specific market-residual impact labels,
 and an explicit bounded Source Memory. Memory updates require a matured target and valid citation
-IDs; its maximum rerank contribution is 0.06. This is not connected to live LLM generation or any
-runtime score because SMAI does not yet have a real point-in-time material archive. Second,
+IDs; its maximum rerank contribution is 0.06. A real point-in-time material archive now exists and
+has its first live observations, but no target has matured yet; consequently this remains
+disconnected from live LLM generation and every runtime score. Second,
 `backend/forecast/cross_sectional_residual.py` evaluates a fixed small GBDT using same-origin
 forecast spreads, dispersion, and cross-sectional percentile ranks around the frozen anchor.
 Development used 60 symbols / 1,440 points. On a fully symbol-disjoint 52-symbol / 1,248-point

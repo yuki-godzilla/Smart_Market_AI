@@ -1137,6 +1137,12 @@ adapter、weight、理由、監査状態はConsensus行とRanking文脈へ残す
 標本10点以上で相対10%超かつ絶対0.005超の重大subgroup劣化は0件だった。既に結果を確認済みの
 履歴再評価なので、後日の新暦期間sealed auditや60日超horizon監査を代替しない。
 
+2026-07-20の長期監査では、`--horizons 20,40,60,80,100,120`で2 validation群132点/horizon、
+2 audit群126点/horizonを評価した。60日超は価格中心RMSEと60%想定range coverageが安定しないため
+`center_confidence=low`を維持する。`role_separated_confidence_v1`により、61〜120日の
+`direction_confidence`だけはQuantileのorigin以前validationがmedium / highの場合に最大mediumとなる。
+120日超は中心・方向ともlowである。Rankingの品質寄与は従来どおり保守的なcenter confidenceを使う。
+
 `write_forecast_evaluation_artifacts` は次を出力する。
 
 - `forecast_model_evaluation_summary.md`
@@ -1156,9 +1162,54 @@ adapter、weight、理由、監査状態はConsensus行とRanking文脈へ残す
 .\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py --output reports\forecast_evaluation
 ```
 
+長期horizonとrange coverage / widthを再評価する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py `
+  --ohlcv data\phase34_evaluation\ohlcv.csv `
+  --metadata data\phase34_evaluation\splits\validation\symbols.csv `
+  --output reports\long_horizon_confidence `
+  --required-bars 300 `
+  --recent-bars 750 `
+  --max-origins 3 `
+  --horizons 20,40,60,80,100,120 `
+  --skip-tuning
+```
+
+metadata CSVは評価universe境界であり、OHLCVに他symbolが含まれていても読み込まない。split評価では
+validation / auditそれぞれのmetadataを必ず指定する。
+
 `data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。
 `--recent-bars 750`を指定すると、eligibility判定後に各symbolを直近750 barsへ揃えて評価できる。
-大規模cohort間で履歴長を統一する場合に使い、120未満は受け付けない。
+大規模cohort間で履歴長を統一する場合に使う。最小値は
+`max(120, max(horizons) + 24)`であり、長期horizonの評価窓と特徴量履歴を確保できない値は受け付けない。
+
+### Point-in-Time材料archiveとLLM risk shadow
+
+実ニュース・IRを将来の時点整合評価用に保存する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\archive_point_in_time_materials.py `
+  --fetch-live-news `
+  --symbol 7203.T `
+  --symbol NVDA
+```
+
+既定保存先は`data/cache/point_in_time_material_archive_v1.json`で、Git追跡対象外である。raw本文全量ではなく
+URL、短いsummary、symbol、source、hash、公開・利用可能・初回保存・最終観測時刻を保存する。今日取得した
+過去記事は今日より前のoriginへ使用できない。破損時は空データを正常扱いせずwarningを返し、暗黙上書きしない。
+
+LLM risk signalと成熟済みForecast pointをshadow比較する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_llm_material_risk_shadow.py `
+  --forecast-points reports\forecast_evaluation\forecast_model_validation_points.csv `
+  --signals-json data\cache\llm_material_risk_signals_v1.json `
+  --output reports\llm_material_risk_shadow
+```
+
+signalはvalid archive citationを必須とし、中心returnと方向returnを変更できない。confidence上限とrange拡張だけを
+proper interval scoreで評価し、成熟case 100件未満は`insufficient_evidence`となる。
 
 advanced validation pointsへ旧`naive` / `moving_average_3` / `momentum_3`を同一originで追加比較する場合:
 

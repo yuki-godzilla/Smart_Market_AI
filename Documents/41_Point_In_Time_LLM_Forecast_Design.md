@@ -23,9 +23,15 @@ historical safety regressionでは20 / 60日の統合validation RMSEを12.56% / 
 3.37% / 7.17%改善し、方向returnは516 / 516点一致、重大subgroup劣化0件だったためruntimeへ採用した。
 これは横断GBDTや固定anchorの採用ではなく、後日の新暦期間auditの代替でもない。
 
-材料経路は因果契約、Source Memory、市場残差ラベルまで実装した。ただし実ニュース・開示の
-point-in-time archiveがまだ存在しないため、LLMあり/なしの実市場精度比較は未実施である。既存の
-synthetic/static fixtureを実精度の代用にしない。
+材料経路は因果契約、Source Memory、市場残差ラベルに加えて、
+`point-in-time-material-archive-v1`まで実装した。実ニュース・IR metadata 113件の初回live観測を保存したが、
+first archived time以後のoriginにしか使えないため、現時点では成熟label 0件であり、LLMあり/なしの
+実市場精度比較は未実施である。既存のsynthetic/static fixtureを実精度の代用にしない。
+
+2026-07-20追記:
+LLM材料リスクは中心returnを構造上変更できず、valid citationがある場合のconfidence上限とrange最大
+1.25倍だけをshadow評価する。長期Forecastの詳細監査と役割別confidenceは
+`Documents/42_Point_In_Time_Material_Archive_And_Long_Horizon_Confidence_Report.md`を参照する。
 
 ## 2. 最新研究から採用した要点
 

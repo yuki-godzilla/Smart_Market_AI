@@ -127,6 +127,8 @@ from backend.forecast.registry import (
     forecast_model_specs,
 )
 from backend.forecast.service import (
+    FORECAST_ROLE_CONFIDENCE_POLICY_VERSION,
+    HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS,
     AdvancedForecastConsensus,
     AdvancedForecastEvaluation,
     DirectionSignalLabel,
@@ -182,6 +184,8 @@ __all__ = [
     "ADVANCED_TREE_SKLEARN_ADAPTER_NAME",
     "AUDITED_HORIZON_MAX_DAYS",
     "HORIZON_MODEL_POLICY_VERSION",
+    "FORECAST_ROLE_CONFIDENCE_POLICY_VERSION",
+    "HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS",
     "MIN_RELATIVE_RMSE_IMPROVEMENT",
     "MIN_SELECTION_FOLD_COUNT",
     "MIN_SELECTION_SAMPLE_COUNT",

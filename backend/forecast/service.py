@@ -24,6 +24,9 @@ DirectionSignalLabel = Literal[
     "UNKNOWN",
 ]
 
+FORECAST_ROLE_CONFIDENCE_POLICY_VERSION = "role_separated_confidence_v1"
+HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS = 120
+
 VOLATILITY_FLOOR = Decimal("0.02")
 DIRECTION_EDGE_SCALE = Decimal("1.25")
 MAX_MOMENTUM_FORECAST_RATIO = Decimal("10")
@@ -124,6 +127,9 @@ class AdvancedForecastConsensus(StrictBaseModel):
     forecast_close_upper: Decimal | None = Field(default=None, ge=0)
     agreement: str = Field(min_length=1)
     confidence: str = Field(min_length=1)
+    center_confidence: str = Field(default="low", min_length=1)
+    direction_confidence: str = Field(default="low", min_length=1)
+    confidence_policy_version: str = ""
     direction_agreement_score: Decimal = Field(ge=0, le=100)
     weighted_direction_score: Decimal = Field(ge=0, le=1)
     mean_direction_accuracy: Decimal = Field(ge=0, le=1)
@@ -439,17 +445,23 @@ def summarize_advanced_forecast_evaluations(
     best = _best_advanced_forecast_evaluation(center_evaluations)
     direction_range = max(direction_returns) - min(direction_returns)
     agreement = _advanced_agreement_label(direction_range, len(direction_evaluations))
-    confidence = _advanced_consensus_confidence(
+    raw_confidence = _advanced_consensus_confidence(
         direction_evaluations,
         agreement=agreement,
         direction_agreement_score=direction_agreement_score,
         mean_direction_accuracy=mean_direction_accuracy,
     )
-    confidence = _horizon_selection_confidence(
-        confidence,
+    center_confidence = _horizon_selection_confidence(
+        raw_confidence,
         selection=selection,
         center_model_count=len(center_evaluations),
     )
+    direction_confidence = _horizon_direction_confidence(
+        raw_confidence,
+        selection=selection,
+        evaluations=direction_evaluations,
+    )
+    confidence = center_confidence
 
     return AdvancedForecastConsensus(
         symbol=evaluations[0].symbol,
@@ -472,6 +484,9 @@ def summarize_advanced_forecast_evaluations(
         forecast_close_upper=_round_price(latest_close * (Decimal("1") + predicted_return_upper)),
         agreement=agreement,
         confidence=confidence,
+        center_confidence=center_confidence,
+        direction_confidence=direction_confidence,
+        confidence_policy_version=FORECAST_ROLE_CONFIDENCE_POLICY_VERSION,
         direction_agreement_score=direction_agreement_score,
         weighted_direction_score=_round_metric(weighted_direction_score),
         mean_direction_accuracy=_round_metric(mean_direction_accuracy),
@@ -1026,6 +1041,24 @@ def _horizon_selection_confidence(
         return "low"
     if center_model_count < 1:
         return "low"
+    if selection.audit_status == "interpolated" and confidence == "high":
+        return "medium"
+    return confidence
+
+
+def _horizon_direction_confidence(
+    confidence: str,
+    *,
+    selection: AdvancedForecastModelSelection,
+    evaluations: list[AdvancedForecastEvaluation],
+) -> str:
+    """Cap direction confidence independently from the less stable long price center."""
+
+    if selection.horizon_days > HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS:
+        return "low"
+    if selection.horizon_days > 60:
+        model_confidences = {evaluation.confidence for evaluation in evaluations}
+        return "medium" if model_confidences & {"high", "medium"} else "low"
     if selection.audit_status == "interpolated" and confidence == "high":
         return "medium"
     return confidence

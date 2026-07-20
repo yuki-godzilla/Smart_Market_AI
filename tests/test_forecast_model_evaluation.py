@@ -48,6 +48,16 @@ def test_evaluation_runs_real_consensus_folds_and_group_summaries():
     assert all(row.evaluation_method == "rolling_origin" for row in consensus_rows)
     assert all(row.validation_sample_count == 4 for row in consensus_rows)
     assert all(row.mean_model_disagreement is not None for row in consensus_rows)
+    assert all(row.interval_sample_count == 4 for row in consensus_rows)
+    assert all(row.interval_coverage is not None for row in consensus_rows)
+    assert all(row.mean_interval_width is not None for row in consensus_rows)
+    consensus_points = [
+        point for point in report.validation_points if point.model_name == "forecast_consensus"
+    ]
+    assert all(point.predicted_return_lower is not None for point in consensus_points)
+    assert all(point.predicted_return_upper is not None for point in consensus_points)
+    assert all(point.confidence is not None for point in consensus_points)
+    assert all(point.selection_policy_version for point in consensus_points)
     regime_rows = [row for row in overall if row.model_name == "advanced_regime_gated_ensemble"]
     assert all(row.evaluation_method == "rolling_origin" for row in regime_rows)
     assert all(row.validation_sample_count == 4 for row in regime_rows)

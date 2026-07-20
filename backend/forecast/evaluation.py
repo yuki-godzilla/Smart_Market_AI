@@ -57,6 +57,14 @@ class ForecastValidationPoint(StrictBaseModel):
     target_at: datetime
     predicted_return: Decimal
     direction_predicted_return: Decimal | None = None
+    predicted_return_lower: Decimal | None = None
+    predicted_return_upper: Decimal | None = None
+    confidence: str | None = Field(default=None, min_length=1)
+    center_confidence: str | None = Field(default=None, min_length=1)
+    direction_confidence: str | None = Field(default=None, min_length=1)
+    selection_policy_version: str | None = Field(default=None, min_length=1)
+    horizon_band: str | None = Field(default=None, min_length=1)
+    audit_status: str | None = Field(default=None, min_length=1)
     actual_return: Decimal
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
@@ -75,7 +83,14 @@ class ForecastPredictionRow(StrictBaseModel):
     as_of: datetime
     predicted_return: Decimal
     direction_predicted_return: Decimal | None = None
+    predicted_return_lower: Decimal | None = None
+    predicted_return_upper: Decimal | None = None
     confidence: str = Field(min_length=1)
+    center_confidence: str | None = Field(default=None, min_length=1)
+    direction_confidence: str | None = Field(default=None, min_length=1)
+    selection_policy_version: str | None = Field(default=None, min_length=1)
+    horizon_band: str | None = Field(default=None, min_length=1)
+    audit_status: str | None = Field(default=None, min_length=1)
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
 
@@ -99,6 +114,9 @@ class ForecastModelEvaluationRow(StrictBaseModel):
     baseline_zero_rmse: Decimal = Field(ge=0)
     rmse_improvement: Decimal
     mean_model_disagreement: Decimal | None = Field(default=None, ge=0)
+    interval_sample_count: int = Field(default=0, ge=0)
+    interval_coverage: Decimal | None = Field(default=None, ge=0, le=1)
+    mean_interval_width: Decimal | None = Field(default=None, ge=0)
 
 
 class ForecastWeightAdjustment(StrictBaseModel):
@@ -311,6 +329,9 @@ def _evaluate_case_origins(
                     origin_at=bars[origin_index].ts,
                     target_at=target.ts,
                     predicted_return=evaluation.predicted_return,
+                    predicted_return_lower=evaluation.predicted_return_lower,
+                    predicted_return_upper=evaluation.predicted_return_upper,
+                    confidence=evaluation.confidence,
                     actual_return=actual_return,
                 )
             )
@@ -328,6 +349,14 @@ def _evaluate_case_origins(
                     target_at=target.ts,
                     predicted_return=consensus.consensus_predicted_return,
                     direction_predicted_return=consensus.direction_predicted_return,
+                    predicted_return_lower=consensus.predicted_return_lower,
+                    predicted_return_upper=consensus.predicted_return_upper,
+                    confidence=consensus.confidence,
+                    center_confidence=consensus.center_confidence,
+                    direction_confidence=consensus.direction_confidence,
+                    selection_policy_version=consensus.selection_policy_version,
+                    horizon_band=consensus.horizon_band,
+                    audit_status=consensus.audit_status,
                     actual_return=actual_return,
                     model_disagreement=consensus.predicted_return_range,
                 )
@@ -379,6 +408,8 @@ def _latest_predictions(
             horizon_days=horizon_days,
             as_of=bars[-1].ts,
             predicted_return=evaluation.predicted_return,
+            predicted_return_lower=evaluation.predicted_return_lower,
+            predicted_return_upper=evaluation.predicted_return_upper,
             confidence=evaluation.confidence,
         )
         for evaluation in evaluations
@@ -396,7 +427,14 @@ def _latest_predictions(
                 as_of=bars[-1].ts,
                 predicted_return=consensus.consensus_predicted_return,
                 direction_predicted_return=consensus.direction_predicted_return,
+                predicted_return_lower=consensus.predicted_return_lower,
+                predicted_return_upper=consensus.predicted_return_upper,
                 confidence=consensus.confidence,
+                center_confidence=consensus.center_confidence,
+                direction_confidence=consensus.direction_confidence,
+                selection_policy_version=consensus.selection_policy_version,
+                horizon_band=consensus.horizon_band,
+                audit_status=consensus.audit_status,
                 model_disagreement=consensus.predicted_return_range,
             )
         )
@@ -533,6 +571,28 @@ def _aggregate_points(
     disagreements = [
         point.model_disagreement for point in points if point.model_disagreement is not None
     ]
+    interval_values: list[tuple[Decimal, Decimal, Decimal]] = []
+    for point in points:
+        lower = point.predicted_return_lower
+        upper = point.predicted_return_upper
+        if lower is None or upper is None or upper < lower:
+            continue
+        interval_values.append((lower, upper, point.actual_return))
+    interval_coverage = (
+        _mean(
+            [
+                Decimal("1") if lower <= actual <= upper else Decimal("0")
+                for lower, upper, actual in interval_values
+            ]
+        )
+        if interval_values
+        else None
+    )
+    mean_interval_width = (
+        _mean([upper - lower for lower, upper, _actual in interval_values])
+        if interval_values
+        else None
+    )
     return ForecastModelEvaluationRow(
         group_type=group_type,
         group_value=group_value,
@@ -548,6 +608,9 @@ def _aggregate_points(
         baseline_zero_rmse=baseline_rmse,
         rmse_improvement=_decimal(baseline_rmse - rmse),
         mean_model_disagreement=(_mean(disagreements) if disagreements else None),
+        interval_sample_count=len(interval_values),
+        interval_coverage=interval_coverage,
+        mean_interval_width=mean_interval_width,
     )
 
 
@@ -780,14 +843,16 @@ def _render_summary(report: ForecastModelEvaluationReport) -> str:
         "- 改善weightは後半holdoutで現行consensusと比較し、条件通過時だけ採用候補にします。",
         "",
         "| Model | Horizon | Cases | Samples | MAE | RMSE | Direction | "
-        "RMSE improvement | Disagreement |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "RMSE improvement | Range coverage | Range width | Disagreement |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in overall:
         lines.append(
             f"| {row.model_name} | {row.horizon_days} | {row.evaluated_case_count} | "
             f"{row.validation_sample_count} | {row.mae} | {row.rmse} | "
             f"{row.direction_accuracy} | {row.rmse_improvement} | "
+            f"{_display_optional(row.interval_coverage)} | "
+            f"{_display_optional(row.mean_interval_width)} | "
             f"{_display_optional(row.mean_model_disagreement)} |"
         )
     if report.warnings:

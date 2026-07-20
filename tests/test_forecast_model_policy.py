@@ -153,6 +153,9 @@ def test_long_horizon_consensus_caps_confidence_and_uses_quantile_direction():
     assert consensus.consensus_predicted_return == Decimal("0.0100")
     assert consensus.direction_predicted_return == Decimal("0.0100")
     assert consensus.confidence == "low"
+    assert consensus.center_confidence == "low"
+    assert consensus.direction_confidence == "medium"
+    assert consensus.confidence_policy_version == "role_separated_confidence_v1"
 
 
 def _candidates() -> list[AdvancedForecastModelCandidate]:

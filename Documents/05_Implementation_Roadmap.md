@@ -2680,6 +2680,16 @@ direction headは60日以内で従来4adapter Consensusを保持し、中心retu
 適応weight、残差Ridge、横断GBDT、LLM Factorはruntimeへ接続しない。60日超と補間horizonの後日監査を
 継続課題とする。
 
+2026-07-20追加: 長期confidenceを20 / 40 / 60 / 80 / 100 / 120日へ拡張し、固定2 validation群
+132点/horizon、固定2 audit群126点/horizonでrange coverageを含めて再監査した。80 / 100 / 120日の
+方向一致率はvalidation 56.06% / 55.30% / 55.30%、audit 57.14% / 57.94% / 57.14%だったが、price
+centerはzero baselineをvalidation / auditの両方で安定して改善せず、60%想定range coverageもaudit
+40.48% / 36.51% / 37.30%だった。validationで選んだrange 1.50倍はaudit proper interval score改善が
+0.06% / 0.33% / 0.72%で1% gate未達のため不採用。中心confidence lowを維持し、61〜120日の方向だけ
+Quantile内部検証medium以上なら最大mediumとする`role_separated_confidence_v1`を採用した。あわせて
+実ニュース・IRのfirst archived timeを保存するlocal archiveと、LLMが中心returnを変更できない
+confidence / range shadow evaluatorを実装した。初回live 113件は未成熟のためruntime未接続。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`

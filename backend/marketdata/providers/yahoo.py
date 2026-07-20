@@ -81,27 +81,82 @@ class YahooMarketDataProviderAdapter:
                 operation=operation,
             )
         bars: list[Bar] = []
-        for raw_symbol in symbols:
-            symbol_frame = _download_symbol_frame(frame, raw_symbol)
-            if getattr(symbol_frame, "empty", True):
-                continue
-            _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
-            symbol_frame = _drop_invalid_numeric_rows(
-                symbol_frame,
-                required_columns=YAHOO_OHLCV_COLUMNS,
-            )
-            if getattr(symbol_frame, "empty", True):
-                continue
-            symbol = _normalize_symbol(raw_symbol)
-            for ts, row in symbol_frame.iterrows():
-                bar = _bar_from_history_row(
-                    row,
-                    ts=ts,
-                    symbol=symbol,
-                    interval=interval,
+        batch_frame_has_symbol_axis = _download_frame_has_symbol_axis(frame)
+        if len(symbols) == 1 or batch_frame_has_symbol_axis:
+            for raw_symbol in symbols:
+                bars.extend(
+                    _bars_from_download_frame(
+                        frame,
+                        raw_symbol=raw_symbol,
+                        interval=interval,
+                        operation=operation,
+                    )
                 )
-                if bar is not None:
-                    bars.append(bar)
+        if len(symbols) > 1:
+            bars = await self._recover_partial_ohlcv_batch(
+                symbols,
+                bars,
+                start=start,
+                end=end,
+                interval=interval,
+                operation=operation,
+            )
+        return bars
+
+    async def _recover_partial_ohlcv_batch(
+        self,
+        symbols: list[str],
+        bars: list[Bar],
+        *,
+        start: datetime,
+        end: datetime,
+        interval: Interval,
+        operation: str,
+    ) -> list[Bar]:
+        """Retry only symbols omitted from a non-empty yfinance batch response."""
+
+        returned = {bar.symbol.raw for bar in bars}
+        missing = [symbol for symbol in symbols if symbol not in returned]
+        if not missing:
+            return bars
+        recovery_errors: dict[str, str] = {}
+        for raw_symbol in missing:
+            try:
+                frame = await self._history(
+                    raw_symbol,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    operation=operation,
+                )
+                recovered = _bars_from_download_frame(
+                    frame,
+                    raw_symbol=raw_symbol,
+                    interval=interval,
+                    operation=operation,
+                )
+            except Exception as exc:  # noqa: BLE001 - preserve all missing-symbol diagnostics.
+                recovery_errors[raw_symbol] = type(exc).__name__
+                continue
+            if recovered:
+                bars.extend(recovered)
+                returned.add(raw_symbol)
+            else:
+                recovery_errors[raw_symbol] = "no_valid_bars"
+        unresolved = [symbol for symbol in symbols if symbol not in returned]
+        if unresolved:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned partial batch data",
+                details=self._provider_details(
+                    operation=operation,
+                    requested_symbols=symbols,
+                    returned_symbols=sorted(returned),
+                    missing_symbols=unresolved,
+                    recovery_errors={
+                        symbol: recovery_errors.get(symbol, "no_data") for symbol in unresolved
+                    },
+                ),
+            )
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
@@ -944,6 +999,42 @@ def _download_symbol_frame(frame: Any, raw_symbol: str) -> Any:
     except Exception:
         pass
     return frame.iloc[0:0]
+
+
+def _download_frame_has_symbol_axis(frame: Any) -> bool:
+    columns: Any = getattr(frame, "columns", [])
+    return bool(hasattr(columns, "nlevels") and columns.nlevels >= 2)
+
+
+def _bars_from_download_frame(
+    frame: Any,
+    *,
+    raw_symbol: str,
+    interval: Interval,
+    operation: str,
+) -> list[Bar]:
+    symbol_frame = _download_symbol_frame(frame, raw_symbol)
+    if getattr(symbol_frame, "empty", True):
+        return []
+    _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
+    symbol_frame = _drop_invalid_numeric_rows(
+        symbol_frame,
+        required_columns=YAHOO_OHLCV_COLUMNS,
+    )
+    if getattr(symbol_frame, "empty", True):
+        return []
+    symbol = _normalize_symbol(raw_symbol)
+    bars: list[Bar] = []
+    for ts, row in symbol_frame.iterrows():
+        bar = _bar_from_history_row(
+            row,
+            ts=ts,
+            symbol=symbol,
+            interval=interval,
+        )
+        if bar is not None:
+            bars.append(bar)
+    return bars
 
 
 def _validate_history_columns(

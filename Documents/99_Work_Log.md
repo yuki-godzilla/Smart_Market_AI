@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-20 Yahoo OHLCV partial batch recovery
+
+- 複数銘柄のYahoo OHLCV batchが空ではない一方、一部銘柄だけ欠ける場合に、その部分応答を完全成功として
+  返さないようにした。欠落銘柄だけを既存の単銘柄history/retry経路で再取得する。
+- 回復後も欠ける場合は、requested / returned / missing symbolと銘柄別recovery error型を
+  `ProviderUnavailableError`へ保存する。Rankingの既存銘柄別fallbackやsealed Forecastのfail-closed診断が
+  欠損を安全に扱える。
+- MarketData、DataAccess、Provider adapterの対象回帰55件とRanking / Forecast境界397件、Ruff、対象Black、Mypyを通過した。
+  予測値、Ranking、Score、Provider選択は変更していない。
+
 ## 2026-07-20 Point-in-Time材料risk run-once
 
 - 材料archiveへrecord ID・本文hash再検証、file lock、immutable conflict検出、atomic replace、完全性digest、

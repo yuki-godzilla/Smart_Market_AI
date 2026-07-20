@@ -216,6 +216,13 @@ The first `ui.app` split moves pure Ranking policy guidance, reversal-score tabl
 summary HTML to `ui/ranking_policy_presenter.py`. Existing app-level names remain imported for
 compatibility; Streamlit state, Ranking formulas, ordering, and display text are unchanged.
 
+The next Ranking application slice adds typed `RankingBuildRequest` / `RankingBuildResult`
+contracts and a Streamlit-independent `RankingBuildService`. Cache reuse, symbol-database
+preflight, guarded MarketData execution, and result publication now have one backend-owned
+execution order; the existing `ui.app` worker remains a compatibility façade. Ranking formulas,
+rows, order, provider behavior, and cache semantics are unchanged. The next R1 slice extracts the
+MarketData builder adapter and ranking-job launch controller from `ui/app.py`.
+
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,
 writes, and rendering remain at the UI edge, and existing app-level imports stay compatible.

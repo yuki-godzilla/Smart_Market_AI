@@ -4986,3 +4986,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Cockpitの取得完了後に100%進捗が残る問題、数値入力stateと`value`併用によるStreamlit警告、既定値`2.00`を`2.0`へ正規化しただけで信託報酬条件が有効に見える問題を修正した。予測、スコア、ランキング計算は変更していない。
 - 375x812、810x1080、1080x810、1366x768で全7画面を確認した。iPad縦でサイドバー展開時にCockpit Assistantカードが右へ142px欠ける状態を縦積みへ変更し、全viewport・全画面でページ横はみ出し、Streamlit例外、破損画像が0であることを再確認した。
 - 外部通知は配送先が無効のため送信せず、ユーザー切替・セッション解放・データ削除など状態を失う操作は実行していない。起動中8501が複数の旧Forecast submoduleを保持したImportErrorは、部分reloadによるcontract混在を避け、管理者権限でfresh processへ切り替える必要があることを確認した。
+
+## 2026-07-20 Ranking application flow R1 typed build境界
+
+- `RankingBuildRequest` / `RankingBuildResult`とStreamlit非依存の`RankingBuildService`を追加し、完成済みcacheの再利用、銘柄DB preflight、保守guard下のMarketData build、完成結果のcache publishをbackend側の一つの実行順へ移した。
+- `ui.app._execute_market_data_ranking_job`は既存worker / testとの互換façadeとして残し、UI側ではProvider、MarketData builder、cache adapterを注入する。ランキング数値、score、並び順、対象銘柄、Provider挙動、保存形式は変更していない。
+- cache hit、fresh build、preflightとMarketDataのguard順、失敗結果をpublishしない境界をnetwork-free testで固定した。対象回帰405件と全体2444件、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。

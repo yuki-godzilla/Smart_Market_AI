@@ -14,6 +14,7 @@ import ui.app as app_module
 from backend.core.config import CONFIG_FILE_ENV
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, FxRate, Symbol
 from backend.core.errors import DataSourceError, ProviderUnavailableError
+from backend.investment_candidates.service import RankingBuildService
 from backend.llm_factor import (
     FakeLLMFactorService,
     LLMFactorCacheMetadata,
@@ -6424,22 +6425,24 @@ def test_ranking_cache_caps_are_bounded_for_server_memory() -> None:
 
 
 def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
-    source = inspect.getsource(app_module._execute_market_data_ranking_job)
+    source = inspect.getsource(RankingBuildService.execute)
 
-    preflight_start = source.index("_run_symbol_database_preflight_refresh(")
-    preflight_guard = source.index('maintenance_operation("ranking_build_preflight")')
-    market_data_guard = source.index('maintenance_operation("ranking_build")')
+    preflight_start = source.index("self._preflight(request)")
+    preflight_guard = source.index('self._maintenance_operation("ranking_build_preflight")')
+    market_data_guard = source.index('self._maintenance_operation("ranking_build")')
 
     assert preflight_guard < preflight_start < market_data_guard
 
 
 def test_ranking_render_starts_session_independent_background_job():
     render_source = inspect.getsource(app_module._render_market_data_ranking)
-    worker_source = inspect.getsource(app_module._execute_market_data_ranking_job)
+    facade_source = inspect.getsource(app_module._execute_market_data_ranking_job)
+    worker_source = inspect.getsource(RankingBuildService.execute)
 
     assert "start_ranking_job(" in render_source
     assert "asyncio.run(" not in render_source
     assert "asyncio.run(" in worker_source
+    assert "st.session_state" not in facade_source
     assert "st.session_state" not in worker_source
 
 

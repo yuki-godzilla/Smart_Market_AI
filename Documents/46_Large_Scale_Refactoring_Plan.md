@@ -99,7 +99,10 @@ ui/assets/styles/      # base / component / page別CSS
 
 進捗: 最初に副作用のないpolicy説明、上向き兆候の点数表、条件summary HTMLを
 `ui/ranking_policy_presenter.py`へ移した。`ui.app`は同名functionをimportするため、既存test / callerの
-import contractを維持する。次はjob request / result contractとMarketData orchestrationを分離する。
+import contractを維持する。次のsliceでは`RankingBuildRequest` / `RankingBuildResult`と
+`RankingBuildService`をbackend側へ追加し、cache再利用、銘柄DB preflight、MarketData build、結果publishの
+順序をStreamlit非依存serviceへ移した。`ui.app._execute_market_data_ranking_job`は互換façadeとして残す。
+次はMarketData builder adapterとranking job起動controllerを`ui.app`から分離する。
 
 ### R2: Cockpit application flowを分離
 

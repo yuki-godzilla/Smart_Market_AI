@@ -115,6 +115,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     tablet_media = "@media (min-width: 768px) and (max-width: 1200px) {"
     assert tablet_media in SMAI_GLOBAL_CSS
     assert (
+        '.smai-page-title--copilot[data-mascot="cockpit"] {\n'
+        "        grid-template-columns: minmax(0, 1fr);"
+    ) in SMAI_GLOBAL_CSS
+    assert (
         ".investment-stock-heatmap-board {\n"
         "        grid-template-columns: repeat(2, minmax(0, 1fr));"
     ) in SMAI_GLOBAL_CSS

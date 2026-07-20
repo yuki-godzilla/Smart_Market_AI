@@ -156,6 +156,7 @@ from ui.cockpit_filter_policy import (
     cockpit_filter_has_active_conditions_from_values,
     cockpit_filtered_symbol_rows_from_values,
     cockpit_keyword_filtered_symbol_rows,
+    cockpit_numeric_filter_differs_from_default,
     cockpit_symbol_search_rank,
 )
 from ui.components.assistant import (
@@ -185,6 +186,7 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_WATCHLIST,
     SIDEMENU_STATE_KEY,
     render_sidemenu,
+    render_sidemenu_scroll_reset,
 )
 from ui.content.common_texts import (
     DECISION_REPORT_DOWNLOAD_GUIDE,
@@ -1881,6 +1883,7 @@ def main() -> None:
             page_key=selected_page,
             page_label=SIDEMENU_PAGE_LABELS.get(selected_page, "SMAI"),
         )
+    render_sidemenu_scroll_reset(selected_page)
     selected_symbol = (
         _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
     )
@@ -3821,8 +3824,8 @@ def _render_metric_range_filter(
     disabled: bool = False,
     compact: bool = False,
 ) -> tuple[bool, float, float]:
-    min_input_value = _coerce_number_input_state(min_key, min_default)
-    max_input_value = _coerce_number_input_state(max_key, max_default)
+    _coerce_number_input_state(min_key, min_default)
+    _coerce_number_input_state(max_key, max_default)
     if compact:
         enabled = st.checkbox(
             label,
@@ -3839,7 +3842,6 @@ def _render_metric_range_filter(
                     "下限",
                     min_value=min_value,
                     max_value=max_value,
-                    value=min_input_value,
                     step=step,
                     key=min_key,
                     disabled=disabled or not enabled,
@@ -3852,7 +3854,6 @@ def _render_metric_range_filter(
                     "上限",
                     min_value=min_value,
                     max_value=max_value,
-                    value=max_input_value,
                     step=step,
                     key=max_key,
                     disabled=disabled or not enabled,
@@ -3876,7 +3877,6 @@ def _render_metric_range_filter(
                 "下限",
                 min_value=min_value,
                 max_value=max_value,
-                value=min_input_value,
                 step=step,
                 key=min_key,
                 disabled=disabled or not enabled,
@@ -3889,7 +3889,6 @@ def _render_metric_range_filter(
                 "上限",
                 min_value=min_value,
                 max_value=max_value,
-                value=max_input_value,
                 step=step,
                 key=max_key,
                 disabled=disabled or not enabled,
@@ -7037,8 +7036,9 @@ def _cockpit_filter_detail_chips_v2(
     if "benchmark_index" in detail_filters and index_family != "all":
         index_label = RANKING_INDEX_FAMILY_LABELS.get(index_family, index_family)
         chips.append(f"指数: {index_label}")
-    if "expense_ratio" in detail_filters and max_expense_ratio_pct != str(
-        MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"]
+    if "expense_ratio" in detail_filters and cockpit_numeric_filter_differs_from_default(
+        max_expense_ratio_pct,
+        MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"],
     ):
         chips.append(f"信託報酬 {_compact_filter_number(max_expense_ratio_pct)}%以下")
     if "complexity" in detail_filters and complexity != str(
@@ -7507,7 +7507,6 @@ def _render_cockpit_symbol_filter_detail_fields_v2(
                 "信託報酬/経費率(%)以下",
                 min_value=0.0,
                 max_value=2.0,
-                value=max_expense_ratio_pct,
                 step=0.01,
                 format="%.2f",
                 key="market_data_cockpit_max_expense",
@@ -8121,6 +8120,11 @@ def _render_market_data_cockpit() -> None:
         progress_bar: Any | None = None
         progress_status: Any | None = None
 
+        def clear_cockpit_progress() -> None:
+            for element in (progress_status, progress_bar, loading_slot):
+                if element is not None:
+                    element.empty()
+
         def update_cockpit_progress(message: str, ratio: float) -> None:
             loading_slot.markdown(
                 workflow_loading_html(
@@ -8158,11 +8162,11 @@ def _render_market_data_cockpit() -> None:
             st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = preview.forecast_horizon_days
             update_cockpit_progress("予測モデル、スコア、チャート材料を整理しています。", 0.86)
         except ValueError as exc:
-            loading_slot.empty()
+            clear_cockpit_progress()
             st.error(str(exc))
             return
         except Exception as exc:  # noqa: BLE001
-            loading_slot.empty()
+            clear_cockpit_progress()
             st.error(str(exc))
             return
 
@@ -8174,7 +8178,7 @@ def _render_market_data_cockpit() -> None:
             st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"
             _request_cockpit_symbol_db_preflight_background(symbol)
             update_cockpit_progress("データ取得が完了しました。", 1.0)
-        loading_slot.empty()
+        clear_cockpit_progress()
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:

@@ -46,6 +46,15 @@ def _truthy_filter_value(value: object) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def cockpit_numeric_filter_differs_from_default(value: object, default: object) -> bool:
+    """Compare numeric filter values without treating formatting as a user change."""
+
+    try:
+        return Decimal(str(value).strip()) != Decimal(str(default).strip())
+    except Exception:  # noqa: BLE001
+        return str(value).strip() != str(default).strip()
+
+
 def cockpit_detail_filters_for_category(region: str, product_type: str) -> frozenset[str]:
     return frozenset(ranking_detail_filters_for_category(region, product_type))
 
@@ -83,7 +92,10 @@ def cockpit_filter_has_active_conditions_from_values(
             return True
     if "expense_ratio" in detail_filters:
         default = str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"])
-        if str(values.get("market_data_cockpit_max_expense", default)).strip() != default:
+        if cockpit_numeric_filter_differs_from_default(
+            values.get("market_data_cockpit_max_expense", default),
+            default,
+        ):
             return True
     metric_enabled_keys: list[str] = []
     if "dividend_yield" in detail_filters:

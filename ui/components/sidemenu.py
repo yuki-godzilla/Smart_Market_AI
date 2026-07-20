@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from ui.components.mascot import render_mascot_panel
 
@@ -28,6 +29,40 @@ SIDEMENU_PAGE_LABELS: dict[SideMenuPage, str] = {
     SIDEMENU_PAGE_SETTINGS: "設定 / データ情報",
 }
 SIDEMENU_STATE_KEY = "sidemenu_page"
+SIDEMENU_RENDERED_PAGE_STATE_KEY = "_smai_sidemenu_rendered_page"
+
+
+def sidemenu_scroll_to_top_html() -> str:
+    """Return the small bridge used to reset Streamlit's main scroll container."""
+
+    return """
+<script>
+(() => {
+  const resetMainScroll = () => {
+    const main = window.parent.document.querySelector("section.stAppViewMain");
+    if (main) {
+      main.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  };
+  window.parent.requestAnimationFrame(() => {
+    resetMainScroll();
+    window.parent.requestAnimationFrame(resetMainScroll);
+  });
+  window.parent.setTimeout(resetMainScroll, 120);
+  window.parent.setTimeout(resetMainScroll, 320);
+})();
+</script>
+""".strip()
+
+
+def render_sidemenu_scroll_reset(selected_page: SideMenuPage) -> None:
+    """Reset the main viewport after the newly selected page finishes rendering."""
+
+    previous_page = st.session_state.get(SIDEMENU_RENDERED_PAGE_STATE_KEY)
+    st.session_state[SIDEMENU_RENDERED_PAGE_STATE_KEY] = selected_page
+    if previous_page is None or previous_page == selected_page:
+        return
+    components.html(sidemenu_scroll_to_top_html(), height=0, width=0)
 
 
 def _current_sidemenu_page() -> SideMenuPage:

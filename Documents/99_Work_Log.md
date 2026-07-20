@@ -4978,3 +4978,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `SMAI_Projects\Smart_Market_AI` は実体 `workspace\Smart_Market_AI` への Junction であり、既存Autostart／Watchタスクが実体パスを参照していても二重のワークスペースではないことを確認した。
 - Watch の `exit 1` はTailscale CLIのJSONをWindows既定CP932で復号した例外だった。CLI出力をUTF-8固定で読むようにし、Watcherを通常タスクで再起動して`Running`、8501正常、保守不要のログを確認した。
 - 8501の所有プロセスを権限上検証できない状態は、停止と誤認して復旧を試みない。`unknown`として記録し復旧を抑止するfail-closed分岐を追加した。通常のS4Uタスクでは所有プロセスを検証でき、正常ログを確認した。
+
+## 2026-07-20 全画面実起動・ユーザビリティ監査
+
+- 実Chromeと隔離Streamlitで、プロフィール選択、主要7画面、ランキング履歴、銘柄データ全タブ、詳細条件、ウォッチリストグループ、通知・ユーザー・アイコン設定、フローティングAssistantを確認した。YahooのCockpit取得、ランキング作成、ニュース更新、ウォッチリスト更新、LLM応答、リバランス計算も実行し、通常結果まで到達した。
+- 長い画面から別画面へ移動しても旧スクロール位置が残る問題を、画面描画完了後の共通先頭復帰へ変更した。重いランキング結果の遅延描画後も先頭に留まることを実ブラウザで確認した。
+- Cockpitの取得完了後に100%進捗が残る問題、数値入力stateと`value`併用によるStreamlit警告、既定値`2.00`を`2.0`へ正規化しただけで信託報酬条件が有効に見える問題を修正した。予測、スコア、ランキング計算は変更していない。
+- 375x812、810x1080、1080x810、1366x768で全7画面を確認した。iPad縦でサイドバー展開時にCockpit Assistantカードが右へ142px欠ける状態を縦積みへ変更し、全viewport・全画面でページ横はみ出し、Streamlit例外、破損画像が0であることを再確認した。
+- 外部通知は配送先が無効のため送信せず、ユーザー切替・セッション解放・データ削除など状態を失う操作は実行していない。起動中8501が複数の旧Forecast submoduleを保持したImportErrorは、部分reloadによるcontract混在を避け、管理者権限でfresh processへ切り替える必要があることを確認した。

@@ -8828,6 +8828,18 @@ div[data-testid="stDialog"] div[role="dialog"] {
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
+    /* Streamlit keeps the sidebar expanded on iPad portrait, leaving the
+       content pane narrower than the viewport media query suggests.  Stack
+       the Cockpit assistant card below the title so it cannot be clipped. */
+    .smai-page-title--copilot[data-mascot="cockpit"] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+
     div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
             div[data-testid="stForm"]
         ) {

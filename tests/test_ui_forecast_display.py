@@ -1778,7 +1778,7 @@ def test_cockpit_filter_summary_chips_include_active_detail_and_metric_labels():
     assert any(":" in label and "PER" not in label for label in labels[3:-1])
 
 
-def test_cockpit_filter_summary_chips_show_readable_etf_expense_condition():
+def test_cockpit_filter_summary_chips_ignore_equivalent_default_expense_format():
     values = {
         **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
         "market_data_cockpit_product_type": "etf",
@@ -1790,7 +1790,23 @@ def test_cockpit_filter_summary_chips_show_readable_etf_expense_condition():
         for chip in cockpit_filter_summary_chips_from_values(values, candidate_count=12)
     ]
 
-    assert "信託報酬 2%以下" in labels
+    assert "信託報酬 2%以下" not in labels
+    assert cockpit_filter_has_active_conditions_from_values(values)
+
+
+def test_cockpit_filter_summary_chips_show_readable_etf_expense_condition():
+    values = {
+        **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
+        "market_data_cockpit_product_type": "etf",
+        "market_data_cockpit_max_expense": "1.5",
+    }
+
+    labels = [
+        chip["label"]
+        for chip in cockpit_filter_summary_chips_from_values(values, candidate_count=12)
+    ]
+
+    assert "信託報酬 1.5%以下" in labels
 
 
 def test_cockpit_filter_summary_chips_html_escapes_labels():

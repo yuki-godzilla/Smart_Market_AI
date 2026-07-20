@@ -80,6 +80,22 @@ def test_dataset_loader_deduplicates_symbol_timestamp(tmp_path):
     assert len(result.cases[0].bars) == 80
 
 
+def test_dataset_loader_uses_metadata_as_the_explicit_symbol_boundary(tmp_path):
+    ohlcv = tmp_path / "ohlcv.csv"
+    metadata = tmp_path / "symbols.csv"
+    _write_metadata(metadata)
+    _write_ohlcv(ohlcv, {"AAPL": 80, "OUTSIDE": 80})
+
+    result = load_forecast_evaluation_dataset(
+        ohlcv,
+        metadata,
+        required_bar_count=80,
+    )
+
+    assert [row.symbol for row in result.coverage] == ["AAPL"]
+    assert [case.symbol for case in result.cases] == ["AAPL"]
+
+
 def test_dataset_loader_applies_historical_cutoff_before_eligibility_and_regime(tmp_path):
     ohlcv = tmp_path / "ohlcv.csv"
     metadata = tmp_path / "symbols.csv"

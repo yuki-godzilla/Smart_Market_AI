@@ -162,6 +162,8 @@ def _load_bars(
             raise ValueError("OHLCV CSV is missing required columns")
         for row in reader:
             raw_symbol = row["symbol"].strip()
+            if raw_symbol not in metadata:
+                continue
             ts = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
             if end_at is not None and ts > end_at:
                 continue

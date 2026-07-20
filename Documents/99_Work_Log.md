@@ -1,5 +1,16 @@
 # 99_Work_Log
 
+## 2026-07-20 Backend readiness gate
+
+- 必須FastAPI route、設定済みMarketData Provider、operation deadline、sealed Forecast DB / manifest / hash / maturity、
+  point-in-time材料archive、LLM材料risk signal storeを横断確認するtyped readiness contractとCLIを追加した。
+- `pass`、`pending`、`fail`を分離し、将来target・新規材料待ちだけなら`ready_with_pending_evidence`、
+  DB/hash破損やAPI欠落があれば`not_ready`とする。JSON / Markdownはatomic出力する。
+- 実データ監査はblocker 0、pending 2件、Frontend sprint ready=trueだった。sealed Forecastはprediction 360 / outcome 0、
+  材料archive 113件、signal 0件で、pendingは因果条件を維持した時間経過待ちである。
+- network-free contract / CLI回帰4件を追加し、全体回帰2432 passed / 16 skipped、Ruff、Black、Mypyを
+  通過した。warning 1件は既存Altair APIの非推奨通知である。
+
 ## 2026-07-20 Yahoo OHLCV partial batch recovery
 
 - 複数銘柄のYahoo OHLCV batchが空ではない一方、一部銘柄だけ欠ける場合に、その部分応答を完全成功として

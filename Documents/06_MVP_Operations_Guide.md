@@ -1330,6 +1330,20 @@ LLM risk signalと成熟済みForecast pointをshadow比較する場合:
 signalはvalid archive citationを必須とし、中心returnと方向returnを変更できない。confidence上限とrange拡張だけを
 proper interval scoreで評価し、成熟case 100件未満は`insufficient_evidence`となる。
 
+### Backend readiness gate
+
+Frontend usability test / 改善sprintへ移行する前に、必須API、MarketData、sealed Forecast、point-in-time材料、
+LLM材料signalをnetwork-freeで横断確認する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\audit_backend_readiness.py `
+  --sealed-audit-manifest-id fsa_20260720_new_calendar_v1 `
+  --output reports\backend_readiness
+```
+
+`ready_with_pending_evidence`はコードblocker 0で、将来targetまたは新規材料の蓄積待ちだけを表す。
+`not_ready`だけFrontend sprintを停止する。詳細は`Documents/45_Backend_Readiness_Gate.md`を参照する。
+
 advanced validation pointsへ旧`naive` / `moving_average_3` / `momentum_3`を同一originで追加比較する場合:
 
 ```powershell

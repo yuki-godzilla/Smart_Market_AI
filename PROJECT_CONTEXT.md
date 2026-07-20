@@ -197,6 +197,8 @@ Phase 36 now has a network-free evaluation foundation in `backend/llm_factor/mat
 
 Phase 36 also has an operational point-in-time material-risk cycle. The material archive and LLM risk signal store are immutable, hash-verified, file-locked, atomically replaced, and backed up after verification. `tools/run_llm_material_risk_cycle.py` joins each sealed Forecast origin only to symbol-matched material whose publication, availability, and first local archive times are all no later than the origin, validates Gateway output and citations, and writes confidence/range-only shadow signals. The initial run found no causally eligible material because the active origin was 2026-07-17 and archive collection began 2026-07-20, so it made zero Gateway calls. Runtime Forecast, Ranking, Cockpit, and scores remain unchanged pending matured evidence gates.
 
+The backend-to-frontend sprint gate is now executable through `tools/audit_backend_readiness.py`. It checks the required API routes, configured MarketData provider and whole-operation deadline, sealed Forecast integrity/maturity, and point-in-time material/signal integrity without network calls or runtime mutations. The 2026-07-20 local audit is `ready_with_pending_evidence`: zero blockers, 360 sealed predictions pending future targets, 113 valid material records, and zero causally eligible LLM risk signals. Pending evidence is not treated as missing code and does not block the frontend usability sprint; it cannot authorize runtime model adoption.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

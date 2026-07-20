@@ -1,5 +1,17 @@
 # 99_Work_Log
 
+## 2026-07-20 Forecast新暦期間sealed audit backend
+
+- `forecast-sealed-audit-v1`として、cohort / symbol / horizon / source revision / policy / gateを予測前に
+  固定するmanifest、現在時点のConsensusを保存するprediction、target成熟後だけ付与するoutcomeを追加した。
+- local SQLiteを追記専用で使い、canonical JSON SHA-256、foreign key、transaction、unique keyで改変と
+  上書きを検出する。古いorigin、policy不一致、target観測後capture、origin価格改訂、provider混在は
+  fail-closedとした。
+- `manage_forecast_sealed_audit.py`でinit / capture / mature / status / exportを提供し、成熟済みpointだけを
+  既存`ForecastValidationPoint` CSVへ変換する。通常Forecast、Cockpit、Ranking、Scoringは変更しない。
+- network-free全体回帰は2412 passed / 16 skipped、Ruff、Black（497ファイル）、変更3ファイルの
+  Mypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+
 ## 2026-07-20 Rolling Conformal予測レンジshadow
 
 - 60%想定rangeのcoverage不足に対し、中心return・方向returnをschema上変更できない

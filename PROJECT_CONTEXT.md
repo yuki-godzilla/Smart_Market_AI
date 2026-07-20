@@ -152,6 +152,16 @@ CLI, sealed-audit boundary, and fallback observability are retained, while runti
 Forecast, Cockpit, Ranking, and Scoring remain unchanged. See
 `Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`.
 
+The 2026-07-20 backend hardening slice adds `forecast-sealed-audit-v1` so later-calendar results
+can be collected rather than reconstructed retrospectively. A frozen manifest predeclares symbols,
+horizons, source revision, policy versions, and gates. Append-only SQLite rows then separate the
+current consensus prediction from its later matured outcome, verify canonical-payload SHA-256,
+reject overwrite / late capture / policy mismatch / revised origin prices, and label only the exact
+same-provider daily bar at the requested trading-bar offset. The CLI supports init, local snapshot
+capture, maturation, status, and export to the existing `ForecastValidationPoint` CSV. This is an
+evaluation backend only; no runtime Forecast, Cockpit, Ranking, Scoring, range, or confidence value
+changes. See `Documents/44_Forecast_Sealed_Audit_Backend.md`.
+
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,
 `backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,

@@ -330,6 +330,18 @@ proper interval scoreを1%以上改善した場合だけ適用する。正規化
 残し、runtime rangeへ接続しない。詳細は
 `Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`を参照する。
 
+### 4.8 新暦期間sealed audit backend
+
+historical replayと実際の将来監査を分離するため、`forecast-sealed-audit-v1`を追加した。予測保存前に
+symbol、horizon、policy version、source revision、採用gateをmanifestへ固定し、現在時点のConsensusと
+入力bar SHA-256をSQLiteへ追記する。outcomeは同一providerの日足がhorizon本進み、targetが記録時刻より後に
+観測された場合だけ付与する。古いoriginの後付け、既存snapshotの上書き、origin価格改訂、policy不一致、
+payload改変を拒否する。
+
+成熟済みpointは既存評価CSVへ変換できる。これにより4.5のmodel routerと4.7のrange候補を、後日の
+`new_sealed_audit`で同じcontractから比較できる。backend記録基盤の採用であり、runtime model / rangeの
+採用ではない。詳細は`Documents/44_Forecast_Sealed_Audit_Backend.md`を参照する。
+
 ## 5. LLM scoringの使い方
 
 SMAIにはすでに、source URL、published date、model、prompt version、source hash、cache metadataを

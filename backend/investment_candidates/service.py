@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Protocol
 
 from .contracts import RankingBuildRequest, RankingBuildResult, RankingRow
 
-
-class ProgressReporter(Protocol):
-    def __call__(self, message: str, ratio: float) -> None: ...
+ProgressReporter = Callable[[str, float], None]
 
 
 class RankingBuildCacheReader(Protocol):

@@ -2644,7 +2644,8 @@ Markdown UTF-8 check:
 - 大規模リファクタリングR0〜R6を`Documents/46_Large_Scale_Refactoring_Plan.md`に従って段階実施する。
   構造変更と金融数値変更を分離し、最初にbackend-to-UI境界、次にRanking / Cockpit orchestration、
   Research、UI view / CSS、package cycleの順で整理する。Rankingはtyped build contractと
-  Streamlit非依存serviceまで完了し、次はMarketData builder adapterとjob起動controllerを分離する
+  Streamlit非依存service、preflight / MarketData adapter、typed job起動controllerまで完了した。
+  次は実MarketData build pipelineと完了jobのsession state採用処理を分離する
 
 - `SMAI LLM Factor` の validation report 結果を、実 LLM/Gateway 接続後の再検証や optional integration 判断にどう使うか
 - `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか

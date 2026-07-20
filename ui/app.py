@@ -58,7 +58,6 @@ from backend.interpretation import (
     build_cockpit_interpretation_from_settings,
 )
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
-from backend.investment_candidates.service import RankingBuildService
 from backend.llm_factor import (
     LLM_FACTOR_FAKE_MODEL_NAME,
     EvidenceSource,
@@ -347,6 +346,7 @@ from ui.ranking import (
     symbol_universe_filter_value_counts,
     symbol_universe_rows,
 )
+from ui.ranking_application import execute_ranking_build_request, start_ranking_build_job
 from ui.ranking_filter_chips import (
     applied_exploration_filters,
     apply_ranking_applied_exploration_filters,
@@ -8591,16 +8591,16 @@ def _render_market_data_ranking() -> None:
             return
         cache_key = current_ranking_source
         _touch_ranking_client_session(force=True)
-        start_ranking_job(
-            cache_key,
-            lambda progress: _execute_market_data_ranking_job(
+        start_ranking_build_job(
+            RankingBuildRequest(
                 cache_key=cache_key,
-                ranking_symbols=list(ranking_symbols),
+                symbols=tuple(ranking_symbols),
                 start=start_date,
                 end=end_date,
                 provider=provider,
-                progress_callback=progress,
             ),
+            start_job=start_ranking_job,
+            execute_request=_execute_market_data_ranking_request,
         )
         st.rerun()
 
@@ -10182,37 +10182,26 @@ def _execute_market_data_ranking_job(
         end=end,
         provider=provider,
     )
+    return _execute_market_data_ranking_request(request, progress_callback).as_legacy_tuple()
 
-    def preflight(build_request: RankingBuildRequest) -> None:
-        symbols = list(build_request.symbols)
-        _run_symbol_database_preflight_refresh(
-            ranking_symbol_db_preflight_symbols(symbols),
-            context="ranking",
-            max_items=ranking_symbol_db_preflight_limit(len(symbols)),
-            update_session_state=False,
-        )
 
-    async def build_market_data(
-        build_request: RankingBuildRequest,
-        report_progress: BackgroundRankingProgressCallback,
-    ) -> RankingBuildResult:
-        rows, error_rows = await _build_market_data_ranking_rows(
-            list(build_request.symbols),
-            start=build_request.start,
-            end=build_request.end,
-            provider=build_request.provider,
-            progress_callback=report_progress,
-        )
-        return RankingBuildResult(rows=rows, error_rows=error_rows)
+def _execute_market_data_ranking_request(
+    request: RankingBuildRequest,
+    progress_callback: BackgroundRankingProgressCallback,
+) -> RankingBuildResult:
+    """Wire Ranking adapters without exposing Streamlit state to the worker."""
 
-    service = RankingBuildService(
+    return execute_ranking_build_request(
+        request,
+        progress_callback,
         read_cache=get_cached_ranking_build,
         write_cache=set_cached_ranking_build,
-        preflight=preflight,
-        build_market_data=build_market_data,
+        resolve_preflight_symbols=ranking_symbol_db_preflight_symbols,
+        resolve_preflight_limit=ranking_symbol_db_preflight_limit,
+        run_preflight=_run_symbol_database_preflight_refresh,
+        build_market_data=_build_market_data_ranking_rows,
         maintenance_operation=maintenance_operation,
     )
-    return service.execute(request, progress_callback).as_legacy_tuple()
 
 
 @st.fragment(run_every=2)

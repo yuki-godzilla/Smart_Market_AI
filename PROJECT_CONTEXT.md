@@ -220,8 +220,11 @@ The next Ranking application slice adds typed `RankingBuildRequest` / `RankingBu
 contracts and a Streamlit-independent `RankingBuildService`. Cache reuse, symbol-database
 preflight, guarded MarketData execution, and result publication now have one backend-owned
 execution order; the existing `ui.app` worker remains a compatibility façade. Ranking formulas,
-rows, order, provider behavior, and cache semantics are unchanged. The next R1 slice extracts the
-MarketData builder adapter and ranking-job launch controller from `ui/app.py`.
+rows, order, provider behavior, and cache semantics are unchanged. A subsequent R1 slice adds
+explicit preflight and MarketData builder adapters plus a typed ranking-job launch controller in
+`ui/ranking_application.py`; the runtime path now uses that controller while the legacy worker name
+remains available. The next R1 slice extracts the actual MarketData fetch / feature / score build
+pipeline and completed-job session adoption from `ui/app.py`.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

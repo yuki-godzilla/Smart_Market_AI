@@ -4992,3 +4992,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `RankingBuildRequest` / `RankingBuildResult`とStreamlit非依存の`RankingBuildService`を追加し、完成済みcacheの再利用、銘柄DB preflight、保守guard下のMarketData build、完成結果のcache publishをbackend側の一つの実行順へ移した。
 - `ui.app._execute_market_data_ranking_job`は既存worker / testとの互換façadeとして残し、UI側ではProvider、MarketData builder、cache adapterを注入する。ランキング数値、score、並び順、対象銘柄、Provider挙動、保存形式は変更していない。
 - cache hit、fresh build、preflightとMarketDataのguard順、失敗結果をpublishしない境界をnetwork-free testで固定した。対象回帰405件と全体2444件、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。
+
+## 2026-07-20 Ranking application flow R1 adapter・job controller分離
+
+- `ui/ranking_application.py`へ銘柄DB preflight adapter、既存MarketData builder adapter、typed requestをprocess-wide jobへ渡す起動controllerを追加した。ランキング作成ボタンのruntime経路は個別引数とlambdaではなく`RankingBuildRequest`を終端workerまで保持する。
+- `ui.app._execute_market_data_ranking_job`は互換façadeとして維持し、既存callerとbackground job contractを変更していない。ランキング数値、score、並び順、対象銘柄、Provider、cache、session保存の意味は変更していない。
+- adapter引数、preflight条件、job request伝播をnetwork-free testで固定し、対象回帰407件、Ruff、Black、Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。

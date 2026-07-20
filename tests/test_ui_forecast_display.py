@@ -6439,7 +6439,7 @@ def test_ranking_render_starts_session_independent_background_job():
     facade_source = inspect.getsource(app_module._execute_market_data_ranking_job)
     worker_source = inspect.getsource(RankingBuildService.execute)
 
-    assert "start_ranking_job(" in render_source
+    assert "start_ranking_build_job(" in render_source
     assert "asyncio.run(" not in render_source
     assert "asyncio.run(" in worker_source
     assert "st.session_state" not in facade_source

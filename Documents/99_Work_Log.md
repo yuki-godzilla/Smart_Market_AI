@@ -19,6 +19,9 @@
 - `ui/app.py`から、副作用のないランキング基準説明、上向き兆候点数表、条件summary HTML約200行を
   `ui/ranking_policy_presenter.py`へ分離した。同名importで既存UI test contractを維持し、
   `tests/test_ui_forecast_display.py` 395件を通過した。
+- Cockpitのfilter defaults、active判定、universe絞り込み、keyword / alias / sector / theme検索順位を
+  Streamlit非依存の`ui/cockpit_filter_policy.py`へ分離した。session state wrapperと描画は`ui.app`に残し、
+  同じUI回帰395件を通過した。2つのUI抽出で`ui/app.py`は23,468行から23,069行になった。
 - 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
   `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
 

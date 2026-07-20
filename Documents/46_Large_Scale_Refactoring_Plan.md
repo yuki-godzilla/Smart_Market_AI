@@ -106,6 +106,10 @@ import contractを維持する。次はjob request / result contractとMarketDat
 - symbol/date/provider選択、取得、Forecast実行、表示model生成を分ける。
 - `page`、`controller`、`presenter`を分離し、rerun時state contractを固定する。
 
+進捗: 最初にfilter defaults、active-condition判定、universe絞り込み、keyword / alias / sector /
+theme検索順位を`ui/cockpit_filter_policy.py`へ分離した。新moduleはStreamlit stateを参照せず、
+`ui.app`にはsession stateの読書きと描画を残した。
+
 ### R3: Research serviceをuse case別に分割
 
 - company profile、product/service、financial summary、evidence、external fetchを分ける。

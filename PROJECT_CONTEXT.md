@@ -216,6 +216,10 @@ The first `ui.app` split moves pure Ranking policy guidance, reversal-score tabl
 summary HTML to `ui/ranking_policy_presenter.py`. Existing app-level names remain imported for
 compatibility; Streamlit state, Ranking formulas, ordering, and display text are unchanged.
 
+The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
+keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,
+writes, and rendering remain at the UI edge, and existing app-level imports stay compatible.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

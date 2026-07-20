@@ -1673,7 +1673,7 @@ Phase 22 完了条件:
 
 ### 5.11 🟩 Phase 23: Optional Adapter と高度分析
 
-状態: 🟩 **完了**。Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合、Cockpit chart / card polish、Ranking / Decision Report wording closeout まで接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では `AI予測インサイト` と高度予測モデルを取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking では `AI予測インサイト` から派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合` では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。Ranking の理由表示、深掘り候補、score detail、Cockpit / Ranking Decision Report は `AI予測インサイト` が方向シグナルへどう効いたかを同じ文脈で説明する。
+状態: 🟩 **完了**。Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合、Cockpit chart / card polish、Ranking / Decision Report wording closeout まで接続済み。Cockpit / API は固定上限のない正の共通horizonに対応し、Cockpitでは`AI予測インサイト`と高度予測モデルを取得実barから自動計算した同じ予測日数で比較する。Rankingは指定取得期間から共通horizonを計算する。Rankingでは`AI予測インサイト`から派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合`では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。Rankingの理由表示、深掘り候補、score detail、Cockpit / Ranking Decision Reportは`AI予測インサイト`が方向シグナルへどう効いたかを同じ文脈で説明する。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1707,7 +1707,7 @@ Phase 22 完了条件:
 - default model は `Ridge`、optional model は `ElasticNet` とする。現行 backend first slice は sklearn 非依存の deterministic Ridge 互換実装を使い、ElasticNet は adapter contract 予約として warning 付きで扱う。
 - 追加依存は最小にする。現行 slice は既存依存の `numpy` のみを使い、scikit-learn は追加していない。
 - 価格そのものではなく forward return を予測する。
-- 対応 horizon は Cockpit / API では `1`〜`60` trading days とし、取得期間から決まる通常予測 horizon と同じ予測日数で高度予測を表示する。
+- 対応horizonは正のtrading daysとし固定上限を置かない。省略時は取得期間・実bar・coverageから自動計算し、通常予測と高度予測を同じ予測日数で表示する。
 - `future_return_h = close[t+h] / close[t] - 1` を target とする。`h` は request / Cockpit の共通 horizon。
 - target 作成後、未来値がない末尾行は学習対象から除外する。target 列、日付、銘柄名、未来由来の列は feature に混ぜない。
 - FeatureBuilder / ranking feature / DailySnapshot など既存生成済み特徴量を優先し、存在しない特徴量を無理に新規実装しない。
@@ -1793,7 +1793,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、1〜60日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_quantile`を指定でき、固定上限のない正のhorizonの中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
 - Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認でき、チャート上では薄い帯で下振れ〜上振れの参考幅と右側の予測拡大図を確認できる。
 - adapter registry により、今後の tree / GBDT adapter 追加時の接続箇所が限定される。
 - 通常 tests は network / cloud API / live provider に依存しない。
@@ -1818,7 +1818,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_tree_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量重要度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_tree_sklearn`を指定でき、固定上限のない正のhorizonの予測変化率、予測価格、検証指標、信頼度、特徴量重要度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ツリーモデル` として確認できる。
 - Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持する。後続 closeout 前はランキング順位を変更しない。
 - 通常 tests は network / cloud API に依存しない。
@@ -1842,7 +1842,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_gbdt_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量感度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_gbdt_sklearn`を指定でき、固定上限のない正のhorizonの予測変化率、予測価格、検証指標、信頼度、特徴量感度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ブースティングモデル` として確認できる。
 - Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持する。後続 closeout 前はランキング順位を変更しない。
 - 通常 tests は network / cloud API に依存しない。
@@ -1909,8 +1909,8 @@ Ranking logic finalization 方針:
 - 高度予測モデルの出力は、銘柄コックピットとランキングで既存 Forecast / direction signal と読み分けられる。
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
-- 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter / advanced forecast consensus は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは共通 horizon の `AI予測インサイト` を価格・予測チャートの主役にし、初期表示は実績価格、統合予測線、予測レンジ帯、右側の `予測スコープ`、結論カードに絞る。カードは中心予測（高度予測モデルの統合結果）を結論直下に主表示し、下振れ予測 / 上振れ予測、予測価格、予測レンジ、モデル合意度、予測ばらつき、信頼度理由、注意点、予測期間を出す。個別高度モデルカードは常時表示し、検証指標と単純予測 baseline 比較は折りたたみ配下で確認する。高度予測モデル / 単純予測モデル線はグループチェックでチャートに追加でき、表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。初期チャートと主要モデルカードから naive / moving-average / momentum は外し、単純予測は詳細確認用の baseline として残す。Ranking では取得期間から決まる同じ horizon の高度予測 consensus を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。`AI予測インサイト` から派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
+- 固定上限のない正のtrading-day forward return予測、walk-forward validation、validation metrics、confidence、feature contribution summaryが返る。
+- backend adapter / advanced forecast consensusは実装済み。`POST /forecast/evaluate`では4adapter指定時に固定上限のない正のhorizonの高度予測を返し、省略時は取得barから自動計算する。Streamlit銘柄コックピットでは共通horizonの`AI予測インサイト`を価格・予測チャートの主役にし、初期表示は実績価格、統合予測線、予測レンジ帯、右側の`予測スコープ`、結論カードに絞る。カードは中心予測（高度予測モデルの統合結果）を結論直下に主表示し、下振れ予測 / 上振れ予測、予測価格、予測レンジ、モデル合意度、予測ばらつき、信頼度理由、注意点、予測期間を出す。個別高度モデルカードは常時表示し、検証指標と単純予測baseline比較は折りたたみ配下で確認する。高度予測モデル / 単純予測モデル線はグループチェックでチャートに追加でき、表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。初期チャートと主要モデルカードからnaive / moving-average / momentumは外し、単純予測は詳細確認用のbaselineとして残す。Rankingでは取得期間から決まる同じhorizonの高度予測consensusを補助列として保持し、表示テーブル / 選択候補breakdown / score detail / CSV exportで確認できる。`AI予測インサイト`から派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
 - Phase 23 closeout では、単純予測モデルが Cockpit の通常チャート初期表示から外れ、高度予測モデル群 / `forecast_consensus` / 信頼度 / レンジ / 検証指標が主表示になっている。Ranking 主要評価への反映は、上昇気配 / 下降警戒の小さなブレンドとAI総合に組み込み済み。Ranking UI には `今回のランキング条件` カードを追加し、評価方針、短い説明、主な観点、共通予測日数、AI総合の重みグループ、下降警戒系は低いほど良いこと、AI予測は順位を直接支配しないことを明示する。2026-06-18 に `AI総合` 重みを 30/30/25/10/5 へ調整し、表示名 `安定成長` と主要方針の重み差を反映済み。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
@@ -2662,6 +2662,13 @@ Markdown UTF-8 check:
 `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile`、forecast consensusをwalk-forwardで評価し、horizon、market、asset type、regime別のRMSE、MAE、direction accuracy、calibration、model disagreement、上向き兆候への寄与を確認する。consensus weightingとconfidence低下ルールを決め、新規モデルの必要性を判断する。
 
 進捗: 明示live取得した23銘柄・28,529 daily barsで20/60営業日のrolling-origin評価を完了。linear外挿clip v1によりconsensus RMSEは20日24.0%、60日48.4%改善し、方向一致率を維持したため採用。consensus weight候補は1% gate未達または悪化で保留。20日GBDT / quantile parameter候補はaggregate gate通過だがgroup安定性未確認のためshadowに留める。通常Ranking weight、他adapter既定parameter、API/UIは変更しない。
+
+2026-07-20追加: runtimeの予測期間は固定20日 / 60日と60日上限を外し、取得期間の平日数または
+取得後の実bar数、coverage、約12個の非重複target窓から決定する。Cockpitは実bar、Rankingは
+比較可能性を守る共通指定期間を使う。高度予測adapterとAPIは正のhorizonを固定上限なしで受理し、
+60日超は従来監査外warningを表示する。これは予測期間contractの変更であり、監査不通過modelの
+runtime採用ではない。次の評価は20 / 60固定だけでなく、自動選択horizon帯と`effective_points / horizon`
+別にpurged walk-forward、方向、range coverage、subgroupを監査する。
 
 成果物:
 

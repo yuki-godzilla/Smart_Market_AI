@@ -48,7 +48,7 @@ from backend.core.data_contracts import (
     Quote,
 )
 from backend.core.errors import AppError, DataSourceError, ProviderTimeoutError
-from backend.forecast import forecast_model_display_name
+from backend.forecast import determine_forecast_horizon, forecast_model_display_name
 from backend.forecast.batch import evaluate_advanced_forecasts_for_symbol
 from backend.interpretation import (
     CockpitInterpretationResult,
@@ -2531,12 +2531,9 @@ def _days_in_month(year: int, month: int) -> int:
 
 
 def default_forecast_horizon_days(start: date, end: date) -> int:
-    """Choose a compact forecast horizon from the displayed chart period."""
+    """Choose a stable trading-day horizon without a fixed upper ceiling."""
 
-    if end < start:
-        raise ValueError("End must be on or after Start")
-    display_days = (end - start).days + 1
-    return max(1, min(60, (display_days + 6) // 12))
+    return determine_forecast_horizon(start=start, end=end).horizon_days
 
 
 def _provider_option_index(provider: str) -> int:
@@ -8544,11 +8541,9 @@ def _render_market_data_cockpit() -> None:
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)
-            forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
-            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = forecast_horizon_days
             progress_bar = st.progress(0.0)
             progress_status = st.empty()
-            update_cockpit_progress("入力条件と予測日数を確認しています。", 0.12)
+            update_cockpit_progress("入力条件と自動予測期間を確認しています。", 0.12)
             update_cockpit_progress("価格データと予測材料を取得しています。", 0.32)
             preview = asyncio.run(
                 build_market_data_preview(
@@ -8556,9 +8551,10 @@ def _render_market_data_cockpit() -> None:
                     start=start_date,
                     end=end_date,
                     provider_override=provider,
-                    forecast_horizon_days=forecast_horizon_days,
+                    forecast_horizon_days=None,
                 )
             )
+            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = preview.forecast_horizon_days
             update_cockpit_progress("予測モデル、スコア、チャート材料を整理しています。", 0.86)
         except ValueError as exc:
             loading_slot.empty()
@@ -17639,9 +17635,16 @@ def _render_market_data_cockpit_header(
     preview: MarketDataPreview,
     symbol_label: str,
 ) -> int:
-    _ = preview
     _ = symbol_label
-    return int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 7))
+    horizon_days = int(getattr(preview, "forecast_horizon_days", 0) or 0)
+    if horizon_days < 1:
+        horizon_days = determine_forecast_horizon(
+            start=preview.bars[0].ts.date(),
+            end=preview.bars[-1].ts.date(),
+            bars=preview.bars,
+        ).horizon_days
+    st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = horizon_days
+    return horizon_days
 
 
 def _render_price_forecast_hero(
@@ -17656,16 +17659,13 @@ def _render_price_forecast_hero(
     forecast_horizon_days: int,
 ) -> None:
     st.subheader("02 価格・AI予測")
-    st.caption(f"予測期間: {forecast_horizon_days}日")
-    with st.expander("予測設定を変更", expanded=False):
-        st.number_input(
-            "予測日数",
-            min_value=1,
-            max_value=60,
-            step=1,
-            key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-            help="取得済みデータを使ってチャートと指標だけを再計算します。",
-        )
+    horizon_summary = str(getattr(preview, "forecast_horizon_summary", "") or "").strip()
+    st.caption(
+        f"予測期間: {forecast_horizon_days}営業日相当（取得履歴から自動計算）"
+        + (f" / {horizon_summary}" if horizon_summary else "")
+    )
+    for warning in getattr(preview, "forecast_horizon_warnings", []):
+        st.warning(str(warning))
     chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)

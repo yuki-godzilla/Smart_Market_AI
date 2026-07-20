@@ -31,6 +31,7 @@ from backend.forecast import (
     ForecastModel,
     advanced_forecast_adapter_specs,
     available_forecast_models,
+    determine_forecast_horizon,
     evaluate_advanced_forecast,
     evaluate_models,
     summarize_advanced_forecast_evaluations,
@@ -632,6 +633,9 @@ class MarketDataPreview:
     error_rows: list[dict[str, str]]
     advanced_forecast_rows: list[dict[str, str]] = field(default_factory=list)
     advanced_forecast_consensus_rows: list[dict[str, str]] = field(default_factory=list)
+    forecast_horizon_days: int = 1
+    forecast_horizon_summary: str = ""
+    forecast_horizon_warnings: list[str] = field(default_factory=list)
 
 
 class RebalanceScenarioError(ValueError):
@@ -861,13 +865,22 @@ async def build_market_data_preview(
     start: date,
     end: date,
     provider_override: str | None = None,
-    forecast_horizon_days: int = 1,
+    forecast_horizon_days: int | None = None,
     fx_pair: str = "",
 ) -> MarketDataPreview:
     """Fetch a small market-data preview for the configured provider."""
 
-    if forecast_horizon_days < 1 or forecast_horizon_days > 60:
-        raise ValueError("forecast_horizon_days must be between 1 and 60")
+    if forecast_horizon_days is not None and forecast_horizon_days < 1:
+        raise ValueError("forecast_horizon_days must be at least 1")
+
+    period_horizon = determine_forecast_horizon(start=start, end=end)
+    resolved_horizon_days = forecast_horizon_days or period_horizon.horizon_days
+    horizon_summary = (
+        f"{forecast_horizon_days}営業日を明示指定"
+        if forecast_horizon_days is not None
+        else period_horizon.summary_ja
+    )
+    horizon_warnings = list(period_horizon.warnings) if forecast_horizon_days is None else []
 
     settings = get_settings()
     dataaccess_cfg = settings.dataaccess
@@ -901,6 +914,11 @@ async def build_market_data_preview(
         )
         feature_bars = _bars_with_display_symbol(provider_bars, display_symbol=symbol)
         bars = _bars_in_period(feature_bars, start=start_dt, end=end_dt)
+        if forecast_horizon_days is None:
+            observed_horizon = determine_forecast_horizon(start=start, end=end, bars=bars)
+            resolved_horizon_days = observed_horizon.horizon_days
+            horizon_summary = observed_horizon.summary_ja
+            horizon_warnings = list(observed_horizon.warnings)
         quotes = _quotes_from_latest_bars([symbol], feature_bars)
         fx_rates: list[Any] = []
         if _should_fetch_market_data_preview_fx(provider=provider):
@@ -952,7 +970,7 @@ async def build_market_data_preview(
         )
         forecast_evaluations = _available_forecast_evaluations(
             feature_bars,
-            horizon_days=forecast_horizon_days,
+            horizon_days=resolved_horizon_days,
         )
         forecast_consensus = summarize_forecast_evaluations_for_ui(
             forecast_evaluations,
@@ -965,7 +983,7 @@ async def build_market_data_preview(
         )
         advanced_forecast_results = advanced_forecast_results_for_bars(
             feature_bars,
-            horizon_days=forecast_horizon_days,
+            horizon_days=resolved_horizon_days,
         )
         advanced_forecast_rows = advanced_forecast_rows_for_results(
             advanced_forecast_results,
@@ -1018,7 +1036,7 @@ async def build_market_data_preview(
         price_chart_rows=price_chart_rows(bars),
         forecast_chart_rows=forecast_chart_rows(
             bars,
-            horizon_days=forecast_horizon_days,
+            horizon_days=resolved_horizon_days,
             advanced_forecast_rows=advanced_forecast_rows,
             advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
         ),
@@ -1038,6 +1056,9 @@ async def build_market_data_preview(
         error_rows=warning_rows,
         advanced_forecast_rows=advanced_forecast_rows,
         advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
+        forecast_horizon_days=resolved_horizon_days,
+        forecast_horizon_summary=horizon_summary,
+        forecast_horizon_warnings=horizon_warnings,
     )
 
 
@@ -1191,8 +1212,8 @@ def forecast_chart_rows(
 ) -> list[dict[str, str]]:
     """Return actual close and model forecast rows for chart display."""
 
-    if horizon_days < 1 or horizon_days > 60:
-        raise ValueError("horizon_days must be between 1 and 60")
+    if horizon_days < 1:
+        raise ValueError("horizon_days must be at least 1")
 
     sorted_bars = sorted(bars, key=lambda row: row.ts)
     if not sorted_bars:
@@ -1308,12 +1329,12 @@ def advanced_linear_forecast_results_for_bars(
 
 
 def _legacy_ranking_advanced_forecast_horizons(
-    supported_horizons: tuple[int, ...],
+    supported_horizons: range,
 ) -> tuple[int, ...]:
     """Return the historical multi-horizon default when a caller does not choose one."""
 
     legacy_horizons = tuple(horizon for horizon in (5, 20) if horizon in supported_horizons)
-    return legacy_horizons or supported_horizons
+    return legacy_horizons or (supported_horizons.start,)
 
 
 def advanced_forecast_rows_for_results(
@@ -1577,14 +1598,14 @@ def forecast_reference_period(
 ) -> int:
     """Return the automatically selected reference period for baseline models."""
 
-    if horizon_days < 1 or horizon_days > 60:
-        raise ValueError("horizon_days must be between 1 and 60")
+    if horizon_days < 1:
+        raise ValueError("horizon_days must be at least 1")
     bar_count = len(bars)
     if bar_count <= 3:
         return 3
     period_from_horizon = max(3, horizon_days * 2)
     period_cap = max(3, bar_count // 3)
-    return min(period_from_horizon, period_cap, 60, bar_count - 1)
+    return min(period_from_horizon, period_cap, bar_count - 1)
 
 
 def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:

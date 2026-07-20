@@ -1170,9 +1170,9 @@ def test_favorite_filter_and_sort_rows_applies_selected_controls(monkeypatch):
 
 def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
-    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
-    assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
-    assert default_forecast_horizon_days(date(2021, 5, 23), date(2026, 5, 23)) == 60
+    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 1
+    assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 20
+    assert default_forecast_horizon_days(date(2021, 5, 23), date(2026, 5, 23)) == 100
 
 
 def test_market_data_period_dates_support_decision_review_presets():
@@ -6857,7 +6857,7 @@ def test_ranking_period_dates_use_beginner_presets():
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
     assert ranking_period_dates("long_3y", end) == (date(2023, 5, 17), end)
     assert ranking_period_dates("long_5y", end) == (date(2021, 5, 17), end)
-    assert "標準は3か月" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "予測日数は取得期間から自動計算" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "1か月は直近反応" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "3年/5年は長期トレンド" in RANKING_FILTER_HELP_TEXTS["period"]
 
@@ -11017,7 +11017,7 @@ def test_price_forecast_hero_keeps_guidance_inside_cards(monkeypatch):
         forecast_horizon_days=31,
     )
 
-    assert caption_calls == ["予測期間: 31日"]
+    assert caption_calls == ["予測期間: 31営業日相当（取得履歴から自動計算）"]
     assert warning_calls == []
 
 

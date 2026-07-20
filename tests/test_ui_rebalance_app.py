@@ -419,6 +419,8 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     )
 
     assert preview.status == "OK"
+    assert preview.forecast_horizon_days == 1
+    assert "自動選択" in preview.forecast_horizon_summary
     assert preview.quote_rows[0]["symbol"] == "AAPL"
     assert preview.quote_rows[0]["last"] == "175"
     assert preview.ohlcv_rows == [

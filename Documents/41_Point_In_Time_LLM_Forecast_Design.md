@@ -30,6 +30,8 @@ synthetic/static fixtureを実精度の代用にしない。
 | [R&D-Agent-Quant](https://arxiv.org/html/2505.15155v2) | arXiv v2, 2025 | 仮説、実験、失敗、再試験をartifactとして残す研究loop | audit結果を見て同じauditへ自動再調整 |
 | [Are Language Models Actually Useful for Time Series Forecasting?](https://arxiv.org/html/2406.16964) | arXiv, 2024 | LLM部分を外すablationと単純baseline比較を必須化 | LLMが入っていること自体を追加価値とみなすこと |
 | [Conformal Prediction for Time Series with Change Points](https://arxiv.org/abs/2509.02844) | arXiv, 2025 | regime change時のcoverage低下を別途監視し、将来の区間校正候補とする | 非定常下でも固定幅の信頼区間を保証と表示 |
+| [Leakage-Controlled Horizon-Specific Model Selection for Daily Equity Forecasting](https://doi.org/10.3390/forecast8020034) | Forecasting, 2026-04-20 | horizon別設定、明示purge、pre-evaluation walk-forward、外部holdoutを分離する | 全期間へ単一model / lookbackを流用 |
+| [scikit-learn TimeSeriesSplit](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) | 公式仕様 | 等間隔sample、時系列順序、train末尾とtest間の`gap`をhorizon監査の最低条件とする | random K-foldで将来を過去学習へ混入 |
 
 論文は査読済み・preprint・版更新中のものが混在する。実装根拠は論文タイトルの新しさではなく、
 SMAIの因果境界、local-first、計算量、再現可能性に適合する部分に限定した。
@@ -149,25 +151,37 @@ targetは`actual_return - anchor_return`。HistGradientBoostingはlearning rate 
 - market / asset type / regime / periodで相対10%超かつ絶対RMSE 0.005超の劣化を禁止する。
 - 補正採用率50%以上を要求する。
 
-### 5.3 horizon別モデルルーター
+### 5.3 取得履歴連動horizon policy
 
-予測期間に応じた使い分けは採用候補とする。ただし、予測ごとに都合の良いmodelを選ぶ学習routerでは
-なく、developmentで決めた`horizon policy`を凍結して別期間・別symbolへ適用する決定論的routerとする。
+固定20日 / 60日の選択と60日上限をruntime既定から外し、取得期間と実際の観測品質から共通の
+予測期間を決める。これは「最も良く見えるhorizonを同じ結果で選ぶ」最適化ではなく、学習と
+purged walk-forward監査に残せる非重複target窓数を先に確保する決定論的policyである。
 
-| 役割 | 20日候補 | 60日候補 | 120日以上候補 |
-| --- | --- | --- | --- |
-| price center | `advanced_quantile` / `moving_average_3`寄りの保守blendをshadow継続 | `moving_average_3`中心をshadow継続 | 点予測を未採用。scenario / broad rangeを先に評価 |
-| direction | 現行advanced Consensus | 現行advanced Consensus。ただしconfidenceを20日と別校正 | 方向精度の別監査が揃うまで`unknown`を許容 |
-| uncertainty | `advanced_quantile` range | horizon別`advanced_quantile` range | conformal / regime-aware coverageを新規評価 |
-| LLM材料 | 短期eventのconfidence / adverse risk | 持続性・guidanceのconfidence / range | 数値価格ではなく構造変化・scenario材料 |
+```text
+coverage = min(1, observed_points / expected_points)
+effective_points = floor(observed_points * sqrt(coverage))
+raw_horizon = max(1, floor(effective_points / 12))
+horizon = raw_horizonを期間帯別stepで下方向へ丸める
+```
 
-選択指標も役割別にする。price centerはRMSE / MAE、directionはbalanced accuracy / Brier、rangeは
-coverage / width、Ranking用途はrank IC / Top-k liftを使い、1つの平均scoreへ混ぜない。20日で良い
-modelを60日へ自動流用せず、Source Memoryも`(source_family, event_type, horizon)`で分ける。
+- 日足株式は平日数、週末観測が継続するassetは暦日数をexpected pointsとする。
+- 同日重複を除外し、coverage低下は平方根で緩やかにeffective historyへ反映する。
+- 12個の非重複予測窓を目標とし、1年取得は約20営業日、5年は約100営業日、10年は約200営業日を
+  安定した目安とする。固定最大日数は置かない。
+- 1日単位の履歴増減でhorizonが毎回変わらないよう、長期ほど5 / 10 / 20 / 40 / 60日stepで
+  下方向に丸める。これは上限ではなく表示・cache・比較を安定させる離散化である。
+- 60日超は従来20 / 60日監査の外側と明示し、中心価格よりquantile range、coverage、scenarioを
+  優先する。正の明示horizonもAPIでは受理するが、履歴不足ならfail closedする。
+- Cockpitは取得後の実barで再計算する。Rankingは全銘柄を同じhorizonで比較するため、共通の指定
+  取得期間から計算し、銘柄ごとに都合のよいhorizonへ変えない。
 
-現時点では固定保守profile自体が過去年代のETF / downtrend subgroup gateに失敗しているため、
-このrouterもruntime未採用である。横断GBDTは20日・60日とも候補集合から外す。次の実装はpolicy
-contractとhorizon別evaluation reportまでに限定し、UI / Forecast値の切替は別監査後とする。
+モデル選択指標は引き続き役割別とする。price centerはRMSE / MAE、directionはbalanced accuracy /
+Brier、rangeはcoverage / width、Ranking用途はrank IC / Top-k liftを使う。横断GBDTは不採用のまま
+で、今回変更するのはhorizon contractと選択方法であり、不採用modelをruntime採用する変更ではない。
+
+このpolicy v1は統計的に評価可能な範囲を選ぶもので、将来精度の数学的な最適値を保証しない。
+今後はhorizon帯ごとのsealed auditで`effective_points / horizon`別の誤差・方向・range coverageを測定し、
+12窓という事前値をaudit結果へ後付けせず、別development / holdoutでのみ更新する。
 
 ## 6. 実測結果
 
@@ -225,6 +239,10 @@ prequential比較する。horizon満了後にしかmemoryを更新しない。
   - causal temporal fit / validation gate
   - GBDT residual correctionとfallback
   - overall / subgroup / selected-only adoption gate
+- `backend/forecast/horizon.py`
+  - 実観測数、日足cadence、coverage、非重複窓数からの自動horizon
+  - 固定60日上限なし、安定した下方向丸め、長期監査warning
+  - Cockpit実bar / Ranking共通期間 / API省略時の同一policy
 - `tools/evaluate_cross_sectional_residual_forecast.py`
   - symbol非重複監査runner
   - manifest、metrics、predictions、decisions、Markdown report
@@ -236,9 +254,9 @@ prequential比較する。horizon満了後にしかmemoryを更新しない。
 1. TDnet、EDINET、企業IR、ニュースの新規取得分からpoint-in-time archiveを開始する。
 2. `available_at`の根拠がない過去資料は過去精度検証から除外する。
 3. archiveにevent prediction、citation IDs、model、prompt version、source hashを保存する。
-4. 20日・60日target満了を待ってprequential Source Memory ablationを実行する。
+4. 自動選択されたhorizon帯ごとにtarget満了を待ってprequential Source Memory ablationを実行する。
 5. gate通過時だけ、上位候補のconfidence cap / quantile range拡幅をshadow接続する。
-6. price / direction / uncertainty / materialを分けたhorizon policy contractを評価専用で追加する。
+6. 取得履歴連動policyをsealed期間で監査し、price / direction / uncertainty / materialを分離評価する。
 7. 価格中心値は後日の新暦期間で固定anchorを再監査し、今回の横断GBDTは再調整しない。
 
 この順序では、最新研究を導入したことではなく、未来情報を使わず既存baselineより実際に良いことを

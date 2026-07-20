@@ -94,6 +94,13 @@ from backend.forecast.evaluation import (
     evaluated_consensus_prediction,
     write_forecast_evaluation_artifacts,
 )
+from backend.forecast.horizon import (
+    MIN_FORECAST_HORIZON_DAYS,
+    OPEN_ENDED_FORECAST_HORIZONS,
+    TARGET_INDEPENDENT_FORECAST_WINDOWS,
+    ForecastHorizonDecision,
+    determine_forecast_horizon,
+)
 from backend.forecast.regime_gated_ensemble import (
     REGIME_GATED_ENSEMBLE_MODEL_NAME,
     RegimeGatedForecastConsensus,
@@ -200,6 +207,7 @@ __all__ = [
     "ForecastDatasetLoadResult",
     "ForecastEvaluation",
     "ForecastEvaluationCase",
+    "ForecastHorizonDecision",
     "ForecastMetrics",
     "ForecastModelEvaluationReport",
     "ForecastModelEvaluationRow",
@@ -207,6 +215,9 @@ __all__ = [
     "ForecastValidationPoint",
     "ForecastWeightAdjustment",
     "HorizonConservativeCalibrationProfile",
+    "MIN_FORECAST_HORIZON_DAYS",
+    "OPEN_ENDED_FORECAST_HORIZONS",
+    "TARGET_INDEPENDENT_FORECAST_WINDOWS",
     "ForecastTuningResult",
     "ForecastModel",
     "ForecastModelSpec",
@@ -240,6 +251,7 @@ __all__ = [
     "advanced_forecast_adapter_specs",
     "advanced_forecast_supported_horizons",
     "default_forecast_models",
+    "determine_forecast_horizon",
     "evaluate_advanced_forecast",
     "evaluate_advanced_linear_forecast",
     "evaluate_adaptive_calibration_metrics",

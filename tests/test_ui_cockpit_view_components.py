@@ -130,7 +130,7 @@ def test_cockpit_research_and_forecast_labels_match_primary_flow():
     assert "st.columns" not in research_source
     assert "調査アクション" not in research_source
     assert "RESEARCH_NOT_FETCHED_MESSAGE" not in summary_source
-    assert '"予測日数"' in forecast_source
+    assert "取得履歴から自動計算" in forecast_source
     assert '"Forecast days"' not in forecast_source
 
 

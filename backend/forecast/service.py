@@ -296,6 +296,12 @@ def evaluate_advanced_forecast(
     forecast_close = latest_close * (Decimal("1") + result.predicted_return)
     predicted_return_lower = getattr(result, "predicted_return_lower", None)
     predicted_return_upper = getattr(result, "predicted_return_upper", None)
+    warnings = list(result.warnings)
+    if horizon_days > 60:
+        warnings.append(
+            "This horizon exceeds the former 60-day audit range; rely on uncertainty ranges "
+            "and horizon-specific validation rather than treating the center price as precise."
+        )
     return AdvancedForecastEvaluation(
         adapter_name=result.adapter_name,
         model_name=result.model_name,
@@ -320,7 +326,7 @@ def evaluate_advanced_forecast(
         confidence=result.confidence,
         validation_metrics=result.validation_metrics,
         feature_contribution_summary=result.feature_contribution_summary,
-        warnings=result.warnings,
+        warnings=warnings,
     )
 
 

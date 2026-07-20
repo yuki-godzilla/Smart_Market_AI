@@ -1,5 +1,19 @@
 # 99_Work_Log
 
+## 2026-07-20 取得履歴連動Forecast horizon・60日上限撤廃
+
+- 固定20日 / 60日選択をruntime既定から外し、指定期間の平日数または取得後の実bar数、同日重複、
+  coverageを使って予測期間を決定する`backend/forecast/horizon.py`を追加した。effective historyを
+  coverageの平方根で保守補正し、約12個の非重複target窓を残す期間を安定stepで下方向へ丸める。
+- 高度予測4adapter、Forecast API、Cockpit chart / metric、評価horizon contractの固定60日上限を撤廃した。
+  Cockpitは実barで再計算し、Rankingは比較可能性のため指定取得期間由来の共通horizonを使う。
+  60日超は従来監査外warningを残し、履歴不足は従来どおりfail closedする。
+- 2026年4月公開のhorizon-specific / leakage-controlled equity forecastingとscikit-learnの時系列gap仕様を
+  参照し、同じ結果から都合のよいhorizonを選ばず、期間決定とモデル性能監査を分離した。横断GBDTなど
+  不採用modelのruntime採用状態は変更していない。
+- GitHub Actionsは毎pushで待機せず、通常5作業単位ごと、merge / release / workflow変更 / 高リスク統合時に
+  まとめて確認する方針を`AGENTS.md`とOperations Guideへ追加した。targeted local checkは各作業単位で継続する。
+
 ## 2026-07-20 Point-in-Time LLM材料・銘柄横断残差評価
 
 - 2026年6月更新のPoint-in-Time Financial RAG、FinTSB v3、ACL 2026金融sentiment、軽量TSFM、LLM時系列ablation等を確認し、LLMへ数値価格を生成させず、価格経路と材料経路を分離する設計を`Documents/41_Point_In_Time_LLM_Forecast_Design.md`へ固定した。

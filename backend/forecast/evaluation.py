@@ -710,8 +710,8 @@ def _sign(value: Decimal) -> int:
 
 def _validated_horizons(horizons: tuple[int, ...]) -> tuple[int, ...]:
     normalized = tuple(dict.fromkeys(horizons))
-    if not normalized or any(horizon < 1 or horizon > 60 for horizon in normalized):
-        raise ValueError("horizons must contain values between 1 and 60")
+    if not normalized or any(horizon < 1 for horizon in normalized):
+        raise ValueError("horizons must contain positive values")
     return normalized
 
 

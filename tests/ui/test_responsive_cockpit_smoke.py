@@ -42,11 +42,7 @@ def _load_mock_cockpit_result(page) -> None:
     page.get_by_role("option", name="7203.T", exact=False).click()
     page.get_by_role("button", name="データを取得", exact=True).click()
     page.get_by_text("01 判断サマリー", exact=True).wait_for(state="visible", timeout=120_000)
-    page.get_by_text("予測設定を変更", exact=True).last.click()
-    page.get_by_label("予測日数").last.fill("1")
-    page.get_by_label("予測日数").last.press("Enter")
-    page.get_by_text("予測期間: 1日", exact=True).wait_for(state="visible", timeout=60_000)
-    page.get_by_text("予測設定を変更", exact=True).last.click()
+    page.get_by_text("取得履歴から自動計算", exact=False).wait_for(state="visible", timeout=60_000)
     page.get_by_text("05 確認レポート", exact=True).wait_for(state="visible", timeout=120_000)
 
 

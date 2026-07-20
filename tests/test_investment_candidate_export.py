@@ -11,6 +11,7 @@ from backend.investment_candidates.exporter import (
     RANKING_DEFINITIONS,
     export_investment_candidates,
 )
+from ui.ranking_export_policy import create_ranking_export_policy
 
 
 def _universe() -> list[dict[str, str]]:
@@ -81,6 +82,7 @@ def test_export_writes_bom_csv_combined_overlap_zip_and_retains_partial_failures
         output_root=tmp_path,
         universe_rows=_universe(),
         runner=_runner,
+        ranking_policy=create_ranking_export_policy(),
         top_n=1,
         fetch_limit=300,
         now=datetime(2026, 7, 17, 2, 0, tzinfo=UTC),
@@ -111,6 +113,7 @@ def test_export_can_evaluate_every_eligible_symbol_without_a_fetch_limit(tmp_pat
         output_root=tmp_path,
         universe_rows=_universe(),
         runner=runner,
+        ranking_policy=create_ranking_export_policy(),
         top_n=1,
         fetch_limit=None,
         now=datetime(2026, 7, 17, 2, 0, tzinfo=UTC),

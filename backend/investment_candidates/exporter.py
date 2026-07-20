@@ -21,13 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ui.ranking import (
-    RANKING_PRODUCT_STOCK,
-    apply_ranking_weight_preset,
-    filter_symbol_universe_rows,
-    ranking_period_dates,
-    ranking_weight_preset_for_purpose,
-)
+from .ports import RankingPolicyPort
 
 EXPORT_COLUMNS = (
     "ranking_id",
@@ -311,6 +305,7 @@ def export_investment_candidates(
     output_root: Path,
     universe_rows: list[dict[str, str]],
     runner: RankingRunner,
+    ranking_policy: RankingPolicyPort,
     top_n: int = 30,
     fetch_limit: int | None = 300,
     now: datetime | None = None,
@@ -333,16 +328,16 @@ def export_investment_candidates(
         eligible_candidates: list[dict[str, str]] = []
         symbols: list[str] = []
         try:
-            eligible_candidates = _candidates(definition, universe_rows)
+            eligible_candidates = _candidates(definition, universe_rows, ranking_policy)
             candidates = (
                 eligible_candidates if fetch_limit is None else eligible_candidates[:fetch_limit]
             )
             symbols = [row["symbol"] for row in candidates if row.get("symbol")]
-            start, end = ranking_period_dates(definition.period, current.date())
+            start, end = ranking_policy.period_dates(definition.period, current.date())
             raw_rows, errors = runner(symbols, start, end, "yahoo", lambda _message, _ratio: None)
-            preset = ranking_weight_preset_for_purpose(definition.purpose)
+            preset = ranking_policy.weight_preset_for_purpose(definition.purpose)
             symbol_map = {row.get("symbol", "").upper(): row for row in candidates}
-            ranked = apply_ranking_weight_preset(raw_rows, preset, symbol_map)[:top_n]
+            ranked = ranking_policy.rank_rows(raw_rows, preset, symbol_map)[:top_n]
             rows = [
                 _export_row(
                     definition, row, symbol_map.get(row.get("symbol", "").upper(), {}), current
@@ -404,11 +399,15 @@ def export_investment_candidates(
     return summary
 
 
-def _candidates(definition: RankingDefinition, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    filtered = filter_symbol_universe_rows(
+def _candidates(
+    definition: RankingDefinition,
+    rows: list[dict[str, str]],
+    ranking_policy: RankingPolicyPort,
+) -> list[dict[str, str]]:
+    filtered = ranking_policy.filter_rows(
         rows,
         region=definition.region,
-        product_type=RANKING_PRODUCT_STOCK,
+        product_type=ranking_policy.stock_product_type,
         nisa_eligibility="eligible",
         risk_band=definition.risk_band,
         dividend_yield_enabled=definition.dividend_range is not None,

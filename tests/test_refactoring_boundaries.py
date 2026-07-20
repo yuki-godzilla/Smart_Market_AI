@@ -1,3 +1,6 @@
+import ast
+from pathlib import Path
+
 from backend.research import ExternalResearchFetchService
 from backend.research.external_fetch_service import (
     ExternalResearchFetchService as DirectExternalResearchFetchService,
@@ -7,6 +10,25 @@ from ui.copilot_streaming import stream_chunks
 from ui.ranking_presenter import compact_confidence_summary, full_confirmation_note
 from ui.style_components import compact_display_value
 from ui.styles import compact_display_value as legacy_compact_display_value
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_backend_does_not_depend_on_ui_modules() -> None:
+    violations: list[str] = []
+    for path in sorted((PROJECT_ROOT / "backend").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                modules = [node.module or ""]
+            else:
+                continue
+            if any(module == "ui" or module.startswith("ui.") for module in modules):
+                violations.append(str(path.relative_to(PROJECT_ROOT)))
+
+    assert violations == []
 
 
 def test_style_component_legacy_import_keeps_the_same_callable() -> None:

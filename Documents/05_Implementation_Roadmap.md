@@ -2641,6 +2641,10 @@ Markdown UTF-8 check:
 
 ## 8. Open Items
 
+- 大規模リファクタリングR0〜R6を`Documents/46_Large_Scale_Refactoring_Plan.md`に従って段階実施する。
+  構造変更と金融数値変更を分離し、最初にbackend-to-UI境界、次にRanking / Cockpit orchestration、
+  Research、UI view / CSS、package cycleの順で整理する
+
 - `SMAI LLM Factor` の validation report 結果を、実 LLM/Gateway 接続後の再検証や optional integration 判断にどう使うか
 - `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか
 - Gateway / Copilot 実接続を、LLM Factor の schema 基盤後にどの範囲で接続するか

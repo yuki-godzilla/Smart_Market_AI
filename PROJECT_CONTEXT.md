@@ -199,6 +199,14 @@ Phase 36 also has an operational point-in-time material-risk cycle. The material
 
 The backend-to-frontend sprint gate is now executable through `tools/audit_backend_readiness.py`. It checks the required API routes, configured MarketData provider and whole-operation deadline, sealed Forecast integrity/maturity, and point-in-time material/signal integrity without network calls or runtime mutations. The 2026-07-20 local audit is `ready_with_pending_evidence`: zero blockers, 360 sealed predictions pending future targets, 113 valid material records, and zero causally eligible LLM risk signals. Pending evidence is not treated as missing code and does not block the frontend usability sprint; it cannot authorize runtime model adoption.
 
+A staged architecture refactoring track is active before the frontend usability sprint. The initial
+boundary slice removes the only static `backend -> ui` import by injecting the established UI
+ranking policy through a backend-owned port, and a structural regression test prevents that reverse
+dependency from returning. Numerical Forecast, Ranking, Scoring, Risk, API, and export semantics are
+unchanged. Subsequent slices will extract Ranking and Cockpit application flows from `ui/app.py`,
+split Research use cases and large UI views, move CSS to scoped assets, and remove package cycles
+with compatibility façades. See `Documents/46_Large_Scale_Refactoring_Plan.md`.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

@@ -1,5 +1,16 @@
 # 99_Work_Log
 
+## 2026-07-20 大規模リファクタリングR0（責務境界）
+
+- Python module 238、内部import edge 692と巨大moduleを静的監査し、`ui/app.py` 23,468行、
+  `ui/styles.py` 9,384行、`backend/research/service.py` 8,791行を主要な段階分割対象とした。
+- `backend.investment_candidates.exporter`から`ui.ranking`への唯一の逆向きimportを、backend-owned
+  `RankingPolicyPort`とUI edge adapterへ反転した。CLI composition rootが既存ranking policyを注入する。
+- `backend`から`ui`へのimportをASTで拒否するboundary regressionを追加した。Forecast、Ranking、
+  Scoring、Risk、export schema、順位計算は変更していない。
+- 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
+  `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
+
 ## 2026-07-20 Backend readiness gate
 
 - 必須FastAPI route、設定済みMarketData Provider、operation deadline、sealed Forecast DB / manifest / hash / maturity、

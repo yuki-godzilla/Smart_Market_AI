@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20
 
 ## Main Application access / MagicDNS
 
@@ -111,6 +111,23 @@ genuinely later-period audit and a real
 point-in-time LLM material archive; existing synthetic/static LLM Factor results cannot justify
 integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
 
+The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
+point-in-time Financial RAG and financial forecasting benchmark research. First,
+`backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,
+future/late-archive/duplicate/peer filtering, horizon-specific market-residual impact labels,
+and an explicit bounded Source Memory. Memory updates require a matured target and valid citation
+IDs; its maximum rerank contribution is 0.06. This is not connected to live LLM generation or any
+runtime score because SMAI does not yet have a real point-in-time material archive. Second,
+`backend/forecast/cross_sectional_residual.py` evaluates a fixed small GBDT using same-origin
+forecast spreads, dispersion, and cross-sectional percentile ranks around the frozen anchor.
+Development used 60 symbols / 1,440 points. On a fully symbol-disjoint 52-symbol / 1,248-point
+audit it beat Consensus by 4.37% / 10.27% at 20/60 days but worsened against the stronger anchor
+by 1.96% / 1.31%; selected corrections alone worsened 6.90% / 19.20%, and selection coverage was
+18.59%. A separate 39-symbol / 936-point replay also worsened the anchor by 2.60% / 2.68%.
+The cross-sectional candidate is rejected and will not be retuned from these results. Runtime
+Forecast, Cockpit, Ranking, and scores remain unchanged. See
+`Documents/41_Point_In_Time_LLM_Forecast_Design.md`.
+
 Phase 35-A evaluation-only slice is implemented in `backend/scoring/upward_signal_forecast_integration.py`. It reads existing Forecast consensus or ranking-row evidence, calculates bounded forecast-upside, downside-safety, direction-agreement, confidence-ceiling, and disagreement warnings, and compares the result with the current Upward Signal score. It can also reconstruct one contribution case per point-in-time consensus origin from existing validation points; actual forward return is retained only as an evaluation label and never enters the integration score. Validation cases can be summarized by horizon, market, asset type, regime, confidence, and disagreement band with positive-return rate, direction accuracy, mean actual/predicted return, integration score, and warning rate. `tools/evaluate_upward_signal_forecast_integration.py` now reads the existing `forecast_model_validation_points.csv` contract and writes point-in-time cases plus `upward_signal_forecast_validation_summary.csv` without changing Ranking, Forecast API/UI, or runtime weights. A smoke run on the existing Phase 34 validation report processed 1,050 points into 210 consensus-origin cases; this is evaluation coverage, not a runtime accuracy claim. Adoption remains pending new-symbol / new-period walk-forward holdout validation.
 
 Phase 36 now has a network-free evaluation foundation in `backend/llm_factor/material_evaluation.py`. It accepts point-in-time top-candidate review cases and produces the five planned Phase 36 artifacts for false-positive, positive-candidate coverage, adverse-material/dividend-trap labels, latency, failure, and cache-hit review. The adoption contract can return only `badge_only_candidate`; rank and score correction are structurally fixed to false. `tools/evaluate_llm_material_assessment.py` validates labeled CSV input and writes the artifacts. No live LLM call, material fetch, Ranking/UI behavior, score, or ordering changes in this slice.
@@ -121,6 +138,7 @@ Strategy references:
 - [LLMランキング融合 戦略](Documents/33_LLM_Ranking_Fusion_Strategy.md)
 - [既存予測モデル改善 戦略](Documents/34_Forecast_Model_Improvement_Strategy.md)
 - [将来価格予測モデル 広範比較・選定レポート](Documents/40_Forecast_Model_Selection_Report.md)
+- [Point-in-Time LLM材料・銘柄横断予測 改善設計](Documents/41_Point_In_Time_LLM_Forecast_Design.md)
 
 Windows home-server operations now include AC-only power-policy setup, boot-time
 SMAI/watcher scheduled tasks, five-minute Streamlit/TCP 8501 recovery monitoring,

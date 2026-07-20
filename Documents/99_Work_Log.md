@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-20 Point-in-Time LLM材料・銘柄横断残差評価
+
+- 2026年6月更新のPoint-in-Time Financial RAG、FinTSB v3、ACL 2026金融sentiment、軽量TSFM、LLM時系列ablation等を確認し、LLMへ数値価格を生成させず、価格経路と材料経路を分離する設計を`Documents/41_Point_In_Time_LLM_Forecast_Design.md`へ固定した。
+- `backend/llm_factor/point_in_time.py`へtimezone-aware event/evidence contract、取引判断時刻への割当、future・late archive・anchor重複・重複資料・別銘柄・peer上限制御、20日embargo付き市場残差label、matured targetと有効citationだけで更新するbounded Source Memoryを追加した。実archiveがないためruntimeへは接続していない。
+- `backend/forecast/cross_sectional_residual.py`へ、固定保守anchor周りで同一originの予測乖離・dispersion・横断percentile rankを使う小規模HistGradientBoosting residual候補を評価専用で追加した。古い70% originでfit、新しい30%を内部gateとし、target確定前labelを除外、小cross-section・不足履歴・不通過ではanchorへfallbackする。
+- 60銘柄・1,440点をdevelopmentに固定し、完全非重複52銘柄・1,248点を監査。Consensus比20日4.37%、60日10.27%改善したが、固定anchor比1.96% / 1.31%悪化し、採用点だけでは6.90% / 19.20%悪化、採用率18.59%だった。別の非重複39銘柄・936点でもanchor比2.60% / 2.68%悪化し、不採用を再現した。
+- tree parameterやgateを監査結果へ合わせて変更せず、Forecast、Cockpit、Ranking、Investment Scoreを維持した。次は新規取得分から実point-in-time material archiveを蓄積し、Source Memoryなし/ありをprequential比較する。
+
 ## 2026-07-19 固定anchor残差Ridgeの新規symbol監査
 
 - `backend/forecast/anchored_residual_calibration.py`へ評価専用の残差calibrationを追加した。固定20日・60日profileをanchorとし、global Ridge（alpha 10）とmarket / asset type / regimeを含むcontext Ridge（alpha 25）の2候補だけを比較する。各監査originまでにtarget確定済みのdevelopment labelを時間順70% fit / 30% validationへ分け、固定anchor比1%以上を両方で満たさない場合は補正ゼロへfallbackする。補正はfit残差90%点または25%でclipし、directionはConsensus、総returnは絶対75%上限を維持した。

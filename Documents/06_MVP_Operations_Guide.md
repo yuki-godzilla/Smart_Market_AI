@@ -1184,6 +1184,29 @@ validation / auditそれぞれのmetadataを必ず指定する。
 大規模cohort間で履歴長を統一する場合に使う。最小値は
 `max(120, max(horizons) + 24)`であり、長期horizonの評価窓と特徴量履歴を確保できない値は受け付けない。
 
+### Rolling Conformal予測レンジshadow
+
+固定validation群をcalibration履歴、symbol非重複audit群をhistorical replayとして評価する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_rolling_conformal_intervals.py `
+  --calibration-points reports\2026-07-20_1200\long_horizon_confidence\phase34_validation\forecast_model_validation_points.csv `
+  --calibration-points reports\2026-07-20_1200\long_horizon_confidence\extended_validation\forecast_model_validation_points.csv `
+  --evaluation-points reports\2026-07-20_1200\long_horizon_confidence\phase34_audit\forecast_model_validation_points.csv `
+  --evaluation-points reports\2026-07-20_1200\long_horizon_confidence\extended_audit\forecast_model_validation_points.csv `
+  --output reports\rolling_conformal_intervals
+```
+
+既定はtarget coverage 0.60、正規化quantile上限0.50、詳細group 30点、pooled 40点、2 origin、
+履歴最大500点である。中心・方向は変更せず、時間順internal proper-score gateを通ったrangeだけをshadow適用する。
+`historical_replay`は常にruntime review対象外である。新しい未確認監査だけ
+`--evaluation-role new_sealed_audit`を指定し、symbolが非重複なら`symbol_disjoint`、calibration targetが
+全audit originより前なら`--separation-mode temporal_disjoint`を使う。後続originが成熟済みの先行audit
+labelを使うprequential比較は`--include-matured-evaluation-history`で明示する。
+
+出力は`rolling_conformal_cases.csv`、`rolling_conformal_metrics.csv`、
+`rolling_conformal_report.md`。runtime Forecast / Ranking / Scoring設定を変更しない。
+
 ### Point-in-Time材料archiveとLLM risk shadow
 
 実ニュース・IRを将来の時点整合評価用に保存する場合:

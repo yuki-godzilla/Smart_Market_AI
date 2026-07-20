@@ -317,6 +317,19 @@ price centerはzero-return baselineを安定して改善せず、60%想定range 
 directionだけを条件付きmediumまで許可し、120日超は両方lowとする。Rankingはcenter confidenceを使う。
 材料archiveと詳細は`Documents/42_Point_In_Time_Material_Archive_And_Long_Horizon_Confidence_Report.md`を参照する。
 
+### 4.7 Rolling Conformal range校正
+
+60%想定rangeのunder-coverageに対し、中心returnと方向returnを変更しないbounded normalized CQRを
+評価専用で実装した。各originではtargetが成熟済みの過去点だけを使用し、詳細groupからasset type、
+horizon pooledへfallbackする。履歴内の古い70% originでquantileをfitし、新しい30% originで
+proper interval scoreを1%以上改善した場合だけ適用する。正規化quantileは0.50、元幅の約1.50倍を上限とする。
+
+44symbol・792 calibration点と非重複42symbol・756 audit点のhistorical replayでは、60日proper scoreが
+0.68%改善しただけで1% gate未達、20 / 40 / 80 / 100 / 120日は0.79〜3.91%悪化した。cap 0.10 / 0.25 /
+0.50とprequential更新もgateを通らず、ETF 40 / 60日は約10%悪化した。evaluatorとsealed-audit契約だけを
+残し、runtime rangeへ接続しない。詳細は
+`Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`を参照する。
+
 ## 5. LLM scoringの使い方
 
 SMAIにはすでに、source URL、published date、model、prompt version、source hash、cache metadataを

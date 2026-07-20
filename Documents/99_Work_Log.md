@@ -1,5 +1,19 @@
 # 99_Work_Log
 
+## 2026-07-20 Rolling Conformal予測レンジshadow
+
+- 60%想定rangeのcoverage不足に対し、中心return・方向returnをschema上変更できない
+  `bounded-normalized-cqr-temporal-gate-v1`を追加した。
+- target成熟済み履歴だけを使う有限標本CQR、最大1.50倍相当の上限、group階層fallback、時間順70/30の
+  internal proper-score gate、prequential option、新sealed audit以外を採用不可にする外側gateを実装した。
+- 44symbol・792 calibration点、非重複42symbol・756 audit点、20〜120日で再生。最終bounded候補は
+  60日proper score +0.68%で1% gate未達、他horizonは0.79〜3.91%悪化した。cap 0.10 / 0.25 / 0.50、
+  static / prequential、2 audit cohort分離でも採用条件を通過しなかった。
+- runtime range、Forecast、Cockpit、Ranking、Scoringは変更しない。評価CLI・詳細case・subgroup metric・
+  fail-closed採用判定だけを残し、次の新暦期間または新symbol sealed auditを待つ。
+- network-free全体回帰は2403 passed / 16 skipped、Ruff、Black（493ファイル）、変更2ファイルの
+  Mypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+
 ## 2026-07-20 Point-in-Time材料archive・長期confidence監査
 
 - 実ニュース・IRのURL、短いsummary、symbol、source、hash、published / available / first archived / last seenを

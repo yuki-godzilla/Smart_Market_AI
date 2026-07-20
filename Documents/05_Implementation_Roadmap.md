@@ -2690,6 +2690,15 @@ Quantile内部検証medium以上なら最大mediumとする`role_separated_confi
 実ニュース・IRのfirst archived timeを保存するlocal archiveと、LLMが中心returnを変更できない
 confidence / range shadow evaluatorを実装した。初回live 113件は未成熟のためruntime未接続。
 
+2026-07-20追加: 60%想定rangeのcoverage不足に対し、中心・方向を変更しない
+`bounded-normalized-cqr-temporal-gate-v1`を評価専用で実装した。targetがorigin以前に成熟した履歴だけを使い、
+market / asset type / regime、asset type、horizon pooledの階層fallback、最大1.50倍相当の上限、履歴内の
+時間順proper-score gateを設けた。44 calibration symbol・792点から、非重複42 audit symbol・756点を
+20〜120日でhistorical replayした。最終候補は60日proper scoreを0.68%改善しただけで1% gate未達、
+他horizonは0.79〜3.91%悪化し、ETF 40 / 60日も約10%悪化した。runtime rangeへ接続せず、次の新暦期間 /
+新symbol sealed auditまで現行rangeを維持する。詳細は
+`Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`

@@ -140,6 +140,18 @@ shadow evaluator are implemented. The first live collection stored 113 news/IR m
 but no target has matured, so LLM output remains disconnected from runtime. See
 `Documents/42_Point_In_Time_Material_Archive_And_Long_Horizon_Confidence_Report.md`.
 
+The 2026-07-20 range-calibration follow-up implements evaluation-only
+`bounded-normalized-cqr-temporal-gate-v1`. It uses only labels whose targets have matured by each
+origin, falls back from market/asset/regime to asset and pooled horizon history, bounds normalized
+expansion at 0.50, and requires a newer internal temporal segment to improve proper interval score
+by at least 1%. Pooled historical replay used 44 symbol-disjoint calibration symbols / 792 points
+and 42 audit symbols / 756 points over 20/40/60/80/100/120 days. Coverage increased, but the final
+bounded candidate improved proper score only 0.68% at 60 days and worsened the other horizons by
+0.79% to 3.91%; ETF 40/60-day score worsened about 10%. All runtime gates failed. The evaluator,
+CLI, sealed-audit boundary, and fallback observability are retained, while runtime intervals,
+Forecast, Cockpit, Ranking, and Scoring remain unchanged. See
+`Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`.
+
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,
 `backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,

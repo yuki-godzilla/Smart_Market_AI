@@ -22,6 +22,9 @@
 - Cockpitのfilter defaults、active判定、universe絞り込み、keyword / alias / sector / theme検索順位を
   Streamlit非依存の`ui/cockpit_filter_policy.py`へ分離した。session state wrapperと描画は`ui.app`に残し、
   同じUI回帰395件を通過した。2つのUI抽出で`ui/app.py`は23,468行から23,069行になった。
+- 最終構造監査は245 module / 713 internal edge、backend-to-UI 0件、eager cycle 0件だった。
+  network-free全体回帰2438 passed / 16 skipped、Ruff、Black（518ファイル）、Mypy（575ファイル）を
+  通過した。warning 1件は既存Altair APIの非推奨通知である。
 - 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
   `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
 

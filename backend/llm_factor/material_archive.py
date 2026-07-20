@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import secrets
+import shutil
 from datetime import UTC, datetime, time
 from decimal import Decimal
 from pathlib import Path
 from typing import Iterable, Literal, Self
 
+from filelock import FileLock, Timeout
 from pydantic import ConfigDict, Field, TypeAdapter, model_validator
 
 from backend.core.data_contracts import StrictBaseModel
@@ -23,10 +27,20 @@ from backend.research.external_contracts import ExternalResearchSourcePayload
 
 MATERIAL_ARCHIVE_SCHEMA_VERSION = "point-in-time-material-archive-v1"
 MATERIAL_RISK_SIGNAL_SCHEMA_VERSION = "llm-material-risk-shadow-v1"
+MATERIAL_RISK_SIGNAL_STORE_SCHEMA_VERSION = "llm-material-risk-signal-store-v1"
 DEFAULT_MATERIAL_ARCHIVE_PATH = Path("data/cache/point_in_time_material_archive_v1.json")
+DEFAULT_MATERIAL_RISK_SIGNAL_PATH = Path("data/cache/llm_material_risk_signals_v1.json")
 
 MaterialArchiveProvenance = Literal["live_observed", "provider_replay"]
 MaterialConfidenceCap = Literal["medium", "low"]
+
+
+class MaterialArchiveConflict(ValueError):
+    """Raised when immutable point-in-time evidence would be rewritten."""
+
+
+class MaterialArchiveBusy(ValueError):
+    """Raised when another archive writer owns the file lock."""
 
 
 class PointInTimeMaterialRecord(StrictBaseModel):
@@ -69,6 +83,19 @@ class PointInTimeMaterialRecord(StrictBaseModel):
         normalized_symbols = _normalized_symbols(self.symbols)
         if normalized_symbols != self.symbols:
             raise ValueError("symbols must be normalized, unique, and sorted")
+        if self.record_id != _material_record_id(
+            self.source_url,
+            self.published_at,
+            self.title,
+            self.symbols,
+        ):
+            raise ValueError("record_id does not match immutable material identity")
+        if self.content_sha256 != _material_content_hash(
+            self.title,
+            self.summary,
+            self.source_url,
+        ):
+            raise ValueError("content_sha256 does not match material content")
         return self
 
 
@@ -92,6 +119,12 @@ class MaterialArchiveWriteResult(StrictBaseModel):
     total_count: int = Field(ge=0)
 
 
+class MaterialArchiveIntegrityResult(StrictBaseModel):
+    path: str = Field(min_length=1)
+    record_count: int = Field(ge=0)
+    content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class LLMMaterialRiskSignal(StrictBaseModel):
     """Typed LLM output used only for confidence/range shadow evaluation."""
 
@@ -106,6 +139,8 @@ class LLMMaterialRiskSignal(StrictBaseModel):
     provider: str = Field(min_length=1)
     model_name: str = Field(min_length=1)
     prompt_version: str = Field(min_length=1)
+    mapping_version: str = "llm-factor-response-risk-map-v1"
+    source_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     adverse_risk_score: Decimal = Field(ge=0, le=100)
     event_relevance_score: Decimal = Field(ge=0, le=100)
     evidence_confidence_score: Decimal = Field(ge=0, le=100)
@@ -120,9 +155,55 @@ class LLMMaterialRiskSignal(StrictBaseModel):
         _require_aware(self.generated_at, "generated_at")
         if self.generated_at < self.decision_at:
             raise ValueError("generated_at must not precede decision_at")
+        if self.symbol != self.symbol.strip().upper():
+            raise ValueError("symbol must be uppercase and trimmed")
         if len(self.cited_record_ids) != len(set(self.cited_record_ids)):
             raise ValueError("cited_record_ids must be unique")
         return self
+
+
+class StoredMaterialRiskSignal(StrictBaseModel):
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload: LLMMaterialRiskSignal
+
+    @model_validator(mode="after")
+    def validate_content_hash(self) -> Self:
+        if self.content_hash != _model_content_hash(self.payload):
+            raise ValueError("material risk signal content hash does not match")
+        return self
+
+
+class MaterialRiskSignalStore(StrictBaseModel):
+    schema_version: str = MATERIAL_RISK_SIGNAL_STORE_SCHEMA_VERSION
+    signals: list[StoredMaterialRiskSignal] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_store(self) -> Self:
+        if self.schema_version != MATERIAL_RISK_SIGNAL_STORE_SCHEMA_VERSION:
+            raise ValueError("unsupported material risk signal store schema")
+        ids = [entry.payload.signal_id for entry in self.signals]
+        if ids != sorted(set(ids)):
+            raise ValueError("material risk signals must be unique and sorted")
+        return self
+
+
+class MaterialRiskSignalLoadResult(StrictBaseModel):
+    signals: list[LLMMaterialRiskSignal] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MaterialRiskSignalWriteResult(StrictBaseModel):
+    path: str = Field(min_length=1)
+    input_count: int = Field(ge=0)
+    inserted_count: int = Field(ge=0)
+    duplicate_count: int = Field(ge=0)
+    total_count: int = Field(ge=0)
+
+
+class MaterialRiskSignalIntegrityResult(StrictBaseModel):
+    path: str = Field(min_length=1)
+    signal_count: int = Field(ge=0)
+    content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class LLMMaterialRiskShadowAdjustment(StrictBaseModel):
@@ -247,7 +328,21 @@ def archive_material_records(
 ) -> MaterialArchiveWriteResult:
     """Merge records by stable ID and atomically replace the bounded metadata archive."""
 
-    supplied = list(records)
+    supplied = [PointInTimeMaterialRecord.model_validate(record.model_dump()) for record in records]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(str(path.with_suffix(path.suffix + ".lock")), timeout=5)
+    try:
+        with lock:
+            return _archive_material_records_unlocked(supplied, path=path)
+    except Timeout as exc:
+        raise MaterialArchiveBusy("material archive is locked by another writer") from exc
+
+
+def _archive_material_records_unlocked(
+    supplied: list[PointInTimeMaterialRecord],
+    *,
+    path: Path,
+) -> MaterialArchiveWriteResult:
     loaded = load_material_archive(path)
     if loaded.warnings:
         raise ValueError(loaded.warnings[0])
@@ -260,6 +355,14 @@ def archive_material_records(
             merged[record.record_id] = record
             inserted += 1
             continue
+        if not _same_material_identity_and_content(current, record):
+            raise MaterialArchiveConflict(
+                f"immutable material changed for record_id={record.record_id}"
+            )
+        if record.first_archived_at < current.first_archived_at:
+            raise MaterialArchiveConflict(
+                f"first_archived_at cannot be backdated for record_id={record.record_id}"
+            )
         merged[record.record_id] = current.model_copy(
             update={
                 "symbols": _normalized_symbols([*current.symbols, *record.symbols]),
@@ -270,8 +373,7 @@ def archive_material_records(
         )
         updated += 1
     ordered = sorted(merged.values(), key=_record_sort_key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
     try:
         temporary.write_text(
             json.dumps(
@@ -283,7 +385,7 @@ def archive_material_records(
             newline="\n",
         )
         _ARCHIVE_LIST_ADAPTER.validate_python(json.loads(temporary.read_text(encoding="utf-8")))
-        temporary.replace(path)
+        os.replace(temporary, path)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -294,6 +396,158 @@ def archive_material_records(
         updated_count=updated,
         total_count=len(ordered),
     )
+
+
+def verify_material_archive(
+    path: Path = DEFAULT_MATERIAL_ARCHIVE_PATH,
+) -> MaterialArchiveIntegrityResult:
+    loaded = load_material_archive(path)
+    if loaded.warnings:
+        raise ValueError(loaded.warnings[0])
+    payload = [record.model_dump(mode="json") for record in loaded.records]
+    return MaterialArchiveIntegrityResult(
+        path=str(path),
+        record_count=len(loaded.records),
+        content_digest=_sha256(_canonical_json(payload)),
+    )
+
+
+def backup_material_archive(path: Path, target: Path) -> Path:
+    """Create an atomic validated backup without rewriting archive timestamps."""
+
+    verify_material_archive(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
+    try:
+        shutil.copyfile(path, temporary)
+        verify_material_archive(temporary)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return target
+
+
+def load_material_risk_signals(
+    path: Path = DEFAULT_MATERIAL_RISK_SIGNAL_PATH,
+) -> MaterialRiskSignalLoadResult:
+    if not path.exists():
+        return MaterialRiskSignalLoadResult()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+            signals = TypeAdapter(list[LLMMaterialRiskSignal]).validate_python(raw)
+        else:
+            store = MaterialRiskSignalStore.model_validate(raw)
+            signals = [entry.payload for entry in store.signals]
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return MaterialRiskSignalLoadResult(
+            warnings=[f"material risk signal store could not be loaded: {type(exc).__name__}"]
+        )
+    ordered = sorted(signals, key=lambda item: item.signal_id)
+    if len({signal.signal_id for signal in ordered}) != len(ordered):
+        return MaterialRiskSignalLoadResult(
+            warnings=["material risk signal store contains duplicate signal_id"]
+        )
+    keys = [_material_risk_signal_key(signal) for signal in ordered]
+    if len(set(keys)) != len(keys):
+        return MaterialRiskSignalLoadResult(
+            warnings=["material risk signal store contains duplicate decision key"]
+        )
+    return MaterialRiskSignalLoadResult(signals=ordered)
+
+
+def archive_material_risk_signals(
+    signals: Iterable[LLMMaterialRiskSignal],
+    *,
+    path: Path = DEFAULT_MATERIAL_RISK_SIGNAL_PATH,
+) -> MaterialRiskSignalWriteResult:
+    supplied = [LLMMaterialRiskSignal.model_validate(signal.model_dump()) for signal in signals]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(str(path.with_suffix(path.suffix + ".lock")), timeout=5)
+    try:
+        with lock:
+            loaded = load_material_risk_signals(path)
+            if loaded.warnings:
+                raise ValueError(loaded.warnings[0])
+            merged = {signal.signal_id: signal for signal in loaded.signals}
+            key_to_signal = {_material_risk_signal_key(signal): signal for signal in loaded.signals}
+            inserted = 0
+            duplicates = 0
+            for signal in supplied:
+                current_for_key = key_to_signal.get(_material_risk_signal_key(signal))
+                if current_for_key is not None and current_for_key.signal_id != signal.signal_id:
+                    raise MaterialArchiveConflict(
+                        "material risk signal decision key is already frozen"
+                    )
+                current = merged.get(signal.signal_id)
+                if current is None:
+                    merged[signal.signal_id] = signal
+                    key_to_signal[_material_risk_signal_key(signal)] = signal
+                    inserted += 1
+                elif current == signal:
+                    duplicates += 1
+                else:
+                    raise MaterialArchiveConflict(
+                        f"immutable material risk signal changed: {signal.signal_id}"
+                    )
+            store = MaterialRiskSignalStore(
+                signals=[
+                    StoredMaterialRiskSignal(
+                        content_hash=_model_content_hash(signal),
+                        payload=signal,
+                    )
+                    for signal in sorted(merged.values(), key=lambda item: item.signal_id)
+                ]
+            )
+            temporary = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
+            try:
+                temporary.write_text(
+                    store.model_dump_json(indent=2) + "\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                verified = load_material_risk_signals(temporary)
+                if verified.warnings:
+                    raise ValueError(verified.warnings[0])
+                os.replace(temporary, path)
+            finally:
+                temporary.unlink(missing_ok=True)
+    except Timeout as exc:
+        raise MaterialArchiveBusy("material risk signal store is locked") from exc
+    return MaterialRiskSignalWriteResult(
+        path=str(path),
+        input_count=len(supplied),
+        inserted_count=inserted,
+        duplicate_count=duplicates,
+        total_count=len(merged),
+    )
+
+
+def verify_material_risk_signal_store(
+    path: Path = DEFAULT_MATERIAL_RISK_SIGNAL_PATH,
+) -> MaterialRiskSignalIntegrityResult:
+    loaded = load_material_risk_signals(path)
+    if loaded.warnings:
+        raise ValueError(loaded.warnings[0])
+    payload = [signal.model_dump(mode="json") for signal in loaded.signals]
+    return MaterialRiskSignalIntegrityResult(
+        path=str(path),
+        signal_count=len(loaded.signals),
+        content_digest=_sha256(_canonical_json(payload)),
+    )
+
+
+def backup_material_risk_signal_store(path: Path, target: Path) -> Path:
+    verify_material_risk_signal_store(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
+    try:
+        shutil.copyfile(path, temporary)
+        verify_material_risk_signal_store(temporary)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return target
 
 
 def point_in_time_evidence_from_material_record(
@@ -389,12 +643,8 @@ def _record(
     is_official_source: bool,
     provenance: MaterialArchiveProvenance,
 ) -> PointInTimeMaterialRecord:
-    canonical = "|".join(
-        [source_url.strip(), published_at.isoformat(), title.strip(), ",".join(symbols)]
-    )
-    content = "\n".join([title.strip(), summary.strip(), source_url.strip()])
     return PointInTimeMaterialRecord(
-        record_id=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        record_id=_material_record_id(source_url, published_at, title, symbols),
         symbols=symbols,
         source_family=source_family or "unknown",
         source_type=source_type,
@@ -405,7 +655,7 @@ def _record(
         available_at=available_at,
         first_archived_at=archived_at,
         last_seen_at=archived_at,
-        content_sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        content_sha256=_material_content_hash(title, summary, source_url),
         is_official_source=is_official_source,
         provenance=provenance,
     )
@@ -448,3 +698,47 @@ def _require_aware(value: datetime, field_name: str) -> None:
 
 def _record_sort_key(record: PointInTimeMaterialRecord) -> tuple[datetime, str]:
     return (record.first_archived_at, record.record_id)
+
+
+def _same_material_identity_and_content(
+    current: PointInTimeMaterialRecord,
+    incoming: PointInTimeMaterialRecord,
+) -> bool:
+    mutable_fields = {"first_archived_at", "last_seen_at", "observation_count"}
+    current_payload = current.model_dump(exclude=mutable_fields)
+    incoming_payload = incoming.model_dump(exclude=mutable_fields)
+    return current_payload == incoming_payload
+
+
+def _material_record_id(
+    source_url: str,
+    published_at: datetime,
+    title: str,
+    symbols: list[str],
+) -> str:
+    canonical = "|".join(
+        [source_url.strip(), published_at.isoformat(), title.strip(), ",".join(symbols)]
+    )
+    return _sha256(canonical)
+
+
+def _material_content_hash(title: str, summary: str, source_url: str) -> str:
+    return _sha256("\n".join([title.strip(), summary.strip(), source_url.strip()]))
+
+
+def _model_content_hash(model: StrictBaseModel) -> str:
+    return _sha256(_canonical_json(model.model_dump(mode="json")))
+
+
+def _material_risk_signal_key(
+    signal: LLMMaterialRiskSignal,
+) -> tuple[str, int, datetime]:
+    return (signal.symbol, signal.horizon_days, signal.decision_at)
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

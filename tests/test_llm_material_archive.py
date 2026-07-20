@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -5,14 +7,19 @@ import pytest
 
 from backend.llm_factor import (
     LLMMaterialRiskSignal,
+    MaterialArchiveConflict,
     PointInTimeEventAnchor,
     archive_material_records,
+    archive_material_risk_signals,
     build_material_risk_shadow_adjustment,
     load_material_archive,
+    load_material_risk_signals,
     material_record_from_external_payload,
     material_records_from_news_snapshot,
     point_in_time_evidence_from_material_record,
     select_point_in_time_evidence,
+    verify_material_archive,
+    verify_material_risk_signal_store,
 )
 from backend.news.contracts import NewsDashboardSnapshot, NewsHeadlineCard
 from backend.research.external_contracts import ExternalResearchSourcePayload
@@ -129,6 +136,45 @@ def test_corrupt_archive_is_visible_and_not_silently_overwritten(tmp_path) -> No
         archive_material_records([], path=path)
 
 
+def test_archive_rejects_same_identity_with_changed_content(tmp_path) -> None:
+    archived_at = datetime(2026, 7, 20, 3, tzinfo=UTC)
+    record = material_records_from_news_snapshot(
+        _snapshot(
+            published_at=archived_at - timedelta(hours=1),
+            fetched_at=archived_at,
+        )
+    )[0]
+    path = tmp_path / "material.json"
+    archive_material_records([record], path=path)
+    changed_summary = "後から異なる内容へ書き換えられました。"
+    changed_hash = hashlib.sha256(
+        "\n".join([record.title, changed_summary, record.source_url]).encode("utf-8")
+    ).hexdigest()
+    changed = record.model_copy(update={"summary": changed_summary, "content_sha256": changed_hash})
+
+    with pytest.raises(MaterialArchiveConflict, match="immutable material changed"):
+        archive_material_records([changed], path=path)
+    assert verify_material_archive(path).record_count == 1
+
+
+def test_material_risk_signal_store_hashes_and_freezes_decision_key(tmp_path) -> None:
+    signal = _risk_signal()
+    path = tmp_path / "signals.json"
+
+    first = archive_material_risk_signals([signal], path=path)
+    second = archive_material_risk_signals([signal], path=path)
+
+    assert first.inserted_count == 1
+    assert second.duplicate_count == 1
+    assert load_material_risk_signals(path).signals == [signal]
+    assert verify_material_risk_signal_store(path).signal_count == 1
+    payload = json.loads(path.read_text("utf-8"))
+    assert len(payload["signals"][0]["content_hash"]) == 64
+    changed = signal.model_copy(update={"adverse_risk_score": Decimal("99")})
+    with pytest.raises(MaterialArchiveConflict, match="immutable material risk signal"):
+        archive_material_risk_signals([changed], path=path)
+
+
 def _snapshot(*, published_at: datetime, fetched_at: datetime) -> NewsDashboardSnapshot:
     card = NewsHeadlineCard(
         title="トヨタが通期業績予想を更新",
@@ -146,4 +192,25 @@ def _snapshot(*, published_at: datetime, fetched_at: datetime) -> NewsDashboardS
         generated_at=fetched_at,
         fetched_at=fetched_at,
         stream_headlines=[card],
+    )
+
+
+def _risk_signal() -> LLMMaterialRiskSignal:
+    decision_at = datetime(2026, 7, 20, 4, tzinfo=UTC)
+    return LLMMaterialRiskSignal(
+        signal_id="risk-store-1",
+        symbol="7203.T",
+        horizon_days=20,
+        decision_at=decision_at,
+        generated_at=decision_at,
+        provider="gateway",
+        model_name="test-model",
+        prompt_version="material-risk-v1",
+        adverse_risk_score=Decimal("85"),
+        event_relevance_score=Decimal("90"),
+        evidence_confidence_score=Decimal("75"),
+        uncertainty_score=Decimal("40"),
+        predicted_impact_label=-1,
+        cited_record_ids=["record-1"],
+        rationale="業績下方修正の可能性を確認する必要があります。",
     )

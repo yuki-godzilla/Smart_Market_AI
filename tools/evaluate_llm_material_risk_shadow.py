@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 from pathlib import Path
 from typing import TypeVar
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -20,8 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     from backend.forecast.evaluation import ForecastValidationPoint
     from backend.llm_factor.material_archive import (
         DEFAULT_MATERIAL_ARCHIVE_PATH,
-        LLMMaterialRiskSignal,
         load_material_archive,
+        load_material_risk_signals,
     )
     from backend.llm_factor.material_shadow_evaluation import (
         evaluate_material_risk_shadow,
@@ -38,12 +37,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         points = _read_forecast_points(Path(args.forecast_points), ForecastValidationPoint)
-        signals_payload = json.loads(Path(args.signals_json).read_text(encoding="utf-8"))
-        signals = TypeAdapter(list[LLMMaterialRiskSignal]).validate_python(signals_payload)
+        signals_result = load_material_risk_signals(Path(args.signals_json))
+        if signals_result.warnings:
+            raise ValueError(signals_result.warnings[0])
+        signals = signals_result.signals
         archive = load_material_archive(Path(args.archive))
         if archive.warnings:
             raise ValueError(archive.warnings[0])
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:
         print(f"Unable to load point-in-time shadow inputs: {exc}", file=sys.stderr)
         return 2
     report = evaluate_material_risk_shadow(points, signals, archive.records)

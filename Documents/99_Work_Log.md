@@ -1,5 +1,20 @@
 # 99_Work_Log
 
+## 2026-07-20 Point-in-Time材料risk run-once
+
+- 材料archiveへrecord ID・本文hash再検証、file lock、immutable conflict検出、atomic replace、完全性digest、
+  検証済みbackupを追加した。既存113件は警告0件で再検証できた。
+- LLM risk signalをhash付き追記専用storeへ保存し、同一symbol / horizon / decision時点の上書きと内容改変を
+  拒否する。legacy list読込は維持し、shadow評価toolも新storeを利用する。
+- sealed Forecast originより前に公開・利用可能・初回保存された銘柄一致材料だけをGatewayへ渡すrun-onceを追加した。
+  typed応答とcitationを検証し、provider / model / prompt / mapping / source hashをconfidence / range専用signalへ保存する。
+  Gateway、validation、citation失敗は銘柄単位で記録し、通常Forecast、Cockpit、Ranking、Scoringは変更しない。
+- `fsa_20260720_new_calendar_v1`の初回実行は60 origin groupを確認したが、origin 2026-07-17より113件の
+  初回保存2026-07-20が後だったためeligible 0件、Gateway呼び出し0回、signal 0件で正常完了した。
+  過去記事を過去originへ遡及投入しない因果境界を確認した。
+- network-free全体回帰は2424 passed / 16 skipped、Ruff、Black、`backend/llm_factor`・`backend/forecast`・
+  対象CLIのMypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+
 ## 2026-07-20 Forecast新暦期間sealed audit backend
 
 - `forecast-sealed-audit-v1`として、cohort / symbol / horizon / source revision / policy / gateを予測前に

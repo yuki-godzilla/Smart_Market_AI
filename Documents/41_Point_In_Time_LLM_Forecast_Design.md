@@ -270,6 +270,13 @@ prequential比較する。horizon満了後にしかmemoryを更新しない。
   - price center / direction returnのtyped分離
   - 選択policy、adapter、weight、理由、監査状態の観測情報
   - RMSEはcenter、方向一致率はdirection headで評価
+- `backend/llm_factor/material_archive.py`
+  - point-in-time材料とLLM risk signalのimmutable hash store
+  - file lock、atomic replace、完全性検証、検証済みbackup
+- `backend/llm_factor/material_risk_cycle.py`
+  - sealed Forecast originごとの因果的な材料抽出とLLM Gateway呼び出し
+  - citationを実archive recordへ結合し、confidence / range専用shadow signalへ決定論的変換
+  - 銘柄単位のfailure記録、再実行時の既存signal skip、JSON / Markdown監査artifact
 - `tools/evaluate_cross_sectional_residual_forecast.py`
   - symbol非重複監査runner
   - manifest、metrics、predictions、decisions、Markdown report
@@ -279,13 +286,17 @@ prequential比較する。horizon満了後にしかmemoryを更新しない。
 
 ## 9. 次の作業
 
-1. TDnet、EDINET、企業IR、ニュースの新規取得分からpoint-in-time archiveを開始する。
+1. 新規取得分のpoint-in-time archiveを継続し、公開・利用可能・初回保存時刻を不変保存する。
 2. `available_at`の根拠がない過去資料は過去精度検証から除外する。
 3. archiveにevent prediction、citation IDs、model、prompt version、source hashを保存する。
 4. 自動選択されたhorizon帯ごとにtarget満了を待ってprequential Source Memory ablationを実行する。
 5. gate通過時だけ、上位候補のconfidence cap / quantile range拡幅をshadow接続する。
 6. 取得履歴連動policyをsealed期間で監査し、price / direction / uncertainty / materialを分離評価する。
 7. 価格中心値は後日の新暦期間で固定anchorを再監査し、今回の横断GBDTは再調整しない。
+
+2026-07-20の初回run-onceでは、Forecast originが2026-07-17、113件の材料の最初の保存が
+2026-07-20だったため、因果条件を満たす材料は0件、LLM Gateway呼び出しも0回だった。これは取得した
+過去記事を過去originへ遡及投入しないfail-closed動作であり、精度不良や取得失敗を意味しない。
 
 この順序では、最新研究を導入したことではなく、未来情報を使わず既存baselineより実際に良いことを
 採用条件にできる。

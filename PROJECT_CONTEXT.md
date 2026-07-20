@@ -195,6 +195,8 @@ Phase 35-A evaluation-only slice is implemented in `backend/scoring/upward_signa
 
 Phase 36 now has a network-free evaluation foundation in `backend/llm_factor/material_evaluation.py`. It accepts point-in-time top-candidate review cases and produces the five planned Phase 36 artifacts for false-positive, positive-candidate coverage, adverse-material/dividend-trap labels, latency, failure, and cache-hit review. The adoption contract can return only `badge_only_candidate`; rank and score correction are structurally fixed to false. `tools/evaluate_llm_material_assessment.py` validates labeled CSV input and writes the artifacts. No live LLM call, material fetch, Ranking/UI behavior, score, or ordering changes in this slice.
 
+Phase 36 also has an operational point-in-time material-risk cycle. The material archive and LLM risk signal store are immutable, hash-verified, file-locked, atomically replaced, and backed up after verification. `tools/run_llm_material_risk_cycle.py` joins each sealed Forecast origin only to symbol-matched material whose publication, availability, and first local archive times are all no later than the origin, validates Gateway output and citations, and writes confidence/range-only shadow signals. The initial run found no causally eligible material because the active origin was 2026-07-17 and archive collection began 2026-07-20, so it made zero Gateway calls. Runtime Forecast, Ranking, Cockpit, and scores remain unchanged pending matured evidence gates.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

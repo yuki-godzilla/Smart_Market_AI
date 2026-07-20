@@ -6,7 +6,7 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from backend.core.config import DataAccessConfig
+from backend.core.config import DataAccessConfig, TimeoutConfig
 from backend.core.errors import DataSourceError, ProviderUnavailableError, SchemaMismatchError
 from backend.marketdata import MarketDataProviderAdapter, create_market_data_provider_adapter
 from backend.marketdata.providers import yahoo
@@ -264,6 +264,43 @@ def test_yahoo_adapter_does_not_misattribute_flat_batch_frame(monkeypatch):
     assert fake_yfinance.download_calls == 1
     assert fake_yfinance.ticker_sessions == ["shared-session", "shared-session"]
     assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
+
+
+def test_yahoo_adapter_bounds_whole_operation_and_reports_timeout(monkeypatch):
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(
+            provider="yahoo",
+            allow_external_providers=True,
+            timeouts_ms=TimeoutConfig(operation=10),
+        )
+    )
+    cancelled = False
+
+    async def never_finishes(*args, **kwargs):
+        nonlocal cancelled
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
+
+    monkeypatch.setattr(adapter, "_download_ohlcv", never_finishes)
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["AAPL"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert cancelled is True
+    assert exc_info.value.message == "Yahoo market-data provider operation timed out"
+    request = exc_info.value.details["request"]
+    assert request["operation"] == "fetch_ohlcv"
+    assert request["timeout_ms"] == 10
+    assert request["failure_kind"] == "operation_timeout"
+    assert request["retryable"] is True
 
 
 def test_yahoo_adapter_retries_empty_batch_download_once(monkeypatch):

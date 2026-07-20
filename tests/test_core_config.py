@@ -23,6 +23,7 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     assert settings.dataaccess.provider == "yahoo"
     assert settings.dataaccess.allow_external_providers is True
     assert settings.dataaccess.cache.backend == "memory"
+    assert settings.dataaccess.timeouts_ms.operation == 45000
     assert settings.portfolio.solver.backend == "none"
     assert settings.scoring.weights.screening == 0.5
     assert settings.scoring.weights.research == 0.0

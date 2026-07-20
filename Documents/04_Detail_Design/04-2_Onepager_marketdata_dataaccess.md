@@ -110,7 +110,12 @@ dataaccess:
   timeouts_ms:
     connect: 1000
     read: 5000
+    operation: 45000
 ```
+
+`read`はyfinanceの1 request、`operation`はretry / backoff / 欠落銘柄recoveryを含む公開Provider呼び出し
+全体の上限である。operation超過は`failure_kind=operation_timeout`、対象symbol / pair、retryableを持つ
+`ProviderUnavailableError`として返す。
 
 Note: cache fields are configuration contracts; full cache storage behavior is not yet a separate implemented layer.
 

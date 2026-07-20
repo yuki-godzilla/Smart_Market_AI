@@ -56,6 +56,7 @@ class TimeoutConfig(StrictConfigModel):
 
     connect: int = Field(default=1000, gt=0)
     read: int = Field(default=5000, gt=0)
+    operation: int = Field(default=45000, gt=0)
 
 
 class ExternalFetchPerformanceConfig(StrictConfigModel):

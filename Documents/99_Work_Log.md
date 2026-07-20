@@ -10,6 +10,14 @@
 - MarketData、DataAccess、Provider adapterの対象回帰55件とRanking / Forecast境界397件、Ruff、対象Black、Mypyを通過した。
   予測値、Ranking、Score、Provider選択は変更していない。
 
+## 2026-07-20 Yahoo whole-operation deadline
+
+- `TimeoutConfig.operation`を追加し、既定45秒でYahoo OHLCV、quote、FX、fundamentalsの公開呼び出し全体を
+  制限した。既存`read` timeoutは1 request、operation timeoutはretry / backoff / partial recoveryを含む全体上限である。
+- 超過時はoperation、symbol / pair、timeout、`failure_kind=operation_timeout`、retryableを持つ
+  `ProviderUnavailableError`として返す。非同期処理がcancelされることをnetwork-free回帰で確認した。
+- config / MarketDataの対象回帰73件、Ruff、対象Black、Mypyを通過した。計算結果やProvider既定は変更していない。
+
 ## 2026-07-20 Point-in-Time材料risk run-once
 
 - 材料archiveへrecord ID・本文hash再検証、file lock、immutable conflict検出、atomic replace、完全性digest、

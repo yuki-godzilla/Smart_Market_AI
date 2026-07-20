@@ -5,7 +5,7 @@ import os
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Awaitable, TypeVar, cast
 
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, FundamentalSnapshot, FxRate, Interval, Quote, Symbol
@@ -32,6 +32,7 @@ YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
 YAHOO_OHLCV_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
 YAHOO_CLOSE_COLUMNS = ("Close",)
 _YAHOO_SESSION: Any | None = None
+_T = TypeVar("_T")
 
 
 class YahooMarketDataProviderAdapter:
@@ -47,12 +48,16 @@ class YahooMarketDataProviderAdapter:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
-        return await self._download_ohlcv(
-            symbols,
-            start=start,
-            end=end,
-            interval=interval,
+        return await self._within_operation_deadline(
+            self._download_ohlcv(
+                symbols,
+                start=start,
+                end=end,
+                interval=interval,
+                operation="fetch_ohlcv",
+            ),
             operation="fetch_ohlcv",
+            symbols=symbols,
         )
 
     async def _download_ohlcv(
@@ -160,6 +165,18 @@ class YahooMarketDataProviderAdapter:
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
+        return await self._within_operation_deadline(
+            self._fetch_quotes(symbols, at=at),
+            operation="fetch_quotes",
+            symbols=symbols,
+        )
+
+    async def _fetch_quotes(
+        self,
+        symbols: list[str],
+        *,
+        at: datetime | None,
+    ) -> list[Quote]:
         quotes: list[Quote] = []
         for raw_symbol in symbols:
             frame = await self._quote_history(raw_symbol, at=at)
@@ -183,7 +200,18 @@ class YahooMarketDataProviderAdapter:
     ) -> list[FxRate]:
         if method != "spot":
             raise DataSourceError("Unsupported Yahoo FX method", details={"method": method})
+        return await self._within_operation_deadline(
+            self._get_fx_rates(pairs, at=at),
+            operation="get_fx_rates",
+            pairs=pairs,
+        )
 
+    async def _get_fx_rates(
+        self,
+        pairs: list[str],
+        *,
+        at: datetime | None,
+    ) -> list[FxRate]:
         rates: list[FxRate] = []
         for pair in pairs:
             ticker = YAHOO_FX_TICKERS.get(pair)
@@ -205,6 +233,18 @@ class YahooMarketDataProviderAdapter:
     async def fetch_fundamentals(
         self,
         symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        return await self._within_operation_deadline(
+            self._fetch_fundamentals(symbols, as_of=as_of),
+            operation="fetch_fundamentals",
+            symbols=symbols,
+        )
+
+    async def _fetch_fundamentals(
+        self,
+        symbols: list[str],
+        *,
         as_of: date,
     ) -> list[FundamentalSnapshot]:
         fundamentals: list[FundamentalSnapshot] = []
@@ -233,6 +273,28 @@ class YahooMarketDataProviderAdapter:
                 )
             )
         return fundamentals
+
+    async def _within_operation_deadline(
+        self,
+        awaitable: Awaitable[_T],
+        *,
+        operation: str,
+        **request_details: object,
+    ) -> _T:
+        timeout_ms = self.cfg.timeouts_ms.operation
+        try:
+            return await asyncio.wait_for(awaitable, timeout=timeout_ms / 1000)
+        except TimeoutError as exc:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider operation timed out",
+                details=self._provider_details(
+                    operation=operation,
+                    timeout_ms=timeout_ms,
+                    failure_kind="operation_timeout",
+                    retryable=True,
+                    **request_details,
+                ),
+            ) from exc
 
     def healthcheck(self) -> dict[str, str]:
         status = "available" if _yfinance_available() else "missing_dependency"

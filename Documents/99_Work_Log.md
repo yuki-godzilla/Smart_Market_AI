@@ -9,8 +9,13 @@
   fail-closedとした。
 - `manage_forecast_sealed_audit.py`でinit / capture / mature / status / exportを提供し、成熟済みpointだけを
   既存`ForecastValidationPoint` CSVへ変換する。通常Forecast、Cockpit、Ranking、Scoringは変更しない。
-- network-free全体回帰は2412 passed / 16 skipped、Ruff、Black（497ファイル）、変更3ファイルの
-  Mypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+- commit `79ccef8`で固定済みの60銘柄、日本株25・米国株25・米国ETF10、74,355日足をlive更新し、全件
+  eligibleを確認した。`fsa_20260720_new_calendar_v1`へ共通origin 2026-07-17、6 horizon、360 predictionを
+  保存した。同一origin再実行は360件skip、target未到来360件、outcome 0件である。
+- 全行schema / hash / foreign key / SQLite検証、atomic online backup、prediction / outcomeのhash付きJSONL
+  exportを追加し、成熟前snapshotもDB外へ安全に退避できるようにした。
+- network-free全体回帰は2412 passed / 16 skipped、Ruff、Black（497ファイル）、backend/forecast・
+  backend/app・uiのMypy（77ファイル）を通過した。warning 1件は既存Altair APIの非推奨通知である。
 
 ## 2026-07-20 Rolling Conformal予測レンジshadow
 

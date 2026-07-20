@@ -22,6 +22,10 @@ def main(argv: list[str] | None = None) -> int:
         return _mature(args)
     if args.command in {"status", "export"}:
         return _status_or_export(args)
+    if args.command == "verify":
+        return _verify(args)
+    if args.command == "backup":
+        return _backup(args)
     parser.error("a command is required")
     return 2
 
@@ -72,6 +76,17 @@ def _parser() -> argparse.ArgumentParser:
     _database_argument(export_parser, DEFAULT_SEALED_AUDIT_DATABASE)
     _manifest_argument(export_parser)
     export_parser.add_argument("--output", required=True)
+
+    verify_parser = subparsers.add_parser(
+        "verify", help="Validate SQLite, foreign keys, schemas, and every content digest."
+    )
+    _database_argument(verify_parser, DEFAULT_SEALED_AUDIT_DATABASE)
+
+    backup_parser = subparsers.add_parser(
+        "backup", help="Create an atomic, integrity-checked online SQLite backup."
+    )
+    _database_argument(backup_parser, DEFAULT_SEALED_AUDIT_DATABASE)
+    backup_parser.add_argument("--output", required=True)
     return parser
 
 
@@ -287,6 +302,33 @@ def _status_or_export(args: argparse.Namespace) -> int:
         )
         for name, path in paths.items():
             print(f"{name}: {path}")
+    return 0
+
+
+def _verify(args: argparse.Namespace) -> int:
+    from backend.forecast.sealed_audit import SealedForecastAuditRepository
+
+    result = SealedForecastAuditRepository(Path(args.database)).verify_integrity()
+    print(f"database: {result.database_path}")
+    print(f"sqlite integrity: {result.sqlite_integrity}")
+    print(f"manifests: {result.manifest_count}")
+    print(f"predictions: {result.prediction_count}")
+    print(f"outcomes: {result.outcome_count}")
+    print(f"foreign key violations: {result.foreign_key_violation_count}")
+    return 0
+
+
+def _backup(args: argparse.Namespace) -> int:
+    from backend.forecast.sealed_audit import SealedForecastAuditRepository
+
+    repository = SealedForecastAuditRepository(Path(args.database))
+    target = repository.backup_to(Path(args.output))
+    result = SealedForecastAuditRepository(target).verify_integrity()
+    print(f"backup: {target}")
+    print(
+        f"verified: manifests={result.manifest_count} "
+        f"predictions={result.prediction_count} outcomes={result.outcome_count}"
+    )
     return 0
 
 

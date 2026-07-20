@@ -160,7 +160,11 @@ reject overwrite / late capture / policy mismatch / revised origin prices, and l
 same-provider daily bar at the requested trading-bar offset. The CLI supports init, local snapshot
 capture, maturation, status, and export to the existing `ForecastValidationPoint` CSV. This is an
 evaluation backend only; no runtime Forecast, Cockpit, Ranking, Scoring, range, or confidence value
-changes. See `Documents/44_Forecast_Sealed_Audit_Backend.md`.
+changes. The first new-calendar manifest `fsa_20260720_new_calendar_v1` is now active on the frozen
+60-symbol cohort with 74,355 refreshed daily bars and 360 predictions at the common 2026-07-17
+origin; all targets remain immature. Full digest / foreign-key verification, atomic online backup,
+and hashed prediction / outcome JSONL export protect the pre-maturity evidence. See
+`Documents/44_Forecast_Sealed_Audit_Backend.md`.
 
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,

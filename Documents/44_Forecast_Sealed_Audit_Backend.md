@@ -11,7 +11,7 @@ range校正のruntime採用は、この新暦期間または新symbolのsealed a
 ## 2. 責務境界
 
 - `backend/forecast/sealed_audit.py`: contract、SQLite repository、capture、maturation、集計、export
-- `tools/manage_forecast_sealed_audit.py`: `init`、`capture`、`mature`、`status`、`export`
+- `tools/manage_forecast_sealed_audit.py`: `init`、`capture`、`mature`、`status`、`export`、`verify`、`backup`
 - `data/cache/forecast_sealed_audit.sqlite`: local-onlyの追記専用監査DB
 - `forecast_model_validation_points.csv`: 既存評価器とRolling Conformalへ渡す成熟済みpoint
 
@@ -77,6 +77,11 @@ versionだけを変更しても正常データとして読み込まない。
 DBはruntime artifactでありGitへcommitしない。破損時に空の監査結果へ暗黙fallbackせず、
 `ForecastSealedAuditCorruptData`として停止する。
 
+`verify`はSQLite integrity、foreign key、全行のschema / SHA-256、manifest / prediction / outcome関係を
+一括確認する。`backup`はSQLite online backupを一時ファイルへ作り、同じ完全性検証を通過した後だけatomic
+replaceする。`export`も成熟前predictionとoutcomeをhash付きJSONLへ出力するため、DB backupと可読artifactの
+両方を残せる。
+
 ## 5. 成熟後の評価
 
 `export`は成熟済みoutcomeだけを既存`ForecastValidationPoint`へ変換する。
@@ -100,7 +105,8 @@ subgroup監査を別途通過する必要がある。
 4. OHLCV更新後に`mature`
 5. `status`でhorizon別成熟数を監視
 6. 最低case数到達後に`export`
-7. 現行runtimeと候補を、中心・方向・range・confidence・subgroup別に比較
+7. `verify`と`backup`で監査DBを退避
+8. 現行runtimeと候補を、中心・方向・range・confidence・subgroup別に比較
 
 収集頻度は毎営業日または週次でよい。1回の実行で過去originを人工的に量産せず、その時点で利用可能な
 最新originだけを保存する。
@@ -113,5 +119,9 @@ subgroup監査を別途通過する必要がある。
 - Rolling Conformal runtime接続: 不採用のまま
 - UI表示: 変更なし
 
-次のbackend作業は、監査対象symbol manifestを事前固定し、現在時点のOHLCV snapshot収集とcaptureを
-定期運用できるようにすることである。UIの進捗表示はbackendの保存・評価contractが安定した後に行う。
+2026-07-20にcommit `79ccef8`、既存固定60銘柄、日本株25・米国株25・米国ETF10、
+20 / 40 / 60 / 80 / 100 / 120日で`fsa_20260720_new_calendar_v1`を開始した。74,355日足、全60銘柄
+eligible、共通origin 2026-07-17から360 predictionを保存した。targetは未到来のためoutcomeは0件である。
+
+次のbackend作業は、このcohortのOHLCV更新・capture・mature・backupを定期運用し、実point-in-time材料の
+成熟監査とProvider / Gateway失敗時contractを固めることである。UIの進捗表示はbackend contractが安定した後に行う。

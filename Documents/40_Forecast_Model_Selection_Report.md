@@ -342,6 +342,10 @@ payload改変を拒否する。
 `new_sealed_audit`で同じcontractから比較できる。backend記録基盤の採用であり、runtime model / rangeの
 採用ではない。詳細は`Documents/44_Forecast_Sealed_Audit_Backend.md`を参照する。
 
+初回は固定60symbol、74,355日足、共通origin 2026-07-17、20〜120日の6 horizonで360 predictionを保存した。
+全targetは未成熟である。DB全行verify、atomic backup、hash付きJSONL exportを用意し、成熟前predictionも
+監査証拠として保全する。
+
 ## 5. LLM scoringの使い方
 
 SMAIにはすでに、source URL、published date、model、prompt version、source hash、cache metadataを

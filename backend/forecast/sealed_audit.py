@@ -10,6 +10,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
+import secrets
 import sqlite3
 from collections import Counter
 from contextlib import contextmanager
@@ -232,6 +234,15 @@ class ForecastSealedAuditSummary(StrictBaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ForecastSealedAuditIntegrityResult(StrictBaseModel):
+    database_path: str = Field(min_length=1)
+    manifest_count: int = Field(ge=0)
+    prediction_count: int = Field(ge=0)
+    outcome_count: int = Field(ge=0)
+    sqlite_integrity: Literal["ok"] = "ok"
+    foreign_key_violation_count: int = Field(ge=0)
+
+
 class SealedForecastAuditRepository:
     """SQLite repository with immutable rows and digest verification."""
 
@@ -420,6 +431,94 @@ class SealedForecastAuditRepository:
                 (manifest_id,),
             ).fetchall()
         return [self._decoded_model(row, ForecastSealedPrediction, "prediction") for row in rows]
+
+    def verify_integrity(self) -> ForecastSealedAuditIntegrityResult:
+        """Validate SQLite, foreign keys, every digest, schema, and row relationship."""
+
+        with self._connect() as connection:
+            sqlite_result = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
+            if sqlite_result != "ok":
+                raise ForecastSealedAuditCorruptData(
+                    f"sealed audit SQLite integrity check failed: {sqlite_result}"
+                )
+            foreign_key_rows = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if foreign_key_rows:
+                raise ForecastSealedAuditCorruptData(
+                    f"sealed audit foreign key violations: {len(foreign_key_rows)}"
+                )
+            manifest_rows = connection.execute(
+                "SELECT manifest_id, payload_json, content_hash FROM audit_manifest"
+            ).fetchall()
+            manifests = {
+                str(row["manifest_id"]): self._decoded_model(
+                    row, ForecastSealedAuditManifest, "manifest"
+                )
+                for row in manifest_rows
+            }
+            prediction_rows = connection.execute(
+                "SELECT prediction_id, payload_json, content_hash FROM audit_prediction"
+            ).fetchall()
+            predictions: dict[str, ForecastSealedPrediction] = {}
+            for row in prediction_rows:
+                prediction = self._decoded_model(row, ForecastSealedPrediction, "prediction")
+                manifest = manifests.get(prediction.manifest_id)
+                if manifest is None:
+                    raise ForecastSealedAuditCorruptData("prediction references a missing manifest")
+                try:
+                    _validate_prediction_against_manifest(prediction, manifest)
+                except ValueError as exc:
+                    raise ForecastSealedAuditCorruptData(
+                        "prediction violates its frozen manifest"
+                    ) from exc
+                predictions[prediction.prediction_id] = prediction
+            outcome_rows = connection.execute(
+                "SELECT prediction_id, payload_json, content_hash FROM audit_outcome"
+            ).fetchall()
+            for row in outcome_rows:
+                outcome = self._decoded_model(row, ForecastSealedOutcome, "outcome")
+                prediction = predictions.get(outcome.prediction_id)
+                if prediction is None:
+                    raise ForecastSealedAuditCorruptData("outcome references a missing prediction")
+                try:
+                    _validate_outcome_against_prediction(outcome, prediction)
+                except ValueError as exc:
+                    raise ForecastSealedAuditCorruptData(
+                        "outcome violates its frozen prediction"
+                    ) from exc
+        return ForecastSealedAuditIntegrityResult(
+            database_path=str(self.path),
+            manifest_count=len(manifest_rows),
+            prediction_count=len(prediction_rows),
+            outcome_count=len(outcome_rows),
+            foreign_key_violation_count=0,
+        )
+
+    def backup_to(self, target: Path) -> Path:
+        """Create an atomic online SQLite backup after full source and target validation."""
+
+        if self.path.resolve() == target.resolve():
+            raise ValueError("backup target must differ from source database")
+        self.verify_integrity()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
+        try:
+            with self._connect() as source:
+                destination = sqlite3.connect(temporary)
+                try:
+                    source.backup(destination)
+                    destination.commit()
+                    result = str(destination.execute("PRAGMA integrity_check").fetchone()[0])
+                    if result != "ok":
+                        raise ForecastSealedAuditCorruptData(
+                            f"sealed audit backup integrity check failed: {result}"
+                        )
+                finally:
+                    destination.close()
+            SealedForecastAuditRepository(temporary).verify_integrity()
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return target
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -830,6 +929,8 @@ def write_forecast_sealed_audit_artifacts(
     summary = summarize_forecast_sealed_audit(repository, manifest_id)
     paths = {
         "manifest": output_dir / "sealed_forecast_audit_manifest.json",
+        "predictions": output_dir / "sealed_forecast_predictions.jsonl",
+        "outcomes": output_dir / "sealed_forecast_outcomes.jsonl",
         "validation_points": output_dir / "forecast_model_validation_points.csv",
         "summary_csv": output_dir / "sealed_forecast_audit_summary.csv",
         "report": output_dir / "sealed_forecast_audit_report.md",
@@ -837,6 +938,8 @@ def write_forecast_sealed_audit_artifacts(
     paths["manifest"].write_text(
         manifest.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n"
     )
+    _write_hashed_jsonl(paths["predictions"], repository.list_predictions(manifest_id))
+    _write_hashed_jsonl(paths["outcomes"], repository.list_outcomes(manifest_id))
     _write_model_csv(paths["validation_points"], ForecastValidationPoint, points)
     _write_model_csv(paths["summary_csv"], ForecastSealedAuditHorizonStatus, summary.horizon_rows)
     paths["report"].write_text(
@@ -981,6 +1084,21 @@ def _write_model_csv(
         writer.writeheader()
         for row in rows:
             writer.writerow(row.model_dump(mode="json"))
+
+
+def _write_hashed_jsonl(path: Path, rows: Sequence[StrictBaseModel]) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for row in rows:
+            payload, digest = _encoded_model(row)
+            handle.write(
+                _canonical_json(
+                    {
+                        "content_hash": digest,
+                        "payload": json.loads(payload),
+                    }
+                )
+                + "\n"
+            )
 
 
 def _sealed_audit_markdown(

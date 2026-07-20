@@ -216,6 +216,22 @@ def test_summary_and_artifacts_are_evaluation_compatible(tmp_path: Path) -> None
     )
     assert "forecast_consensus" in paths["validation_points"].read_text("utf-8")
     assert "新しい時点で保存した予測" in paths["report"].read_text("utf-8")
+    prediction_lines = paths["predictions"].read_text("utf-8").splitlines()
+    outcome_lines = paths["outcomes"].read_text("utf-8").splitlines()
+    assert len(prediction_lines) == 1
+    assert len(outcome_lines) == 1
+    assert len(json.loads(prediction_lines[0])["content_hash"]) == 64
+
+    integrity = repository.verify_integrity()
+    assert integrity.manifest_count == 1
+    assert integrity.prediction_count == 1
+    assert integrity.outcome_count == 1
+
+    backup = repository.backup_to(tmp_path / "backup" / "sealed.sqlite")
+    backup_repository = SealedForecastAuditRepository(backup)
+    backup_integrity = backup_repository.verify_integrity()
+    assert backup_integrity == integrity.model_copy(update={"database_path": str(backup)})
+    assert backup_repository.list_predictions(manifest.manifest_id) == [prediction]
 
 
 def _manifest(

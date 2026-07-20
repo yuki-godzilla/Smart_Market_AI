@@ -78,6 +78,24 @@ def test_cli_initializes_status_and_exports_empty_sealed_audit(
     report = (output / "sealed_forecast_audit_report.md").read_text("utf-8")
     assert "予測snapshot: 0" in report
     assert "runtime modelを自動変更しない" in report
+    assert (output / "sealed_forecast_predictions.jsonl").read_text("utf-8") == ""
+    assert (output / "sealed_forecast_outcomes.jsonl").read_text("utf-8") == ""
+
+    assert main(["verify", "--database", str(database)]) == 0
+    backup = tmp_path / "backup" / "sealed.sqlite"
+    assert (
+        main(
+            [
+                "backup",
+                "--database",
+                str(database),
+                "--output",
+                str(backup),
+            ]
+        )
+        == 0
+    )
+    assert SealedForecastAuditRepository(backup).get_manifest(manifest_id) == manifest
 
 
 def test_cli_captures_current_consensus_once_from_local_daily_bars(

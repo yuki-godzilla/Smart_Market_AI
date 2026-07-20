@@ -2713,6 +2713,10 @@ fail-closedとする。成熟pointは既存`ForecastValidationPoint` CSVへexpor
 評価不足であり、runtime model / rangeを変更しない。詳細は
 `Documents/44_Forecast_Sealed_Audit_Backend.md`。
 
+同日、固定60symbolの最新74,355日足を取得し、全件eligible・共通origin 2026-07-17を確認して、
+6 horizon・360 predictionの新暦期間監査を開始した。全targetは未成熟である。SQLite / foreign key / 全行hashの
+一括verify、atomic online backup、hash付きprediction / outcome JSONL exportも追加し、成熟前証拠を保全する。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`

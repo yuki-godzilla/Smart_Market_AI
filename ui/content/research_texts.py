@@ -4,49 +4,46 @@ RESEARCH_STATUS_WITH_EVIDENCE = "根拠あり"
 RESEARCH_STATUS_INSUFFICIENT = "根拠不足"
 RESEARCH_STATUS_STALE = "最新資料が古い"
 
-RESEARCH_NO_REGISTERED_DOCUMENTS = "登録済みResearch資料がありません。"
+RESEARCH_NO_REGISTERED_DOCUMENTS = "資料なし"
 RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING = (
-    "登録済みResearch資料または検索チャンクがないため、資料面の根拠は限られます。"
+    "資料または検索データがありません。資料を追加するとAIメモを作れます。"
 )
-RESEARCH_REGISTERED_EVIDENCE_NOTE = (
-    "登録済みResearch資料があります。詳細モーダルのAI Researchで根拠抜粋を確認できます。"
-)
-RESEARCH_STALE_DOCUMENT_NOTE = (
-    "登録資料はありますが、最新資料日が2年以上前です。新しいIR資料や決算資料を確認してください。"
-)
-RESEARCH_STALE_REPORT_NOTE = "AI Researchで根拠は見つかりましたが、最新資料日が2年以上前です。"
-RESEARCH_INSUFFICIENT_REPORT_NOTE = (
-    "AI Researchでは十分な根拠を確認できませんでした。資料登録や別資料の確認が必要です。"
-)
-RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します。"
+RESEARCH_REGISTERED_EVIDENCE_NOTE = "資料あり。AIメモと根拠の抜粋を見られます。"
+RESEARCH_STALE_DOCUMENT_NOTE = "根拠が2年以上前です。新しいIR・決算資料を追加してください。"
+RESEARCH_STALE_REPORT_NOTE = "根拠はありますが、最新資料が2年以上前です。"
+RESEARCH_INSUFFICIENT_REPORT_NOTE = "根拠が少なめです。資料を追加するか、別の資料を見てください。"
+RESEARCH_EVIDENCE_CHECK_FALLBACK = "AIメモで資料の根拠を見ます。"
 RESEARCH_COCKPIT_SECTION_TITLE = "03 AI調査・材料分析"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI調査 / 根拠資料"
-RESEARCH_COCKPIT_INTRO = "チャートや予測だけでは見えにくい材料を、AI調査で整理します。"
-RESEARCH_RANKING_LOOKUP_INTRO = (
-    "この銘柄の保存済み資料から、企業概要、事業内容、定量情報、確認したい出典を整理します。"
-)
-RESEARCH_FETCH_BUTTON_LABEL = "AI調査を開始・更新"
-RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
-RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料を、企業リサーチレポートに整理しています。"
-RESEARCH_COMPANY_RESEARCH_TITLE = "企業リサーチサマリー"
-RESEARCH_QUANTITATIVE_SUMMARY_TITLE = "定量情報サマリー"
-RESEARCH_IR_SUMMARY_TITLE = "IR情報サマリー"
-RESEARCH_NEWS_SUMMARY_TITLE = "最新ニュース・開示サマリー"
+RESEARCH_COCKPIT_INTRO = "ニュース・IR・資料から、価格だけでは見えない材料をまとめます。"
+RESEARCH_RANKING_LOOKUP_INTRO = "保存済み資料から、企業概要・数値・出典をまとめます。"
+RESEARCH_FETCH_BUTTON_LABEL = "AIメモを更新"
+RESEARCH_RANKING_FETCH_BUTTON_LABEL = "資料をAIで読む"
+RESEARCH_FETCH_SPINNER = "資料と外部ソースをAIメモにまとめています。"
+RESEARCH_COMPANY_RESEARCH_TITLE = "企業メモ"
+RESEARCH_QUANTITATIVE_SUMMARY_TITLE = "主要数値"
+RESEARCH_IR_SUMMARY_TITLE = "IR・開示"
+RESEARCH_NEWS_SUMMARY_TITLE = "ニュース・開示"
 RESEARCH_AI_READING_MEMO_TITLE = "AI読み取りメモ"
 RESEARCH_INVESTMENT_INSIGHT_TITLE = "AI読み取りメモ"
 RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL = "読み取りメモ"
 RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL = "確認できた情報"
 RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL = "注意して読む情報"
 RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL = "不足している情報"
-RESEARCH_INVESTMENT_INSIGHT_NOTE = (
-    "売買の指示ではなく、外部情報を企業理解のために整理したメモです。"
-)
-RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE = "企業理解の確認ポイント"
-RESEARCH_INVESTMENT_QUESTION_MORE_LABEL = "その他の確認ポイントを見る"
-RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL = "詳細情報・開発者向け"
+RESEARCH_INVESTMENT_INSIGHT_NOTE = "外部情報から作った企業理解用のAIメモです。"
+RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE = "次に見ること"
+RESEARCH_INVESTMENT_QUESTION_MORE_LABEL = "ほかの確認点を見る"
+RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL = "詳細・開発者向け"
 RESEARCH_DETAIL_EXPANDER_LABEL = "詳細データを表示"
-RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"
+RESEARCH_DETAIL_OK_CAPTION = "資料から見つけた根拠と観点別のまとめです。"
+RESEARCH_RETRIEVAL_MODE_LABEL = "検索方式"
+RESEARCH_RETRIEVAL_MODE_KEYWORD = "キーワード検索"
+RESEARCH_RETRIEVAL_MODE_VECTOR = "ローカル意味検索"
+RESEARCH_RETRIEVAL_MODE_HYBRID = "ハイブリッド検索（キーワード＋ローカル意味検索）"
+RESEARCH_RETRIEVAL_EVIDENCE_LABEL = "根拠"
+RESEARCH_RETRIEVAL_DOCUMENT_LABEL = "資料"
+RESEARCH_RETRIEVAL_FALLBACK_NOTE = "意味検索が見つからない場合はキーワード根拠を使います。"
 
 
 def research_evidence_confirmed_note(evidence_count: int) -> str:
-    return f"AI Researchで{evidence_count}件の根拠を確認済みです。"
+    return f"根拠 {evidence_count}件"

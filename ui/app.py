@@ -4,7 +4,10 @@ import asyncio
 import gc
 import hashlib
 import html
+import importlib
+import inspect
 import json
+import logging
 import math
 import os
 import re
@@ -29,9 +32,12 @@ from uuid import uuid4
 import altair as alt
 import pandas as pd
 import streamlit as st
-from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, JsCode
+import streamlit.components.v1 as components
+from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
+import backend.news.radar_market as _radar_market_module
+import ui.styles as _ui_styles_module
 from backend.core.config import get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
     Bar,
@@ -41,8 +47,8 @@ from backend.core.data_contracts import (
     FundamentalSnapshot,
     Quote,
 )
-from backend.core.errors import AppError
-from backend.forecast import forecast_model_display_name
+from backend.core.errors import AppError, DataSourceError, ProviderTimeoutError
+from backend.forecast import determine_forecast_horizon, forecast_model_display_name
 from backend.forecast.batch import evaluate_advanced_forecasts_for_symbol
 from backend.interpretation import (
     CockpitInterpretationResult,
@@ -65,7 +71,23 @@ from backend.llm_factor import (
 )
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
+from backend.news import RadarCandidate
 from backend.news.background import start_news_background_refresh_worker
+
+# A long-running Streamlit process can retain the first Radar market module
+# revision across rolling updates. Reload only that stale revision before any
+# view imports bind its contracts and builder.
+if (
+    getattr(_radar_market_module, "SMAI_RADAR_MARKET_REVISION", "")
+    != "2026-07-15-dynamic-density-v3"
+):
+    importlib.reload(_radar_market_module)
+
+from backend.news.radar_market import (
+    RadarMarketSnapshot,
+    build_radar_market_snapshot,
+    radar_market_candidates,
+)
 from backend.reporting import (
     DecisionReportContext,
     DecisionReportSection,
@@ -116,7 +138,11 @@ from backend.research import (
 from backend.scoring import InvestmentScoringService
 from backend.scoring.reversal import calculate_reversal_expectation
 from backend.screening import ScreeningService
-from backend.server_ops.maintenance import MaintenanceManager, maintenance_operation
+from backend.server_ops import maintenance as maintenance_module
+from backend.server_ops.maintenance import (
+    classify_client_type,
+    maintenance_operation,
+)
 from backend.symbols.background import (
     request_symbol_background_refresh,
     start_symbol_background_refresh_worker,
@@ -124,6 +150,14 @@ from backend.symbols.background import (
 from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
+from ui.cockpit_filter_policy import (
+    MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
+    cockpit_detail_filters_for_category,
+    cockpit_filter_has_active_conditions_from_values,
+    cockpit_filtered_symbol_rows_from_values,
+    cockpit_keyword_filtered_symbol_rows,
+    cockpit_symbol_search_rank,
+)
 from ui.components.assistant import (
     SmaiAssistantContext,
     register_assistant_context,
@@ -198,6 +232,13 @@ from ui.content.research_texts import (
     RESEARCH_RANKING_LOOKUP_INTRO,
     RESEARCH_RANKING_LOOKUP_TITLE,
     RESEARCH_REGISTERED_EVIDENCE_NOTE,
+    RESEARCH_RETRIEVAL_DOCUMENT_LABEL,
+    RESEARCH_RETRIEVAL_EVIDENCE_LABEL,
+    RESEARCH_RETRIEVAL_FALLBACK_NOTE,
+    RESEARCH_RETRIEVAL_MODE_HYBRID,
+    RESEARCH_RETRIEVAL_MODE_KEYWORD,
+    RESEARCH_RETRIEVAL_MODE_LABEL,
+    RESEARCH_RETRIEVAL_MODE_VECTOR,
     RESEARCH_STALE_DOCUMENT_NOTE,
     RESEARCH_STALE_REPORT_NOTE,
     RESEARCH_STATUS_INSUFFICIENT,
@@ -324,9 +365,26 @@ from ui.ranking_history import (
     save_ranking_history_for_current_user,
     synchronize_ranking_history_user,
 )
+from ui.ranking_jobs import (
+    RankingProgressCallback as BackgroundRankingProgressCallback,
+)
+from ui.ranking_jobs import get_ranking_job, ranking_job_is_running, start_ranking_job
+from ui.ranking_policy_presenter import (
+    ranking_condition_summary_chips_html,
+    ranking_creation_target_summary_html,
+    ranking_policy_builder_card_html,
+    reversal_expectation_cap_rows,
+    reversal_expectation_component_rows,
+    reversal_expectation_pullback_rows,
+)
+from ui.ranking_presenter import (
+    compact_confidence_summary as _ranking_compact_confidence_summary,
+)
+from ui.ranking_presenter import full_confirmation_note as _ranking_full_confirmation_note
 from ui.ranking_state import (
     current_ranking_filter_state,
     ensure_ranking_selection_widget_state,
+    persist_ranking_filter_state,
     ranking_filter_summary,
     sync_ranking_selection_state,
 )
@@ -336,6 +394,7 @@ from ui.ranking_state import (
 from ui.ranking_state import (
     ranking_filter_value as _ranking_filter_value,
 )
+from ui.ranking_table import RankingTableConfig, build_ranking_aggrid_options
 from ui.rebalance_app import (
     MarketDataPreview,
     _available_forecast_evaluations,
@@ -367,6 +426,7 @@ from ui.research_state import (
     fetch_external_research_for_symbol,
     research_store,
 )
+from ui.server_ops_device import device_id_from_query, device_identity_bridge_html
 from ui.state import (
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,
@@ -431,7 +491,13 @@ from ui.views.news import (
     NEWS_COCKPIT_QUERY_SYMBOL_PARAM,
     render_news_dashboard_page,
 )
-from ui.views.ranking_chart_profiles import chart_profile_for_purpose, ranking_chart_frame
+from ui.views.ranking_chart_profiles import (
+    PROFILE_REVERSAL_EXPECTATION,
+    RankingChartProfile,
+    chart_profile_for_purpose,
+    ranking_chart_frame,
+    ranking_reversal_evidence_frame,
+)
 from ui.views.rebalance import (
     REBALANCE_REQUEST_STATE_KEY,
     REBALANCE_RESULT_STATE_KEY,
@@ -452,6 +518,15 @@ from ui.watchlist_snapshots import (
     prune_snapshots_for_removed_favorites,
     save_watchlist_snapshots,
 )
+
+# Streamlit reloads the page script without necessarily reloading imported
+# modules. Refresh a stale style module once so a rolling Radar update cannot
+# leave the new heatmap markup without its matching responsive CSS. Existing
+# imported functions retain the module dictionary that reload updates.
+if getattr(_ui_styles_module, "SMAI_STYLE_REVISION", "") != "2026-07-16-radar-market-v7":
+    importlib.reload(_ui_styles_module)
+
+LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "REBALANCE_REQUEST_STATE_KEY",
@@ -478,10 +553,18 @@ RANKING_PIPELINE_COHORT_SIZE = 100
 RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT = 25
 RANKING_CLIENT_SESSION_TOUCH_STATE_KEY = "market_data_ranking_client_session_touched_at"
 RANKING_CLIENT_SESSION_TOUCH_INTERVAL_SECONDS = 300.0
+RANKING_JOB_ADOPTED_STATE_KEY = "market_data_ranking_background_job_adopted"
+RANKING_JOB_HISTORY_PENDING_STATE_KEY = "market_data_ranking_background_job_history_pending"
 RANKING_FUNDAMENTAL_CONCURRENCY = 4
-MAX_RANKING_OHLCV_CACHE_SYMBOLS = 1_000
-MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 2_000
-MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS = 4_000
+RANKING_FUNDAMENTAL_TIMEOUT_SECONDS = 15.0
+RANKING_ADVANCED_FORECAST_MAX_WORKERS = 4
+MAX_RANKING_OHLCV_CACHE_SYMBOLS = 500
+MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS = 1_000
+MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS = 2_000
+RANKING_OHLCV_CACHE_TTL_SECONDS = 6 * 60 * 60
+RANKING_FUNDAMENTAL_CACHE_TTL_SECONDS = 24 * 60 * 60
+RANKING_ADVANCED_FORECAST_CACHE_TTL_SECONDS = 6 * 60 * 60
+RANKING_BUILD_CACHE_TTL_SECONDS = 30 * 60
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
 MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY = "market_data_ranking_stock_news_reports"
@@ -490,32 +573,6 @@ MARKET_DATA_RANKING_EXTERNAL_RESEARCH_RESULTS_STATE_KEY = (
 )
 RESEARCH_STALE_DAYS = 730
 DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
-MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
-    "market_data_cockpit_region": "all",
-    "market_data_cockpit_product_type": "all",
-    "market_data_cockpit_official_sector": "all",
-    "market_data_cockpit_theme": "all",
-    "market_data_cockpit_market_cap": "all",
-    "market_data_cockpit_index_family": "all",
-    "market_data_cockpit_max_expense": "2.00",
-    "market_data_cockpit_complexity": "all",
-    "market_data_cockpit_dividend": "all",
-    "market_data_cockpit_currency": "all",
-    "market_data_cockpit_nisa": "all",
-    "market_data_cockpit_risk_band": "all",
-    "market_data_cockpit_dividend_enabled": False,
-    "market_data_cockpit_min_dividend": "3.0",
-    "market_data_cockpit_dividend_max": "10.0",
-    "market_data_cockpit_per_enabled": False,
-    "market_data_cockpit_per_min": "2.0",
-    "market_data_cockpit_per_max": "20.0",
-    "market_data_cockpit_pbr_enabled": False,
-    "market_data_cockpit_pbr_min": "0.5",
-    "market_data_cockpit_pbr_max": "2.0",
-    "market_data_cockpit_roe_enabled": False,
-    "market_data_cockpit_roe_min": "8.0",
-    "market_data_cockpit_roe_max": "30.0",
-}
 
 
 @dataclass(frozen=True)
@@ -613,8 +670,7 @@ RANKING_TABLE_HIDDEN_COLUMNS = (
 )
 LLM_FACTOR_RANKING_COLUMNS = ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度")
 LLM_FACTOR_RANKING_REFERENCE_NOTICE = (
-    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
-    "売買推奨ではありません。"
+    "ニュース材料はAI要約です。現在のランキング順位には反映していません。"
 )
 LLM_FACTOR_RANKING_COLUMN_TOOLTIPS = {
     "ニュース材料": "AI要約で確認したポジティブ/ネガティブ材料の参考値です。",
@@ -652,10 +708,9 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "経費率": "asc",
 }
 RANKING_TABLE_SORT_GUIDANCE = (
-    "通常表示では投資判断に必要な列だけを表示します。"
-    "ニュース材料やモデル別情報などの補助情報は「詳細列を表示する」で確認できます。"
-    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
-    "N/Aは未取得または未評価を表します。"
+    "通常表示は、比較に使う列だけです。"
+    "ニュース・モデル別情報は「詳細列を表示する」で開けます。"
+    "ニュース材料は順位に反映していません。N/Aは未取得・未評価です。"
 )
 RANKING_LOW_VALUE_BETTER_COLUMNS = {
     "PER",
@@ -688,7 +743,7 @@ MARKET_CHART_HEIGHT = 540
 ADVANCED_FORECAST_CONSENSUS_LABEL = "AI予測インサイト"
 ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL = "統合予測"
 FORECAST_DECISION_SUPPORT_NOTE = (
-    "この予測は過去データに基づく参考情報であり、将来の値動きを保証するものではありません。"
+    "過去データから計算した参考予測です。予測レンジと根拠も見比べます。"
 )
 RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE = (
     "下降警戒は低いほど良い指標です。ランキングでは、警戒が低いほど加点されます。"
@@ -724,6 +779,15 @@ function(valueA, valueB, nodeA, nodeB, isDescending) {
   return a - b;
 }
 """
+)
+RANKING_TABLE_CONFIG = RankingTableConfig(
+    nowrap_cell_style=RANKING_GRID_NOWRAP_CELL_STYLE,
+    numeric_cell_style=RANKING_GRID_NUMERIC_CELL_STYLE,
+    numeric_sort_directions=RANKING_NUMERIC_SORT_DIRECTIONS,
+    numeric_sort_comparator=RANKING_NUMERIC_SORT_COMPARATOR,
+    llm_factor_detail_columns=LLM_FACTOR_RANKING_DETAIL_COLUMNS,
+    llm_factor_column_tooltips=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS,
+    hidden_columns=RANKING_TABLE_HIDDEN_COLUMNS,
 )
 SYMBOL_DETAIL_DIALOG_CSS = """
 <style>
@@ -1778,21 +1842,32 @@ def main() -> None:
     restore_notice = st.session_state.pop(RESTORE_NOTICE_KEY, None)
     if isinstance(restore_notice, dict):
         restored_parts = [
-            SIDEMENU_PAGE_LABELS.get(str(restore_notice.get("active_page", "")), ""),
+            SIDEMENU_PAGE_LABELS.get(cast(Any, str(restore_notice.get("active_page", ""))), ""),
             str(restore_notice.get("selected_symbol", "")),
         ]
         detail = " / ".join(part for part in restored_parts if part)
         message = "前回の状態を復元しました"
         st.toast(f"{message}: {detail}" if detail else message)
     reset_assistant_contexts()
-    if selected_page not in {SIDEMENU_PAGE_COPILOT, SIDEMENU_PAGE_RANKING}:
+    # Investment Radar has its own concise task-oriented title.  Keeping the
+    # global brand hero above it pushes the market overview and candidate queue
+    # below the first viewport, especially on tablets and phones.
+    if selected_page not in {
+        SIDEMENU_PAGE_COCKPIT,
+        SIDEMENU_PAGE_COPILOT,
+        SIDEMENU_PAGE_RANKING,
+        SIDEMENU_PAGE_NEWS,
+    }:
         render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()
     elif selected_page == SIDEMENU_PAGE_RANKING:
         _render_market_data_ranking()
     elif selected_page == SIDEMENU_PAGE_NEWS:
-        render_news_dashboard_page(open_symbol_callback=_select_news_symbol_for_cockpit)
+        render_news_dashboard_page(
+            open_symbol_callback=_select_news_symbol_for_cockpit,
+            market_snapshot_callback=_fetch_news_radar_market_snapshot,
+        )
     elif selected_page == SIDEMENU_PAGE_WATCHLIST:
         _render_my_watchlist_page()
     elif selected_page == SIDEMENU_PAGE_COPILOT:
@@ -1811,25 +1886,42 @@ def main() -> None:
     )
     client_id = str(st.session_state.get(CLIENT_ID_STATE_KEY) or "")
     save_client_session_if_changed(
-        st.session_state,
+        cast(Mapping[str, Any], st.session_state),
         client_id=client_id,
         selected_symbol=selected_symbol,
     )
 
 
 def _render_maintenance_status() -> None:
+    components.html(device_identity_bridge_html(), height=0, width=0)
     session_key = "smai_server_ops_session_id"
     session_id = str(st.session_state.get(session_key) or "")
     if not session_id:
         session_id = uuid4().hex
         st.session_state[session_key] = session_id
-    _maintenance_heartbeat_fragment(session_id)
+    _maintenance_heartbeat_fragment(
+        session_id,
+        _current_client_type(),
+        device_id_from_query(getattr(st, "query_params", None)),
+    )
+
+
+def _current_client_type() -> str:
+    """Derive a coarse client type without retaining a raw browser identifier."""
+
+    user_agent = st.context.headers.get("User-Agent", "")
+    return classify_client_type(user_agent)
 
 
 @st.fragment(run_every=60)
-def _maintenance_heartbeat_fragment(session_id: str) -> None:
-    manager = MaintenanceManager()
-    manager.heartbeat(session_id)
+def _maintenance_heartbeat_fragment(session_id: str, client_type: str, device_id: str) -> None:
+    manager = maintenance_module.MaintenanceManager()
+    if "device_id" not in inspect.signature(manager.heartbeat).parameters:
+        # Streamlit can reload this UI module while retaining an older imported
+        # maintenance module. Reload that local module once so a deployment
+        # does not require a forced process restart merely to resume telemetry.
+        manager = importlib.reload(maintenance_module).MaintenanceManager()
+    manager.heartbeat(session_id, client_type=client_type, device_id=device_id)
     notice = manager.notice()
     if notice:
         st.warning(str(notice.get("message") or "30秒後にメンテナンス再起動を行います。"))
@@ -2295,6 +2387,7 @@ def _run_symbol_database_preflight_refresh(
     *,
     context: Literal["cockpit", "ranking"],
     max_items: int,
+    update_session_state: bool = True,
 ) -> SymbolStartupRefreshSummary | None:
     max_symbols = RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT if context == "ranking" else max_items
     target_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
@@ -2311,10 +2404,12 @@ def _run_symbol_database_preflight_refresh(
             sync_symbol_cache_to_official_metrics(max_items=max_items, symbols=target_symbols)
         except Exception:  # noqa: BLE001 - metric promotion must not block data fetch.
             pass
-        st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
+        if update_session_state:
+            st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
         return summary
     except Exception as exc:  # noqa: BLE001
-        st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
+        if update_session_state:
+            st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
         return None
 
 
@@ -2426,12 +2521,9 @@ def _days_in_month(year: int, month: int) -> int:
 
 
 def default_forecast_horizon_days(start: date, end: date) -> int:
-    """Choose a compact forecast horizon from the displayed chart period."""
+    """Choose a stable trading-day horizon without a fixed upper ceiling."""
 
-    if end < start:
-        raise ValueError("End must be on or after Start")
-    display_days = (end - start).days + 1
-    return max(1, min(60, (display_days + 6) // 12))
+    return determine_forecast_horizon(start=start, end=end).horizon_days
 
 
 def _provider_option_index(provider: str) -> int:
@@ -3370,35 +3462,8 @@ def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) ->
     return "銘柄コックピットで価格・予測・リスクを確認します。"
 
 
-def _ranking_compact_confidence_summary(row: dict[str, str]) -> str:
-    parts: list[str] = []
-    for label, column in (
-        ("品質", "データ品質"),
-        ("条件", "条件適合度"),
-        ("DB", "DB信頼度"),
-    ):
-        value = str(row.get(column, "")).strip()
-        if value:
-            parts.append(f"{label}{value}")
-    research_status = str(row.get("根拠状態", "")).strip()
-    if research_status:
-        parts.append(research_status)
-    return " / ".join(parts)
-
-
 def _ranking_compact_confirmation_note(reason: str, checkpoint: str) -> str:
     return truncate_text(_ranking_full_confirmation_note(reason, checkpoint), max_chars=96)
-
-
-def _ranking_full_confirmation_note(reason: str, checkpoint: str) -> str:
-    checkpoint = checkpoint.strip()
-    reason = reason.strip()
-    generic_checkpoint = "銘柄コックピットで価格・予測・リスクを確認します。"
-    if checkpoint and checkpoint != generic_checkpoint:
-        if reason and reason != checkpoint:
-            return f"{reason} / {checkpoint}"
-        return checkpoint
-    return reason or checkpoint
 
 
 def _ranking_compact_smai_memo(row: Mapping[str, str], checkpoint: str) -> str:
@@ -3571,237 +3636,7 @@ def ranking_result_aggrid_options(
         if isinstance(display_rows, pd.DataFrame)
         else ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     )
-    builder = GridOptionsBuilder.from_dataframe(frame)
-    builder.configure_default_column(
-        sortable=True,
-        filter=True,
-        resizable=True,
-        wrapText=False,
-        autoHeight=False,
-    )
-    builder.configure_selection(
-        selection_mode="single",
-        use_checkbox=False,
-        suppressRowClickSelection=False,
-        suppressRowDeselection=False,
-    )
-    builder.configure_grid_options(
-        rowHeight=38,
-        headerHeight=38,
-        suppressCellFocus=True,
-        tooltipShowDelay=250,
-        ensureDomOrder=True,
-        enableCellTextSelection=True,
-    )
-    if "順位" in frame.columns:
-        builder.configure_column(
-            "順位",
-            width=58,
-            pinned="left",
-            filter=False,
-            cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
-        )
-    if "銘柄" in frame.columns:
-        builder.configure_column(
-            "銘柄",
-            width=92,
-            pinned="left",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "お気に入り" in frame.columns:
-        builder.configure_column(
-            "お気に入り",
-            width=116,
-            pinned="left",
-            sortable=False,
-            filter=False,
-            suppressMenu=True,
-            cellStyle=JsCode(
-                """
-                function(params) {
-                    const active = String(params.value || '').startsWith('★');
-                    return {
-                        color: active ? '#fbbf24' : '#dbeafe',
-                        backgroundColor: active
-                            ? 'rgba(245, 158, 11, 0.16)'
-                            : 'rgba(15, 23, 42, 0.54)',
-                        borderLeft: active
-                            ? '3px solid rgba(250, 204, 21, 0.82)'
-                            : '3px solid rgba(96, 165, 250, 0.42)',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap'
-                    };
-                }
-                """
-            ),
-        )
-    if "銘柄名" in frame.columns:
-        builder.configure_column(
-            "銘柄名",
-            width=200,
-            minWidth=170,
-            maxWidth=260,
-            pinned="left",
-            tooltipField="銘柄名",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "判断方針" in frame.columns:
-        builder.configure_column(
-            "判断方針",
-            width=116,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in (
-        "総合スコア",
-        "Screening",
-        "基礎評価",
-        "上昇気配",
-        "下降警戒",
-        "予測変化率",
-        "予測確度",
-        "高度予測",
-        "高度予測日数",
-        "高度予測スコア",
-        "データ品質",
-        "データ信頼度",
-        "条件適合度",
-        "Risk",
-        "リスク",
-        "DB信頼度",
-        "PER",
-        "PBR",
-        "ROE",
-        "配当利回り",
-        "株価",
-        "時価総額",
-        "出来高",
-        "ボラティリティ",
-        "自己資本比率",
-        "営業利益率",
-        "売上成長率",
-        "経費率",
-    ):
-        if column in frame.columns:
-            header_name = {
-                "Screening": "基礎評価",
-                "Risk": "リスク",
-                "データ品質": "データ信頼度",
-            }.get(column, column)
-            sort_direction = RANKING_NUMERIC_SORT_DIRECTIONS.get(column, "desc")
-            sorting_order = (
-                ["asc", "desc", None] if sort_direction == "asc" else ["desc", "asc", None]
-            )
-            builder.configure_column(
-                column,
-                width=168 if column == "株価" else 92,
-                filter=False,
-                headerName=header_name,
-                comparator=RANKING_NUMERIC_SORT_COMPARATOR,
-                sortingOrder=sorting_order,
-                unSortIcon=True,
-                wrapText=False,
-                autoHeight=False,
-                cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
-            )
-    for column in LLM_FACTOR_RANKING_DETAIL_COLUMNS:
-        if column in frame.columns:
-            is_numeric_material_column = column != "ニュース材料"
-            builder.configure_column(
-                column,
-                width=128,
-                filter=False,
-                sortable=False,
-                headerTooltip=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS[column],
-                wrapText=False,
-                autoHeight=False,
-                cellStyle=(
-                    RANKING_GRID_NUMERIC_CELL_STYLE
-                    if is_numeric_material_column
-                    else RANKING_GRID_NOWRAP_CELL_STYLE
-                ),
-            )
-    if "方向一致" in frame.columns:
-        builder.configure_column(
-            "方向一致",
-            width=112,
-            headerName="モデル方向",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "モデル方向" in frame.columns:
-        builder.configure_column(
-            "モデル方向",
-            width=128,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "予測根拠" in frame.columns:
-        builder.configure_column(
-            "予測根拠",
-            width=180,
-            tooltipField="予測根拠",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "高度予測信頼度" in frame.columns:
-        builder.configure_column(
-            "高度予測信頼度",
-            width=120,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "信頼度/根拠" in frame.columns:
-        builder.configure_column(
-            "信頼度/根拠",
-            width=142,
-            tooltipField="信頼度/根拠",
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "根拠状態" in frame.columns:
-        builder.configure_column(
-            "根拠状態",
-            width=116,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "見方" in frame.columns:
-        builder.configure_column(
-            "見方",
-            width=96,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in ("NISA", "投資スタイル", "時価総額", "連動指数", "通貨", "複雑性"):
-        if column in frame.columns:
-            builder.configure_column(
-                column,
-                width=112,
-                cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-            )
-    if "SMAIメモ" in frame.columns:
-        builder.configure_column(
-            "SMAIメモ",
-            width=280,
-            minWidth=220,
-            maxWidth=360,
-            tooltipField="確認詳細",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    if "確認メモ" in frame.columns:
-        builder.configure_column(
-            "確認メモ",
-            width=420,
-            minWidth=300,
-            maxWidth=520,
-            tooltipField="確認詳細",
-            wrapText=False,
-            autoHeight=False,
-            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
-        )
-    for column in RANKING_TABLE_HIDDEN_COLUMNS:
-        if column in frame.columns:
-            builder.configure_column(column, hide=True, tooltipField=column)
-    return cast(dict[str, object], builder.build())
+    return build_ranking_aggrid_options(frame, RANKING_TABLE_CONFIG)
 
 
 def _aggrid_event_data(grid_response: object) -> dict[str, object]:
@@ -4468,6 +4303,9 @@ def ranking_summary_cards(
     product_type: str,
     selected_count: int,
 ) -> list[dict[str, str]]:
+    # The ranking axis and scope already appear in the result header. Keep this
+    # row focused on quantities that change after a ranking run.
+    _ = ranking_axis, weight_preset, region, product_type
     scores = [
         score
         for row in display_rows
@@ -4506,16 +4344,6 @@ def ranking_summary_cards(
             "label": "データ信頼度高め",
             "value": str(high_confidence_count),
             "help": "DB信頼度が75以上の候補数です。投資魅力度ではなく評価信頼度です。",
-        },
-        {
-            "label": "ランキング軸",
-            "value": ranking_axis,
-            "help": weight_preset,
-        },
-        {
-            "label": "対象範囲",
-            "value": f"{region} / {product_type}",
-            "help": "取得前フィルターで選んだ地域と商品分類です。",
         },
     ]
 
@@ -4979,8 +4807,21 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
     render_section_heading("ランキングの見方")
     st.caption(ranking_purpose_focus_summary(ranking_purpose))
-    context_cards = ranking_purpose_context_cards(ranking_purpose, limit=4)
-    columns = st.columns(max(1, min(4, len(context_cards))))
+    if ranking_purpose == RANKING_PURPOSE_MULTI_FACTOR:
+        context_cards = [
+            {
+                "label": row["group"],
+                "value": row["weight"],
+                "help": "このランキング基準での合計重みです。",
+                "badge": "重み",
+            }
+            for row in ranking_weight_group_rows(weight_preset)
+        ]
+        column_count = 3
+    else:
+        context_cards = ranking_purpose_context_cards(ranking_purpose, limit=4)
+        column_count = 4
+    columns = st.columns(max(1, min(column_count, len(context_cards))))
     for index, card in enumerate(context_cards):
         value = card.get("value", "")
         progress = metric_progress_from_value(value) if value.endswith("%") else None
@@ -5046,82 +4887,6 @@ def _render_ranking_condition_card(
                 "AI総合 → 銘柄コードの順で並べます。危険条件を減点した後、50点付近の差が"
                 "読み取りやすくなるよう0〜100点へ滑らかに広げます。AI総合スコア自体は変更しません。"
             )
-
-
-def reversal_expectation_component_rows() -> list[dict[str, str]]:
-    return [
-        {
-            "評価要素": "チャート形状",
-            "配点": "30%",
-            "初心者向けの意味": "狙う形に近い下げ方か",
-            "主な材料": "押し目の深さ、短期騰落、底打ち・安値更新",
-            "計算の要点": "押し目、底打ち、横ばい上放れ、蓄積準備の最大値で形状を評価",
-        },
-        {
-            "評価要素": "予測上向き余地",
-            "配点": "25%",
-            "初心者向けの意味": "今後戻る予測材料があるか",
-            "主な材料": "予測変化率、上向きモデル数、高度予測",
-            "計算の要点": "予測値40%・方向一致25%・高度予測等35%",
-        },
-        {
-            "評価要素": "下落安全性",
-            "配点": "20%",
-            "初心者向けの意味": "下落継続の危険が強すぎないか",
-            "主な材料": "下降警戒、Risk、値動きの荒さ",
-            "計算の要点": "下降警戒45%・Risk35%・値動き20%",
-        },
-        {
-            "評価要素": "押し目状態",
-            "配点": "10%",
-            "初心者向けの意味": "押し目として適度な深さか",
-            "主な材料": "20日高値からの下落、5日騰落率",
-            "計算の要点": "6〜12%下落を中心に、急落と上昇済みを減点",
-        },
-        {
-            "評価要素": "上向き材料",
-            "配点": "5%",
-            "初心者向けの意味": "戻りを後押しする材料があるか",
-            "主な材料": "調査・ニュース材料、予測方向、上昇余地",
-            "計算の要点": "材料スコアを優先し、なければ予測情報で補完",
-        },
-        {
-            "評価要素": "企業・データ品質",
-            "配点": "10%",
-            "初心者向けの意味": "企業情報と配当維持力に弱さがないか",
-            "主な材料": "スクリーニング、登録情報、配当安全性",
-            "計算の要点": "データ品質は魅力度に加点せず、未評価判定と確認表示に使う",
-        },
-    ]
-
-
-def reversal_expectation_pullback_rows() -> list[dict[str, str]]:
-    return [
-        {"20日高値からの下落": "0%以上〜3%未満", "基礎点": "30", "読み方": "調整が浅い"},
-        {"20日高値からの下落": "3%以上〜6%未満", "基礎点": "60", "読み方": "軽い押し目"},
-        {"20日高値からの下落": "6%以上〜12%未満", "基礎点": "90", "読み方": "中心的な押し目"},
-        {"20日高値からの下落": "12%以上〜18%未満", "基礎点": "80", "読み方": "やや深い調整"},
-        {"20日高値からの下落": "18%以上〜25%未満", "基礎点": "60", "読み方": "深めの調整"},
-        {"20日高値からの下落": "25%以上〜35%未満", "基礎点": "35", "読み方": "急落を警戒"},
-        {"20日高値からの下落": "35%以上", "基礎点": "20", "読み方": "落ちるナイフを警戒"},
-    ]
-
-
-def reversal_expectation_cap_rows() -> list[dict[str, str]]:
-    return [
-        {"危険条件": "価格・時系列データ不足", "扱い": "未評価", "理由": "比較に必要な価格材料が不足"},
-        {"危険条件": "データ品質BLOCK", "扱い": "未評価", "理由": "評価材料が不足"},
-        {"危険条件": "下降警戒 70以上", "扱い": "-6〜-18点", "理由": "下振れ警戒が強いほど段階減点"},
-        {"危険条件": "Risk 50未満", "扱い": "-5〜-16点", "理由": "安全確認が弱いほど段階減点"},
-        {"危険条件": "5日騰落率 -5%以下", "扱い": "-6〜-18点", "理由": "足元の急落を警戒"},
-        {"危険条件": "20日高値から25%以上下落", "扱い": "-6〜-14点", "理由": "下落幅が大きいほど警戒"},
-        {"危険条件": "急落と安値割れ・下降警戒の重なり", "扱い": "-22〜-30点", "理由": "落ちるナイフ候補として強めに減点"},
-        {"危険条件": "予測変化率 0%以下", "扱い": "-3〜-12点", "理由": "戻る予測根拠が弱いほど軽〜中程度に減点"},
-        {"危険条件": "下落3%未満かつ5日で+3%超", "扱い": "-5〜-11点", "理由": "すでに上昇済みの追いかけ注意"},
-        {"危険条件": "高配当・配当維持注意", "扱い": "0〜-8点", "理由": "基本は注意タグ。減配リスクが高い場合のみ軽く減点"},
-        {"危険条件": "通常時の累積減点", "扱い": "最大-35点", "理由": "複数条件が重なっても点数の分解能を残す"},
-        {"危険条件": "落ちるナイフ級の累積減点", "扱い": "最大-45点", "理由": "急落継続だけは強めに抑制"},
-    ]
 
 
 def _ranking_condition_card_html(
@@ -5291,14 +5056,13 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
     primary_value = card.get("primary_value") or card["score"]
     name = card.get("name") or card.get("symbol") or "名称未登録"
     symbol_line = f"#{card.get('rank', '')} {card.get('symbol', '')}".strip()
-    score_line = (
-        f"{card.get('score_label', '総合スコア')} {card['score']}" if card.get("score") else ""
-    )
+    primary_score_line = f"{primary_label} {primary_value}".strip()
     reason = card.get("reason", "")
+    if reason.startswith(primary_score_line):
+        reason = reason[len(primary_score_line) :].lstrip(" /\u3000")
     progress = metric_progress_from_value(primary_value)
     safe_progress = min(100, max(0, int(progress))) if progress is not None else 0
     badges = (
-        badge_html(primary_label, "info") if primary_label else "",
         badge_html(card["view"], "info") if card["view"] else "",
         (
             badge_html("下降警戒", "caution")
@@ -5310,8 +5074,7 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
         badge_html("要確認", "caution") if card["caution"] else "",
     )
     badge_row = "".join(badge for badge in badges if badge)
-    caption_parts = [score_line, reason]
-    caption = " / ".join(part for part in caption_parts if part)
+    caption = reason
     return (
         '<div class="smai-ranking-card" '
         f'data-emphasis="{"spotlight" if index == 0 else "normal"}">'
@@ -5459,13 +5222,13 @@ def _render_ranking_profile_chart(
     ranking_purpose: str,
 ) -> None:
     requested_profile = chart_profile_for_purpose(ranking_purpose)
-    selection = ranking_chart_frame(display_rows, requested_profile)
-    render_section_heading(selection.profile.title if selection else requested_profile.title)
-    if selection is None:
-        st.info(
-            "この条件で使える既存列が不足しているため、メインチャートは表示していません。詳細表で候補を確認してください。"
-        )
+    if requested_profile.key == PROFILE_REVERSAL_EXPECTATION:
+        _render_ranking_reversal_evidence_map(display_rows, requested_profile)
         return
+    selection = ranking_chart_frame(display_rows, requested_profile)
+    if selection is None:
+        return
+    render_section_heading(selection.profile.title)
     if selection.used_fallback:
         st.caption(
             "指定条件向けの列が不足している、または同じ値に偏っているため、"
@@ -5568,6 +5331,92 @@ def _render_ranking_profile_chart(
         .properties(height=320)
     )
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
+
+
+def _render_ranking_reversal_evidence_map(
+    display_rows: list[dict[str, str]],
+    profile: RankingChartProfile,
+) -> None:
+    frame = ranking_reversal_evidence_frame(display_rows)
+    render_section_heading(profile.title)
+    st.caption(profile.description)
+    with st.expander("読み方", expanded=False):
+        for item in profile.how_to_read:
+            st.caption(f"- {item}")
+        st.caption(profile.caution)
+    if frame.empty:
+        st.info("上向き兆候の構成スコアを表示できる候補がありません。")
+        return
+
+    tooltip = [
+        alt.Tooltip("rank:N", title="順位"),
+        alt.Tooltip("symbol:N", title="銘柄コード"),
+        alt.Tooltip("name:N", title="銘柄名"),
+        alt.Tooltip("component:N", title="評価要素"),
+        alt.Tooltip("score:Q", title="構成スコア", format=".1f"),
+        alt.Tooltip("quality_status:N", title="評価可否"),
+        alt.Tooltip("data_quality:N", title="データ品質"),
+        alt.Tooltip("shape_label:N", title="チャート形状"),
+        alt.Tooltip("signal_reason:N", title="上向き兆候理由"),
+        alt.Tooltip("trap_warning:N", title="警戒事項"),
+    ]
+    base = alt.Chart(frame)
+    cells = base.mark_rect(cornerRadius=3).encode(
+        x=alt.X(
+            "component:N",
+            title=None,
+            sort=alt.SortField("component_order", order="ascending"),
+            axis=alt.Axis(labelAngle=0, labelLimit=90),
+        ),
+        y=alt.Y(
+            "candidate_label:N",
+            title=None,
+            sort=alt.SortField("rank_order", order="ascending"),
+            axis=alt.Axis(labelLimit=190),
+        ),
+        color=alt.Color(
+            "score:Q",
+            title="構成スコア",
+            scale=alt.Scale(
+                domain=[0, 50, 100],
+                range=[
+                    THEME_COLORS["bg_elevated"],
+                    THEME_COLORS["ai_blue"],
+                    THEME_COLORS["ai_cyan"],
+                ],
+            ),
+        ),
+        tooltip=tooltip,
+    )
+    labels = base.mark_text(fontSize=12, fontWeight=600).encode(
+        x=alt.X(
+            "component:N",
+            sort=alt.SortField("component_order", order="ascending"),
+        ),
+        y=alt.Y(
+            "candidate_label:N",
+            sort=alt.SortField("rank_order", order="ascending"),
+        ),
+        text=alt.Text("score_label:N"),
+        color=alt.condition(
+            "datum.score >= 72",
+            alt.value(THEME_COLORS["bg_app"]),
+            alt.value(THEME_COLORS["text_primary"]),
+        ),
+        tooltip=tooltip,
+    )
+    candidate_states = frame.drop_duplicates(subset=["candidate_label"])
+    state_counts = candidate_states["quality_status"].value_counts().to_dict()
+    chart = (cells + labels).properties(
+        height=max(320, min(430, 34 * len(candidate_states))),
+    )
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
+    st.caption(
+        "データ品質（このマップでは魅力度軸に使わない評価可否）: "
+        f"評価可能 {state_counts.get('評価可能', 0)}件 / "
+        f"要確認 {state_counts.get('要確認', 0)}件 / "
+        f"評価対象外 {state_counts.get('評価対象外', 0)}件"
+    )
 
 
 def _render_selected_ranking_candidate_breakdown(
@@ -5782,6 +5631,12 @@ def _render_ranking_data_state(
         updated_at=updated_at,
     )
     st.caption(state_text)
+    if error_rows:
+        total_count = len(display_rows) + len(error_rows)
+        st.warning(
+            f"対象 {total_count}件のうち {len(error_rows)}件は価格データを取得できませんでした。"
+            "結果には取得できた銘柄のみ表示しています。"
+        )
     with st.expander("データ状態", expanded=False):
         st.dataframe(detail_rows, hide_index=True, use_container_width=True)
         st.caption("テーブル内のソート、検索、絞り込みでは外部取得を実行しません。")
@@ -6115,18 +5970,6 @@ def ranking_condition_summary_chips_from_values(
     return chips
 
 
-def ranking_condition_summary_chips_html(chips: Sequence[Mapping[str, str]]) -> str:
-    rows = "".join(
-        (
-            '<span class="smai-ranking-condition-chip '
-            f'smai-ranking-condition-chip--{html.escape(chip.get("tone", "neutral"))}">'
-            f'{html.escape(chip.get("label", ""))}</span>'
-        )
-        for chip in chips
-    )
-    return f'<div class="smai-ranking-condition-chip-row">{rows}</div>'
-
-
 def _ranking_detail_condition_chips(
     values: Mapping[str, object],
     *,
@@ -6220,79 +6063,6 @@ def _ranking_detail_condition_chips(
             )
         )
     return chips
-
-
-def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) -> str:
-    description = ranking_policy_description(ranking_policy)
-    if ranking_policy == RANKING_PURPOSE_REVERSAL_EXPECTATION:
-        group_rows = [
-            {"group": row["評価要素"], "weight": row["配点"]}
-            for row in reversal_expectation_component_rows()
-        ]
-        beginner_explanation = (
-            '<div class="smai-ranking-policy-beginner-note">'
-            "<strong>計算の考え方</strong>"
-            "<p>下がっただけでは評価せず、下の6項目を合算します。"
-            "下降警戒・急落・低品質がある場合は最終スコアに上限をかけます。</p>"
-            "</div>"
-        )
-        caution = "上位は反発の断定ではなく、下落理由と危険度を確認する候補です。"
-    else:
-        group_rows = ranking_weight_group_rows(weight_preset)
-        beginner_explanation = ""
-        caution = "上位銘柄は、まず詳しく確認したい候補として見てください。"
-    group_items = "".join(
-        "<span>"
-        f"{html.escape(row['group'])} <strong>{html.escape(row['weight'])}</strong>"
-        "</span>"
-        for row in group_rows
-    )
-    return (
-        '<section class="smai-ranking-policy-builder">'
-        '<div class="smai-card-label">選択中のランキング基準</div>'
-        f"<h4>{html.escape(ranking_policy_label(ranking_policy))}</h4>"
-        f'<p>この基準で候補を並べます。{html.escape(description["short_summary"])}</p>'
-        f"{beginner_explanation}"
-        f'<div class="smai-ranking-policy-weight-chips">{group_items}</div>'
-        '<p class="smai-ranking-policy-caution">'
-        f"{html.escape(caution)}"
-        "</p>"
-        "</section>"
-    )
-
-
-def ranking_creation_target_summary_html(
-    *,
-    candidate_count: int,
-    selected_count: int,
-    effective_count: int,
-    fetch_limit_label: str,
-    ranking_policy: str,
-    period_preset: str,
-    provider: str,
-    has_detail_conditions: bool,
-) -> str:
-    tone = "warning" if candidate_count == 0 or effective_count == 0 else "ready"
-    if candidate_count == 0:
-        lead = "現在の条件では候補がありません。条件を緩めてください。"
-    else:
-        lead = f"候補 {candidate_count:,}件から、{effective_count:,}件を作成します。"
-    detail_state = "詳細条件あり" if has_detail_conditions else "詳細条件なし"
-    selection_note = f" / 選択: {selected_count:,}件" if selected_count != candidate_count else ""
-    details = (
-        f"ランキング基準: {ranking_policy_label(ranking_policy)} / "
-        f"期間: {ranking_period_label(period_preset)} / "
-        f"取得元: {provider} / "
-        f"作成対象: {fetch_limit_label} / "
-        f"{detail_state}"
-        f"{selection_note}"
-    )
-    return (
-        f'<div class="smai-ranking-target-summary smai-ranking-target-summary--{tone}">'
-        f"<strong>{html.escape(lead)}</strong>"
-        f"<span>{html.escape(details)}</span>"
-        "</div>"
-    )
 
 
 def _ranking_filtered_symbol_rows_from_state(
@@ -6649,7 +6419,7 @@ def _render_ranking_filter_panel(
             unsafe_allow_html=True,
         )
 
-    with st.expander("詳細条件で候補を絞り込む", expanded=True):
+    with st.expander("詳細条件・キーワードで候補を絞り込む", expanded=False):
         render_ranking_exploration_filter_cards(
             symbol_options,
             product_type=product_type,
@@ -6954,26 +6724,10 @@ def _render_ranking_filter_panel(
             )
             _render_metric_filter_grid(metric_filters, columns_per_row=4, compact=True)
 
-        st.markdown(
-            '<div class="smai-ranking-builder-subhead">キーワード検索</div>'
-            '<p class="smai-ranking-builder-caption">銘柄コード、会社名、テーマで候補を探します。</p>',
-            unsafe_allow_html=True,
+        st.button(
+            "詳細条件・検索をクリア",
+            on_click=clear_ranking_detail_condition_state,
         )
-        col_keyword, col_clear = st.columns([3.0, 0.8])
-        with col_keyword:
-            st.text_input(
-                "キーワード",
-                value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-                key="market_data_ranking_symbol_query",
-                placeholder="銘柄コード、会社名、テーマ",
-                help=RANKING_FILTER_HELP_TEXTS["keyword"],
-            )
-        with col_clear:
-            st.write("")
-            st.button(
-                "詳細条件をクリア",
-                on_click=clear_ranking_detail_condition_state,
-            )
 
     # The dedicated candidate breakdown card was removed from the main path.
     # Ranking candidates are summarized by _ranking_condition_summary_html instead,
@@ -7083,57 +6837,6 @@ def _cockpit_filter_state_snapshot() -> dict[str, str | bool]:
         else:
             snapshot[key] = _cockpit_filter_value(key, default)
     return snapshot
-
-
-def cockpit_detail_filters_for_category(region: str, product_type: str) -> frozenset[str]:
-    return frozenset(ranking_detail_filters_for_category(region, product_type))
-
-
-def cockpit_filter_has_active_conditions_from_values(
-    values: Mapping[str, object],
-) -> bool:
-    region = str(values.get("market_data_cockpit_region", "all"))
-    product_type = str(values.get("market_data_cockpit_product_type", "all"))
-    detail_filters = cockpit_detail_filters_for_category(region, product_type)
-    selector_keys = [
-        "market_data_cockpit_region",
-        "market_data_cockpit_product_type",
-        "market_data_cockpit_currency",
-    ]
-    if "official_sector" in detail_filters:
-        selector_keys.append("market_data_cockpit_official_sector")
-    if "investment_theme" in detail_filters:
-        selector_keys.append("market_data_cockpit_theme")
-    if "market_cap" in detail_filters:
-        selector_keys.append("market_data_cockpit_market_cap")
-    if "dividend_yield" in detail_filters:
-        selector_keys.append("market_data_cockpit_dividend")
-    if "nisa_eligibility" in detail_filters:
-        selector_keys.append("market_data_cockpit_nisa")
-    if "risk_band" in detail_filters:
-        selector_keys.append("market_data_cockpit_risk_band")
-    if "benchmark_index" in detail_filters:
-        selector_keys.append("market_data_cockpit_index_family")
-    if "complexity" in detail_filters:
-        selector_keys.append("market_data_cockpit_complexity")
-    for key in selector_keys:
-        default = MARKET_DATA_COCKPIT_FILTER_DEFAULTS[key]
-        if str(values.get(key, default)) != str(default):
-            return True
-    if "expense_ratio" in detail_filters:
-        default = str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"])
-        if str(values.get("market_data_cockpit_max_expense", default)).strip() != default:
-            return True
-    metric_enabled_keys: list[str] = []
-    if "dividend_yield" in detail_filters:
-        metric_enabled_keys.append("market_data_cockpit_dividend_enabled")
-    if "per" in detail_filters:
-        metric_enabled_keys.append("market_data_cockpit_per_enabled")
-    if "pbr" in detail_filters:
-        metric_enabled_keys.append("market_data_cockpit_pbr_enabled")
-    if "roe" in detail_filters:
-        metric_enabled_keys.append("market_data_cockpit_roe_enabled")
-    return any(_truthy_filter_value(values.get(key, False)) for key in metric_enabled_keys)
 
 
 def cockpit_filter_summary_chips_from_values(
@@ -8045,147 +7748,6 @@ def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, s
     )
 
 
-def cockpit_filtered_symbol_rows_from_values(
-    rows: list[dict[str, str]],
-    *,
-    region: str,
-    product_type: str,
-    currency: str,
-    dividend_category: str,
-    market_cap_tier: str,
-    nisa_eligibility: str,
-    risk_band: str,
-    official_sector: str,
-    theme: str,
-    index_family: str,
-    max_expense_ratio_pct: Decimal | str | int | float,
-    complexity: str,
-    dividend_yield_enabled: bool,
-    min_dividend_yield_pct: Decimal | str | int | float,
-    dividend_yield_max_pct: Decimal | str | int | float,
-    per_enabled: bool,
-    per_min: Decimal | str | int | float,
-    per_max: Decimal | str | int | float,
-    pbr_enabled: bool,
-    pbr_min: Decimal | str | int | float,
-    pbr_max: Decimal | str | int | float,
-    roe_enabled: bool,
-    roe_min_pct: Decimal | str | int | float,
-    roe_max_pct: Decimal | str | int | float,
-    active_detail_filters: frozenset[str] | None = None,
-) -> list[dict[str, str]]:
-    return filter_symbol_universe_rows(
-        rows,
-        region=region,
-        product_type=product_type,
-        currency=currency,
-        dividend_category=dividend_category,
-        market_cap_tier=market_cap_tier,
-        index_family=index_family,
-        max_expense_ratio_pct=str(max_expense_ratio_pct),
-        complexity=complexity,
-        nisa_eligibility=nisa_eligibility,
-        risk_band=risk_band,
-        official_sector=official_sector,
-        theme=theme,
-        dividend_yield_enabled=dividend_yield_enabled,
-        min_dividend_yield_pct=str(min_dividend_yield_pct),
-        dividend_yield_max_pct=str(dividend_yield_max_pct),
-        per_enabled=per_enabled,
-        per_min=str(per_min),
-        per_max=str(per_max),
-        pbr_enabled=pbr_enabled,
-        pbr_min=str(pbr_min),
-        pbr_max=str(pbr_max),
-        roe_enabled=roe_enabled,
-        roe_min_pct=str(roe_min_pct),
-        roe_max_pct=str(roe_max_pct),
-        limit=len(rows),
-        apply_universe_policy=False,
-        active_detail_filters=active_detail_filters,
-    )
-
-
-def cockpit_keyword_filtered_symbol_rows(
-    rows: list[dict[str, str]],
-    query: str,
-) -> list[dict[str, str]]:
-    normalized_query = _normalized_cockpit_search_text(query)
-    if not normalized_query:
-        return rows
-    matched_rows = [
-        row for row in rows if cockpit_symbol_search_rank(row, normalized_query) is not None
-    ]
-
-    def sort_key(row: Mapping[str, object]) -> tuple[int, str]:
-        rank = cockpit_symbol_search_rank(row, normalized_query)
-        return (rank if rank is not None else 99, str(row.get("symbol", "")).upper())
-
-    return sorted(
-        matched_rows,
-        key=sort_key,
-    )
-
-
-def _normalized_cockpit_search_text(value: object) -> str:
-    return " ".join(str(value or "").strip().lower().split())
-
-
-def _cockpit_search_field_text(row: Mapping[str, object], *fields: str) -> str:
-    values: list[str] = []
-    for field in fields:
-        value = row.get(field)
-        if isinstance(value, list | tuple | set):
-            values.extend(str(item) for item in value)
-        elif value is not None:
-            values.append(str(value))
-    return _normalized_cockpit_search_text(" ".join(values))
-
-
-def cockpit_symbol_search_rank(
-    row: Mapping[str, object],
-    query: str,
-) -> int | None:
-    """Return the user-facing Cockpit search rank; lower values are better."""
-
-    normalized_query = _normalized_cockpit_search_text(query)
-    if not normalized_query:
-        return 0
-    symbol = _cockpit_search_field_text(row, "symbol")
-    aliases = _cockpit_search_field_text(row, "aliases", "alias")
-    name = _cockpit_search_field_text(row, "name")
-    sector = _cockpit_search_field_text(
-        row,
-        "sector",
-        "industry",
-        "sector_gics",
-        "industry_gics",
-        "subindustry_gics",
-        "tse_33_industry",
-        "topix_17",
-    )
-    theme = _cockpit_search_field_text(row, "theme")
-    sector = _normalized_cockpit_search_text(
-        f"{sector} {RANKING_OFFICIAL_SECTOR_LABELS.get(str(row.get('sector', '')), '')}"
-    )
-    theme = _normalized_cockpit_search_text(
-        f"{theme} {RANKING_INVESTMENT_THEME_LABELS.get(str(row.get('theme', '')), '')}"
-    )
-    tags = _cockpit_search_field_text(row, "tags", "smai_theme_tags")
-    ranked_matches = (
-        symbol == normalized_query,
-        symbol.startswith(normalized_query),
-        aliases.startswith(normalized_query),
-        name.startswith(normalized_query),
-        normalized_query in aliases,
-        normalized_query in name,
-        normalized_query in sector,
-        normalized_query in theme,
-        normalized_query in tags,
-    )
-    return next((rank for rank, matched in enumerate(ranked_matches) if matched), None)
-
-
 def _cockpit_filter_value(key: str, default: str) -> str:
     value = st.session_state.get(key, MARKET_DATA_COCKPIT_FILTER_DEFAULTS.get(key, default))
     return str(value) if value is not None else default
@@ -8298,7 +7860,7 @@ def favorite_prioritized_symbol_candidate_labels(
 
         def sort_key(row: Mapping[str, object]) -> tuple[int, bool, str]:
             rank = cockpit_symbol_search_rank(row, query)
-            symbol = row.get("symbol", "")
+            symbol = str(row.get("symbol", ""))
             return (
                 rank if rank is not None else 99,
                 normalize_favorite_symbol(symbol) not in normalized_favorites,
@@ -8336,16 +7898,24 @@ def _render_market_data_preview() -> None:
 def _render_market_data_cockpit() -> None:
     render_page_title(
         "銘柄コックピット",
-        "1銘柄の価格・予測・根拠を確認します。",
+        "価格・予測・根拠を確認します。",
         "cockpit",
     )
+    navigation_source = st.session_state.get("market_data_navigation_source")
+    if isinstance(navigation_source, dict) and navigation_source.get("source_page") == "ranking":
+        st.session_state.pop("market_data_navigation_source", None)
+        period_label = str(navigation_source.get("period_label") or "ランキングの比較期間")
+        st.info(
+            "ランキングの比較候補から移動しました。ランキング時点の比較値を引き継いでいます。"
+            f"{period_label}の価格・予測を最新データで確認するには、下の「データを取得」を実行してください。"
+        )
     symbol_options = symbol_universe_rows()
     filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     st.markdown(
         '<section class="smai-cockpit-prefetch-header">'
         '<div class="smai-cockpit-prefetch-heading">銘柄を探す</div>'
         '<p class="smai-cockpit-prefetch-caption">'
-        "分析したい銘柄を検索し、データ取得元と候補を選びます。"
+        "検索して、分析する銘柄を選びます。"
         "</p>"
         "</section>",
         unsafe_allow_html=True,
@@ -8572,11 +8142,9 @@ def _render_market_data_cockpit() -> None:
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)
-            forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
-            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = forecast_horizon_days
             progress_bar = st.progress(0.0)
             progress_status = st.empty()
-            update_cockpit_progress("入力条件と予測日数を確認しています。", 0.12)
+            update_cockpit_progress("入力条件と自動予測期間を確認しています。", 0.12)
             update_cockpit_progress("価格データと予測材料を取得しています。", 0.32)
             preview = asyncio.run(
                 build_market_data_preview(
@@ -8584,9 +8152,10 @@ def _render_market_data_cockpit() -> None:
                     start=start_date,
                     end=end_date,
                     provider_override=provider,
-                    forecast_horizon_days=forecast_horizon_days,
+                    forecast_horizon_days=None,
                 )
             )
+            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = preview.forecast_horizon_days
             update_cockpit_progress("予測モデル、スコア、チャート材料を整理しています。", 0.86)
         except ValueError as exc:
             loading_slot.empty()
@@ -8659,7 +8228,7 @@ def _render_market_data_ranking() -> None:
         return
     render_page_title(
         "銘柄ランキング",
-        "条件で絞り込み、深掘り候補をランキングします。売買推奨ではありません。",
+        "条件で絞り込み、比較する候補を並べます。",
         "ranking",
     )
     _, history_button_col = st.columns([4, 1.25])
@@ -8705,7 +8274,7 @@ def _render_market_data_ranking() -> None:
                 st.selectbox(
                     "商品",
                     product_options,
-                key="market_data_ranking_product_type",
+                    key="market_data_ranking_product_type",
                     format_func=ranking_product_type_label,
                 ),
             )
@@ -8761,6 +8330,14 @@ def _render_market_data_ranking() -> None:
                     ),
                 ),
             )
+        st.text_input(
+            "キーワード",
+            value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+            key="market_data_ranking_symbol_query",
+            placeholder="銘柄コード、会社名、テーマ",
+            help=RANKING_FILTER_HELP_TEXTS["keyword"],
+        )
+        st.caption("キーワードを入力してEnterを押すと、候補数と現在の条件へ反映されます。")
 
     with detail_conditions:
         with col_period:
@@ -8805,6 +8382,10 @@ def _render_market_data_ranking() -> None:
             "探索条件モーダルを表示中です。ランキング候補・結果の再描画はスキップしています。"
         )
         return
+    # Widget state is removed by Streamlit after navigating to Cockpit. Persist
+    # the active values so a ranking-to-detail round trip keeps the comparison
+    # conditions visible and reusable.
+    persist_ranking_filter_state()
     filter_values = _ranking_filter_state_snapshot()
     market = "all"
     asset_type = "all"
@@ -8879,23 +8460,21 @@ def _render_market_data_ranking() -> None:
     selected_count_for_summary = display_candidate_count
     load_state = ranking_condition_load_state(selected_count_for_summary)
 
-    ranking_condition_slot, policy_summary_slot = st.columns([1.12, 1.0])
-    with ranking_condition_slot:
-        st.markdown(
-            _ranking_condition_summary_html(
-                filter_values,
-                region=region,
-                product_type=product_type,
-                ranking_policy=ranking_policy,
-                period_preset=period_preset,
-                candidate_count=display_candidate_count,
-                load_state=load_state,
-                extra_chips=ranking_exploration_filter_chip_labels(),
-                draft=False,
-            ),
-            unsafe_allow_html=True,
-        )
-    with policy_summary_slot:
+    st.markdown(
+        _ranking_condition_summary_html(
+            filter_values,
+            region=region,
+            product_type=product_type,
+            ranking_policy=ranking_policy,
+            period_preset=period_preset,
+            candidate_count=display_candidate_count,
+            load_state=load_state,
+            extra_chips=ranking_exploration_filter_chip_labels(),
+            draft=False,
+        ),
+        unsafe_allow_html=True,
+    )
+    with st.expander("ランキング基準の内訳", expanded=False):
         st.markdown(
             ranking_policy_builder_card_html(ranking_policy, policy_preset),
             unsafe_allow_html=True,
@@ -8946,7 +8525,7 @@ def _render_market_data_ranking() -> None:
         )
         selected_count_for_summary = len(selected_labels)
     else:
-        st.caption("比較銘柄リストは未生成です。通常は現在の候補から取得上限まで自動選定します。")
+        st.caption("候補は自動選定します。必要なときだけ手動選択を開いてください。")
         effective_selected_labels = _default_effective_ranking_labels(
             filtered_symbol_rows,
             preset=RANKING_FETCH_LIMIT_PRESET,
@@ -8982,7 +8561,7 @@ def _render_market_data_ranking() -> None:
             "ランキング作成",
             key="build_market_data_ranking",
             type="primary",
-            disabled=not ranking_symbols,
+            disabled=(not ranking_symbols or ranking_job_is_running(current_ranking_source)),
             use_container_width=True,
         )
     with action_summary_col:
@@ -9005,76 +8584,31 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
-        if ranking_build_is_running(cache_key):
-            st.info(
-                "同じ条件のランキングを別の実行で作成中です。"
-                "完了するまで条件を変えずにお待ちください。"
-            )
-            return
         _touch_ranking_client_session(force=True)
-        begin_ranking_build(cache_key)
-        loading_slot = st.empty()
-        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
-            max_items=4
+        start_ranking_job(
+            cache_key,
+            lambda progress: _execute_market_data_ranking_job(
+                cache_key=cache_key,
+                ranking_symbols=list(ranking_symbols),
+                start=start_date,
+                end=end_date,
+                provider=provider,
+                progress_callback=progress,
+            ),
         )
+        st.rerun()
 
-        def update_progress(message: str, ratio: float) -> None:
-            _touch_ranking_client_session()
-            update_ranking_build_progress(cache_key, message=message, ratio=ratio)
-            loading_slot.markdown(
-                workflow_loading_html(
-                    title="ランキングを作成中",
-                    message=(
-                        "既存の結果を残したまま、候補ごとの価格データと比較材料を整理しています。"
-                    ),
-                    current_step=message,
-                    progress=ratio,
-                    mode="inline",
-                    headlines=loading_headlines,
-                    headline_note=loading_headline_note,
-                ),
-                unsafe_allow_html=True,
-            )
+    _render_ranking_background_job(current_ranking_source)
 
-        try:
-            update_progress("ランキング対象と取得条件を確認しています。", 0.04)
-            cached_build = get_cached_ranking_build(cache_key)
-            if cached_build is not None and cached_build[0]:
-                rows, error_rows = cached_build
-                update_progress("同じ条件の完成済みランキングを再利用しています。", 0.98)
-            else:
-                # The preflight can also be long for a large universe. Keep it
-                # visible to the maintenance watcher before market-data work starts.
-                with maintenance_operation("ranking_build_preflight"):
-                    _run_symbol_database_preflight_refresh(
-                        ranking_symbol_db_preflight_symbols(ranking_symbols),
-                        context="ranking",
-                        max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
-                    )
-                with maintenance_operation("ranking_build"):
-                    rows, error_rows = asyncio.run(
-                        _build_market_data_ranking_rows(
-                            ranking_symbols,
-                            start=start_date,
-                            end=end_date,
-                            provider=provider,
-                            progress_callback=update_progress,
-                        )
-                    )
-            update_progress("ランキング更新が完了しました。", 1.0)
-        except BaseException:
-            fail_ranking_build(cache_key)
-            raise
-        finally:
-            loading_slot.empty()
-        set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
-        complete_ranking_build(cache_key)
-        st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
-        st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
-        st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
-        st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
-            "%Y-%m-%d %H:%M"
-        )
+    completed_job = get_ranking_job(current_ranking_source)
+    history_pending_job_id = str(st.session_state.get(RANKING_JOB_HISTORY_PENDING_STATE_KEY) or "")
+    if (
+        completed_job is not None
+        and completed_job.status == "completed"
+        and completed_job.job_id == history_pending_job_id
+    ):
+        st.session_state.pop(RANKING_JOB_HISTORY_PENDING_STATE_KEY, None)
+        rows = completed_job.rows
         if rows:
             try:
                 history_ranked_rows = apply_ranking_weight_preset(
@@ -9118,6 +8652,11 @@ def _render_market_data_ranking() -> None:
             st.success(f"✅ {history_message}")
         elif history_status == "failed":
             st.warning(history_message)
+        elif history_status == "skipped_default":
+            st.info(
+                "SMAIデフォルトではランキング履歴を保存しません。履歴を残す場合は、"
+                "ローカルプロフィールを選択または作成してください。"
+            )
         else:
             st.info(history_message)
 
@@ -9129,7 +8668,7 @@ def _render_market_data_ranking() -> None:
     if (
         not st.session_state.get(MARKET_DATA_RANKING_STATE_KEY)
         and current_ranking_source
-        and not ranking_build_is_running(current_ranking_source)
+        and not ranking_job_is_running(current_ranking_source)
     ):
         cached_build = get_cached_ranking_build(current_ranking_source)
         if cached_build is not None:
@@ -9220,11 +8759,14 @@ def _render_market_data_ranking() -> None:
         _render_top_screening_candidate_cards(
             ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_policy)
         )
-        chart_col, confidence_col = st.columns(2)
-        with chart_col:
-            _render_ranking_score_bar_chart(display_rows, ranking_policy)
-        with confidence_col:
+        if ranking_policy == RANKING_PURPOSE_REVERSAL_EXPECTATION:
             _render_ranking_profile_chart(display_rows, ranking_policy)
+        else:
+            chart_col, confidence_col = st.columns(2)
+            with chart_col:
+                _render_ranking_score_bar_chart(display_rows, ranking_policy)
+            with confidence_col:
+                _render_ranking_profile_chart(display_rows, ranking_policy)
         deep_dive_symbols = ranking_deep_dive_symbol_options(ranked_rows)
         deep_dive_rank_by_symbol = {
             symbol: index for index, symbol in enumerate(deep_dive_symbols, start=1)
@@ -9643,19 +9185,41 @@ def _ranking_advanced_forecast_fields(
             fields["advanced_forecast_predicted_return"] = _signed_percent_from_text(
                 predicted_return
             )
+        direction_predicted_return = str(
+            consensus_row.get("direction_predicted_return", "")
+        ).strip()
+        if direction_predicted_return:
+            fields["advanced_forecast_direction_predicted_return"] = _signed_percent_from_text(
+                direction_predicted_return
+            )
         direction_score_value = _decimal_from_text(direction_score)
         if direction_score_value is not None:
             fields["advanced_forecast_score"] = _format_ranking_decimal_value(direction_score_value)
         fields.update(_advanced_forecast_ranking_signal_fields(consensus_row))
         if confidence:
             fields["advanced_forecast_confidence"] = confidence
+        center_confidence = str(consensus_row.get("center_confidence", "")).strip()
+        direction_confidence = str(consensus_row.get("direction_confidence", "")).strip()
+        if center_confidence:
+            fields["advanced_forecast_center_confidence"] = center_confidence
+        if direction_confidence:
+            fields["advanced_forecast_direction_confidence"] = direction_confidence
         if consensus_row.get("predicted_return_lower") or consensus_row.get(
             "predicted_return_upper"
         ):
             fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
         fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
+        fields["advanced_forecast_selection_policy"] = consensus_row.get(
+            "selection_policy_version", ""
+        )
+        fields["advanced_forecast_selected_models"] = consensus_row.get("selected_models", "")
+        fields["advanced_forecast_center_excluded_models"] = consensus_row.get(
+            "center_excluded_models", ""
+        )
+        fields["advanced_forecast_selection_reason"] = consensus_row.get("selection_reason", "")
         fields["advanced_forecast_consensus_note"] = (
-            "AI予測インサイトは、信頼度・誤差改善・モデル合意度を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
+            "AI予測インサイトは、取得期間由来の予測期間と過去検証gateでモデルを選び、"
+            "レンジモデルを保守的な中心として統合した参考値です。AI総合では補助材料として控えめに加味します。"
         )
         return fields
 
@@ -9994,11 +9558,26 @@ async def _build_large_market_data_ranking_rows(
         except AppError as exc:
             cohort_rows = []
             cohort_errors = ranking_provider_error_rows(provider, cohort, exc)
+        except Exception as original_exc:  # noqa: BLE001 - keep later cohorts usable.
+            cohort_rows = []
+            cohort_errors = ranking_provider_error_rows(
+                provider,
+                cohort,
+                DataSourceError(
+                    "ランキングの一部候補を処理できませんでした。",
+                    details={
+                        "operation": "ranking_build_cohort",
+                        "cohort": cohort_index + 1,
+                        "cohort_count": len(cohorts),
+                        "error_type": type(original_exc).__name__,
+                    },
+                ),
+            )
         rows.extend(cohort_rows)
         error_rows.extend(cohort_errors)
-        retained_top_rows = rank_investment_score_rows(
-            [*retained_top_rows, *cohort_rows]
-        )[:RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT]
+        retained_top_rows = rank_investment_score_rows([*retained_top_rows, *cohort_rows])[
+            :RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT
+        ]
         next_retained_symbols = {
             str(row.get("symbol", "")).strip().upper()
             for row in retained_top_rows
@@ -10033,7 +9612,9 @@ async def _build_large_market_data_ranking_rows(
             include_advanced_forecast=True,
         )
         advanced_fields_by_symbol = {
-            str(row.get("symbol", "")).strip().upper(): {
+            str(row.get("symbol", ""))
+            .strip()
+            .upper(): {
                 key: value for key, value in row.items() if key.startswith("advanced_forecast_")
             }
             for row in advanced_rows
@@ -10043,7 +9624,7 @@ async def _build_large_market_data_ranking_rows(
             provisional_rows,
             advanced_fields_by_symbol,
         )
-    except AppError:
+    except Exception:  # noqa: BLE001 - advanced forecast is optional enrichment.
         pass
     finally:
         _release_ranking_cohort_cache(provider, advanced_symbols)
@@ -10318,7 +9899,10 @@ def _ranking_advanced_forecast_fields_for_symbols(
     from joblib import Parallel, delayed  # type: ignore[import-untyped]  # noqa: PLC0415
 
     profile = resolve_performance_profile()
-    workers = max(1, min(2, profile.processing.forecast_workers))
+    workers = max(
+        1,
+        min(RANKING_ADVANCED_FORECAST_MAX_WORKERS, profile.processing.forecast_workers),
+    )
     completed = Parallel(
         n_jobs=workers,
         backend="threading",
@@ -10448,7 +10032,8 @@ async def _fetch_ranking_fundamentals_tolerant(
         display_symbols = display_symbols_by_provider_symbol.get(provider_symbol, [provider_symbol])
         try:
             async with semaphore:
-                fetched = await adapter.fetch_fundamentals([provider_symbol], as_of=as_of)
+                async with asyncio.timeout(RANKING_FUNDAMENTAL_TIMEOUT_SECONDS):
+                    fetched = await adapter.fetch_fundamentals([provider_symbol], as_of=as_of)
             _cache_ranking_fundamentals(
                 provider,
                 provider_symbol,
@@ -10456,8 +10041,27 @@ async def _fetch_ranking_fundamentals_tolerant(
                 as_of=as_of,
             )
             return fetched, []
-        except AppError as exc:
-            return [], ranking_provider_error_rows(provider, display_symbols, exc)
+        except TimeoutError:
+            timeout_error = ProviderTimeoutError(
+                "ファンダメンタル情報の取得がタイムアウトしました。",
+                details={
+                    "operation": "ranking_fetch_fundamentals",
+                    "symbol": provider_symbol,
+                },
+            )
+            return [], ranking_provider_error_rows(provider, display_symbols, timeout_error)
+        except AppError as app_error:
+            return [], ranking_provider_error_rows(provider, display_symbols, app_error)
+        except Exception as original_exc:  # noqa: BLE001 - fundamentals are optional.
+            data_source_error = DataSourceError(
+                "ファンダメンタル情報を利用できませんでした。",
+                details={
+                    "operation": "ranking_fetch_fundamentals",
+                    "symbol": provider_symbol,
+                    "error_type": type(original_exc).__name__,
+                },
+            )
+            return [], ranking_provider_error_rows(provider, display_symbols, data_source_error)
 
     results = await asyncio.gather(*(fetch_one(symbol) for symbol in provider_symbols))
     for fetched, errors in results:
@@ -10554,6 +10158,90 @@ def _ranking_bars_by_symbol(
 RankingProgressCallback = Callable[[str, float], None]
 
 
+def _execute_market_data_ranking_job(
+    *,
+    cache_key: str,
+    ranking_symbols: list[str],
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: BackgroundRankingProgressCallback,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Run a ranking without reading or writing Streamlit session state."""
+
+    progress_callback("ランキング対象と取得条件を確認しています。", 0.04)
+    cached_build = get_cached_ranking_build(cache_key)
+    if cached_build is not None and cached_build[0]:
+        rows, error_rows = cached_build
+        progress_callback("同じ条件の完成済みランキングを再利用しています。", 0.98)
+    else:
+        with maintenance_operation("ranking_build_preflight"):
+            _run_symbol_database_preflight_refresh(
+                ranking_symbol_db_preflight_symbols(ranking_symbols),
+                context="ranking",
+                max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
+                update_session_state=False,
+            )
+        with maintenance_operation("ranking_build"):
+            rows, error_rows = asyncio.run(
+                _build_market_data_ranking_rows(
+                    ranking_symbols,
+                    start=start,
+                    end=end,
+                    provider=provider,
+                    progress_callback=progress_callback,
+                )
+            )
+    set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
+    progress_callback("ランキング更新が完了しました。", 1.0)
+    return rows, error_rows
+
+
+@st.fragment(run_every=2)
+def _render_ranking_background_job(cache_key: str) -> None:
+    """Poll and adopt a process-wide ranking from any browser session."""
+
+    if not cache_key:
+        return
+    job = get_ranking_job(cache_key)
+    if job is None:
+        return
+    if job.status == "running":
+        st.markdown(
+            workflow_loading_html(
+                title="ランキングを作成中",
+                message=("画面を閉じたり通信が切り替わっても、サーバー側で作成を継続します。"),
+                current_step=job.message,
+                progress=job.ratio,
+                mode="inline",
+                headlines=workflow_loading_headlines_from_cache(max_items=4)[0],
+                headline_note="取得済みの市場トピックを表示しています。",
+            ),
+            unsafe_allow_html=True,
+        )
+        return
+    if job.status == "failed":
+        error_suffix = f"（{job.error_type}）" if job.error_type else ""
+        st.error(
+            "ランキング作成が途中で終了しました。条件は保持されています。"
+            f"もう一度実行してください。{error_suffix}"
+        )
+        return
+    adopted = str(st.session_state.get(RANKING_JOB_ADOPTED_STATE_KEY) or "")
+    if adopted == job.job_id:
+        st.success("ランキング作成が完了しました。")
+        return
+    st.session_state[MARKET_DATA_RANKING_STATE_KEY] = job.rows
+    st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = job.error_rows
+    st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
+    st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
+        "%Y-%m-%d %H:%M"
+    )
+    st.session_state[RANKING_JOB_ADOPTED_STATE_KEY] = job.job_id
+    st.session_state[RANKING_JOB_HISTORY_PENDING_STATE_KEY] = job.job_id
+    st.rerun()
+
+
 def _touch_ranking_client_session(*, force: bool = False) -> bool:
     now = perf_time.monotonic()
     previous = st.session_state.get(RANKING_CLIENT_SESSION_TOUCH_STATE_KEY, 0.0)
@@ -10567,11 +10255,10 @@ def _touch_ranking_client_session(*, force: bool = False) -> bool:
     if not client_id:
         return False
     selected_symbol = (
-        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", "")))
-        or ""
+        _symbol_from_candidate(str(st.session_state.get("market_data_symbol_candidate", ""))) or ""
     )
     saved = save_client_session_if_changed(
-        st.session_state,
+        cast(Mapping[str, Any], st.session_state),
         client_id=client_id,
         selected_symbol=selected_symbol,
         force_write=True,
@@ -10597,49 +10284,17 @@ def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
 
 
 @st.cache_resource(show_spinner=False)
-def _ranking_build_jobs() -> dict[str, dict[str, object]]:
-    """Track ranking work across Streamlit reconnects in this server process."""
-
+def _ranking_build_cache_accessed_at() -> dict[str, float]:
     return {}
-
-
-def begin_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "running",
-        "message": "ランキング対象と取得条件を確認しています。",
-        "ratio": 0.0,
-    }
-
-
-def update_ranking_build_progress(cache_key: str, *, message: str, ratio: float) -> None:
-    job = _ranking_build_jobs().get(cache_key)
-    if job is None or job.get("status") != "running":
-        return
-    job.update({"message": message, "ratio": max(0.0, min(1.0, ratio))})
-
-
-def ranking_build_is_running(cache_key: str) -> bool:
-    return _ranking_build_jobs().get(cache_key, {}).get("status") == "running"
-
-
-def complete_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "completed",
-        "message": "ランキング更新が完了しました。",
-        "ratio": 1.0,
-    }
-
-
-def fail_ranking_build(cache_key: str) -> None:
-    _ranking_build_jobs()[cache_key] = {
-        "status": "failed",
-        "message": "ランキング作成を完了できませんでした。",
-        "ratio": 0.0,
-    }
 
 
 @st.cache_resource(show_spinner=False)
 def _ranking_ohlcv_cache() -> dict[tuple[str, str, str, str], list[Bar]]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_ohlcv_cache_accessed_at() -> dict[tuple[str, str, str, str], float]:
     return {}
 
 
@@ -10665,9 +10320,19 @@ def _get_cached_ranking_ohlcv(
     start: datetime,
     end: datetime,
 ) -> list[Bar] | None:
-    return _ranking_ohlcv_cache().get(
-        _ranking_ohlcv_cache_key(provider, symbol, start=start, end=end)
-    )
+    key = _ranking_ohlcv_cache_key(provider, symbol, start=start, end=end)
+    cache = _ranking_ohlcv_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_ohlcv_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_OHLCV_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_ohlcv(
@@ -10679,6 +10344,7 @@ def _cache_ranking_ohlcv(
     end: datetime,
 ) -> None:
     cache = _ranking_ohlcv_cache()
+    accessed_at = _ranking_ohlcv_cache_accessed_at()
     bars_by_symbol: dict[str, list[Bar]] = {symbol.strip().upper(): [] for symbol in symbols}
     for bar in bars:
         raw_symbol = str(getattr(getattr(bar, "symbol", None), "raw", "")).strip().upper()
@@ -10692,12 +10358,20 @@ def _cache_ranking_ohlcv(
         key = _ranking_ohlcv_cache_key(provider, normalized, start=start, end=end)
         cache.pop(key, None)
         cache[key] = symbol_bars
+        accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_OHLCV_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 @st.cache_resource(show_spinner=False)
 def _ranking_fundamental_cache() -> dict[tuple[str, str, str], list[FundamentalSnapshot]]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_fundamental_cache_accessed_at() -> dict[tuple[str, str, str], float]:
     return {}
 
 
@@ -10716,9 +10390,19 @@ def _get_cached_ranking_fundamentals(
     *,
     as_of: date,
 ) -> list[FundamentalSnapshot] | None:
-    return _ranking_fundamental_cache().get(
-        _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
-    )
+    key = _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
+    cache = _ranking_fundamental_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_fundamental_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_FUNDAMENTAL_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_fundamentals(
@@ -10731,15 +10415,24 @@ def _cache_ranking_fundamentals(
     if not fundamentals:
         return
     cache = _ranking_fundamental_cache()
+    accessed_at = _ranking_fundamental_cache_accessed_at()
     key = _ranking_fundamental_cache_key(provider, symbol, as_of=as_of)
     cache.pop(key, None)
     cache[key] = fundamentals
+    accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 @st.cache_resource(show_spinner=False)
 def _ranking_advanced_forecast_cache() -> dict[tuple[str, int, int, str, str], dict[str, str]]:
+    return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _ranking_advanced_forecast_cache_accessed_at() -> dict[tuple[str, int, int, str, str], float]:
     return {}
 
 
@@ -10774,7 +10467,18 @@ def _get_cached_ranking_advanced_forecast(
     )
     if key is None:
         return None
-    return _ranking_advanced_forecast_cache().get(key)
+    cache = _ranking_advanced_forecast_cache()
+    cached = cache.get(key)
+    if cached is None:
+        return None
+    accessed_at = _ranking_advanced_forecast_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(key, now) > RANKING_ADVANCED_FORECAST_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        accessed_at.pop(key, None)
+        return None
+    accessed_at[key] = now
+    return cached
 
 
 def _cache_ranking_advanced_forecast(
@@ -10792,10 +10496,14 @@ def _cache_ranking_advanced_forecast(
     if key is None:
         return
     cache = _ranking_advanced_forecast_cache()
+    accessed_at = _ranking_advanced_forecast_cache_accessed_at()
     cache.pop(key, None)
     cache[key] = fields
+    accessed_at[key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS:
-        cache.pop(next(iter(cache)))
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None:
@@ -10808,17 +10516,23 @@ def _release_ranking_cohort_cache(provider: str, symbols: Sequence[str]) -> None
     }
     cache_symbols = display_symbols | provider_symbols
     ohlcv_cache = _ranking_ohlcv_cache()
-    for key in tuple(ohlcv_cache):
-        if key[0] == provider_key and key[1] in cache_symbols:
-            ohlcv_cache.pop(key, None)
+    ohlcv_accessed_at = _ranking_ohlcv_cache_accessed_at()
+    for ohlcv_key in tuple(ohlcv_cache):
+        if ohlcv_key[0] == provider_key and ohlcv_key[1] in cache_symbols:
+            ohlcv_cache.pop(ohlcv_key, None)
+            ohlcv_accessed_at.pop(ohlcv_key, None)
     fundamental_cache = _ranking_fundamental_cache()
-    for key in tuple(fundamental_cache):
-        if key[0] == provider_key and key[1] in cache_symbols:
-            fundamental_cache.pop(key, None)
+    fundamental_accessed_at = _ranking_fundamental_cache_accessed_at()
+    for fundamental_key in tuple(fundamental_cache):
+        if fundamental_key[0] == provider_key and fundamental_key[1] in cache_symbols:
+            fundamental_cache.pop(fundamental_key, None)
+            fundamental_accessed_at.pop(fundamental_key, None)
     advanced_cache = _ranking_advanced_forecast_cache()
-    for key in tuple(advanced_cache):
-        if key[0] in display_symbols:
-            advanced_cache.pop(key, None)
+    advanced_accessed_at = _ranking_advanced_forecast_cache_accessed_at()
+    for advanced_key in tuple(advanced_cache):
+        if advanced_key[0] in display_symbols:
+            advanced_cache.pop(advanced_key, None)
+            advanced_accessed_at.pop(advanced_key, None)
     gc.collect()
 
 
@@ -10828,6 +10542,13 @@ def get_cached_ranking_build(
     cached = _ranking_build_cache().get(cache_key)
     if cached is None:
         return None
+    accessed_at = _ranking_build_cache_accessed_at()
+    now = perf_time.monotonic()
+    if now - accessed_at.get(cache_key, now) > RANKING_BUILD_CACHE_TTL_SECONDS:
+        _ranking_build_cache().pop(cache_key, None)
+        accessed_at.pop(cache_key, None)
+        return None
+    accessed_at[cache_key] = now
     return cached.get("rows", []), cached.get("error_rows", [])
 
 
@@ -10838,12 +10559,15 @@ def set_cached_ranking_build(
     error_rows: list[dict[str, str]],
 ) -> None:
     cache = _ranking_build_cache()
+    accessed_at = _ranking_build_cache_accessed_at()
     if cache_key in cache:
         cache.pop(cache_key)
     cache[cache_key] = {"rows": rows, "error_rows": error_rows}
+    accessed_at[cache_key] = perf_time.monotonic()
     while len(cache) > MAX_RANKING_BUILD_CACHE_ENTRIES:
         oldest_key = next(iter(cache))
         cache.pop(oldest_key)
+        accessed_at.pop(oldest_key, None)
 
 
 def _feature_missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
@@ -10969,6 +10693,12 @@ def _select_ranking_symbol_for_cockpit_with_period(
     st.session_state["market_data_period_preset"] = MARKET_DATA_PERIOD_CUSTOM
     st.session_state["market_data_start"] = start
     st.session_state["market_data_end"] = end
+    st.session_state["market_data_navigation_source"] = {
+        "source_page": "ranking",
+        "source_label": "銘柄ランキング",
+        "symbol": symbol.strip().upper(),
+        "period_label": f"{start.isoformat()}〜{end.isoformat()}",
+    }
 
 
 def _select_news_symbol_for_cockpit(symbol: str) -> None:
@@ -10983,6 +10713,49 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
     }
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+
+
+def _fetch_news_radar_market_snapshot(
+    candidates: Sequence[RadarCandidate],
+    lookback_sessions: int,
+) -> RadarMarketSnapshot:
+    """Fetch a bounded live-price set only after the Radar's explicit action."""
+
+    settings = get_settings()
+    dataaccess = settings.dataaccess
+    provider = dataaccess.provider
+    selected = radar_market_candidates(candidates)
+    symbols = [candidate.symbol for candidate in selected]
+    provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
+    now = datetime.now(UTC)
+    bars: list[Bar] = []
+    try:
+        adapter = create_market_data_provider_adapter(dataaccess)
+        bars = asyncio.run(
+            adapter.fetch_ohlcv(
+                _unique_provider_symbols(provider_symbols_by_symbol.values()),
+                start=now - timedelta(days=90),
+                end=now + timedelta(days=1),
+                interval="1d",
+            )
+        )
+        bars = _bars_with_display_symbols(
+            bars,
+            provider_symbols_by_symbol=provider_symbols_by_symbol,
+        )
+    except (AppError, OSError, RuntimeError, ValueError) as exc:
+        # The snapshot explicitly records every requested symbol as unavailable;
+        # the UI must not turn a provider failure into neutral or invented prices.
+        LOGGER.warning("Investment Radar market price fetch failed: %s", type(exc).__name__)
+        bars = []
+    return build_radar_market_snapshot(
+        selected,
+        bars,
+        provider=provider,
+        lookback_sessions=lookback_sessions,
+        generated_at=now,
+        symbol_metadata_by_symbol=_symbol_universe_rows_by_symbol(),
+    )
 
 
 def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") -> None:
@@ -11009,13 +10782,12 @@ def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") ->
 def _render_my_watchlist_page() -> None:
     render_page_title(
         "Myウォッチリスト",
-        "★を付けた銘柄をまとめて確認します。気になる銘柄を継続的に追うための一覧です。",
+        "気になる銘柄をまとめて追跡します。",
         "watchlist",
     )
     if st.session_state.get("smai_current_user_id") == "default":
         st.caption(
-            "SMAIデフォルトでは、お気に入りはこのセッション内だけ保持されます。"
-            "保存したい場合はカスタムユーザーを作成してください。"
+            "SMAIデフォルトの登録はこのセッション限りです。保存する場合はカスタムユーザーを作成してください。"
         )
     group_view_mode, groups_state = render_watchlist_group_toolbar()
     favorites = load_favorites()
@@ -11423,10 +11195,7 @@ def _run_watchlist_auto_snapshot_once(
     targets = _watchlist_all_refresh_targets(rows)
     target_fingerprint = _watchlist_refresh_target_fingerprint(targets)
     existing = st.session_state.get(WATCHLIST_AUTO_SNAPSHOT_STATE_KEY)
-    if (
-        isinstance(existing, Mapping)
-        and existing.get("target_fingerprint") == target_fingerprint
-    ):
+    if isinstance(existing, Mapping) and existing.get("target_fingerprint") == target_fingerprint:
         return False
     if _background_workers_disabled():
         st.session_state[WATCHLIST_AUTO_SNAPSHOT_STATE_KEY] = {
@@ -11529,9 +11298,7 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "reversal_expectation_score": str(
-                        raw_row.get("reversal_expectation_score")
-                        or raw_row.get("上向き兆候")
-                        or ""
+                        raw_row.get("reversal_expectation_score") or raw_row.get("上向き兆候") or ""
                     ),
                     "reversal_expectation_label": str(
                         raw_row.get("reversal_expectation_label")
@@ -11556,9 +11323,7 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "forecast_return_pct": str(
-                        raw_row.get("forecast_return_pct")
-                        or raw_row.get("予測変化率")
-                        or ""
+                        raw_row.get("forecast_return_pct") or raw_row.get("予測変化率") or ""
                     ),
                     "up_model_count": str(raw_row.get("up_model_count") or ""),
                     "down_model_count": str(raw_row.get("down_model_count") or ""),
@@ -11570,14 +11335,10 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                         or ""
                     ),
                     "data_quality_score": str(
-                        raw_row.get("data_quality_score")
-                        or raw_row.get("データ品質")
-                        or ""
+                        raw_row.get("data_quality_score") or raw_row.get("データ品質") or ""
                     ),
                     "drawdown_20d": str(
-                        raw_row.get("drawdown_20d")
-                        or raw_row.get("20日高値乖離")
-                        or ""
+                        raw_row.get("drawdown_20d") or raw_row.get("20日高値乖離") or ""
                     ),
                     "momentum_5d": str(
                         raw_row.get("momentum_5d")
@@ -11625,12 +11386,9 @@ def _watchlist_computed_rows() -> dict[str, dict[str, str]]:
                     "reversal_expectation_score": _watchlist_optional_number_text(
                         local_snapshot.reversal_expectation_score
                     ),
-                    "reversal_expectation_label": local_snapshot.reversal_expectation_label
-                    or "",
-                    "reversal_expectation_reason": local_snapshot.reversal_expectation_reason
-                    or "",
-                    "reversal_chart_shape_label": local_snapshot.reversal_chart_shape_label
-                    or "",
+                    "reversal_expectation_label": local_snapshot.reversal_expectation_label or "",
+                    "reversal_expectation_reason": local_snapshot.reversal_expectation_reason or "",
+                    "reversal_chart_shape_label": local_snapshot.reversal_chart_shape_label or "",
                     "reversal_trap_warning": local_snapshot.reversal_trap_warning or "",
                     "dividend_trap_warning": local_snapshot.dividend_trap_warning or "",
                     "dividend_safety_score": _watchlist_optional_number_text(
@@ -11731,18 +11489,20 @@ async def _refresh_watchlist_snapshots(
                         ),
                     )
                     bars = preview.bars
-                    score_row = next(
+                    score_rows = getattr(preview, "investment_score_rows", [])
+                    feature_rows = getattr(preview, "feature_rows", [])
+                    score_row: Mapping[str, object] = next(
                         (
                             item
-                            for item in preview.investment_score_rows
+                            for item in score_rows
                             if str(item.get("symbol") or "").upper() == normalized
                         ),
                         {},
                     )
-                    feature_row = next(
+                    feature_row: Mapping[str, object] = next(
                         (
                             item
-                            for item in preview.feature_rows
+                            for item in feature_rows
                             if str(item.get("symbol") or "").upper() == normalized
                         ),
                         {},
@@ -12873,11 +12633,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         summary_items,
         header_action=render_cockpit_favorite_action if symbol else None,
     )
-    render_mascot_panel(
-        "cockpit",
-        message="判断サマリーとチャートで全体感をつかみ、AI調査で背景材料を確認します。",
-        layout="compact",
-    )
     _render_favorite_next_action_hint()
     score_row = _render_investment_score_section(
         preview,
@@ -13071,10 +12826,12 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     st.caption(RESEARCH_COCKPIT_INTRO)
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
+    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
     fetch_clicked = _render_research_operation_card(
         preview,
         report=report,
         news_report=news_report,
+        external_result=external_research_result,
     )
     should_rerun_after_refresh = False
     if fetch_clicked:
@@ -13205,13 +12962,19 @@ def _render_cockpit_llm_factor(
         return None
     response = response or _cockpit_llm_factor_result(preview)
     result = response.result
+    source_rows = _llm_factor_evidence_display_rows(result)
     st.markdown("#### AI調査から見た材料分析")
+    if not source_rows:
+        st.info(
+            "出典付きのAI調査材料はまだありません。上の「AI調査を開始・更新」で"
+            "資料・ニュースを取得してから確認してください。"
+        )
+        return response
     st.caption(
         "根拠資料をLLMで上昇材料・注意材料へ整理する補助メモです。"
         "スコアやランキングには反映しません。"
     )
     st.markdown(_llm_factor_panel_html(result), unsafe_allow_html=True)
-    source_rows = _llm_factor_evidence_display_rows(result)
     with st.expander("AI材料分析の詳細（出典・実行情報）", expanded=False):
         st.caption(_llm_factor_cache_caption(response.cache))
         st.markdown(_llm_factor_runtime_html(result), unsafe_allow_html=True)
@@ -13234,6 +12997,21 @@ def _render_cockpit_interpretation(
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
+    report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    research_evidence = _cockpit_interpretation_research_evidence_rows(
+        report=report,
+        news_report=news_report,
+        external_result=external_result,
+    )
+    st.subheader("04 確認メモ")
+    if not research_evidence:
+        st.info(
+            "AI調査の出典がまだないため、確認メモは表示していません。"
+            "先に「AI調査を開始・更新」で材料を取得してください。"
+        )
+        return
     response = _cockpit_interpretation_result(
         preview,
         llm_factor_result=llm_factor_result,
@@ -13242,7 +13020,6 @@ def _render_cockpit_interpretation(
         advanced_forecast_summary=advanced_forecast_summary,
         investment_score_summary=investment_score_summary,
     )
-    st.subheader("04 確認メモ")
     st.caption("価格・予測・AI調査を合わせ、次に見ることを短い確認メモに整理します。")
     st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
     with st.expander("AI解釈メモの詳細（実行情報）", expanded=False):
@@ -13322,7 +13099,7 @@ def _cockpit_interpretation_research_evidence_rows(
     *,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     if report is not None:
@@ -13380,7 +13157,7 @@ def _llm_factor_evidence_sources(
     as_of: date,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[EvidenceSource]:
     sources: list[EvidenceSource] = []
     if external_result is not None:
@@ -13398,7 +13175,9 @@ def _llm_factor_evidence_sources(
                     as_of=as_of,
                 )
             )
-    return _dedupe_llm_factor_sources(sources)
+    # Keep all candidates here.  The backend applies entity matching and
+    # canonical duplicate removal, then returns the audit counts for the UI.
+    return sources
 
 
 def _llm_factor_source_from_external_entry(
@@ -13496,18 +13275,6 @@ def _llm_factor_source_reliability(source_type: str, *, provider: str | None) ->
     return Decimal("45")
 
 
-def _dedupe_llm_factor_sources(sources: Sequence[EvidenceSource]) -> list[EvidenceSource]:
-    deduped: list[EvidenceSource] = []
-    seen: set[tuple[str, str]] = set()
-    for source in sources:
-        key = (source.source_url.strip(), source.title.strip())
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(source)
-    return deduped
-
-
 def _percent_from_unit_decimal(value: Decimal) -> Decimal:
     return max(
         Decimal("0"),
@@ -13548,15 +13315,19 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
     if result.missing_fields:
         missing = "、".join(result.missing_fields)
         missing_html = f"<p>不足項目: {html.escape(missing)}</p>"
+    evidence_summary = _llm_factor_evidence_selection_display(result)
+    runtime_state = _llm_factor_runtime_state_label(_llm_factor_runtime_state(result))
     return (
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-header">'
         '<span class="research-evidence-pill positive">参考表示</span>'
         '<span class="research-evidence-pill">根拠資料の補助</span>'
+        f'<span class="research-evidence-pill">実行方式: {html.escape(runtime_state)}</span>'
         "</div>"
         "<h4>AI材料分析</h4>"
         f"<p>{html.escape(result.summary)}</p>"
         "<p>このAI材料分析は根拠資料の読み取り補助です。Ranking・予測・Investment Scoreには反映していません。</p>"
+        f"<p>{html.escape(evidence_summary)}</p>"
         f'<div class="research-brief-metric-grid">{score_cards}</div>'
         '<div class="research-brief-reading-grid">'
         '<section class="research-brief-reading-item tone-positive">'
@@ -13636,6 +13407,7 @@ def _llm_factor_fallback_reason_label(reason: str | None) -> str:
         "cache_miss": "cache未取得",
         "cache_corrupt": "cache読込失敗",
         "provider_error": "LLM providerエラー",
+        "insufficient_evidence": "対象銘柄に紐づく根拠が不足",
     }
     return f"{labels.get(reason, '応答検証エラー')} ({reason})"
 
@@ -13801,9 +13573,9 @@ def _llm_factor_score_note(label: str, score: Decimal) -> str:
     if label == "確信度":
         if score < Decimal("35"):
             return "出典が少ないため低信頼です。"
-        if score < Decimal("70"):
+        if score < Decimal("75"):
             return "参考材料として確認します。"
-        return "出典が比較的そろっています。"
+        return "複数の根拠を確認しています。一次開示も本文で確認します。"
     if score >= Decimal("70"):
         return "強めに確認したい材料です。"
     if score >= Decimal("45"):
@@ -13814,7 +13586,7 @@ def _llm_factor_score_note(label: str, score: Decimal) -> str:
 def _llm_factor_confidence_tone(result: LLMFactorResult) -> str:
     if result.llm_confidence_score < Decimal("35"):
         return "warning"
-    if result.llm_confidence_score >= Decimal("70"):
+    if result.llm_confidence_score >= Decimal("75"):
         return "positive"
     return "info"
 
@@ -13830,6 +13602,20 @@ def _llm_factor_evidence_display_rows(result: LLMFactorResult) -> list[dict[str,
         }
         for source in result.evidence_sources
     ]
+
+
+def _llm_factor_evidence_selection_display(result: LLMFactorResult) -> str:
+    selection = result.evidence_selection
+    input_count = max(selection.input_count, len(result.evidence_sources))
+    retained_count = max(selection.retained_count, len(result.evidence_sources))
+    items = [f"根拠候補 {input_count}件", f"採用 {retained_count}件"]
+    if selection.duplicate_count:
+        items.append(f"重複除外 {selection.duplicate_count}件")
+    if selection.unrelated_count:
+        items.append(f"対象外除外 {selection.unrelated_count}件")
+    if selection.fallback_used:
+        items.append("ローカル参考表示")
+    return " / ".join(items)
 
 
 def _llm_factor_cache_caption(cache: LLMFactorCacheMetadata) -> str:
@@ -14528,15 +14314,20 @@ def _render_research_operation_card(
     *,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
-    status_chips = _research_operation_status_chips(report, news_report)
+    status_chips = _research_operation_status_chips(report, news_report, external_result)
     status_chips_html = "".join(
         f'<span class="research-ai-state-chip">{html.escape(label)}: '
         f"{html.escape(value)}</span>"
         for label, value in status_chips
     )
-    title, summary, materials_html = _research_operation_card_content(report, news_report)
+    title, summary, materials_html = _research_operation_card_content(
+        report,
+        news_report,
+        external_result,
+    )
     with st.container(border=True):
         st.markdown(
             (
@@ -14564,6 +14355,7 @@ def _render_research_operation_card(
 def _research_operation_card_content(
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> tuple[str, str, str]:
     if report is None:
         return (
@@ -14573,11 +14365,17 @@ def _research_operation_card_content(
         )
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)
-    status = dict(_research_operation_status_chips(report, news_report))
-    summary = (
-        f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
-        f"外部データ{status['外部データ']}を確認"
-    )
+    status = dict(_research_operation_status_chips(report, news_report, external_result))
+    if external_result is not None:
+        summary = (
+            f"重複なしの根拠候補{status['根拠候補']}（公式{status['公式']} / "
+            f"ニュース{status['ニュース']} / 外部プロファイル{status['外部プロファイル']}）を確認"
+        )
+    else:
+        summary = (
+            f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
+            f"外部データ{status['外部データ']}を確認"
+        )
     positive = [
         _research_brief_ui_text(item.summary, max_chars=88) for item in brief.positive_materials[:3]
     ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.positive_candidates[:3]]
@@ -14605,7 +14403,33 @@ def _research_operation_material_list_html(label: str, items: list[str]) -> str:
 def _research_operation_status_chips(
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None = None,
 ) -> list[tuple[str, str]]:
+    if external_result is not None:
+        official_source_types = {
+            "annual_report",
+            "earnings_report",
+            "earnings_presentation",
+            "medium_term_plan",
+            "integrated_report",
+            "company_ir",
+            "tdnet",
+        }
+        official_count = sum(
+            1 for entry in external_result.entries if entry.source_type in official_source_types
+        )
+        news_count = sum(1 for entry in external_result.entries if entry.source_type == "news")
+        profile_count = sum(
+            1 for entry in external_result.entries if entry.source_type == "provider_profile"
+        )
+        return [
+            ("レポート", "作成済み" if report is not None else "未取得"),
+            ("根拠候補", f"{len(external_result.entries)}件"),
+            ("公式", f"{official_count}件"),
+            ("ニュース", f"{news_count}件"),
+            ("外部プロファイル", f"{profile_count}件"),
+            ("最終取得", _datetime_display_text(external_result.fetched_at)),
+        ]
     source_types = {
         evidence.source_type.strip().lower()
         for evidence in (report.evidence if report is not None else [])
@@ -14942,6 +14766,10 @@ def _render_research_summary_panel(
                 st.info(warning_text)
             else:
                 st.warning(warning_text)
+
+    retrieval_caption = _research_retrieval_quality_caption(report)
+    if retrieval_caption:
+        st.caption(retrieval_caption)
 
     score_rows = _research_score_summary_rows(research_score)
     with st.expander(RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
@@ -17430,9 +17258,16 @@ def _render_market_data_cockpit_header(
     preview: MarketDataPreview,
     symbol_label: str,
 ) -> int:
-    _ = preview
     _ = symbol_label
-    return int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 7))
+    horizon_days = int(getattr(preview, "forecast_horizon_days", 0) or 0)
+    if horizon_days < 1:
+        horizon_days = determine_forecast_horizon(
+            start=preview.bars[0].ts.date(),
+            end=preview.bars[-1].ts.date(),
+            bars=preview.bars,
+        ).horizon_days
+    st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = horizon_days
+    return horizon_days
 
 
 def _render_price_forecast_hero(
@@ -17447,16 +17282,13 @@ def _render_price_forecast_hero(
     forecast_horizon_days: int,
 ) -> None:
     st.subheader("02 価格・AI予測")
-    st.caption(f"予測期間: {forecast_horizon_days}日")
-    with st.expander("予測設定を変更", expanded=False):
-        st.number_input(
-            "予測日数",
-            min_value=1,
-            max_value=60,
-            step=1,
-            key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-            help="取得済みデータを使ってチャートと指標だけを再計算します。",
-        )
+    horizon_summary = str(getattr(preview, "forecast_horizon_summary", "") or "").strip()
+    st.caption(
+        f"予測期間: {forecast_horizon_days}営業日相当（取得履歴から自動計算）"
+        + (f" / {horizon_summary}" if horizon_summary else "")
+    )
+    for warning in getattr(preview, "forecast_horizon_warnings", []):
+        st.warning(str(warning))
     chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
@@ -17672,7 +17504,9 @@ def _advanced_forecast_insight_summary(row: Mapping[str, str]) -> dict[str, obje
 
 
 def _advanced_forecast_conclusion_label(row: Mapping[str, str]) -> str:
-    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    predicted_return = _decimal_from_text(row.get("direction_predicted_return"))
+    if predicted_return is None:
+        predicted_return = _decimal_from_text(row.get("predicted_return"))
     confidence = str(row.get("confidence", "")).strip()
     dispersion = _advanced_forecast_dispersion_label(row)
     if predicted_return is None:
@@ -17709,7 +17543,9 @@ def _advanced_forecast_model_agreement_display(row: Mapping[str, str]) -> str:
         return _forecast_agreement_label(row.get("agreement", "")) or "未計算"
     agreed = int((agreement_score * Decimal(model_count) / Decimal("100")).to_integral_value())
     agreed = max(0, min(model_count, agreed))
-    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    predicted_return = _decimal_from_text(row.get("direction_predicted_return"))
+    if predicted_return is None:
+        predicted_return = _decimal_from_text(row.get("predicted_return"))
     if predicted_return is None or abs(predicted_return) < Decimal("0.5"):
         direction_label = "中立寄り"
     elif predicted_return > 0:
@@ -17717,6 +17553,21 @@ def _advanced_forecast_model_agreement_display(row: Mapping[str, str]) -> str:
     else:
         direction_label = "下振れ寄り"
     return f"{model_count}モデル中{agreed}モデルが{direction_label}"
+
+
+def _advanced_forecast_selection_display(row: Mapping[str, str]) -> str:
+    band_labels = {"short": "短期", "medium": "中期", "long": "長期・監査外"}
+    mode_labels = {
+        "validated_consensus": "検証通過モデルを統合",
+        "quantile_anchor": "レンジモデル中心",
+        "best_available_fallback": "単一モデルへ縮退",
+        "range_first_long_horizon": "レンジ優先",
+    }
+    band = band_labels.get(str(row.get("horizon_band", "")).strip(), "期間判定未取得")
+    mode = mode_labels.get(str(row.get("selection_mode", "")).strip(), "選択結果未取得")
+    center_models = str(row.get("center_models", "")).strip()
+    center_count = len([name for name in center_models.split(",") if name.strip()])
+    return f"{band} / {mode}" + (f"（中心{center_count}モデル）" if center_count else "")
 
 
 def _advanced_forecast_dispersion_label(row: Mapping[str, str]) -> str:
@@ -17744,6 +17595,9 @@ def _advanced_forecast_reason_lines(
         f"複数の高度予測モデルを統合した結論は「{conclusion}」です。",
         f"モデル合意度は {agreement_count}、信頼度は{confidence}です。",
     ]
+    selection_reason = str(row.get("selection_reason", "")).strip()
+    if selection_reason:
+        lines.append(selection_reason)
     if dispersion in {"やや広い", "大きめ"}:
         lines.append(f"予測ばらつきは{dispersion}で、過信せず確認します。")
     improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
@@ -17814,6 +17668,12 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
     range_display = str(summary["range_display"])
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+    center_confidence = _advanced_forecast_confidence_label(
+        row.get("center_confidence", row.get("confidence", ""))
+    )
+    direction_confidence = _advanced_forecast_confidence_label(
+        row.get("direction_confidence", row.get("confidence", ""))
+    )
     horizon = row.get("horizon_days", "").strip()
     progress = metric_progress_from_value(row.get("weighted_direction_score", "")) or 0
     safe_progress = min(100, max(0, int(progress)))
@@ -17834,10 +17694,12 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
     )
     metrics = (
-        ("信頼度", confidence),
+        ("中心予測の信頼度", center_confidence),
+        ("方向判定の信頼度", direction_confidence),
         ("モデル合意度", agreement_count),
         ("予測ばらつき", dispersion),
         ("予測期間", f"{horizon}日" if horizon else "未計算"),
+        ("モデル選択", _advanced_forecast_selection_display(row)),
     )
     metric_html = "".join(
         '<div class="smai-insight-mini-field">'
@@ -17852,6 +17714,7 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
             badge_html(ADVANCED_FORECAST_CONSENSUS_LABEL, "info"),
             badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(dict(row))),
             badge_html(f"予測期間 {horizon}日" if horizon else "予測期間 未計算", "neutral"),
+            badge_html(_advanced_forecast_selection_display(row), "neutral"),
         )
     )
     return (
@@ -19308,17 +19171,42 @@ def _research_retrieval_quality_rows(report: CompanyResearchReport) -> list[dict
     quality = report.retrieval_quality
     if quality is None:
         return []
-    return [
-        {
-            "確認項目": "検索品質",
-            "検索方式": quality.backend,
-            "検索した観点": quality.query,
-            "関連語の一部": _research_terms_preview(quality.expanded_terms),
-            "候補数": str(quality.candidate_count),
-            "根拠数": str(quality.evidence_count),
-            "注意点": " / ".join(quality.warnings),
-        }
-    ]
+    row = {
+        "確認項目": "検索品質",
+        "検索方式": quality.backend,
+        "検索した観点": quality.query,
+        "関連語の一部": _research_terms_preview(quality.expanded_terms),
+        "候補数": str(quality.candidate_count),
+        "根拠数": str(quality.evidence_count),
+        "資料数": str(quality.document_count),
+        "処理時間": f"{quality.latency_ms} ms",
+        "注意点": " / ".join(quality.warnings),
+    }
+    if quality.backend == "hybrid":
+        row["キーワード候補"] = str(quality.keyword_candidate_count)
+        row["ベクトル候補"] = str(quality.vector_candidate_count)
+    return [row]
+
+
+def _research_retrieval_quality_caption(report: CompanyResearchReport) -> str:
+    """Keep the active retrieval mode visible without exposing implementation detail."""
+
+    quality = report.retrieval_quality
+    if quality is None:
+        return ""
+    backend_label = {
+        "keyword": RESEARCH_RETRIEVAL_MODE_KEYWORD,
+        "vector": RESEARCH_RETRIEVAL_MODE_VECTOR,
+        "hybrid": RESEARCH_RETRIEVAL_MODE_HYBRID,
+    }.get(quality.backend, "検索方式未確認")
+    caption = (
+        f"{RESEARCH_RETRIEVAL_MODE_LABEL}: {backend_label}"
+        f" / {RESEARCH_RETRIEVAL_EVIDENCE_LABEL}: {quality.evidence_count}件"
+        f" / {RESEARCH_RETRIEVAL_DOCUMENT_LABEL}: {quality.document_count}件"
+    )
+    if quality.backend == "hybrid" and quality.vector_candidate_count == 0:
+        caption += f" / {RESEARCH_RETRIEVAL_FALLBACK_NOTE}"
+    return caption
 
 
 def _research_terms_preview(terms: Sequence[str], *, limit: int = 12) -> str:
@@ -22170,10 +22058,18 @@ def advanced_forecast_consensus_display_rows(
             ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL: _signed_percent_from_text(
                 row.get("predicted_return", "")
             ),
+            "方向判定用変化率": _signed_percent_from_text(
+                row.get("direction_predicted_return", "")
+            ),
             "予測価格": row.get("forecast_close", ""),
             "想定レンジ": _advanced_forecast_range_display(row),
             "予測ばらつき": _advanced_forecast_dispersion_label(row),
             "モデル合意度": _advanced_forecast_model_agreement_display(row),
+            "モデル選択": _advanced_forecast_selection_display(row),
+            "中心モデル": row.get("center_models", ""),
+            "方向モデル": row.get("direction_models", ""),
+            "中心値から除外": row.get("center_excluded_models", ""),
+            "選択理由": row.get("selection_reason", ""),
             "信頼度": _advanced_forecast_confidence_label(row.get("confidence", "")),
             "過去検証の方向一致率": row.get("mean_direction_accuracy", ""),
             "平均RMSE": row.get("mean_rmse", ""),
@@ -22317,12 +22213,20 @@ def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
 
 def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
     model_count = row.get("model_count") or "0"
+    center_models = row.get("center_models") or "未取得"
+    direction_models = row.get("direction_models") or "未取得"
+    selection_reason = row.get("selection_reason") or "取得期間と過去検証から自動選択します。"
     return (
-        f"{model_count}モデルを保守的にまとめた参考シナリオです。"
-        "計算式: 統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
-        "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数を0.70〜1.30に丸めた値。"
+        f"方向確認には{model_count}モデルを使う参考シナリオです。"
+        f"中心モデル: {center_models}。方向モデル: {direction_models}。{selection_reason}"
+        "計算式: 中心予測 = Σ(選択モデルの予測変化率 × 検証重み) ÷ Σ重み。"
+        "重み = 信頼度 × 誤差改善 × 方向一致 × 検証数を保守的に制限し、"
+        "レンジモデルがある場合は中心重みを50%以上にします。"
         "予測価格 = 最新価格 × (1 + 統合予測)。"
-        "レンジは個別モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
+        "方向判定は60日以内では監査済みの従来合議を維持し、中心価格とは別に評価します。"
+        "60日超120日以下は、長期historical backtestに基づき中心予測の信頼度を低めに維持しつつ、"
+        "Quantile方向判定は個別検証が中以上の場合だけ中くらいまで表示します。"
+        "レンジは選択モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )
 
 
@@ -22427,8 +22331,26 @@ def _advanced_forecast_warning_display(value: str) -> str:
         "At least one advanced model did not improve RMSE over the zero-return baseline.": (
             "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
         ),
+        "The audited quantile anchor was unavailable for this forecast.": (
+            "監査済みのレンジモデルを利用できないため、別モデルへ縮退しています。"
+        ),
+        "No model passed the validation gate; the consensus used one fallback model.": (
+            "検証条件を通過したモデルがなく、利用可能な1モデルへ縮退しています。"
+        ),
+        "This horizon is routed by interpolation between the sealed 20-day and 60-day audits.": (
+            "20日・60日の封印監査間を補間した予測期間です。信頼度を上限付きで扱います。"
+        ),
+        "This horizon is outside the sealed 20-day and 60-day audits; confidence is capped low.": (
+            "20日・60日の封印監査外の予測期間なので、信頼度を低めに制限しています。"
+        ),
+        "Some available adapters were excluded from the price-center consensus by the horizon validation policy.": (
+            "取得期間と過去検証の条件により、一部モデルを価格中心値の統合から除外しました。"
+        ),
     }
-    warnings = [part.strip() for part in value.split(";") if part.strip()]
+    localized_value = value
+    for source, target in warning_map.items():
+        localized_value = localized_value.replace(source, target)
+    warnings = [part.strip() for part in localized_value.split(";") if part.strip()]
     return " / ".join(warning_map.get(warning, warning) for warning in warnings)
 
 
@@ -22870,9 +22792,12 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
     symbol_rows_by_symbol = _symbol_universe_rows_by_symbol()
     display_rows: list[dict[str, str]] = []
     for source_row in rows:
-        row = {
+        row: dict[str, str] = {
             **source_row,
-            **calculate_reversal_expectation(source_row).as_row(),
+            **{
+                key: str(value)
+                for key, value in calculate_reversal_expectation(source_row).as_row().items()
+            },
         }
         symbol = row.get("symbol", "")
         symbol_row = symbol_rows_by_symbol.get(symbol.strip().upper())
@@ -22884,6 +22809,12 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_pullback_score": row.get("reversal_pullback_score", ""),
                 "reversal_quality_score": row.get("reversal_quality_score", ""),
                 "reversal_material_score": row.get("reversal_material_score", ""),
+                "pullback_rebound_score": row.get("pullback_rebound_score", ""),
+                "bottoming_score": row.get("bottoming_score", ""),
+                "range_breakout_score": row.get("range_breakout_score", ""),
+                "accumulation_setup_score": row.get("accumulation_setup_score", ""),
+                "reversal_expectation_label": row.get("reversal_expectation_label", ""),
+                "warnings_raw": row.get("warnings", ""),
                 "チャート形状評価": row.get("reversal_chart_shape_score", ""),
                 "reversal_pullback_depth": _absolute_numeric_text(row.get("drawdown_20d", "")),
                 "調整/安定度": _absolute_numeric_text(row.get("drawdown_20d", "")),
@@ -22897,7 +22828,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "reversal_trap_warning": row.get("reversal_trap_warning", ""),
                 "dividend_trap_warning": row.get("dividend_trap_warning", ""),
                 "dividend_safety_score": row.get("dividend_safety_score", ""),
-                "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", False),
+                "dividend_yield_spike_flag": row.get("dividend_yield_spike_flag", ""),
                 "dividend_sustainability_label": row.get("dividend_sustainability_label", ""),
                 "順位": row.get("rank", ""),
                 "銘柄": symbol,

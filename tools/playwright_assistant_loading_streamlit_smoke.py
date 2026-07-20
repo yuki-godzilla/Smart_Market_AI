@@ -162,6 +162,8 @@ def _run_scenario(
             "SMAI_CONFIG_FILE": str(config_path),
             "SMAI_ASSISTANT_GATEWAY_AUTOSTART": "0",
             "SMAI_SKIP_ASSISTANT_GATEWAY_STATUS_CHECK": "1",
+            "SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE": "1",
+            "SMAI_PERFORMANCE_PROFILE": "notebook",
             "SMAI_SYMBOL_STARTUP_REFRESH_ENABLED": "0",
         }
     )
@@ -198,7 +200,11 @@ def _run_scenario(
         base_url = f"http://127.0.0.1:{app_port}"
         _wait_for_http(base_url)
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
-        page.goto(f"{base_url}/?smai_page=copilot", wait_until="domcontentloaded", timeout=60000)
+        page.goto(
+            f"{base_url}/?smai_start_profile=default&smai_page=copilot",
+            wait_until="domcontentloaded",
+            timeout=60000,
+        )
         page.get_by_text("SMAIアシスタント", exact=True).first.wait_for(timeout=60000)
         loading = page.locator(".smai-warmup-panel")
         loading.get_by_text("LLM起動確認中", exact=False).wait_for(timeout=30000)
@@ -225,7 +231,16 @@ def _run_scenario(
         modal.wait_for()
         sidebar = page.locator('section[data-testid="stSidebar"]')
         assert sidebar.is_visible()
-        assert (sidebar.bounding_box() or {"x": 999})["x"] < (modal.bounding_box() or {"x": 0})["x"]
+        assert sidebar.evaluate(
+            """element => {
+                const rect = element.getBoundingClientRect();
+                const target = document.elementFromPoint(
+                    rect.left + (rect.width / 2),
+                    rect.top + Math.min(rect.height / 2, 160),
+                );
+                return Boolean(target && element.contains(target));
+            }"""
+        ), "sidebar must remain above the loading modal"
         draft = page.get_by_placeholder(
             "価格・予測・ニュース・根拠資料について確認したいことを入力..."
         )

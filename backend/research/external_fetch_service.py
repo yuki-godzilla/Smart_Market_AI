@@ -24,11 +24,11 @@ from backend.research.external_registration import (
 from backend.research.external_registration import (
     external_source_freshness as _stock_news_freshness,
 )
+from backend.research.normalization import normalize_symbol
 from backend.research.service import (
     ResearchDocumentRegisterRequest,
     ResearchIndexService,
     ResearchIngestionService,
-    _normalize_symbol,
 )
 from backend.research.source_trace import ResearchSourceTrace
 
@@ -152,7 +152,7 @@ class ExternalResearchFetchService:
                 warnings=warnings,
             )
         return ExternalResearchFetchResult(
-            symbol=_normalize_symbol(request.symbol),
+            symbol=normalize_symbol(request.symbol),
             provider=self.adapter.provider,
             fetched_at=fetched_at,
             entries=entries,

@@ -29,17 +29,6 @@ _MATERIAL_PRIORITY = {
     "fund_flow": 1,
 }
 
-_DEMO_CATEGORY_MARKET_METRICS: dict[str, tuple[float, float]] = {
-    "半導体・AI": (2.4, 1.8),
-    "配当・株主還元": (1.2, 1.35),
-    "為替・金利": (-0.8, 1.6),
-    "エネルギー": (1.7, 1.45),
-    "ETF": (0.6, 1.2),
-    "決算・業績修正": (-1.1, 1.75),
-    "地政学・マクロリスク": (-2.0, 2.1),
-    "金融": (0.9, 1.3),
-}
-
 
 def build_news_dashboard_snapshot(
     headlines: Sequence[NewsHeadlineCard],
@@ -271,17 +260,15 @@ def _heatmap_cell(
         + official_count * 0.6,
         2,
     )
-    price_change_pct, volume_activity_score = _category_market_metrics(category)
-    if price_change_pct is not None and volume_activity_score is not None:
-        heat_score = round(
-            heat_score + abs(price_change_pct) * 0.45 + min(volume_activity_score, 3.0) * 0.7,
-            2,
-        )
     return NewsHeatmapCell(
         category=category,
         region=region,
-        price_change_pct=price_change_pct,
-        volume_activity_score=volume_activity_score,
+        # The current dashboard builder has no measured market-data provider.
+        # Keep the category surface explicitly news-derived until a provider
+        # supplies values with a verifiable metric source.
+        market_metric_source="news_proxy",
+        price_change_pct=None,
+        volume_activity_score=None,
         news_count=len(cards),
         risk_count=risk_count,
         positive_count=positive_count,
@@ -290,10 +277,6 @@ def _heatmap_cell(
         heat_score=heat_score,
         dominant_material_type=dominant_material,
     )
-
-
-def _category_market_metrics(category: str) -> tuple[float | None, float | None]:
-    return _DEMO_CATEGORY_MARKET_METRICS.get(category, (None, None))
 
 
 def _headline(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any
@@ -98,7 +98,22 @@ class AssistantActionExecutor:
         started_at: datetime,
     ) -> AssistantActionResult:
         report_context = _report_context_from_payload(payload)
-        symbol = _symbol_for_action(context=context, report_context=report_context, payload=payload)
+        symbol, target_error = _symbol_for_action(
+            context=context,
+            report_context=report_context,
+            payload=payload,
+        )
+        if target_error:
+            return _result(
+                action_id=action.action_id,
+                status="validation_error",
+                title="確認レポートを作成できませんでした",
+                summary="確認した対象と現在の材料が一致しません。",
+                error_code=target_error,
+                started_at=started_at,
+                requires_followup=True,
+                followup_actions=["open_cockpit", "summarize_next_checks"],
+            )
         if not symbol:
             return _result(
                 action_id=action.action_id,
@@ -189,7 +204,22 @@ class AssistantActionExecutor:
         payload: Mapping[str, Any],
         started_at: datetime,
     ) -> AssistantActionResult:
-        symbol = _symbol_for_action(context=context, report_context=None, payload=payload)
+        symbol, target_error = _symbol_for_action(
+            context=context,
+            report_context=None,
+            payload=payload,
+        )
+        if target_error:
+            return _result(
+                action_id=action.action_id,
+                status="validation_error",
+                title="AI調査を更新できませんでした",
+                summary="確認した対象と現在の材料が一致しません。",
+                error_code=target_error,
+                started_at=started_at,
+                requires_followup=True,
+                followup_actions=["open_cockpit", "summarize_next_checks"],
+            )
         if not symbol:
             return _result(
                 action_id=action.action_id,
@@ -630,21 +660,33 @@ def _symbol_for_action(
     context: SMAIAssistantContext,
     report_context: DecisionReportContext | None,
     payload: Mapping[str, Any],
-) -> str:
-    candidates = [
-        payload.get("symbol"),
-        context.page_state.get("selected_symbol"),
-        context.page_state.get("active_symbol"),
-        context.page_state.get("symbol"),
-        context.metadata.get("symbol"),
-    ]
+) -> tuple[str, str | None]:
+    payload_symbol = _normalize_symbol(payload.get("symbol"))
+    context_symbols = _normalized_symbols(
+        (
+            context.page_state.get("selected_symbol"),
+            context.page_state.get("active_symbol"),
+            context.page_state.get("symbol"),
+            context.metadata.get("symbol"),
+        )
+    )
+    report_symbols: set[str] = set()
     if report_context is not None:
-        candidates.extend(section.source.symbol for section in report_context.sections)
-    for candidate in candidates:
-        symbol = _normalize_symbol(candidate)
-        if symbol:
-            return symbol
-    return ""
+        report_symbols = _normalized_symbols(
+            section.source.symbol for section in report_context.sections
+        )
+
+    known_symbols = context_symbols | report_symbols
+    if len(known_symbols) > 1:
+        return "", "target_mismatch"
+    if payload_symbol and known_symbols and payload_symbol not in known_symbols:
+        return "", "target_mismatch"
+    known_symbol = next(iter(known_symbols), "")
+    return payload_symbol or known_symbol, None
+
+
+def _normalized_symbols(candidates: Iterable[Any]) -> set[str]:
+    return {symbol for candidate in candidates if (symbol := _normalize_symbol(candidate))}
 
 
 def _normalize_symbol(value: Any) -> str:

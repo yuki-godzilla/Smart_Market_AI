@@ -1,0 +1,219 @@
+{
+  "candidate": {
+    "candidate_id": "radar:direct_mention:7203.T",
+    "symbol": "7203.T",
+    "display_name": "Toyota Motor",
+    "provenance": "direct_mention",
+    "categories": ["自動車"],
+    "evidence_ids": ["radar-news-001"],
+    "evidence": [
+      {
+        "evidence_id": "radar-news-001",
+        "headline_title": "Toyota raises production outlook",
+        "source_name": "Example News",
+        "source_type": "news",
+        "category": "自動車",
+        "material_type": "earnings",
+        "provenance": "direct_mention",
+        "directness": 1.0,
+        "published_at": "2026-07-12T01:00:00Z",
+        "freshness_status": "latest"
+      }
+    ],
+    "directness": 1.0,
+    "confirmation_priority": 70
+  },
+  "evidence_bundle": {
+    "candidate_id": "radar:direct_mention:7203.T",
+    "context": {
+      "candidate_id": "radar:direct_mention:7203.T",
+      "symbol": "7203.T",
+      "query": "7203.T 自動車",
+      "as_of": "2026-07-13",
+      "news_evidence_ids": ["radar-news-001"]
+    },
+    "citations": [
+      {
+        "citation_id": "radar-rag:doc-001:chunk-001",
+        "research_evidence_id": "chunk-001",
+        "title": "決算説明資料",
+        "source_type": "company_ir",
+        "published_at": "2026-07-10",
+        "retrieved_at": "2026-07-13T09:00:00Z",
+        "freshness_status": "recent",
+        "directness": 1.0,
+        "excerpt": "会社計画と生産方針を記載した短い根拠です。"
+      }
+    ],
+    "status": "available",
+    "confirmation_gaps": ["需要の持続性は追加確認が必要です。"],
+    "generated_at": "2026-07-13T09:00:00Z"
+  },
+  "cases": [
+    {
+      "case_id": "accepted_evidence_bound",
+      "expected_outcome": "accepted",
+      "raw_response": {
+        "answer": "2026-07-10の資料を確認する材料です。",
+        "referenced_sections": [
+          {"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"},
+          {"section_id": "radar-news-001", "title": "Toyota raises production outlook", "source_kind": "radar_news_evidence"}
+        ],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "2026-07-10の資料を確認する材料です。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [{"text": "生産方針に関する資料があります。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]}],
+          "cautions": [{"text": "需要の持続性は未確認です。", "cited_evidence_ids": ["radar-news-001"]}],
+          "unknowns": [],
+          "next_checkpoints": [{"text": "次回資料で前提を確認してください。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]}]
+        }
+      }
+    },
+    {
+      "case_id": "unknown_evidence",
+      "expected_outcome": "rejected",
+      "expected_reason": "unknown_evidence",
+      "raw_response": {
+        "answer": "根拠を確認します。",
+        "referenced_sections": [{"section_id": "not-allowed", "title": "unknown", "source_kind": "other"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "根拠を確認します。", "cited_evidence_ids": ["not-allowed"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "wrong_candidate",
+      "expected_outcome": "rejected",
+      "expected_reason": "wrong_symbol",
+      "raw_response": {
+        "answer": "根拠を確認します。",
+        "referenced_sections": [{"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:AAPL",
+          "summary": {"text": "根拠を確認します。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "unsupported_symbol",
+      "expected_outcome": "rejected",
+      "expected_reason": "wrong_symbol",
+      "raw_response": {
+        "answer": "AAPLの資料を確認します。",
+        "referenced_sections": [{"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "AAPLの資料を確認します。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "unsupported_number",
+      "expected_outcome": "rejected",
+      "expected_reason": "unsupported_number",
+      "raw_response": {
+        "answer": "999%の増加を確認します。",
+        "referenced_sections": [{"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "999%の増加を確認します。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "unsupported_date",
+      "expected_outcome": "rejected",
+      "expected_reason": "unsupported_date",
+      "raw_response": {
+        "answer": "2026-12-31の確認が必要です。",
+        "referenced_sections": [{"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "2026-12-31の確認が必要です。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "investment_advice",
+      "expected_outcome": "rejected",
+      "expected_reason": "policy_violation",
+      "raw_response": {
+        "answer": "買うべきです。",
+        "referenced_sections": [{"section_id": "radar-rag:doc-001:chunk-001", "title": "決算説明資料", "source_kind": "radar_rag_evidence"}],
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "買うべきです。", "cited_evidence_ids": ["radar-rag:doc-001:chunk-001"]},
+          "positive_materials": [],
+          "cautions": [],
+          "unknowns": [],
+          "next_checkpoints": []
+        }
+      }
+    },
+    {
+      "case_id": "malformed_structured_payload",
+      "expected_outcome": "rejected",
+      "expected_reason": "malformed_json",
+      "raw_response": {
+        "answer": "根拠を確認します。",
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "desktop_fast",
+        "radar_interpretation": {
+          "schema_version": "radar_interpretation.v1",
+          "candidate_id": "radar:direct_mention:7203.T",
+          "summary": {"text": "引用がありません。", "cited_evidence_ids": []}
+        }
+      }
+    }
+  ]
+}

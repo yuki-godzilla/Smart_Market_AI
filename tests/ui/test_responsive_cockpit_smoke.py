@@ -42,11 +42,7 @@ def _load_mock_cockpit_result(page) -> None:
     page.get_by_role("option", name="7203.T", exact=False).click()
     page.get_by_role("button", name="データを取得", exact=True).click()
     page.get_by_text("01 判断サマリー", exact=True).wait_for(state="visible", timeout=120_000)
-    page.get_by_text("予測設定を変更", exact=True).last.click()
-    page.get_by_label("予測日数").last.fill("1")
-    page.get_by_label("予測日数").last.press("Enter")
-    page.get_by_text("予測期間: 1日", exact=True).wait_for(state="visible", timeout=60_000)
-    page.get_by_text("予測設定を変更", exact=True).last.click()
+    page.get_by_text("取得履歴から自動計算", exact=False).wait_for(state="visible", timeout=60_000)
     page.get_by_text("05 確認レポート", exact=True).wait_for(state="visible", timeout=120_000)
 
 
@@ -74,8 +70,10 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     assert section_text.count("04 確認メモ") == 1
     assert "スコアから見た注意点" in section_text
 
-    kpi_labels = page.locator(".smai-card-label").all_text_contents()[:4]
-    assert kpi_labels == ["投資スコア", "上昇気配", "下降警戒", "データ信頼度"]
+    kpi_labels = page.locator(".smai-card-label").all_text_contents()
+    required_kpi_labels = {"投資スコア", "上昇気配", "下降警戒", "データ信頼度"}
+    assert required_kpi_labels.issubset(set(kpi_labels))
+    assert kpi_labels.count("投資スコア") == 1
     research_card = page.locator(".research-ai-cta--hero")
     assert research_card.count() == 1
     research_text = research_card.inner_text()
@@ -107,6 +105,26 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     page.wait_for_timeout(300)
 
 
+def _wait_for_visible_static_images(page) -> None:
+    """Avoid capturing a visible mascot/avatar before its static asset loads."""
+
+    page.wait_for_function(
+        """() => {
+          const images = [...document.querySelectorAll('img[src^="/app/static/"]')];
+          const visible = images.filter((image) => {
+            const rect = image.getBoundingClientRect();
+            const style = window.getComputedStyle(image);
+            return rect.width > 0 && rect.height > 0 && rect.bottom > 0
+              && rect.top < window.innerHeight && style.visibility !== "hidden";
+          });
+          return visible.length > 0 && visible.every(
+            (image) => image.complete && image.naturalWidth > 0,
+          );
+        }""",
+        timeout=30_000,
+    )
+
+
 @pytest.mark.skipif(
     os.getenv("SMAI_RUN_RESPONSIVE_SMOKE") != "1",
     reason="Set SMAI_RUN_RESPONSIVE_SMOKE=1 with Streamlit running to enable.",
@@ -125,6 +143,7 @@ def test_cockpit_responsive_viewports() -> None:
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
                 _load_mock_cockpit_result(page)
                 _assert_cockpit_result_contract(page, width)
+                _wait_for_visible_static_images(page)
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

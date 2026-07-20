@@ -37,13 +37,21 @@ def load_forecast_evaluation_dataset(
     metadata_path: Path,
     *,
     required_bar_count: int = 180,
+    end_at: datetime | None = None,
 ) -> ForecastDatasetLoadResult:
-    """Load deterministic local CSV evaluation cases without provider access."""
+    """Load deterministic local CSV evaluation cases without provider access.
+
+    When ``end_at`` is supplied, future bars are removed before eligibility,
+    regime, and price-discontinuity checks.  This keeps historical replication
+    cohorts independent from data that was not available at their cutoff.
+    """
 
     if required_bar_count < 80:
         raise ValueError("required_bar_count must be at least 80")
+    if end_at is not None and end_at.tzinfo is None:
+        raise ValueError("end_at must be timezone-aware")
     metadata = _load_metadata(metadata_path)
-    bars_by_symbol = _load_bars(ohlcv_path, metadata)
+    bars_by_symbol = _load_bars(ohlcv_path, metadata, end_at=end_at)
     cases: list[ForecastEvaluationCase] = []
     coverage: list[ForecastDatasetCoverageRow] = []
     for raw_symbol in sorted(bars_by_symbol):
@@ -140,6 +148,8 @@ def _load_metadata(path: Path) -> dict[str, dict[str, str]]:
 def _load_bars(
     path: Path,
     metadata: dict[str, dict[str, str]],
+    *,
+    end_at: datetime | None = None,
 ) -> dict[str, list[Bar]]:
     if not path.is_file():
         raise ValueError(f"OHLCV CSV not found: {path}")
@@ -152,7 +162,11 @@ def _load_bars(
             raise ValueError("OHLCV CSV is missing required columns")
         for row in reader:
             raw_symbol = row["symbol"].strip()
+            if raw_symbol not in metadata:
+                continue
             ts = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
+            if end_at is not None and ts > end_at:
+                continue
             key = (raw_symbol, ts)
             if key in seen:
                 continue

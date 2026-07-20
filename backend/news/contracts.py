@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -10,6 +10,17 @@ from backend.core.data_contracts import StrictBaseModel
 NEWS_DASHBOARD_SCHEMA_VERSION = "news-dashboard-snapshot-v1"
 
 NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+NewsHeatmapMetricSource = Literal["market_measured", "news_proxy"]
+RadarCandidateProvenance = Literal["direct_mention", "inferred_candidate", "macro_proxy"]
+RadarCandidateMaterialTone = Literal["positive", "caution", "mixed", "unknown"]
+RadarCandidateDataStatus = Literal["available", "partial", "unavailable", "not_checked"]
+RadarCandidatePriorityReasonKind = Literal[
+    "freshness",
+    "evidence_breadth",
+    "material_type",
+    "watchlist_match",
+]
+RadarEvidenceBundleStatus = Literal["available", "confirmation_gap", "unavailable"]
 NewsSymbolMatchKind = Literal[
     "direct_mention",
     "alias_match",
@@ -87,11 +98,122 @@ class NewsHeadlineCard(StrictBaseModel):
     investment_checkpoints: list[str] = Field(default_factory=list)
 
 
+class RadarCandidateEvidence(StrictBaseModel):
+    """One stable, traceable news reason for a Radar exploration candidate."""
+
+    evidence_id: str = Field(min_length=1)
+    headline_title: str = Field(min_length=1)
+    source_name: str | None = Field(default=None, min_length=1)
+    source_type: str = Field(min_length=1)
+    source_url: str | None = Field(default=None, min_length=1)
+    category: str = Field(min_length=1)
+    material_type: str = Field(min_length=1)
+    provenance: RadarCandidateProvenance
+    directness: float = Field(ge=0.0, le=1.0)
+    published_at: datetime | None = None
+    fetched_at: datetime | None = None
+    freshness_status: NewsFreshnessStatus = "unknown"
+
+
+class RadarCandidatePriorityReason(StrictBaseModel):
+    """One deterministic contributor to a candidate's confirmation order."""
+
+    kind: RadarCandidatePriorityReasonKind
+    points: int = Field(ge=0, le=100)
+    detail: str = Field(min_length=1)
+
+
+class RadarCandidate(StrictBaseModel):
+    """A deterministic candidate for confirmation, never an investment ranking row."""
+
+    candidate_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    display_name: str | None = Field(default=None, min_length=1)
+    market: str | None = Field(default=None, min_length=1)
+    asset_type: str | None = Field(default=None, min_length=1)
+    provenance: RadarCandidateProvenance
+    categories: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    evidence: list[RadarCandidateEvidence] = Field(default_factory=list)
+    freshness_status: NewsFreshnessStatus = "unknown"
+    latest_published_at: datetime | None = None
+    independent_source_count: int = Field(default=0, ge=0)
+    watchlist_match: bool = False
+    symbol_data_status: RadarCandidateDataStatus = "not_checked"
+    price_data_status: RadarCandidateDataStatus = "not_checked"
+    rag_data_status: RadarCandidateDataStatus = "not_checked"
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    directness: float = Field(ge=0.0, le=1.0)
+    confirmation_priority: int = Field(ge=0, le=100)
+    confirmation_priority_reasons: list[RadarCandidatePriorityReason] = Field(default_factory=list)
+    material_tone: RadarCandidateMaterialTone = "unknown"
+    is_investigation_candidate: bool = True
+
+
+class RadarCandidateMap(StrictBaseModel):
+    """Bounded, network-free candidate map constructed from a news snapshot."""
+
+    generated_at: datetime
+    candidates: list[RadarCandidate] = Field(default_factory=list)
+
+
+class RadarResearchContext(StrictBaseModel):
+    """Bounded local-RAG query context created only after explicit user action."""
+
+    candidate_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=360)
+    as_of: date
+    news_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class RadarEvidenceCitation(StrictBaseModel):
+    """Short, stable citation from local Research RAG for one Radar candidate."""
+
+    citation_id: str = Field(min_length=1)
+    research_evidence_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source_type: str = Field(min_length=1)
+    published_at: date | None = None
+    retrieved_at: datetime
+    freshness_status: NewsFreshnessStatus = "unknown"
+    directness: float = Field(ge=0.0, le=1.0)
+    excerpt: str = Field(min_length=1, max_length=320)
+
+
+class RadarRetrievalQuality(StrictBaseModel):
+    """Small copy of retrieval transparency fields safe for the Radar surface."""
+
+    backend: str = Field(min_length=1)
+    candidate_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    keyword_candidate_count: int = Field(ge=0)
+    vector_candidate_count: int = Field(ge=0)
+    document_count: int = Field(ge=0)
+    latency_ms: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RadarEvidenceBundle(StrictBaseModel):
+    """Explicit local-RAG result for a Radar candidate without external retrieval."""
+
+    candidate_id: str = Field(min_length=1)
+    context: RadarResearchContext
+    citations: list[RadarEvidenceCitation] = Field(default_factory=list)
+    retrieval_quality: RadarRetrievalQuality | None = None
+    status: RadarEvidenceBundleStatus
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    generated_at: datetime
+
+
 class NewsHeatmapCell(StrictBaseModel):
     """Investment heat cell for market category intensity."""
 
     category: str = Field(min_length=1)
     region: str | None = Field(default=None, min_length=1)
+    # Absent values in older cache snapshots must remain conservative.  Numeric
+    # fields alone are not sufficient evidence that a market metric was measured.
+    market_metric_source: NewsHeatmapMetricSource = "news_proxy"
     price_change_pct: float | None = None
     volume_activity_score: float | None = Field(default=None, ge=0.0)
     news_count: int = Field(ge=0)

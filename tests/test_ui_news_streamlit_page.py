@@ -193,6 +193,7 @@ def test_news_symbol_chip_rows_show_favorite_state_and_skip_missing_symbol(tmp_p
 
 def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setenv("SMAI_RADAR_AUTO_FETCH", "0")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "news"
     app.session_state["smai_current_user_id"] = "default"
@@ -222,15 +223,36 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "キャッシュサイズ" not in page_text
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
-    assert "投資ヒートマップ" in page_text
+    assert "市場ヒートマップ" in page_text
+    assert "ニュース候補を、セクター・業種・注目ニュースで並べます。" in page_text
+    assert "追加候補マップ" not in page_text
+    assert "ニュース・根拠" not in {item.label for item in app.tabs}
+    assert {item.label for item in app.tabs} == {"市場レーダー", "ニュース一覧"}
+    assert "ニュース詳細フィルタ" not in page_text
+    assert "確認トリアージ" not in page_text
     assert "カテゴリ別ニュースレーン" in page_text
-    assert "表示中ニュース" in page_text
+    assert "表示中ニュース" not in page_text
     assert "データ状態" not in page_text
-    assert "ニュース表示を更新" in button_labels
-    assert "Watchlist" in text_input_labels
-    assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
-    assert "関連銘柄" in selectbox_labels
-    assert {"Watchlist一致を優先表示", "Watchlist一致だけ表示"}.issubset(set(checkbox_labels))
+    assert "ニュースを更新" in button_labels
+    assert "今すぐ更新" in button_labels
+    assert "最初の候補の根拠を見る" not in button_labels
+    assert not text_input_labels
+    assert not multiselect_labels
+    assert not selectbox_labels
+    assert not checkbox_labels
+    assert any(item.label.startswith("確認候補（補助）") for item in app.expander)
+
+    markdown_values = [str(element.value) for element in app.markdown]
+    headline_indexes = [
+        index
+        for index, value in enumerate(markdown_values)
+        if value.strip() == "### 市場ニュースヘッドライン"
+    ]
+    market_index = next(
+        index for index, value in enumerate(markdown_values) if "市場ヒートマップ" in value
+    )
+    assert len(headline_indexes) == 2
+    assert headline_indexes[0] < market_index
 
 
 def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch):

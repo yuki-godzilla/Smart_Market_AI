@@ -34,9 +34,11 @@ Provider raw fields、debug logs、保存対象でない外部本文全文は通
 
 ## 構造化回答
 
-`/api/v1/context-answer` では、LLM に自由な JSON 生成を任せません。
+通常の`/api/v1/context-answer`では、LLM に自由な JSON 生成を任せません。
 LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_checkpoints`、`referenced_sections` は Gateway が受け取った context から安定生成します。
 これにより、SMAI 側 UI が必要とする表示順と安全境界を保ちます。
+
+例外は、親SMAIが明示的に`response_schema=radar_interpretation.v1`を指定するInvestment Radarの根拠整理だけです。この場合はstrict JSONを返し、各summary / material / caution / unknown / next-checkpoint objectに`cited_evidence_ids`を最低1件持たせる。Gatewayはcandidate IDと許可済みcitationだけを受け付け、親SMAIが候補外symbol、根拠外数値・日付、助言表現を最終rejectする。Gatewayは候補追加、スコア・順位・予測の変更、SMAI action実行を行わない。
 
 ## Tool Planner
 

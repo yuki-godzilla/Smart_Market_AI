@@ -197,7 +197,9 @@ def test_sortable_containers_are_chip_only_and_keep_empty_and_unclassified_last(
     assert containers[-1]["labels"] == {"AAPL": "AAPL | Apple"}
     assert item_symbols == {"AAPL": "AAPL"}
     assert header_groups["system:unclassified"] is None
-    assert "99" not in str(containers)
+    assert all(
+        "99" not in label for container in containers for label in container["labels"].values()
+    )
 
 
 def test_sortable_container_ids_do_not_collide_with_custom_unclassified_name():

@@ -21,9 +21,10 @@ from backend.forecast.adapters.advanced_linear import (
     _prepare_dataset,
     _validation_metrics,
 )
+from backend.forecast.horizon import OPEN_ENDED_FORECAST_HORIZONS
 
 ADVANCED_TREE_SKLEARN_ADAPTER_NAME = "advanced_tree_sklearn"
-SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS = tuple(range(1, 61))
+SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS = OPEN_ENDED_FORECAST_HORIZONS
 
 AdvancedTreeSklearnModelName = Literal["ExtraTreesRegressor", "RandomForestRegressor"]
 
@@ -86,7 +87,7 @@ class AdvancedTreeSklearnForecastAdapter:
         horizon_days: int,
     ) -> AdvancedTreeSklearnForecastResult:
         if horizon_days not in SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS:
-            raise ValueError("horizon_days must be between 1 and 60")
+            raise ValueError("horizon_days must be at least 1")
 
         sorted_bars = sorted(bars, key=lambda bar: bar.ts)
         if not sorted_bars:

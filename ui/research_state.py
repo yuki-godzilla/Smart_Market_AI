@@ -19,14 +19,19 @@ from backend.research import (
     ExternalResearchFetchResult,
     ExternalResearchFetchService,
     ExternalResearchSourceAdapter,
+    HybridResearchRetrievalService,
     ResearchAnalysisService,
     ResearchDocumentRegisterRequest,
+    ResearchFileVectorStore,
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
+    ResearchInMemoryVectorStore,
     ResearchRetrievalService,
+    ResearchSearchError,
     ResearchSourceTrace,
     ResearchSourceType,
+    ResearchVectorIndexService,
     StockNewsAnalysisService,
     StockNewsReport,
     StockNewsRequest,
@@ -38,9 +43,12 @@ RESEARCH_AUTOLOAD_STATE_KEY = "research_local_autoloaded_files"
 RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY = "research_external_fetch_cache_v1"
 RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY = "research_external_fetch_cache_info_v1"
 RESEARCH_EXTERNAL_FETCH_LAST_SUMMARY_STATE_KEY = "research_external_fetch_last_summary_v1"
+RESEARCH_VECTOR_STORE_STATE_KEY = "research_local_vector_store_v1"
+RESEARCH_VECTOR_WARNING_STATE_KEY = "research_local_vector_warning_v1"
 RESEARCH_EXTERNAL_FETCH_CACHE_TTL_SECONDS = 900
 RESEARCH_DOC_DIR = Path("data/research_docs")
 RESEARCH_UPLOAD_DIR = RESEARCH_DOC_DIR / "uploads"
+RESEARCH_VECTOR_CACHE_PATH = Path("data/cache/research_vectors_v1.jsonl")
 
 
 def research_store() -> ResearchInMemoryStore:
@@ -52,6 +60,31 @@ def research_store() -> ResearchInMemoryStore:
     return store
 
 
+def research_vector_store() -> ResearchFileVectorStore | ResearchInMemoryVectorStore:
+    """Return a persistent local vector cache, degrading safely to memory on corruption."""
+
+    store = st.session_state.get(RESEARCH_VECTOR_STORE_STATE_KEY)
+    if isinstance(store, (ResearchFileVectorStore, ResearchInMemoryVectorStore)):
+        return store
+    try:
+        store = ResearchFileVectorStore(RESEARCH_VECTOR_CACHE_PATH)
+    except ResearchSearchError:
+        # A cache is an optimization only.  Do not prevent the keyword RAG path
+        # from being used if a prior interrupted process left invalid JSONL.
+        store = ResearchInMemoryVectorStore()
+        st.session_state[RESEARCH_VECTOR_WARNING_STATE_KEY] = (
+            "ローカル検索キャッシュを読み込めなかったため、この画面では再構築します。"
+        )
+    st.session_state[RESEARCH_VECTOR_STORE_STATE_KEY] = store
+    return store
+
+
+def rebuild_research_vector_index(symbol: str | None = None) -> None:
+    """Synchronize text chunks to the local vector cache without external calls."""
+
+    ResearchVectorIndexService(research_store(), research_vector_store()).rebuild_index(symbol)
+
+
 def research_document_dirs() -> list[Path]:
     RESEARCH_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     return [RESEARCH_DOC_DIR]
@@ -61,10 +94,13 @@ def autoload_local_research_documents() -> int:
     """Register local research docs from data/research_docs for the current Streamlit session."""
 
     RESEARCH_DOC_DIR.mkdir(parents=True, exist_ok=True)
-    loaded_files = st.session_state.get(RESEARCH_AUTOLOAD_STATE_KEY)
-    if not isinstance(loaded_files, set):
-        loaded_files = set()
+    stored_loaded_files = st.session_state.get(RESEARCH_AUTOLOAD_STATE_KEY)
+    is_initial_load = not isinstance(stored_loaded_files, set)
+    if is_initial_load:
+        loaded_files: set[str] = set()
         st.session_state[RESEARCH_AUTOLOAD_STATE_KEY] = loaded_files
+    else:
+        loaded_files = cast(set[str], stored_loaded_files)
 
     store = research_store()
     ingestion = ResearchIngestionService(store, document_dirs=research_document_dirs())
@@ -91,6 +127,12 @@ def autoload_local_research_documents() -> int:
         index.build_chunks(document.document_id)
         loaded_files.add(resolved)
         loaded_count += 1
+    if is_initial_load:
+        # Replacing the complete persistent cache drops vectors from a previous
+        # browser session whose transient external materials no longer exist.
+        rebuild_research_vector_index()
+    elif loaded_count:
+        rebuild_research_vector_index()
     return loaded_count
 
 
@@ -117,6 +159,7 @@ def register_uploaded_research_document(
         )
     )
     chunks = ResearchIndexService(store).build_chunks(document.document_id)
+    rebuild_research_vector_index(symbol)
     return document.document_id, len(chunks)
 
 
@@ -125,7 +168,10 @@ def analyze_research_for_symbol(symbol: str, *, as_of: date | None = None) -> Co
     store = research_store()
     return ResearchAnalysisService(
         ResearchIngestionService(store, document_dirs=research_document_dirs()),
-        ResearchRetrievalService(store),
+        HybridResearchRetrievalService(
+            ResearchRetrievalService(store),
+            vector_store=research_vector_store(),
+        ),
     ).analyze_company(CompanyResearchRequest(symbol=symbol, as_of=as_of))
 
 
@@ -173,6 +219,7 @@ def fetch_external_research_for_symbol(
             elapsed_ms=_elapsed_ms(started_at),
             cache_hit=True,
         )
+        rebuild_research_vector_index(symbol)
         return cached_result
 
     try:
@@ -202,6 +249,7 @@ def fetch_external_research_for_symbol(
         )
         raise
     _external_fetch_cache_set(cache_key, result)
+    rebuild_research_vector_index(symbol)
     st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY] = {
         "cache_hit": False,
         "provider": source_adapter.provider,

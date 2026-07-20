@@ -283,6 +283,7 @@ def _normalize_heatmap_cell(cell: NewsHeatmapCell) -> NewsHeatmapCell:
     return NewsHeatmapCell(
         category=_normalize_text(cell.category) or cell.category.strip(),
         region=_normalize_optional_text(cell.region),
+        market_metric_source=getattr(cell, "market_metric_source", "news_proxy"),
         price_change_pct=getattr(cell, "price_change_pct", None),
         volume_activity_score=getattr(cell, "volume_activity_score", None),
         news_count=cell.news_count,

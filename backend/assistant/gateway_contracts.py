@@ -16,6 +16,7 @@ from backend.reporting import (
 ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION = "assistant-context-bundle-v1"
 ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION = "assistant-gateway-request-v1"
 ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
+ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION = "radar_interpretation.v1"
 ASSISTANT_PLANNER_REQUEST_SCHEMA_VERSION = "assistant_tool_planner_request.v1"
 ASSISTANT_PLANNER_RESPONSE_SCHEMA_VERSION = "assistant_tool_planner_response.v1"
 ASSISTANT_PLANNER_PROMPT_VERSION = "assistant_tool_planner_mvp.v1"
@@ -144,6 +145,7 @@ class AssistantGatewayRequest(StrictBaseModel):
     message_history: list[AssistantGatewayMessage] = Field(default_factory=list)
     active_context_id: str | None = Field(default=None, min_length=1)
     referenced_context_ids: list[str] = Field(default_factory=list)
+    response_schema: str | None = Field(default=None, min_length=1)
     task_type: AssistantGatewayTaskType = "free_chat"
     execution_mode: AssistantGatewayExecutionMode = "auto"
     environment_profile: AssistantGatewayEnvironmentProfile = "notebook"
@@ -159,6 +161,32 @@ class AssistantGatewayReferencedSection(StrictBaseModel):
     source_kind: str = Field(min_length=1)
 
 
+class AssistantGatewayEvidencePoint(StrictBaseModel):
+    """One short response field tied to exact client-provided evidence IDs."""
+
+    text: str = Field(min_length=1, max_length=320)
+    cited_evidence_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+class AssistantGatewayRadarInterpretation(StrictBaseModel):
+    """Evidence-bound payload used only for the optional Investment Radar memo."""
+
+    schema_version: str = Field(
+        default=ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION,
+        min_length=1,
+    )
+    candidate_id: str = Field(min_length=1)
+    summary: AssistantGatewayEvidencePoint
+    positive_materials: list[AssistantGatewayEvidencePoint] = Field(
+        default_factory=list, max_length=4
+    )
+    cautions: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    unknowns: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    next_checkpoints: list[AssistantGatewayEvidencePoint] = Field(
+        default_factory=list, max_length=4
+    )
+
+
 class AssistantGatewayResponse(StrictBaseModel):
     """SMAI-facing response shape expected from the external LLM Gateway."""
 
@@ -168,6 +196,7 @@ class AssistantGatewayResponse(StrictBaseModel):
     cautions: list[str] = Field(default_factory=list)
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[AssistantGatewayReferencedSection] = Field(default_factory=list)
+    radar_interpretation: AssistantGatewayRadarInterpretation | None = None
     confidence: AssistantGatewayConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)
     provider: str | None = Field(default=None, min_length=1)
@@ -321,6 +350,7 @@ def build_assistant_gateway_request(
     message_history: Sequence[AssistantGatewayMessage] = (),
     active_context_id: str | None = None,
     referenced_context_ids: Sequence[str] = (),
+    response_schema: str | None = None,
     task_type: AssistantGatewayTaskType = "free_chat",
     execution_mode: AssistantGatewayExecutionMode = "auto",
     environment_profile: AssistantGatewayEnvironmentProfile = "notebook",
@@ -337,6 +367,7 @@ def build_assistant_gateway_request(
         message_history=list(message_history),
         active_context_id=active_context_id or context.active_context_id,
         referenced_context_ids=list(referenced_context_ids),
+        response_schema=response_schema,
         task_type=task_type,
         execution_mode=execution_mode,
         environment_profile=environment_profile,
@@ -375,7 +406,9 @@ def _context_section_from_report_section(
         provider=(
             _trim_text(section.source.provider, max_text_chars) if section.source.provider else None
         ),
-        symbol=_trim_text(section.source.symbol, max_text_chars) if section.source.symbol else None,
+        symbol=(
+            _trim_text(section.source.symbol, max_text_chars) if section.source.symbol else None
+        ),
         summary=summary,
         rows=rows,
         warnings=warnings,

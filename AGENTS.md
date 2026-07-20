@@ -249,6 +249,11 @@ Watchlist、Radar、通知設定、履歴、メモ、タグ、保存レポート
 
 小さな変更ではtargeted checkを優先し、handoff前に影響範囲に応じたproject checkを行います。
 
+GitHub Actionsの完了確認は各commit / pushごとには行いません。通常は完了した5作業単位を目安に
+まとめて確認し、merge前、release前、workflow変更時、高リスク変更の統合時には作業単位数に
+かかわらず確認します。各作業単位のtargeted local checkと、handoff前の影響範囲に応じたlocal
+project checkは省略しません。CIを今回確認しない場合は、最後に確認したcommitと未確認理由を報告します。
+
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q

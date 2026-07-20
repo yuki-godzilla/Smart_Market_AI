@@ -48,8 +48,10 @@ def test_my_radar_responsive_viewports() -> None:
                 page.goto(base_url, wait_until="networkidle", timeout=120_000)
                 page.wait_for_timeout(3_000)
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
-                    page.get_by_text("SMAIデフォルト", exact=True).click()
-                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.locator(
+                        'a.smai-profile-link[aria-label="SMAIデフォルトを選択"]:visible'
+                    ).first.click()
+                    page.locator("a#smai-profile-start:visible").click()
                     page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
                         state="visible",
                         timeout=60_000,
@@ -75,6 +77,14 @@ def test_my_radar_responsive_viewports() -> None:
                 assert page.get_by_text("ウォッチリストグループ", exact=True).count() > 0
                 assert page.get_by_role("button", name="＋ グループを作成").count() == 0
                 assert page.get_by_role("button").count() > 0
+                if width <= 767:
+                    app_header = page.locator(".smai-app-header")
+                    app_header_box = app_header.bounding_box()
+                    assert app_header_box is not None
+                    assert app_header_box["y"] <= 110
+                    assert app_header_box["height"] <= 120
+                    assert page.locator(".smai-app-message").is_hidden()
+                    assert page.locator(".smai-app-mascot-wrap").is_hidden()
                 if name == "pc_1366":
                     assert (
                         page.get_by_role("button", name="グループを編集", exact=True).count() == 1

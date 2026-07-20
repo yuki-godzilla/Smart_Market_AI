@@ -1,0 +1,39 @@
+{
+  "schema_version": "frozen_conservative_calibration.v1",
+  "evaluation_only": true,
+  "frozen_at": "2026-07-19T00:00:00+09:00",
+  "source_commit": "353dee1",
+  "source_report": "Documents/40_Forecast_Model_Selection_Report.md",
+  "profiles": [
+    {
+      "model_name": "horizon_conditioned_conservative_calibration",
+      "horizon_days": 20,
+      "conservative_model_name": "moving_average_3",
+      "consensus_weight": "0.3",
+      "conservative_weight": "0.7",
+      "tuning_sample_count": 141,
+      "tuning_consensus_rmse": "0.079367",
+      "tuning_conservative_rmse": "0.074495",
+      "tuning_candidate_rmse": "0.073238",
+      "tuning_relative_rmse_improvement": "0.077219",
+      "tuning_consensus_direction_accuracy": "0.553191",
+      "tuning_candidate_center_direction_accuracy": "0.510638",
+      "tuning_retained_direction_accuracy": "0.553191"
+    },
+    {
+      "model_name": "horizon_conditioned_conservative_calibration",
+      "horizon_days": 60,
+      "conservative_model_name": "moving_average_3",
+      "consensus_weight": "0",
+      "conservative_weight": "1",
+      "tuning_sample_count": 141,
+      "tuning_consensus_rmse": "0.211046",
+      "tuning_conservative_rmse": "0.181573",
+      "tuning_candidate_rmse": "0.181573",
+      "tuning_relative_rmse_improvement": "0.139655",
+      "tuning_consensus_direction_accuracy": "0.418440",
+      "tuning_candidate_center_direction_accuracy": "0.489362",
+      "tuning_retained_direction_accuracy": "0.418440"
+    }
+  ]
+}

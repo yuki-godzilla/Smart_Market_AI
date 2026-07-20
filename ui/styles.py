@@ -1,11 +1,22 @@
 from __future__ import annotations
 
-import html
-from decimal import Decimal, InvalidOperation
-from typing import Iterable
-
 import altair as alt
 import streamlit as st
+
+from ui import style_components as _components
+
+SMAI_STYLE_REVISION = "2026-07-16-radar-market-v7"
+
+badge_html = _components.badge_html
+compact_display_value = _components.compact_display_value
+dashboard_header_html = _components.dashboard_header_html
+metric_card_html = _components.metric_card_html
+metric_progress_from_value = _components.metric_progress_from_value
+render_dashboard_header = _components.render_dashboard_header
+render_metric_card = _components.render_metric_card
+render_section_heading = _components.render_section_heading
+section_heading_html = _components.section_heading_html
+truncate_text = _components.truncate_text
 
 THEME_COLORS = {
     "bg_app": "#020510",
@@ -302,6 +313,11 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.research-ai-cta--hero) {
     --smai-gray: var(--chart-volume);
 }
 
+html {
+    /* Scale rem-based UI typography down by 10% while preserving touch targets. */
+    font-size: 90%;
+}
+
 html,
 body,
 #root,
@@ -480,7 +496,8 @@ body,
 }
 
 [data-testid="stButton"] button {
-    min-height: 2.35rem;
+    /* Preserve the desktop control baseline even when compact typography is enabled. */
+    min-height: 36px;
     border-radius: 8px;
     border: 1px solid var(--button-secondary-border);
     background:
@@ -551,7 +568,7 @@ body,
             135deg,
             rgba(56, 189, 248, 1) 0%,
             rgba(34, 211, 238, 0.98) 45%,
-            rgba(45, 212, 191, 0.98) 100%
+            rgba(103, 232, 249, 0.98) 100%
         );
     background-size: 180% 180%;
     background-position: 100% 50%;
@@ -1053,7 +1070,8 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-ticker {
     position: relative;
-    min-height: 10.8rem;
+    container-type: inline-size;
+    min-height: 9.7rem;
     overflow: hidden;
     margin: 0.35rem 0 1rem;
     padding: 0.72rem 0.78rem 0.55rem;
@@ -1063,6 +1081,52 @@ div[data-testid="stElementContainer"]:has(
         linear-gradient(90deg, rgba(34, 211, 238, 0.13), rgba(251, 191, 36, 0.08)),
         linear-gradient(180deg, rgba(8, 27, 42, 0.95), rgba(11, 18, 32, 0.94));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.investment-news-ticker-flow {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem 0.72rem;
+    min-height: 1.48rem;
+    margin: 0 0 0.48rem;
+    color: var(--text-muted);
+    font-size: 0.67rem;
+    font-weight: 720;
+    letter-spacing: 0.015em;
+}
+
+.investment-news-ticker-flow-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    color: #a5f3fc;
+    font-size: 0.7rem;
+    font-weight: 850;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+}
+
+.investment-news-ticker-flow-label i {
+    display: inline-block;
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.62);
+    animation: investment-news-flow-pulse 1.8s ease-out infinite;
+}
+
+.investment-news-ticker-flow-count {
+    padding-left: 0.7rem;
+    border-left: 1px solid rgba(125, 211, 252, 0.2);
+    white-space: nowrap;
+}
+
+.investment-news-ticker-flow-time {
+    overflow: hidden;
+    margin-left: auto;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .investment-news-board-radio {
@@ -1075,20 +1139,21 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-news-board-viewport {
     position: relative;
-    min-height: 8.45rem;
+    min-height: 5.55rem;
 }
 
 .investment-news-board-page {
     position: absolute;
     inset: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(3.75rem, auto));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(5.1rem, auto);
     gap: 0.55rem;
     opacity: 0;
     pointer-events: none;
-    animation: investment-news-board-cycle var(--investment-news-board-duration) ease-in-out
-        infinite;
+    animation-duration: var(--investment-news-board-duration);
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
     will-change: opacity, transform;
 }
 
@@ -1097,6 +1162,11 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-news-ticker:hover .investment-news-board-page {
+    animation-play-state: paused;
+}
+
+.investment-news-ticker:hover .investment-news-ticker-item,
+.investment-news-ticker:hover .investment-news-ticker-flow-label i {
     animation-play-state: paused;
 }
 
@@ -1119,6 +1189,8 @@ div[data-testid="stElementContainer"]:has(
         border-color 0.16s ease,
         background-color 0.16s ease,
         transform 0.16s ease;
+    animation: investment-news-ticker-spotlight var(--investment-news-flow-duration) ease-in-out
+        var(--investment-news-flow-delay) infinite;
 }
 
 .investment-news-ticker-item:hover {
@@ -1127,7 +1199,34 @@ div[data-testid="stElementContainer"]:has(
     transform: translateY(-1px);
 }
 
+@keyframes investment-news-flow-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.62);
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 0.42rem rgba(52, 211, 153, 0);
+    }
+}
+
+@keyframes investment-news-ticker-spotlight {
+    0%,
+    18%,
+    100% {
+        border-color: rgba(125, 211, 252, 0.18);
+        background: rgba(15, 23, 42, 0.5);
+        box-shadow: none;
+    }
+    25%,
+    43% {
+        border-color: rgba(103, 232, 249, 0.62);
+        background: rgba(8, 47, 73, 0.72);
+        box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08), 0 0.55rem 1.25rem rgba(8, 145, 178, 0.12);
+    }
+}
+
 .investment-news-ticker-category {
+    align-self: start;
     flex: 0 0 auto;
     border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 999px;
@@ -1143,6 +1242,7 @@ div[data-testid="stElementContainer"]:has(
 .investment-news-ticker-title {
     min-width: 0;
     display: -webkit-box;
+    line-height: 1.42;
     overflow: hidden;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
@@ -1213,24 +1313,93 @@ div[data-testid="stElementContainer"]:has(
         opacity: 1;
         pointer-events: auto;
     }
+
+    .investment-news-ticker-item,
+    .investment-news-ticker-flow-label i {
+        animation: none;
+    }
 }
 
 @media (max-width: 767px) {
     .investment-news-ticker {
-        min-height: 18.2rem;
+        min-height: 20.1rem;
+    }
+
+    .investment-news-ticker-flow {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 0.22rem 0.52rem;
+    }
+
+    .investment-news-ticker-flow-count {
+        padding-left: 0.52rem;
+    }
+
+    .investment-news-ticker-flow-time {
+        width: 100%;
+        margin-left: 0;
     }
 
     .investment-news-board-viewport {
-        min-height: 15.8rem;
+        min-height: 19.45rem;
     }
 
     .investment-news-board-page {
         grid-template-columns: 1fr;
-        grid-template-rows: repeat(4, minmax(3.45rem, auto));
+        grid-template-rows: repeat(3, minmax(6.1rem, auto));
+    }
+
+    .investment-news-ticker-title {
+        -webkit-line-clamp: 3;
+    }
+
+    .investment-news-ticker-item {
+        grid-template-columns: 1fr;
+    }
+
+    .investment-news-ticker-item small {
+        display: none;
     }
 
     .investment-news-board-nav-note {
         display: none;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1200px) {
+    .investment-news-ticker {
+        min-height: 15.4rem;
+    }
+
+    .investment-news-board-viewport {
+        min-height: 10.4rem;
+    }
+
+    .investment-news-board-page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(4.9rem, auto));
+    }
+
+    .investment-news-ticker-title {
+        -webkit-line-clamp: 3;
+    }
+
+    .investment-news-ticker-item small {
+        display: none;
+    }
+
+    /* A Streamlit sidebar can make a tablet's content column much narrower
+       than its viewport.  Show the same three headlines in one full-width
+       column so the category chip does not consume the title's reading room. */
+    @container (max-width: 36rem) {
+        .investment-news-board-viewport {
+            min-height: 16rem;
+        }
+
+        .investment-news-board-page {
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(3, minmax(4.9rem, auto));
+        }
     }
 }
 
@@ -1504,6 +1673,13 @@ div[data-testid="stElementContainer"]:has(
     color: rgba(208, 230, 242, 0.82);
 }
 
+.investment-stock-heatmap-more {
+    color: #BFDBFE;
+    font-size: 0.72rem;
+    font-weight: 820;
+    white-space: nowrap;
+}
+
 .investment-stock-heatmap-click {
     display: inline-flex;
     align-items: center;
@@ -1543,6 +1719,26 @@ div[data-testid="stElementContainer"]:has(
     background: linear-gradient(135deg, #5EEAD4, #0F9F80);
 }
 
+.investment-stock-heatmap-legend.evidence::before {
+    background: linear-gradient(135deg, #38BDF8, #0E7490);
+}
+
+.investment-stock-heatmap-legend.freshness::before {
+    background: linear-gradient(135deg, #1E3A5F, #67E8F9);
+}
+
+.investment-stock-heatmap-legend.direct::before {
+    background: #2DD4BF;
+}
+
+.investment-stock-heatmap-legend.inferred::before {
+    background: #A78BFA;
+}
+
+.investment-stock-heatmap-legend.market-metric::before {
+    background: #FBBF24;
+}
+
 .investment-stock-heatmap-board {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -1551,6 +1747,7 @@ div[data-testid="stElementContainer"]:has(
 }
 
 .investment-stock-heatmap-group {
+    --heatmap-group-accent: rgba(125, 211, 252, 0.42);
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -1561,6 +1758,23 @@ div[data-testid="stElementContainer"]:has(
         linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(5, 10, 24, 0.88));
     overflow: hidden;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.026);
+}
+
+.investment-stock-heatmap-group.market {
+    --heatmap-group-accent: rgba(45, 212, 191, 0.72);
+}
+
+.investment-stock-heatmap-group.asset_class {
+    --heatmap-group-accent: rgba(250, 204, 21, 0.72);
+}
+
+.investment-stock-heatmap-group.theme {
+    --heatmap-group-accent: rgba(167, 139, 250, 0.72);
+}
+
+.investment-stock-heatmap-group.macro,
+.investment-stock-heatmap-group.event {
+    --heatmap-group-accent: rgba(251, 146, 60, 0.72);
 }
 
 .investment-stock-heatmap-group.mega {
@@ -1583,10 +1797,11 @@ div[data-testid="stElementContainer"]:has(
     flex-direction: column;
     gap: 0.22rem;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    border-left: 3px solid var(--heatmap-group-accent);
     background:
         linear-gradient(115deg, rgba(8, 24, 44, 0.98), rgba(13, 47, 73, 0.92));
     color: #E6F6FF;
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.5rem 0.35rem 0.42rem;
 }
 
 .investment-stock-heatmap-group-main,
@@ -1825,6 +2040,36 @@ div[data-testid="stElementContainer"]:has(
     --heatmap-tile-change: #E2E8F0;
 }
 
+/* News-proxy tiles use one labelled freshness scale.  These colors never
+   encode price direction, material sentiment, or investment attractiveness. */
+.investment-stock-heatmap-tile.neutral.freshness-3 {
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #235F7C 0%, #16475F 48%, #0B2638 100%);
+    --heatmap-tile-border: rgba(103, 232, 249, 0.68);
+    --heatmap-tile-name: #ECFEFF;
+    --heatmap-tile-symbol: rgba(207, 250, 254, 0.86);
+}
+
+.investment-stock-heatmap-tile.neutral.freshness-2 {
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #31536D 0%, #203A50 48%, #132A3B 100%);
+    --heatmap-tile-border: rgba(125, 211, 252, 0.54);
+    --heatmap-tile-name: #EFF6FF;
+    --heatmap-tile-symbol: rgba(219, 234, 254, 0.80);
+}
+
+.investment-stock-heatmap-tile.neutral.freshness-1 {
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #414B5A 0%, #2C3544 48%, #1B2532 100%);
+    --heatmap-tile-border: rgba(148, 163, 184, 0.48);
+}
+
+.investment-stock-heatmap-tile.neutral.freshness-0 {
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #3A4655 0%, #263342 48%, #162231 100%);
+    --heatmap-tile-border: rgba(100, 116, 139, 0.52);
+}
+
 .investment-stock-heatmap-tile.negative {
     --heatmap-tile-bg:
         linear-gradient(145deg, #FB7185 0%, #D03861 45%, #7F1D3A 100%);
@@ -1914,8 +2159,8 @@ div[data-testid="stElementContainer"]:has(
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-name,
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
-    font-size: 0.98rem;
-    line-height: 1.1;
+    font-size: 0.84rem;
+    line-height: 1.12;
 }
 
 .investment-stock-heatmap-tile.compact .investment-stock-heatmap-identity {
@@ -1942,36 +2187,37 @@ div[data-testid="stElementContainer"]:has(
     -webkit-line-clamp: 1;
 }
 
-.investment-stock-heatmap-change {
+.investment-stock-heatmap-evidence-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.16rem;
     max-width: 100%;
-    color: var(--heatmap-tile-change);
-    font-size: 0.76rem;
+}
+
+.investment-stock-heatmap-evidence {
+    border: 1px solid rgba(186, 230, 253, 0.36);
+    border-radius: 999px;
+    background: rgba(8, 47, 73, 0.38);
+    color: #E0F2FE;
+    font-size: 0.55rem;
     font-weight: 850;
-    line-height: 1.12;
-    margin-top: 0.14rem;
+    line-height: 1.1;
+    padding: 0.08rem 0.26rem;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.investment-stock-heatmap-tile.hero .investment-stock-heatmap-change {
-    font-size: 1.08rem;
+.investment-stock-heatmap-evidence.direct {
+    border-color: rgba(94, 234, 212, 0.48);
+    background: rgba(13, 148, 136, 0.22);
+    color: #CCFBF1;
 }
 
-.investment-stock-heatmap-tile.major .investment-stock-heatmap-change,
-.investment-stock-heatmap-tile.medium .investment-stock-heatmap-change {
-    font-size: 0.92rem;
-}
-
-.investment-stock-heatmap-tile.compact .investment-stock-heatmap-change {
-    font-size: 0.7rem;
-    margin-top: 0;
-}
-
-.investment-stock-heatmap-tile.minor .investment-stock-heatmap-change {
-    font-size: 0.5rem;
-    line-height: 1;
-    margin-top: 0;
+.investment-stock-heatmap-evidence.inferred {
+    border-color: rgba(196, 181, 253, 0.46);
+    background: rgba(109, 40, 217, 0.20);
+    color: #EDE9FE;
 }
 
 .investment-stock-heatmap-factors {
@@ -1996,10 +2242,625 @@ div[data-testid="stElementContainer"]:has(
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-factors,
 .investment-stock-heatmap-tile.compact .investment-stock-heatmap-factors,
 .investment-stock-heatmap-tile.minor .investment-stock-heatmap-factors {
+    font-size: 0.54rem;
+}
+
+.investment-market-heatmap {
+    container-type: inline-size;
+    margin: 0.45rem 0 0.85rem;
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.1), transparent 34%),
+        linear-gradient(145deg, rgba(8, 18, 34, 0.96), rgba(4, 9, 19, 0.985));
+    padding: 0.8rem;
+    box-shadow: 0 1.1rem 3rem rgba(2, 6, 23, 0.3), inset 0 1px rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(8px);
+}
+
+.investment-market-heatmap-meta,
+.investment-market-heatmap-scale {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.42rem 0.9rem;
+    color: rgba(203, 220, 233, 0.78);
+    font-size: 0.72rem;
+}
+
+.investment-market-heatmap-meta strong {
+    margin-right: auto;
+    color: #F8FAFC;
+    font-size: 0.88rem;
+}
+
+.investment-radar-market-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem 1rem;
+    margin: 0.35rem 0 0.5rem;
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 12px;
+    background:
+        linear-gradient(110deg, rgba(14, 165, 233, 0.09), transparent 42%),
+        rgba(15, 23, 42, 0.5);
+    padding: 0.6rem 0.75rem;
+}
+
+.investment-radar-market-summary-counts,
+.investment-radar-market-summary-pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+}
+
+.investment-radar-market-summary-counts span,
+.investment-radar-market-summary-label {
+    color: rgba(203, 220, 233, 0.82);
+    font-size: 0.72rem;
+}
+
+.investment-radar-market-summary-counts span {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.48);
+    padding: 0.2rem 0.48rem;
+}
+
+.investment-radar-market-summary-counts strong {
+    color: #F8FAFC;
+    font-size: 0.86rem;
+}
+
+.investment-radar-market-summary-pick > strong {
+    color: #F8FAFC;
+    font-size: 0.94rem;
+    letter-spacing: 0.01em;
+}
+.investment-radar-market-summary-pick code { color: #7DD3FC; }
+.investment-radar-market-summary-pick small { color: rgba(203, 220, 233, 0.72); }
+
+.investment-market-heatmap-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0.65rem 0 0.5rem;
+}
+
+/* Use the actual content width, rather than the browser width.  A desktop
+   with Streamlit's sidebar open has substantially less room than the same
+   viewport with the sidebar collapsed. */
+@container (min-width: 78rem) {
+    .investment-market-heatmap-groups {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.investment-market-heatmap-group {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 10px;
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.62), rgba(8, 15, 29, 0.86));
+    box-shadow: 0 0.45rem 1.2rem rgba(2, 6, 23, 0.2);
+}
+
+.investment-market-heatmap-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 42px;
+    min-width: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.08), transparent 68%);
+    padding: 0.52rem 0.65rem;
+}
+
+.investment-market-heatmap-group-header strong {
+    flex: 0 1 45%;
+    overflow: hidden;
+    color: #F8FAFC;
+    font-size: 0.9rem;
+    letter-spacing: 0.015em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-group-header span {
+    flex: 1 1 55%;
+    min-width: 0;
+    color: rgba(203, 220, 233, 0.72);
+    font-size: 0.64rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+/* Only the news-category view receives this context card.  It keeps the
+   article evidence adjacent to, but visually distinct from, price movement. */
+.investment-market-news-context {
+    display: block;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    background: linear-gradient(90deg, rgba(14, 116, 144, 0.18), rgba(15, 23, 42, 0.34));
+    color: #E0F2FE;
+    min-width: 0;
+    padding: 0.42rem 0.62rem 0.46rem;
+    text-decoration: none;
+}
+
+.investment-market-news-context.is-link {
+    cursor: pointer;
+}
+
+.investment-market-news-context.is-link:hover,
+.investment-market-news-context.is-link:focus-visible {
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.28), rgba(30, 41, 59, 0.56));
+    outline: 2px solid rgba(125, 211, 252, 0.78);
+    outline-offset: -2px;
+}
+
+.investment-market-news-context-label {
+    color: #7DD3FC;
+    display: block;
+    font-size: 0.59rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+}
+
+.investment-market-news-context strong {
+    color: #F8FAFC;
+    display: -webkit-box;
+    font-size: 0.73rem;
+    line-height: 1.28;
+    margin-top: 0.13rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.investment-market-news-context small {
+    color: rgba(203, 220, 233, 0.78);
+    display: block;
+    font-size: 0.6rem;
+    margin-top: 0.18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The news-list footer deliberately stays lighter than the main news lanes. */
+.investment-radar-candidate-footer-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem;
+}
+
+.investment-radar-candidate-footer-item {
+    min-width: 0;
+    border: 1px solid rgba(125, 211, 252, 0.18);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.46);
+    color: #E0F2FE;
+    padding: 0.44rem 0.56rem;
+    text-decoration: none;
+}
+
+.investment-radar-candidate-footer-item:hover,
+.investment-radar-candidate-footer-item:focus-visible {
+    border-color: rgba(125, 211, 252, 0.68);
+    background: rgba(14, 116, 144, 0.2);
+    outline: none;
+}
+
+.investment-radar-candidate-footer-item strong,
+.investment-radar-candidate-footer-item span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-radar-candidate-footer-item strong {
+    color: #F8FAFC;
+    font-size: 0.76rem;
+}
+
+.investment-radar-candidate-footer-item span {
+    color: rgba(203, 220, 233, 0.78);
+    font-size: 0.63rem;
+    margin-top: 0.12rem;
+}
+
+.investment-market-heatmap-canvas {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 6;
+    margin: 0;
+    overflow: hidden;
+    background: rgba(8, 15, 29, 0.86);
+}
+
+/* The map receives more room as a category gains confirmed price tiles.
+   These are readability bands, not different data granularity per device. */
+.investment-market-heatmap-group.medium .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 7.5;
+}
+
+.investment-market-heatmap-group.dense .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 9.5;
+}
+
+/* A lone verified name is still useful, but it should read as a compact
+   movement card rather than consuming a full treemap-sized canvas. */
+.investment-market-heatmap-group.singleton .investment-market-heatmap-canvas {
+    aspect-ratio: 16 / 3.1;
+}
+
+.investment-market-heatmap-tile {
+    container-type: size;
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.16rem;
+    min-width: 0;
+    overflow: hidden;
+    border: 2px solid rgba(5, 10, 20, 0.82);
+    color: #F8FAFC;
+    padding: clamp(0.32rem, 0.48vw, 0.58rem);
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(2, 6, 23, 0.82);
+    text-decoration: none;
+}
+
+.investment-market-heatmap-tile:hover,
+.investment-market-heatmap-tile:focus-visible {
+    z-index: 2;
+    outline: 2px solid #7DD3FC;
+    outline-offset: -3px;
+}
+
+.investment-market-heatmap-pick {
+    position: absolute;
+    top: 0.28rem;
+    left: 0.32rem;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.72);
+    color: #FDE68A;
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 0.1rem 0.32rem;
+}
+
+.investment-market-heatmap-tile.positive { box-shadow: inset 0 0 0 1px rgba(110, 231, 183, 0.32); }
+.investment-market-heatmap-tile.negative { box-shadow: inset 0 0 0 1px rgba(253, 164, 175, 0.32); }
+.investment-market-heatmap-tile.flat { box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.25); }
+
+.investment-market-heatmap-name {
+    max-width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    font-size: clamp(1rem, 1.18vw, 1.25rem);
+    font-weight: 850;
+    letter-spacing: 0.01em;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.investment-market-heatmap-symbol,
+.investment-market-heatmap-tile small {
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(241, 245, 249, 0.84);
+    font-size: clamp(0.7rem, 0.78vw, 0.82rem);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-symbol {
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.28);
+    padding: 0.08rem 0.34rem;
+    letter-spacing: 0.04em;
+}
+
+.investment-market-heatmap-tile strong {
+    color: #F8FAFC;
+    font-size: clamp(1rem, 1.2vw, 1.28rem);
+}
+
+.investment-market-heatmap-change {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.32rem;
+    max-width: 100%;
+    min-height: 1.65rem;
+    border: 1px solid rgba(248, 250, 252, 0.24);
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.32);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+    padding: 0.14rem 0.46rem;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-change-direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    font-size: 0.76em;
+    font-weight: 760;
+}
+
+.investment-market-heatmap-change-arrow {
+    font-size: 1.08em;
+}
+
+.investment-market-heatmap-change-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+}
+
+.investment-market-heatmap-tile.positive .investment-market-heatmap-change {
+    border-color: rgba(167, 243, 208, 0.54);
+    background: rgba(6, 78, 59, 0.32);
+    color: #ECFDF5;
+}
+
+.investment-market-heatmap-tile.negative .investment-market-heatmap-change {
+    border-color: rgba(254, 205, 211, 0.52);
+    background: rgba(136, 19, 55, 0.30);
+    color: #FFF1F2;
+}
+
+.investment-market-heatmap-tile.flat .investment-market-heatmap-change {
+    border-color: rgba(226, 232, 240, 0.42);
+    background: rgba(51, 65, 85, 0.34);
+    color: #F1F5F9;
+}
+
+.investment-market-heatmap-tile.compact small,
+.investment-market-heatmap-tile.minimal small {
     display: none;
 }
 
-@media (min-width: 768px) and (max-width: 1024px) {
+.investment-market-heatmap-tile.compact .investment-market-heatmap-change,
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-change {
+    gap: 0.18rem;
+    min-height: 0;
+    padding: 0.1rem 0.28rem;
+}
+
+.investment-market-heatmap-tile.compact .investment-market-heatmap-change-word,
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-change-word {
+    display: none;
+}
+
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-name {
+    display: none;
+}
+
+.investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol {
+    display: inline-block;
+    max-width: 100%;
+    font-size: clamp(0.6rem, 0.72vw, 0.78rem);
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.investment-market-heatmap-tile.minimal strong {
+    font-size: clamp(0.7rem, 0.88vw, 0.9rem);
+}
+
+/* A proportional treemap can legitimately produce a very short rectangle.
+   In that case, retain the exact movement value rather than rendering a
+   clipped stack of name, code, and value.  The full identity remains in the
+   link's accessible name and hover tooltip. */
+.investment-market-heatmap-tile.micro {
+    gap: 0;
+    padding: 0.06rem 0.14rem;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-name,
+.investment-market-heatmap-tile.micro .investment-market-heatmap-symbol,
+.investment-market-heatmap-tile.micro small {
+    display: none;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-change {
+    gap: 0.08rem;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.investment-market-heatmap-tile.micro .investment-market-heatmap-change-word {
+    display: none;
+}
+
+.investment-market-heatmap-tile.micro strong {
+    font-size: clamp(0.62rem, 0.7vw, 0.82rem);
+    line-height: 1;
+}
+
+/* The generator classifies proportional rectangles before the browser knows
+   their physical size.  These container queries make the final choice using
+   the rendered height, so a sidebar or narrower window cannot crop text. */
+@container (max-height: 3.6rem) {
+    .investment-market-heatmap-tile {
+        gap: 0.06rem;
+        padding: 0.1rem 0.18rem;
+    }
+
+    .investment-market-heatmap-name,
+    .investment-market-heatmap-tile small {
+        display: none;
+    }
+
+    .investment-market-heatmap-change {
+        gap: 0.12rem;
+        min-height: 0;
+        padding: 0.04rem 0.22rem;
+    }
+
+    .investment-market-heatmap-change-word {
+        display: none;
+    }
+
+    .investment-market-heatmap-tile strong {
+        font-size: clamp(0.78rem, 0.9vw, 0.94rem);
+    }
+}
+
+@container (max-height: 2.4rem) {
+    .investment-market-heatmap-tile .investment-market-heatmap-symbol {
+        display: none;
+    }
+
+    .investment-market-heatmap-tile {
+        gap: 0;
+        padding: 0.04rem 0.12rem;
+    }
+
+    .investment-market-heatmap-change {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .investment-market-heatmap-tile strong {
+        font-size: clamp(0.62rem, 0.74vw, 0.84rem);
+        line-height: 1;
+    }
+}
+
+/* Give cards with room for their complete content a slightly stronger visual
+   hierarchy without affecting compact or minimal treemap fragments. */
+.investment-market-heatmap-tile:not(.compact):not(.minimal):not(.micro) .investment-market-heatmap-name {
+    font-size: clamp(1.06rem, 1.26vw, 1.34rem);
+}
+
+.investment-market-heatmap-tile:not(.compact):not(.minimal):not(.micro) .investment-market-heatmap-change {
+    font-size: clamp(1.04rem, 1.26vw, 1.34rem);
+}
+
+.investment-market-heatmap-scale {
+    justify-content: flex-end;
+}
+
+.investment-market-heatmap-scale .negative { color: #FDA4AF; }
+.investment-market-heatmap-scale .flat { color: #CBD5E1; }
+.investment-market-heatmap-scale .positive { color: #6EE7B7; }
+
+.investment-market-heatmap-overflow {
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.22);
+}
+
+.investment-market-heatmap-overflow summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: #BAE6FD;
+    font-size: 0.72rem;
+    font-weight: 750;
+    padding: 0.48rem 0.65rem;
+}
+
+.investment-market-heatmap-overflow-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding: 0 0.65rem 0.6rem;
+}
+
+.investment-market-heatmap-overflow-item {
+    min-width: 0;
+    border: 1px solid rgba(125, 211, 252, 0.18);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.56);
+    color: #E0F2FE;
+    padding: 0.36rem 0.45rem;
+    text-decoration: none;
+}
+
+.investment-market-heatmap-overflow-item:hover,
+.investment-market-heatmap-overflow-item:focus-visible {
+    border-color: rgba(125, 211, 252, 0.64);
+    outline: none;
+}
+
+.investment-market-heatmap-overflow-item strong,
+.investment-market-heatmap-overflow-item span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-market-heatmap-overflow-item strong {
+    color: #F8FAFC;
+    font-size: 0.72rem;
+}
+
+.investment-market-heatmap-overflow-item span {
+    color: rgba(203, 220, 233, 0.8);
+    font-size: 0.62rem;
+    margin-top: 0.12rem;
+}
+
+.investment-radar-evidence-path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0.55rem 0 0.75rem;
+    color: rgba(203, 213, 225, 0.72);
+    font-size: 0.72rem;
+}
+
+.investment-radar-evidence-path span {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.56);
+    padding: 0.16rem 0.46rem;
+}
+
+.investment-radar-evidence-path span.ready {
+    border-color: rgba(45, 212, 191, 0.34);
+    background: rgba(13, 148, 136, 0.14);
+    color: #99F6E4;
+}
+
+.investment-radar-evidence-path span.pending { color: #CBD5E1; }
+.investment-radar-evidence-path span.next {
+    border-color: rgba(56, 189, 248, 0.34);
+    color: #BAE6FD;
+}
+
+/* An iPad in landscape still reserves room for Streamlit's sidebar.  Treat
+   the resulting main column as tablet-width rather than squeezing three
+   theme groups into a desktop row. */
+@media (min-width: 768px) and (max-width: 1200px) {
+    .investment-market-heatmap-groups {
+        grid-template-columns: 1fr;
+    }
     .investment-stock-heatmap-board {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: auto;
@@ -2015,7 +2876,42 @@ div[data-testid="stElementContainer"]:has(
     }
 }
 
+/* Portrait tablets retain the sidebar, so a two-column map becomes narrower
+   than a phone card.  Keep each theme readable instead of squeezing labels
+   into vertical fragments. */
+@media (min-width: 768px) and (max-width: 900px) {
+    .investment-stock-heatmap-board {
+        grid-template-columns: 1fr;
+    }
+
+    .investment-stock-heatmap-group,
+    .investment-stock-heatmap-group.mega,
+    .investment-stock-heatmap-group.large,
+    .investment-stock-heatmap-group.medium {
+        grid-column: span 1;
+        grid-row: auto;
+        min-height: 14rem;
+    }
+}
+
 @media (max-width: 767px) {
+    .investment-radar-market-summary,
+    .investment-radar-market-summary-pick {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .investment-market-heatmap-groups {
+        grid-template-columns: 1fr;
+    }
+    /* The fixed assistant remains reachable without covering the final theme
+       tile: leave a scroll-safe tail and honour it for keyboard/programmatic
+       focus as well as touch scrolling. */
+    .investment-stock-heatmap {
+        padding-bottom: 4.75rem;
+    }
+    .investment-stock-heatmap-tile {
+        scroll-margin-bottom: 5rem;
+    }
     .investment-news-card,
     .investment-news-card.compact {
         grid-template-columns: 1fr;
@@ -2048,26 +2944,91 @@ div[data-testid="stElementContainer"]:has(
     }
     .investment-stock-heatmap-tiles {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-auto-rows: minmax(2.75rem, 1fr);
+        grid-auto-rows: minmax(6.25rem, auto);
     }
     .investment-stock-heatmap-tile {
         min-height: 44px;
     }
     .investment-stock-heatmap-tile.compact .investment-stock-heatmap-name,
-    .investment-stock-heatmap-tile.minor .investment-stock-heatmap-name {
+    .investment-stock-heatmap-tile.minor .investment-stock-heatmap-name,
+    .investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
         font-size: 0.68rem;
         line-height: 1.15;
         white-space: nowrap;
         text-overflow: ellipsis;
     }
     .investment-stock-heatmap-tile.hero,
-    .investment-stock-heatmap-tile.major {
-        grid-column: span 3;
-        grid-row: span 2;
+    .investment-stock-heatmap-tile.major,
+    .investment-stock-heatmap-tile.medium,
+    .investment-stock-heatmap-tile.compact,
+    .investment-stock-heatmap-tile.minor,
+    .investment-stock-heatmap-group.count-3 .investment-stock-heatmap-tile.medium {
+        grid-column: span 1 !important;
+        grid-row: span 1 !important;
     }
-    .investment-stock-heatmap-tile.medium {
-        grid-column: span 2;
-        grid-row: span 2;
+    .investment-stock-heatmap-evidence {
+        font-size: 0.5rem;
+    }
+    .investment-stock-heatmap-tile.medium .investment-stock-heatmap-factors,
+    .investment-stock-heatmap-tile.compact .investment-stock-heatmap-factors,
+    .investment-stock-heatmap-tile.minor .investment-stock-heatmap-factors {
+        font-size: 0.5rem;
+    }
+    .investment-market-heatmap-canvas {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        aspect-ratio: auto;
+        overflow: visible;
+        background: transparent;
+    }
+    .investment-market-heatmap-tile {
+        /* Mobile uses a stacked card, so let content determine its height and
+           restore the identity hidden by the desktop micro-tile rules. */
+        container-type: inline-size;
+        position: static;
+        align-items: flex-start;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 4.4rem;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 6px;
+        padding: 0.5rem 0.65rem;
+        text-align: left;
+    }
+    .investment-market-heatmap-overflow-list {
+        grid-template-columns: 1fr;
+    }
+    .investment-market-heatmap-tile.compact small,
+    .investment-market-heatmap-tile.minimal small,
+    .investment-market-heatmap-tile.micro small,
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-symbol,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-symbol {
+        display: block;
+    }
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-name {
+        display: -webkit-box;
+    }
+    .investment-market-heatmap-tile.minimal .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-name,
+    .investment-market-heatmap-tile.minimal strong {
+        font-size: 0.9rem;
+        -webkit-line-clamp: 2;
+    }
+    .investment-market-heatmap-tile.micro .investment-market-heatmap-change-word {
+        display: inline;
+    }
+    .investment-market-heatmap-pick {
+        position: static;
+    }
+    .investment-market-heatmap-name,
+    .investment-market-heatmap-tile strong {
+        font-size: 0.9rem;
+    }
+    .investment-market-heatmap-symbol,
+    .investment-market-heatmap-tile small {
+        font-size: 0.68rem;
     }
 }
 
@@ -5214,21 +6175,22 @@ div[data-testid="stChatInput"] textarea:focus {
 
     .smai-app-header {
         grid-template-columns: 1fr;
-        gap: 0.8rem;
-        padding: 0.95rem 1rem 1rem;
+        padding: 0.55rem 0.8rem 0.6rem;
+        margin-top: -2rem;
+        margin-bottom: 0.75rem;
     }
 
     .smai-app-mascot-wrap {
-        position: relative;
-        top: auto;
-        right: auto;
-        width: 4.4rem;
-        transform: none;
+        display: none;
     }
 
     .smai-app-logo {
-        width: min(100%, 30rem);
-        max-height: 6.2rem;
+        width: min(92%, 18rem);
+        max-height: 3.25rem;
+    }
+
+    .smai-app-message {
+        display: none;
     }
 
     .smai-page-title-row {
@@ -6684,6 +7646,44 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
     }
 }
 
+/*
+ * Streamlit places toasts at the upper-right edge by default.  On iPhone and
+ * iPad that position overlaps the fixed user controls and obscures the page
+ * the user is currently reading.  Keep the notification in the safe bottom
+ * area, make it full-width within the device gutter, and use an opaque surface
+ * so the success/error message remains legible over busy ranking cards.
+ */
+@media (max-width: 1024px) {
+    [data-testid="stToastContainer"] {
+        top: auto !important;
+        right: max(0.85rem, env(safe-area-inset-right)) !important;
+        bottom: max(0.85rem, env(safe-area-inset-bottom)) !important;
+        left: max(0.85rem, env(safe-area-inset-left)) !important;
+        width: auto !important;
+        z-index: 5000 !important;
+    }
+
+    [data-testid="stToast"] {
+        width: 100% !important;
+        min-height: 3.4rem;
+        padding: 0.8rem 0.95rem !important;
+        border: 1px solid rgba(103, 232, 249, 0.82) !important;
+        border-radius: 0.9rem !important;
+        background: rgba(4, 18, 35, 0.98) !important;
+        box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.48) !important;
+        color: #F8FBFF !important;
+        font-size: 1rem !important;
+        font-weight: 750 !important;
+        line-height: 1.45 !important;
+    }
+
+    [data-testid="stToast"] * {
+        color: #F8FBFF !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+    }
+}
+
 .smai-ranking-build-action-anchor + div[data-testid="stButton"] button,
 [data-testid="stMarkdownContainer"]:has(.smai-ranking-build-action-anchor)
     + div[data-testid="stButton"] button {
@@ -6807,8 +7807,8 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 
 [data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
     + div[data-testid="stButton"] button {
-    min-height: 4rem;
-    width: 100%;
+    min-height: 2.7rem;
+    width: min(100%, 14rem);
     border: 1px solid rgba(103, 232, 249, 0.78) !important;
     border-radius: 10px;
     background:
@@ -6832,7 +7832,7 @@ div[data-testid="stElementContainer"]:has(.smai-watchlist-action-secondary)
 [data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
     + div[data-testid="stButton"] button * {
     color: #FFFFFF !important;
-    font-size: 1.12rem !important;
+    font-size: .98rem !important;
     font-weight: 880 !important;
 }
 
@@ -7878,6 +8878,12 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stMainBlockContainer"] {
         padding-left: 1.1rem;
         padding-right: 1.1rem;
+        padding-top: 1rem !important;
+    }
+
+    [data-testid="stAppViewContainer"] .main .block-container,
+    [data-testid="stAppViewContainer"] [data-testid="stAppViewMain"] .block-container {
+        padding-top: 1rem !important;
     }
 
     .smai-responsive-grid,
@@ -7897,7 +8903,8 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stButton"] button,
     [data-testid="stDownloadButton"] button,
     [data-testid="stLinkButton"] a {
-        min-height: 2.75rem;
+        /* Keep touch controls at least 44 CSS px after the compact root font scale. */
+        min-height: 44px;
         touch-action: manipulation;
     }
 
@@ -7923,6 +8930,12 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stMainBlockContainer"] {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
+        padding-top: 0.75rem !important;
+    }
+
+    [data-testid="stAppViewContainer"] .main .block-container,
+    [data-testid="stAppViewContainer"] [data-testid="stAppViewMain"] .block-container {
+        padding-top: 0.75rem !important;
     }
 
     [data-testid="stHorizontalBlock"] {
@@ -7974,7 +8987,8 @@ div[data-testid="stDialog"] div[role="dialog"] {
     [data-testid="stDownloadButton"] button,
     [data-testid="stLinkButton"] a {
         width: 100%;
-        min-height: 2.75rem;
+        /* Keep touch controls at least 44 CSS px after the compact root font scale. */
+        min-height: 44px;
         white-space: normal;
         touch-action: manipulation;
     }
@@ -8002,6 +9016,31 @@ div[data-testid="stDialog"] div[role="dialog"] {
         right: 0.5rem;
         bottom: 0.5rem;
         max-width: calc(100vw - 1rem);
+    }
+
+    /* A wide fixed launcher obscures the active card on a phone.  Keep the
+       full assistant panel available after activation, while making its
+       resting touch target a compact, accessible avatar button. */
+    .smai-floating-assistant-trigger {
+        grid-template-columns: 3.35rem;
+        gap: 0;
+        min-width: 3.75rem;
+        max-width: 3.75rem;
+        padding: 0.2rem;
+    }
+
+    .smai-floating-assistant-trigger-copy {
+        display: none;
+    }
+
+    .smai-floating-assistant-avatar {
+        width: 3.35rem;
+        height: 3.35rem;
+    }
+
+    .smai-floating-assistant-avatar img {
+        width: 2.85rem;
+        height: 3.15rem;
     }
 
     .smai-floating-assistant-stage {
@@ -8324,216 +9363,22 @@ a.smai-ranking-history-card:focus-visible .smai-ranking-history-card-action {
     }
 
 }
+
+/* The persistent assistant overlaps primary forms on tablets and phones.
+   It remains available from the sidebar, while this floating shortcut is
+   reserved for layouts with enough room for both controls. */
+@media (max-width: 1024px) {
+    .smai-floating-assistant {
+        display: none;
+    }
+}
 </style>
 """
-
-CARD_TONES = {"neutral", "info", "score", "success", "forecast", "caution", "risk"}
-CARD_EMPHASIS = {"normal", "spotlight"}
 
 
 def render_global_styles() -> None:
     st.markdown(SMAI_GLOBAL_CSS, unsafe_allow_html=True)
 
 
-def compact_display_value(value: object, fallback: str = "-") -> str:
-    text = str(value or "").strip()
-    if not text:
-        return fallback
-    suffix = "%" if text.endswith("%") else ""
-    numeric_text = text.removesuffix("%").replace(",", "").strip()
-    try:
-        number = Decimal(numeric_text)
-    except InvalidOperation:
-        return text
-    if not number.is_finite():
-        return fallback
-    if number == number.to_integral_value():
-        formatted = f"{number:.0f}"
-    else:
-        formatted = f"{number:.1f}".rstrip("0").rstrip(".")
-    return f"{formatted}{suffix}"
-
-
-def truncate_text(value: object, *, max_chars: int = 48, fallback: str = "-") -> str:
-    text = " ".join(str(value or "").split())
-    if not text:
-        return fallback
-    if len(text) <= max_chars:
-        return text
-    return f"{text[: max_chars - 1].rstrip()}…"
-
-
-def badge_html(label: str, tone: str = "neutral") -> str:
-    safe_tone = tone if tone in {"info", "success", "caution", "danger", "neutral"} else "neutral"
-    return f'<span class="smai-badge {safe_tone}">{html.escape(label)}</span>'
-
-
-def _safe_card_tone(tone: str) -> str:
-    return tone if tone in CARD_TONES else "neutral"
-
-
-def _safe_card_emphasis(emphasis: str) -> str:
-    return emphasis if emphasis in CARD_EMPHASIS else "normal"
-
-
-def metric_progress_from_value(value: object) -> int | None:
-    text = str(value or "").strip().removesuffix("%").replace(",", "")
-    if not text:
-        return None
-    try:
-        number = Decimal(text)
-    except InvalidOperation:
-        return None
-    if not number.is_finite():
-        return None
-    clamped = min(Decimal("100"), max(Decimal("0"), number))
-    return int(clamped.to_integral_value(rounding="ROUND_HALF_UP"))
-
-
-def metric_card_html(
-    label: str,
-    value: object,
-    *,
-    caption: str = "",
-    help_text: str = "",
-    badges: tuple[str, ...] = (),
-    tone: str = "neutral",
-    emphasis: str = "normal",
-    progress: int | None = None,
-) -> str:
-    badge_row = ""
-    if badges:
-        badge_row = f'<div class="smai-badge-row">{"".join(badges)}</div>'
-    progress_bar = ""
-    if progress is not None:
-        safe_progress = min(100, max(0, int(progress)))
-        progress_bar = (
-            '<div class="smai-score-track" aria-hidden="true">'
-            f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
-            "</div>"
-        )
-    caption_html = (
-        f'<div class="smai-card-caption" title="{html.escape(caption)}">'
-        f"{html.escape(truncate_text(caption, max_chars=82, fallback=''))}</div>"
-        if caption
-        else ""
-    )
-    if help_text:
-        label_html = (
-            '<div class="smai-card-label-row">'
-            f'<div class="smai-card-label">{html.escape(label)}</div>'
-            '<span class="smai-card-help" '
-            f'title="{html.escape(help_text, quote=True)}" '
-            f'aria-label="{html.escape(label, quote=True)} の説明">?</span>'
-            "</div>"
-        )
-    else:
-        label_html = f'<div class="smai-card-label">{html.escape(label)}</div>'
-    return (
-        '<div class="smai-metric-card" '
-        f'data-tone="{_safe_card_tone(tone)}" '
-        f'data-emphasis="{_safe_card_emphasis(emphasis)}">'
-        f"{label_html}"
-        f'<div class="smai-card-value">{html.escape(compact_display_value(value))}</div>'
-        f"{progress_bar}"
-        f"{caption_html}"
-        f"{badge_row}"
-        "</div>"
-    )
-
-
-def render_metric_card(
-    label: str,
-    value: object,
-    *,
-    caption: str = "",
-    help_text: str = "",
-    badges: tuple[str, ...] = (),
-    tone: str = "neutral",
-    emphasis: str = "normal",
-    progress: int | None = None,
-) -> None:
-    st.markdown(
-        metric_card_html(
-            label,
-            value,
-            caption=caption,
-            help_text=help_text,
-            badges=badges,
-            tone=tone,
-            emphasis=emphasis,
-            progress=progress,
-        ),
-        unsafe_allow_html=True,
-    )
-
-
-def dashboard_header_html(
-    title: str,
-    subtitle: str = "",
-    *,
-    chips: Iterable[tuple[str, str]] = (),
-) -> str:
-    chip_html = "".join(
-        '<span class="smai-dashboard-chip">'
-        f'<span class="smai-chip-label">{html.escape(label)}</span>'
-        f"<span>{html.escape(value)}</span>"
-        "</span>"
-        for label, value in chips
-        if str(value or "").strip()
-    )
-    chip_row = f'<div class="smai-dashboard-chip-row">{chip_html}</div>' if chip_html else ""
-    subtitle_html = (
-        f'<p class="smai-dashboard-subtitle">{html.escape(subtitle)}</p>' if subtitle else ""
-    )
-    return (
-        '<section class="smai-dashboard-header">'
-        f'<h2 class="smai-dashboard-title">{html.escape(title)}</h2>'
-        f"{subtitle_html}"
-        f"{chip_row}"
-        "</section>"
-    )
-
-
-def render_dashboard_header(
-    title: str,
-    subtitle: str = "",
-    *,
-    chips: Iterable[tuple[str, str]] = (),
-) -> None:
-    st.markdown(
-        dashboard_header_html(title, subtitle, chips=chips),
-        unsafe_allow_html=True,
-    )
-
-
-def section_heading_html(title: str) -> str:
-    return f'<div class="smai-section-title">{html.escape(title)}</div>'
-
-
-def render_section_heading(title: str) -> None:
-    st.markdown(section_heading_html(title), unsafe_allow_html=True)
-
-
 def style_altair_chart(chart: alt.Chart) -> alt.Chart:
-    return (
-        chart.configure(background=THEME_COLORS["bg_surface"])
-        .configure_view(fill=THEME_COLORS["bg_card"], stroke=THEME_COLORS["border_default"])
-        .configure_axis(
-            domainColor=THEME_COLORS["border_strong"],
-            gridColor=THEME_COLORS["chart_grid"],
-            labelColor=THEME_COLORS["text_caption"],
-            titleColor=THEME_COLORS["text_label"],
-            tickColor=THEME_COLORS["border_strong"],
-        )
-        .configure_legend(
-            labelColor=THEME_COLORS["text_secondary"],
-            titleColor=THEME_COLORS["text_heading"],
-        )
-        .configure_title(
-            color=THEME_COLORS["text_heading"],
-            fontSize=13,
-            anchor="start",
-            offset=8,
-        )
-    )
+    return _components.style_altair_chart(chart, THEME_COLORS)

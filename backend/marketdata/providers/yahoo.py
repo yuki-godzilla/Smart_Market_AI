@@ -5,7 +5,7 @@ import os
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Awaitable, TypeVar, cast
 
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, FundamentalSnapshot, FxRate, Interval, Quote, Symbol
@@ -32,6 +32,7 @@ YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
 YAHOO_OHLCV_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
 YAHOO_CLOSE_COLUMNS = ("Close",)
 _YAHOO_SESSION: Any | None = None
+_T = TypeVar("_T")
 
 
 class YahooMarketDataProviderAdapter:
@@ -47,12 +48,16 @@ class YahooMarketDataProviderAdapter:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
-        return await self._download_ohlcv(
-            symbols,
-            start=start,
-            end=end,
-            interval=interval,
+        return await self._within_operation_deadline(
+            self._download_ohlcv(
+                symbols,
+                start=start,
+                end=end,
+                interval=interval,
+                operation="fetch_ohlcv",
+            ),
             operation="fetch_ohlcv",
+            symbols=symbols,
         )
 
     async def _download_ohlcv(
@@ -81,30 +86,97 @@ class YahooMarketDataProviderAdapter:
                 operation=operation,
             )
         bars: list[Bar] = []
-        for raw_symbol in symbols:
-            symbol_frame = _download_symbol_frame(frame, raw_symbol)
-            if getattr(symbol_frame, "empty", True):
-                continue
-            _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
-            symbol_frame = _drop_invalid_numeric_rows(
-                symbol_frame,
-                required_columns=YAHOO_OHLCV_COLUMNS,
-            )
-            if getattr(symbol_frame, "empty", True):
-                continue
-            symbol = _normalize_symbol(raw_symbol)
-            for ts, row in symbol_frame.iterrows():
-                bar = _bar_from_history_row(
-                    row,
-                    ts=ts,
-                    symbol=symbol,
-                    interval=interval,
+        batch_frame_has_symbol_axis = _download_frame_has_symbol_axis(frame)
+        if len(symbols) == 1 or batch_frame_has_symbol_axis:
+            for raw_symbol in symbols:
+                bars.extend(
+                    _bars_from_download_frame(
+                        frame,
+                        raw_symbol=raw_symbol,
+                        interval=interval,
+                        operation=operation,
+                    )
                 )
-                if bar is not None:
-                    bars.append(bar)
+        if len(symbols) > 1:
+            bars = await self._recover_partial_ohlcv_batch(
+                symbols,
+                bars,
+                start=start,
+                end=end,
+                interval=interval,
+                operation=operation,
+            )
+        return bars
+
+    async def _recover_partial_ohlcv_batch(
+        self,
+        symbols: list[str],
+        bars: list[Bar],
+        *,
+        start: datetime,
+        end: datetime,
+        interval: Interval,
+        operation: str,
+    ) -> list[Bar]:
+        """Retry only symbols omitted from a non-empty yfinance batch response."""
+
+        returned = {bar.symbol.raw for bar in bars}
+        missing = [symbol for symbol in symbols if symbol not in returned]
+        if not missing:
+            return bars
+        recovery_errors: dict[str, str] = {}
+        for raw_symbol in missing:
+            try:
+                frame = await self._history(
+                    raw_symbol,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    operation=operation,
+                )
+                recovered = _bars_from_download_frame(
+                    frame,
+                    raw_symbol=raw_symbol,
+                    interval=interval,
+                    operation=operation,
+                )
+            except Exception as exc:  # noqa: BLE001 - preserve all missing-symbol diagnostics.
+                recovery_errors[raw_symbol] = type(exc).__name__
+                continue
+            if recovered:
+                bars.extend(recovered)
+                returned.add(raw_symbol)
+            else:
+                recovery_errors[raw_symbol] = "no_valid_bars"
+        unresolved = [symbol for symbol in symbols if symbol not in returned]
+        if unresolved:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned partial batch data",
+                details=self._provider_details(
+                    operation=operation,
+                    requested_symbols=symbols,
+                    returned_symbols=sorted(returned),
+                    missing_symbols=unresolved,
+                    recovery_errors={
+                        symbol: recovery_errors.get(symbol, "no_data") for symbol in unresolved
+                    },
+                ),
+            )
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
+        return await self._within_operation_deadline(
+            self._fetch_quotes(symbols, at=at),
+            operation="fetch_quotes",
+            symbols=symbols,
+        )
+
+    async def _fetch_quotes(
+        self,
+        symbols: list[str],
+        *,
+        at: datetime | None,
+    ) -> list[Quote]:
         quotes: list[Quote] = []
         for raw_symbol in symbols:
             frame = await self._quote_history(raw_symbol, at=at)
@@ -128,7 +200,18 @@ class YahooMarketDataProviderAdapter:
     ) -> list[FxRate]:
         if method != "spot":
             raise DataSourceError("Unsupported Yahoo FX method", details={"method": method})
+        return await self._within_operation_deadline(
+            self._get_fx_rates(pairs, at=at),
+            operation="get_fx_rates",
+            pairs=pairs,
+        )
 
+    async def _get_fx_rates(
+        self,
+        pairs: list[str],
+        *,
+        at: datetime | None,
+    ) -> list[FxRate]:
         rates: list[FxRate] = []
         for pair in pairs:
             ticker = YAHOO_FX_TICKERS.get(pair)
@@ -150,6 +233,18 @@ class YahooMarketDataProviderAdapter:
     async def fetch_fundamentals(
         self,
         symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        return await self._within_operation_deadline(
+            self._fetch_fundamentals(symbols, as_of=as_of),
+            operation="fetch_fundamentals",
+            symbols=symbols,
+        )
+
+    async def _fetch_fundamentals(
+        self,
+        symbols: list[str],
+        *,
         as_of: date,
     ) -> list[FundamentalSnapshot]:
         fundamentals: list[FundamentalSnapshot] = []
@@ -178,6 +273,28 @@ class YahooMarketDataProviderAdapter:
                 )
             )
         return fundamentals
+
+    async def _within_operation_deadline(
+        self,
+        awaitable: Awaitable[_T],
+        *,
+        operation: str,
+        **request_details: object,
+    ) -> _T:
+        timeout_ms = self.cfg.timeouts_ms.operation
+        try:
+            return await asyncio.wait_for(awaitable, timeout=timeout_ms / 1000)
+        except TimeoutError as exc:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider operation timed out",
+                details=self._provider_details(
+                    operation=operation,
+                    timeout_ms=timeout_ms,
+                    failure_kind="operation_timeout",
+                    retryable=True,
+                    **request_details,
+                ),
+            ) from exc
 
     def healthcheck(self) -> dict[str, str]:
         status = "available" if _yfinance_available() else "missing_dependency"
@@ -409,10 +526,7 @@ class YahooMarketDataProviderAdapter:
                     **kwargs,
                 )
             except Exception as exc:
-                if (
-                    _is_yahoo_transient_request_error(exc)
-                    and attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS
-                ):
+                if _is_yahoo_transient_request_error(exc) and attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS:
                     await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS * attempt)
                     reset_shared_yfinance_session()
                     kwargs["session"] = shared_yfinance_session()
@@ -947,6 +1061,42 @@ def _download_symbol_frame(frame: Any, raw_symbol: str) -> Any:
     except Exception:
         pass
     return frame.iloc[0:0]
+
+
+def _download_frame_has_symbol_axis(frame: Any) -> bool:
+    columns: Any = getattr(frame, "columns", [])
+    return bool(hasattr(columns, "nlevels") and columns.nlevels >= 2)
+
+
+def _bars_from_download_frame(
+    frame: Any,
+    *,
+    raw_symbol: str,
+    interval: Interval,
+    operation: str,
+) -> list[Bar]:
+    symbol_frame = _download_symbol_frame(frame, raw_symbol)
+    if getattr(symbol_frame, "empty", True):
+        return []
+    _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
+    symbol_frame = _drop_invalid_numeric_rows(
+        symbol_frame,
+        required_columns=YAHOO_OHLCV_COLUMNS,
+    )
+    if getattr(symbol_frame, "empty", True):
+        return []
+    symbol = _normalize_symbol(raw_symbol)
+    bars: list[Bar] = []
+    for ts, row in symbol_frame.iterrows():
+        bar = _bar_from_history_row(
+            row,
+            ts=ts,
+            symbol=symbol,
+            interval=interval,
+        )
+        if bar is not None:
+            bars.append(bar)
+    return bars
 
 
 def _validate_history_columns(

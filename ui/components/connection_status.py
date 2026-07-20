@@ -11,6 +11,17 @@ from typing import Any, Mapping
 
 import streamlit as st
 
+from backend.server_ops.network import (
+    MainApplicationNetworkError,
+    resolve_main_application_urls,
+)
+from ui.content.common_texts import (
+    MAIN_APPLICATION_ACCESS_URL_HELP,
+    MAIN_APPLICATION_ACCESS_URL_LABEL,
+    MAIN_APPLICATION_MAGICDNS_HELP,
+    MAIN_APPLICATION_URL_UNAVAILABLE_TEXT,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / ".streamlit/config.toml"
 DIAGNOSTIC_LOG_PATH = PROJECT_ROOT / "logs/server_ops/external_connection_diagnostics.log"
@@ -142,6 +153,7 @@ def render_connection_status() -> None:
     st.caption(
         "接続状態と画面セッションの概算です。投資データや入力内容そのものはログへ保存しません。"
     )
+    _render_main_application_access_url()
     first, second, third, fourth = st.columns(4)
     first.metric("接続種別", diagnostic.connection_type)
     second.metric("軽量モード", "ON" if diagnostic.lightweight_mode else "OFF")
@@ -170,3 +182,17 @@ def render_connection_status() -> None:
             st.error(f"診断ログを保存できませんでした: {exc}")
         else:
             st.success(f"診断ログを保存しました: {path.relative_to(PROJECT_ROOT)}")
+
+
+def _render_main_application_access_url() -> None:
+    """Show the one URL users should share without exposing listener addresses."""
+
+    try:
+        urls = resolve_main_application_urls()
+    except MainApplicationNetworkError:
+        st.warning(MAIN_APPLICATION_URL_UNAVAILABLE_TEXT)
+        return
+    st.write(MAIN_APPLICATION_ACCESS_URL_LABEL)
+    st.code(urls.normal_access_url, language=None)
+    st.caption(MAIN_APPLICATION_ACCESS_URL_HELP)
+    st.caption(MAIN_APPLICATION_MAGICDNS_HELP)

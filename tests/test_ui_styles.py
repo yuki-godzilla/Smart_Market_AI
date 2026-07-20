@@ -104,12 +104,55 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "height: auto;" in SMAI_GLOBAL_CSS
     assert ".investment-news-board-page" in SMAI_GLOBAL_CSS
     assert ".investment-stock-heatmap-board" in SMAI_GLOBAL_CSS
+    assert "@container (min-width: 78rem)" in SMAI_GLOBAL_CSS
     assert (
-        "@media (min-width: 768px) and (max-width: 1024px) {\n"
-        "    .investment-stock-heatmap-board {\n"
+        ".investment-market-heatmap-groups {\n"
+        "        grid-template-columns: repeat(3, minmax(0, 1fr));"
+    ) in SMAI_GLOBAL_CSS
+    assert "container-type: inline-size;" in SMAI_GLOBAL_CSS
+    assert "@container (min-width: 78rem)" in SMAI_GLOBAL_CSS
+    assert "@container (max-height: 3.6rem)" in SMAI_GLOBAL_CSS
+    tablet_media = "@media (min-width: 768px) and (max-width: 1200px) {"
+    assert tablet_media in SMAI_GLOBAL_CSS
+    assert (
+        ".investment-stock-heatmap-board {\n"
         "        grid-template-columns: repeat(2, minmax(0, 1fr));"
     ) in SMAI_GLOBAL_CSS
-    assert "animation: investment-news-board-cycle" in SMAI_GLOBAL_CSS
+    assert (
+        ".investment-market-heatmap-groups {\n" "        grid-template-columns: 1fr;"
+    ) in SMAI_GLOBAL_CSS
+    assert (
+        ".investment-market-heatmap-group.medium .investment-market-heatmap-canvas"
+        in SMAI_GLOBAL_CSS
+    )
+    assert (
+        ".investment-market-heatmap-group.dense .investment-market-heatmap-canvas"
+        in SMAI_GLOBAL_CSS
+    )
+    assert ".investment-market-news-context" in SMAI_GLOBAL_CSS
+    assert ".investment-market-news-context.is-link:focus-visible" in SMAI_GLOBAL_CSS
+    assert ".investment-radar-candidate-footer-list" in SMAI_GLOBAL_CSS
+    assert ".investment-radar-candidate-footer-item:focus-visible" in SMAI_GLOBAL_CSS
+    assert "min-height: 44px;" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-group-header span" in SMAI_GLOBAL_CSS
+    assert "overflow-wrap: anywhere;" in SMAI_GLOBAL_CSS
+    assert "animation-duration: var(--investment-news-board-duration)" in SMAI_GLOBAL_CSS
+    assert ".investment-news-ticker-flow" in SMAI_GLOBAL_CSS
+    assert "@keyframes investment-news-flow-pulse" in SMAI_GLOBAL_CSS
+    assert "@keyframes investment-news-ticker-spotlight" in SMAI_GLOBAL_CSS
+    assert "min-height: 15.4rem;" in SMAI_GLOBAL_CSS
+    assert "grid-template-rows: repeat(2, minmax(4.9rem, auto));" in SMAI_GLOBAL_CSS
+    assert "container-type: inline-size;" in SMAI_GLOBAL_CSS
+    assert "@container (max-width: 36rem)" in SMAI_GLOBAL_CSS
+    assert "grid-template-rows: repeat(3, minmax(6.1rem, auto));" in SMAI_GLOBAL_CSS
+    assert "-webkit-line-clamp: 3;" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1rem, 1.18vw, 1.25rem);" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1rem, 1.2vw, 1.28rem);" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-tile.micro" in SMAI_GLOBAL_CSS
+    assert "font-size: clamp(1.06rem, 1.26vw, 1.34rem);" in SMAI_GLOBAL_CSS
+    assert ".investment-market-heatmap-group.singleton .investment-market-heatmap-canvas" in (
+        SMAI_GLOBAL_CSS
+    )
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS
     assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS
@@ -172,6 +215,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '[data-testid="stVegaLiteChart"] canvas' in SMAI_GLOBAL_CSS
     assert "contain: inline-size;" in SMAI_GLOBAL_CSS
     assert "touch-action: manipulation;" in SMAI_GLOBAL_CSS
+    assert "min-height: 44px;" in SMAI_GLOBAL_CSS
     assert "content-visibility: auto;" in SMAI_GLOBAL_CSS
     assert "contain-intrinsic-size: auto 18rem;" in SMAI_GLOBAL_CSS
     assert "Keep compact, scan-oriented KPI rows at two columns on a phone." in SMAI_GLOBAL_CSS
@@ -184,6 +228,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "overflow-wrap: anywhere;" in SMAI_GLOBAL_CSS
     assert "word-break: break-word;" in SMAI_GLOBAL_CSS
     assert "flex-wrap: wrap;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stToastContainer"]' in SMAI_GLOBAL_CSS
+    assert "bottom: max(0.85rem, env(safe-area-inset-bottom)) !important;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stToast"]' in SMAI_GLOBAL_CSS
+    assert "background: rgba(4, 18, 35, 0.98) !important;" in SMAI_GLOBAL_CSS
 
 
 def test_global_theme_tokens_define_dark_financial_ai_palette():
@@ -201,6 +249,10 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
+    assert "font-size: 90%;" in SMAI_GLOBAL_CSS
+    assert "rgba(30, 42, 62, 0.18)" in SMAI_GLOBAL_CSS
+    assert ".smai-app-logo" in SMAI_GLOBAL_CSS
+    assert "drop-shadow(0 0 18px rgba(34, 211, 238, 0.16))" in SMAI_GLOBAL_CSS
     assert '[data-testid="stAppViewContainer"]' in SMAI_GLOBAL_CSS
     assert "background-color: var(--bg-page) !important;" in SMAI_GLOBAL_CSS
     assert "max-width: none;" in SMAI_GLOBAL_CSS
@@ -237,7 +289,7 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "color: #F8FDFF;" in SMAI_GLOBAL_CSS
     assert "rgba(11, 58, 102, 0.98)" in SMAI_GLOBAL_CSS
     assert "0 0 12px rgba(34, 211, 238, 0.32)" in SMAI_GLOBAL_CSS
-    assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
+    assert "rgba(103, 232, 249, 0.98)" in SMAI_GLOBAL_CSS
     assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS
     assert ".ai-title" in SMAI_GLOBAL_CSS
     assert ".table-value" in SMAI_GLOBAL_CSS

@@ -91,3 +91,23 @@ def test_income_etf_uses_schema_safe_theme() -> None:
     assert row["theme"] == "balanced"
     assert "dividend" in row["tags"]
     assert row["dividend_category"] == "dividend"
+
+
+def test_usd_benchmark_text_does_not_turn_technology_etf_into_currency() -> None:
+    row = _normalize_source_row(
+        {
+            "code": "TTXU",
+            "name": "Direxion テクノロジートップ5 ブル2倍 ETF",
+            "description": "S&P 500 情報テクノロジー指数（米ドル）の200%を追求する。",
+            "source_market": "NYSE",
+            "expense_ratio_pct": "",
+            "nisa_growth": "",
+        },
+        section="米国ETF",
+        as_of=date(2026, 7, 11),
+        source_url="https://example.invalid",
+    )
+
+    assert row is not None
+    assert row["asset_class"] == "equity"
+    assert row["theme"] == "technology"

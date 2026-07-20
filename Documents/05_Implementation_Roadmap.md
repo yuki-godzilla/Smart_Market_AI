@@ -304,6 +304,12 @@ Phase 10〜16 は、外部データ取得、Feature Store Lite、Screening、For
 ここから先は、過去の番号順ではなく **次に実装する順番** として扱います。
 Phase 1〜23 と Phase 24 の初期 Assistant / Gateway 土台は概ね実装済みです。以降は、既存の予測・ランキングを壊さずに、LLM / News / Research を「参考情報 -> 検証 -> 有効なものだけ統合」の順で育てます。
 
+2026-07-20の優先順変更: 次のUI usability test / 改善スプリントへ入る前に、backend hardeningを完了する。
+最初にForecastの新暦期間sealed audit保存・成熟・exportを固定し、続いて実point-in-time材料の継続収集、
+confidence / range評価、Provider・Gateway失敗時contract、保存migration / observability、backend全回帰を
+確認する。この期間は新しい画面表示やUIロジックを増やさない。backend完了判定後にPC / iPhone / iPadの
+ユーザビリティテストへ移る。
+
 優先順位の考え方:
 
 - 実装済み Assistant / Gateway 基盤の次の独自価値として、まず `SMAIアシスタント` を通常会話できるAIから、必要なSMAI機能を承認付きで使う `Command Center / Research Mode` へ進める。
@@ -961,7 +967,7 @@ Phase 21.5 の対象外:
 
 Phase 22.x: 投資レーダー / Investment News dashboard
 
-状態: 🟨 **MVP済み / 継続拡張**。投資レーダー画面、Google News RSS Standard Mode、銘柄ユニバース補完型の投資ヒートマップを実装済み。詳細フィルタ、Watchlist連動、通知、追加providerは後続
+状態: 🟨 **MVP済み / 継続拡張**。投資レーダー画面、Google News RSS Standard Mode、銘柄ユニバース補完型の投資ヒートマップ、根拠追跡型の追加候補マップを実装済み。通知、追加provider、live評価は後続
 
 目的: 新画面 `投資レーダー` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
@@ -973,6 +979,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
 - `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
 - `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。タイトル右上の `情報鮮度` バッジには取得時刻をJSTで小さく表示する。ニュースカードの関連銘柄は `本文に出た銘柄` を最大8件まで優先表示し、残り枠に `SMAI推測候補` を可変で補完する。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
+- 2026-07-13の根拠追跡sliceでは、既存ヒートマップを残したまま、`direct_mention` / `inferred_candidate` / `macro_proxy` を混同しない決定論的な追加候補マップ、market・asset type・由来・RAG状態・Watchlist filter、根拠記事とCockpit handoffを追加した。RAGは明示クリック後だけ既存local hybrid retrievalを使い、future資料・別銘柄・低関連度資料は根拠から除外する。AI根拠整理は明示クリックかつ設定有効時だけGatewayへ送信し、候補・根拠ID・助言禁止を検証できない応答は決定論的な確認メモへfallbackする。いずれもRanking、Forecast、Investment Score、Research Score、候補位置・色・順序を変更しない。
 
 MVP 必須機能:
 
@@ -1672,7 +1679,7 @@ Phase 22 完了条件:
 
 ### 5.11 🟩 Phase 23: Optional Adapter と高度分析
 
-状態: 🟩 **完了**。Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合、Cockpit chart / card polish、Ranking / Decision Report wording closeout まで接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では `AI予測インサイト` と高度予測モデルを取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking では `AI予測インサイト` から派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合` では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。Ranking の理由表示、深掘り候補、score detail、Cockpit / Ranking Decision Report は `AI予測インサイト` が方向シグナルへどう効いたかを同じ文脈で説明する。
+状態: 🟩 **完了**。Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合、Cockpit chart / card polish、Ranking / Decision Report wording closeout まで接続済み。Cockpit / API は固定上限のない正の共通horizonに対応し、Cockpitでは`AI予測インサイト`と高度予測モデルを取得実barから自動計算した同じ予測日数で比較する。Rankingは指定取得期間から共通horizonを計算する。Rankingでは`AI予測インサイト`から派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合`では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。Rankingの理由表示、深掘り候補、score detail、Cockpit / Ranking Decision Reportは`AI予測インサイト`が方向シグナルへどう効いたかを同じ文脈で説明する。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1706,7 +1713,7 @@ Phase 22 完了条件:
 - default model は `Ridge`、optional model は `ElasticNet` とする。現行 backend first slice は sklearn 非依存の deterministic Ridge 互換実装を使い、ElasticNet は adapter contract 予約として warning 付きで扱う。
 - 追加依存は最小にする。現行 slice は既存依存の `numpy` のみを使い、scikit-learn は追加していない。
 - 価格そのものではなく forward return を予測する。
-- 対応 horizon は Cockpit / API では `1`〜`60` trading days とし、取得期間から決まる通常予測 horizon と同じ予測日数で高度予測を表示する。
+- 対応horizonは正のtrading daysとし固定上限を置かない。省略時は取得期間・実bar・coverageから自動計算し、通常予測と高度予測を同じ予測日数で表示する。
 - `future_return_h = close[t+h] / close[t] - 1` を target とする。`h` は request / Cockpit の共通 horizon。
 - target 作成後、未来値がない末尾行は学習対象から除外する。target 列、日付、銘柄名、未来由来の列は feature に混ぜない。
 - FeatureBuilder / ranking feature / DailySnapshot など既存生成済み特徴量を優先し、存在しない特徴量を無理に新規実装しない。
@@ -1792,7 +1799,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、1〜60日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_quantile`を指定でき、固定上限のない正のhorizonの中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
 - Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認でき、チャート上では薄い帯で下振れ〜上振れの参考幅と右側の予測拡大図を確認できる。
 - adapter registry により、今後の tree / GBDT adapter 追加時の接続箇所が限定される。
 - 通常 tests は network / cloud API / live provider に依存しない。
@@ -1817,7 +1824,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_tree_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量重要度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_tree_sklearn`を指定でき、固定上限のない正のhorizonの予測変化率、予測価格、検証指標、信頼度、特徴量重要度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ツリーモデル` として確認できる。
 - Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持する。後続 closeout 前はランキング順位を変更しない。
 - 通常 tests は network / cloud API に依存しない。
@@ -1841,7 +1848,7 @@ Streamlit / Ranking 接続方針:
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_gbdt_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量感度、注意点を返す。
+- `POST /forecast/evaluate`で`adapter=advanced_gbdt_sklearn`を指定でき、固定上限のない正のhorizonの予測変化率、予測価格、検証指標、信頼度、特徴量感度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ブースティングモデル` として確認できる。
 - Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持する。後続 closeout 前はランキング順位を変更しない。
 - 通常 tests は network / cloud API に依存しない。
@@ -1908,8 +1915,8 @@ Ranking logic finalization 方針:
 - 高度予測モデルの出力は、銘柄コックピットとランキングで既存 Forecast / direction signal と読み分けられる。
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
-- 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter / advanced forecast consensus は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは共通 horizon の `AI予測インサイト` を価格・予測チャートの主役にし、初期表示は実績価格、統合予測線、予測レンジ帯、右側の `予測スコープ`、結論カードに絞る。カードは中心予測（高度予測モデルの統合結果）を結論直下に主表示し、下振れ予測 / 上振れ予測、予測価格、予測レンジ、モデル合意度、予測ばらつき、信頼度理由、注意点、予測期間を出す。個別高度モデルカードは常時表示し、検証指標と単純予測 baseline 比較は折りたたみ配下で確認する。高度予測モデル / 単純予測モデル線はグループチェックでチャートに追加でき、表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。初期チャートと主要モデルカードから naive / moving-average / momentum は外し、単純予測は詳細確認用の baseline として残す。Ranking では取得期間から決まる同じ horizon の高度予測 consensus を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。`AI予測インサイト` から派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
+- 固定上限のない正のtrading-day forward return予測、walk-forward validation、validation metrics、confidence、feature contribution summaryが返る。
+- backend adapter / advanced forecast consensusは実装済み。`POST /forecast/evaluate`では4adapter指定時に固定上限のない正のhorizonの高度予測を返し、省略時は取得barから自動計算する。Streamlit銘柄コックピットでは共通horizonの`AI予測インサイト`を価格・予測チャートの主役にし、初期表示は実績価格、統合予測線、予測レンジ帯、右側の`予測スコープ`、結論カードに絞る。カードは中心予測（高度予測モデルの統合結果）を結論直下に主表示し、下振れ予測 / 上振れ予測、予測価格、予測レンジ、モデル合意度、予測ばらつき、信頼度理由、注意点、予測期間を出す。個別高度モデルカードは常時表示し、検証指標と単純予測baseline比較は折りたたみ配下で確認する。高度予測モデル / 単純予測モデル線はグループチェックでチャートに追加でき、表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。初期チャートと主要モデルカードからnaive / moving-average / momentumは外し、単純予測は詳細確認用のbaselineとして残す。Rankingでは取得期間から決まる同じhorizonの高度予測consensusを補助列として保持し、表示テーブル / 選択候補breakdown / score detail / CSV exportで確認できる。`AI予測インサイト`から派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
 - Phase 23 closeout では、単純予測モデルが Cockpit の通常チャート初期表示から外れ、高度予測モデル群 / `forecast_consensus` / 信頼度 / レンジ / 検証指標が主表示になっている。Ranking 主要評価への反映は、上昇気配 / 下降警戒の小さなブレンドとAI総合に組み込み済み。Ranking UI には `今回のランキング条件` カードを追加し、評価方針、短い説明、主な観点、共通予測日数、AI総合の重みグループ、下降警戒系は低いほど良いこと、AI予測は順位を直接支配しないことを明示する。2026-06-18 に `AI総合` 重みを 30/30/25/10/5 へ調整し、表示名 `安定成長` と主要方針の重み差を反映済み。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
@@ -2634,6 +2641,10 @@ Markdown UTF-8 check:
 
 ## 8. Open Items
 
+- 大規模リファクタリングR0〜R6を`Documents/46_Large_Scale_Refactoring_Plan.md`に従って段階実施する。
+  構造変更と金融数値変更を分離し、最初にbackend-to-UI境界、次にRanking / Cockpit orchestration、
+  Research、UI view / CSS、package cycleの順で整理する
+
 - `SMAI LLM Factor` の validation report 結果を、実 LLM/Gateway 接続後の再検証や optional integration 判断にどう使うか
 - `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか
 - Gateway / Copilot 実接続を、LLM Factor の schema 基盤後にどの範囲で接続するか
@@ -2662,6 +2673,58 @@ Markdown UTF-8 check:
 
 進捗: 明示live取得した23銘柄・28,529 daily barsで20/60営業日のrolling-origin評価を完了。linear外挿clip v1によりconsensus RMSEは20日24.0%、60日48.4%改善し、方向一致率を維持したため採用。consensus weight候補は1% gate未達または悪化で保留。20日GBDT / quantile parameter候補はaggregate gate通過だがgroup安定性未確認のためshadowに留める。通常Ranking weight、他adapter既定parameter、API/UIは変更しない。
 
+2026-07-20追加: runtimeの予測期間は固定20日 / 60日と60日上限を外し、取得期間の平日数または
+取得後の実bar数、coverage、約12個の非重複target窓から決定する。Cockpitは実bar、Rankingは
+比較可能性を守る共通指定期間を使う。高度予測adapterとAPIは正のhorizonを固定上限なしで受理し、
+60日超は従来監査外warningを表示する。これは予測期間contractの変更であり、監査不通過modelの
+runtime採用ではない。次の評価は20 / 60固定だけでなく、自動選択horizon帯と`effective_points / horizon`
+別にpurged walk-forward、方向、range coverage、subgroupを監査する。
+
+2026-07-20追加: `horizon_validation_router_v1`をruntime高度予測へ接続した。price centerは
+`advanced_quantile`を50%以上のanchorとし、30日以下はorigin以前のquantile比1% RMSE gateを通過したtree / GBDTを
+最大2本、31〜60日は最大1本だけ追加する。60日超はquantile単独、confidence lowへ縮退する。
+direction headは60日以内で従来4adapter Consensusを保持し、中心returnとは別fieldで評価する。
+固定2cohortのhistorical safety regressionでは、統合validation 132点/horizonのRMSEを20日12.56%・
+60日6.68%、統合audit 126点/horizonを3.37%・7.17%改善した。旧direction returnは516/516点一致し、
+10点以上かつ相対10%超・絶対0.005超の重大subgroup劣化は0件だった。過去に不採用とした固定profile、
+適応weight、残差Ridge、横断GBDT、LLM Factorはruntimeへ接続しない。60日超と補間horizonの後日監査を
+継続課題とする。
+
+2026-07-20追加: 長期confidenceを20 / 40 / 60 / 80 / 100 / 120日へ拡張し、固定2 validation群
+132点/horizon、固定2 audit群126点/horizonでrange coverageを含めて再監査した。80 / 100 / 120日の
+方向一致率はvalidation 56.06% / 55.30% / 55.30%、audit 57.14% / 57.94% / 57.14%だったが、price
+centerはzero baselineをvalidation / auditの両方で安定して改善せず、60%想定range coverageもaudit
+40.48% / 36.51% / 37.30%だった。validationで選んだrange 1.50倍はaudit proper interval score改善が
+0.06% / 0.33% / 0.72%で1% gate未達のため不採用。中心confidence lowを維持し、61〜120日の方向だけ
+Quantile内部検証medium以上なら最大mediumとする`role_separated_confidence_v1`を採用した。あわせて
+実ニュース・IRのfirst archived timeを保存するlocal archiveと、LLMが中心returnを変更できない
+confidence / range shadow evaluatorを実装した。初回live 113件は未成熟のためruntime未接続。
+
+2026-07-20追加: 60%想定rangeのcoverage不足に対し、中心・方向を変更しない
+`bounded-normalized-cqr-temporal-gate-v1`を評価専用で実装した。targetがorigin以前に成熟した履歴だけを使い、
+market / asset type / regime、asset type、horizon pooledの階層fallback、最大1.50倍相当の上限、履歴内の
+時間順proper-score gateを設けた。44 calibration symbol・792点から、非重複42 audit symbol・756点を
+20〜120日でhistorical replayした。最終候補は60日proper scoreを0.68%改善しただけで1% gate未達、
+他horizonは0.79〜3.91%悪化し、ETF 40 / 60日も約10%悪化した。runtime rangeへ接続せず、次の新暦期間 /
+新symbol sealed auditまで現行rangeを維持する。詳細は
+`Documents/43_Rolling_Conformal_Interval_Calibration_Report.md`。
+
+2026-07-20追加: 後日の新暦期間監査を実際に開始できるよう、`forecast-sealed-audit-v1`のbackend基盤を
+追加した。symbol / horizon / policy / gateを予測前に固定するmanifest、現在時点のConsensusと入力bar hashを
+保存する追記専用prediction、同一providerの日足がhorizon本進んだ後だけ付与できるoutcomeをSQLiteへ分離する。
+同一originの上書き、古いoriginの後付け、target観測後capture、origin価格改訂、policy不一致、DB payload改変は
+fail-closedとする。成熟pointは既存`ForecastValidationPoint` CSVへexportできるが、100件/horizon到達までは
+評価不足であり、runtime model / rangeを変更しない。詳細は
+`Documents/44_Forecast_Sealed_Audit_Backend.md`。
+
+同日、固定60symbolの最新74,355日足を取得し、全件eligible・共通origin 2026-07-17を確認して、
+6 horizon・360 predictionの新暦期間監査を開始した。全targetは未成熟である。SQLite / foreign key / 全行hashの
+一括verify、atomic online backup、hash付きprediction / outcome JSONL exportも追加し、成熟前証拠を保全する。
+
+さらに、固定cohortの全symbol / metadata / bar contractが揃わないlive snapshotをDB更新前に拒否し、重大成熟異常時の
+outcome追記をall-or-none、capture候補計算を全件成功後の一括追記とするrun-once backendを追加した。60銘柄の
+保存済みsnapshot再生では既存360件をskip、pending 360件を維持し、verify / export / backupを一括完了した。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`
@@ -2681,15 +2744,65 @@ Markdown UTF-8 check:
 
 2026-07-10実績: Phase 33と非重複の66銘柄・最大10年・160,555日足を、固定hashで調整23 / 検証22 / 監査19へ銘柄分離した。極端な価格不連続2銘柄を品質gateで除外し、底打ち・蓄積形状へhigher-lowまたは出来高回復確認を追加した。封印監査群では成功平均63.96、失敗平均51.37、Top10狙い形状10/10だったが、Top10成功3/10で目標未達。追加調整は監査群への過学習となるため停止し、次回は新規銘柄・新規期間で継続する。詳細は`reports/phase34_sprint_summary.md`。
 
+2026-07-19追加実績: 非重複71銘柄・88,044日足を全件取得し、既存の評価可能62銘柄と合わせて
+133銘柄を同じ750 bars / 20・60日 / 最大3 originsで比較した。旧モデルを含む比較では、
+20日中心値は`advanced_quantile`または`moving_average_3`、60日は`moving_average_3`が有力だが、
+単一modelはRMSEと方向一致率を全cohortで同時に改善しなかった。regime-gated候補はgate未通過。
+2026-07-19にhorizon別の保守的calibrationをevaluation-onlyで実装・検証した。20日をconsensus
+30% + `moving_average_3` 70%、60日を`moving_average_3` 100%にtuningだけで固定し、overall
+RMSEはvalidation / auditの両方で改善した。ただし20日downtrend validation群が10.92%悪化して
+subgroup gate未通過となったため、runtimeへ接続しない。profileを固定し、過去評価と非重複の
+60symbolへ再調整なしで適用した直近再現は20日14.96%、60日7.42%改善してgateを通過したが、
+2021年末cutoffの履歴再現はETF・60日が19.08%悪化してsubgroup gate未通過となった。全体平均だけで
+2023年末cutoffもETF・60日27.18%、downtrend・60日36.70%悪化して不通過だった。3期間、
+2019〜2026年、重複なし1,074評価点へ広げても時期・asset type・regime依存が残る。全体平均だけで
+採用せず、Cockpit / Ranking / Forecast consensusは変更しない。次は後日の新暦期間監査を待ち、
+LLM材料scoreは実ニュース履歴が揃うまでconfidence / range候補に限定する。詳細は
+`Documents/40_Forecast_Model_Selection_Report.md`。
+
+同日にpoint-in-time適応型weightも評価専用で実装した。既存60symbol・1,440点をdevelopment
+historyとし、全既存cohortと非重複の新規40symbolを取得、39symbol・936点を監査した。各originで
+target確定済みlabelだけを使い、古いoriginでweightを選択、新しい内部originはgate専用とした。
+20日RMSEは4.95%改善したが、60日は0.53%悪化し、weight採用率も47.01%で50% gate未達だった。
+同一監査では固定profileが20日8.11%、60日2.46%改善したが、過去年代のsubgroup失敗が残るため
+固定型・適応型ともruntime不採用とする。監査結果で閾値を緩めず、次の採用判定は後日の新暦期間を
+使う。
+
 ## Phase 35: 既存モデル活用による上向き兆候改善
 
-consensus confidence、model disagreement、advanced quantileの下振れrange、linear/tree/GBDTの方向一致を上向き余地と下落安全性へ接続する。信頼度が低い場合のscore上限、相対強度・チャート形状特徴量を検討し、新規classifierは原則追加しない。
+状態: 🟨 **Phase 35-A 評価専用slice実装 / runtime採用保留**
 
-成果物は`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md`。
+consensus confidence、model disagreement、advanced quantileの下振れrange、linear/tree/GBDTの方向一致を上向き余地と下落安全性へ接続する。信頼度が低い場合のscore上限、相対強度・チャート形状特徴量を検討し、新規classifierは原則追加しない。Phase 35-Aでは、既存のForecast consensusまたはRanking行からこれらの根拠を読み取り、上向き兆候との比較用スコア、警告、confidence ceiling候補を評価専用contractとして出力する。既存validation pointsから同一originのadapter群を再構成するpoint-in-time寄与ケースと、horizon / market / asset type / regime / confidence / disagreement別の採用判断用集計を追加した。実績returnは評価ラベルに限定し、通常Ranking、Forecast API/UI、runtime weightは変更しない。
+
+成果物は`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md`、`upward_signal_forecast_validation_summary.csv`。既存`forecast_model_validation_points.csv`へ適用するnetwork-free runnerは`tools/evaluate_upward_signal_forecast_integration.py`。
 
 ## Phase 36: LLM材料評価 性能評価試験
 
+状態: 🟨 **Point-in-Time収集run実装 / target成熟・live比較待ち**
+
 上向き兆候上位10件でLLMなし/ありを比較し、悪材料、配当罠、関連度、false positive、latency、failure、cache hitを評価する。`llm_material_eval_cases.csv`、`llm_material_eval_summary.md`、`llm_false_positive_reduction.md`、`llm_ranking_latency_report.md`、`llm_adoption_decision.md`を出力し、順位補正、バッジ限定、不採用を判断する。
+
+`backend/llm_factor/material_evaluation.py` と `tools/evaluate_llm_material_assessment.py` は、point-in-timeのラベル付きcase CSVを検証し、上記5成果物をnetwork-freeで生成する。false positive削減、positive候補維持率、adverse material / dividend trapのラベル精度、latency、failure、cache hitを集計する。完了30件・評価日3日未満はevidence不足、failure率5%超は不採用とし、良好な場合でも `badge_only_candidate` までに限定する。rank / score correctionは常にfalseであり、live LLMや外部材料取得はこのsliceに含めない。
+
+2026-07-20追加: `backend/llm_factor/point_in_time.py` に、公表時刻・利用可能時刻・保存時刻を
+分離したevent/evidence contract、最初の取引判断時刻への割当、future / late archive / anchor自身 /
+重複 / 別銘柄 / peer上限の除外、20日embargo付きhorizon別市場残差label、matured targetかつ有効引用
+だけで更新するbounded Source Memoryを実装した。Source Memoryはneutral prior 0.5、kappa 30、
+utility clip 0.20、lambda 0.30で、static relevanceへの最大寄与を0.06に制限する。実archiveがない
+現段階ではruntimeへ接続せず、synthetic fixtureを実精度として扱わない。
+
+同時に、同一originの予測乖離・分散・横断percentile rankを使う小規模残差GBDTを評価専用で
+実装した。60symbol・1,440点のdevelopmentから、完全非重複52symbol・1,248点を監査した結果、
+固定anchor比20日1.96%、60日1.31%悪化した。別の非重複39symbol・936点でも2.60% / 2.68%
+悪化し、runtime不採用とした。結果に合わせた再調整を行わず、次は実point-in-time archiveの新規蓄積と
+Source Memoryなし/ありのprequential ablationへ進む。詳細は
+`Documents/41_Point_In_Time_LLM_Forecast_Design.md`。
+
+実材料archiveとsealed Forecastを結合するrun-once backendも追加した。材料とsignalはhash検証、file lock、
+atomic replace、検証済みbackupを備え、同一判断時点のsignal上書きを拒否する。各Forecast origin以前に公開・利用可能・
+初回保存された銘柄一致材料だけをGatewayへ渡し、引用を実record IDへ結合してconfidence / range専用shadow signalへ
+変換する。初回runはForecast origin 2026-07-17より材料保存開始が後だったためeligible 0件、Gateway呼び出し0回で
+正常完了した。次は新しいoriginとtarget成熟を待ち、100成熟case/horizonのgate前にはruntimeへ接続しない。
 
 ## Phase 37: 本気分析モード 実装・限定融合
 

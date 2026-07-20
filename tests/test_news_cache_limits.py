@@ -49,6 +49,7 @@ def _headline(index: int, *, category: str = "国内株") -> NewsHeadlineCard:
 def _heatmap_cell(index: int) -> NewsHeatmapCell:
     return NewsHeatmapCell(
         category=f"カテゴリ {index}",
+        market_metric_source="market_measured",
         price_change_pct=round(index * 0.1, 1),
         volume_activity_score=round(1.0 + index * 0.05, 2),
         news_count=index,
@@ -97,6 +98,7 @@ def test_normalize_snapshot_for_cache_preserves_heatmap_market_metrics():
     normalized = normalize_snapshot_for_cache(_snapshot())
     cell = normalized.heatmap_cells[3]
 
+    assert cell.market_metric_source == "market_measured"
     assert cell.price_change_pct == 0.3
     assert cell.volume_activity_score == 1.15
 

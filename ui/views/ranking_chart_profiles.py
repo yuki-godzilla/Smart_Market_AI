@@ -50,6 +50,16 @@ PROFILE_CONFIDENCE_QUALITY = "confidence_quality"
 PROFILE_ETF_FIT_CONFIDENCE = "etf_fit_confidence"
 PROFILE_REVERSAL_EXPECTATION = "reversal_expectation"
 
+REVERSAL_EVIDENCE_COMPONENTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("総合", ("上向き兆候", "reversal_expectation_score")),
+    ("形状", ("reversal_chart_shape_score", "チャート形状評価")),
+    ("予測余地", ("reversal_forecast_score", "上向き余地")),
+    ("下落安全", ("reversal_safety_score", "下落安全性")),
+    ("押し目", ("reversal_pullback_score", "調整度スコア")),
+    ("補助品質", ("reversal_quality_score",)),
+    ("上向き材料", ("reversal_material_score",)),
+)
+
 RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
     PROFILE_REVERSAL_EXPECTATION: RankingChartProfile(
         key=PROFILE_REVERSAL_EXPECTATION,
@@ -238,6 +248,97 @@ def ranking_chart_frame(
     )
 
 
+def ranking_reversal_evidence_frame(
+    display_rows: list[dict[str, str]],
+    *,
+    max_rows: int = 10,
+) -> pd.DataFrame:
+    """Return a long-form evidence map for the top upward-signal candidates.
+
+    Data quality is deliberately represented as an evaluation gate attached to
+    each candidate, not as a score axis, bubble size, or attractiveness cell.
+    """
+
+    ordered_rows = sorted(
+        enumerate(display_rows),
+        key=lambda item: (_rank_value(item[1].get("順位", ""), item[0]), item[0]),
+    )[: max(0, max_rows)]
+    records: list[dict[str, object]] = []
+    for source_index, row in ordered_rows:
+        rank_order = _rank_value(row.get("順位", ""), source_index)
+        rank = str(row.get("順位", "")).strip() or str(rank_order)
+        symbol = str(row.get("銘柄", "")).strip() or "銘柄未設定"
+        quality_status = ranking_data_quality_gate(row)
+        candidate_label = f"{rank}. {symbol}｜{quality_status}"
+        candidate_has_score = any(
+            _first_numeric_value(row, candidates) is not None
+            for _, candidates in REVERSAL_EVIDENCE_COMPONENTS
+        )
+        if not candidate_has_score:
+            continue
+        for component_order, (component, candidates) in enumerate(REVERSAL_EVIDENCE_COMPONENTS):
+            score = _first_numeric_value(row, candidates)
+            if score is None:
+                continue
+            records.append(
+                {
+                    "rank": rank,
+                    "rank_order": rank_order,
+                    "symbol": symbol,
+                    "name": row.get("銘柄名", ""),
+                    "candidate_label": candidate_label,
+                    "component": component,
+                    "component_order": component_order,
+                    "score": score,
+                    "score_label": _score_label(score),
+                    "quality_status": quality_status,
+                    "data_quality": row.get("データ品質", "") or row.get("data_quality_score", ""),
+                    "shape_label": row.get("チャート形状", "")
+                    or row.get("reversal_chart_shape_label", ""),
+                    "signal_reason": row.get("上向き兆候理由", "")
+                    or row.get("reversal_expectation_reason", ""),
+                    "trap_warning": row.get("reversal_trap_warning", ""),
+                    "pullback_rebound": row.get("pullback_rebound_score", ""),
+                    "bottoming": row.get("bottoming_score", ""),
+                    "range_breakout": row.get("range_breakout_score", ""),
+                    "accumulation": row.get("accumulation_setup_score", ""),
+                }
+            )
+    return pd.DataFrame.from_records(records)
+
+
+def ranking_data_quality_gate(row: dict[str, str]) -> str:
+    warning_text = " ".join(
+        str(row.get(key, ""))
+        for key in (
+            "warnings_raw",
+            "warnings",
+            "注意点",
+            "reversal_trap_warning",
+        )
+    ).lower()
+    expectation_label = str(
+        row.get("reversal_expectation_label", "") or row.get("上向き兆候ラベル", "")
+    ).strip()
+    block_tokens = (
+        "data_quality:block",
+        "price_data:block",
+        "price_history:block",
+        "insufficient_ohlcv_rows",
+        "insufficient_price_history",
+        "データ不足が大きい",
+        "評価材料不足",
+    )
+    if expectation_label == "未評価" or any(token in warning_text for token in block_tokens):
+        return "評価対象外"
+
+    quality = _first_numeric_value(row, ("データ品質", "data_quality_score"))
+    warn_tokens = ("data_quality:warn", "データ品質に注意")
+    if quality is None or quality < 60 or any(token in warning_text for token in warn_tokens):
+        return "要確認"
+    return "評価可能"
+
+
 def _ranking_chart_frame(
     display_rows: list[dict[str, str]],
     profile: RankingChartProfile,
@@ -292,10 +393,7 @@ def _frame_has_profile_variation(frame: pd.DataFrame, profile: RankingChartProfi
     # A scatter map with a fixed axis is a misleading line rather than a
     # two-dimensional comparison. Require both axes to carry information, then
     # try the profile's next candidates or its purpose-specific fallback.
-    return (
-        frame["x_value"].nunique(dropna=True) >= 2
-        and frame["y_value"].nunique(dropna=True) >= 2
-    )
+    return frame["x_value"].nunique(dropna=True) >= 2 and frame["y_value"].nunique(dropna=True) >= 2
 
 
 def _first_numeric_column(
@@ -382,3 +480,22 @@ def _numeric_value(value: object) -> float | None:
         return float(text)
     except ValueError:
         return None
+
+
+def _first_numeric_value(row: dict[str, str], candidates: tuple[str, ...]) -> float | None:
+    for candidate in candidates:
+        value = _numeric_value(row.get(candidate, ""))
+        if value is not None:
+            return value
+    return None
+
+
+def _rank_value(value: object, fallback_index: int) -> int:
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return fallback_index + 1
+
+
+def _score_label(value: float) -> str:
+    return f"{value:.1f}".rstrip("0").rstrip(".")

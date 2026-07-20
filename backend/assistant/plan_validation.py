@@ -26,6 +26,14 @@ _BANNED_ADVICE_TERMS = (
     "hold this",
     "guaranteed profit",
     "guaranteed return",
+    "購入推奨",
+    "保有推奨",
+    "買ってください",
+    "売ってください",
+    "今すぐ買",
+    "今すぐ売",
+    "買い時です",
+    "売り時です",
 )
 _BANNED_EXECUTION_TERMS = (
     "broker",
@@ -64,9 +72,12 @@ def validate_assistant_tool_plan(
             plan.user_intent,
             plan.overall_summary,
             plan.safety_note,
+            *plan.missing_materials,
+            *plan.warnings,
             *(step.title for step in plan.steps),
             *(step.summary for step in plan.steps),
             *(step.reason for step in plan.steps),
+            *(step.disabled_reason or "" for step in plan.steps),
         ]
     ).lower()
     if any(term.lower() in text_blob for term in _BANNED_ADVICE_TERMS):
@@ -118,6 +129,8 @@ def validate_assistant_guided_workflow(
             *(step.title for step in workflow.steps),
             *(step.summary for step in workflow.steps),
             *(step.followup_hint or "" for step in workflow.steps),
+            *(step.disabled_reason or "" for step in workflow.steps),
+            *(step.result_summary or "" for step in workflow.steps),
         ]
     ).lower()
     if any(term.lower() in text_blob for term in _BANNED_ADVICE_TERMS):

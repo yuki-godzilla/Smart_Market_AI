@@ -13,6 +13,7 @@ from backend.forecast import (
     evaluated_consensus_prediction,
     write_forecast_evaluation_artifacts,
 )
+from backend.forecast.evaluation import ForecastValidationPoint, _direction_accuracy
 
 
 def test_evaluation_runs_real_consensus_folds_and_group_summaries():
@@ -42,11 +43,25 @@ def test_evaluation_runs_real_consensus_folds_and_group_summaries():
     assert report.predictions
     assert len(report.weight_adjustments) == 2
     overall = [row for row in report.rows if row.group_type == "overall"]
-    assert len(overall) == 10
+    assert len(overall) == 12
     consensus_rows = [row for row in overall if row.model_name == "forecast_consensus"]
     assert all(row.evaluation_method == "rolling_origin" for row in consensus_rows)
     assert all(row.validation_sample_count == 4 for row in consensus_rows)
     assert all(row.mean_model_disagreement is not None for row in consensus_rows)
+    assert all(row.interval_sample_count == 4 for row in consensus_rows)
+    assert all(row.interval_coverage is not None for row in consensus_rows)
+    assert all(row.mean_interval_width is not None for row in consensus_rows)
+    consensus_points = [
+        point for point in report.validation_points if point.model_name == "forecast_consensus"
+    ]
+    assert all(point.predicted_return_lower is not None for point in consensus_points)
+    assert all(point.predicted_return_upper is not None for point in consensus_points)
+    assert all(point.confidence is not None for point in consensus_points)
+    assert all(point.selection_policy_version for point in consensus_points)
+    regime_rows = [row for row in overall if row.model_name == "advanced_regime_gated_ensemble"]
+    assert all(row.evaluation_method == "rolling_origin" for row in regime_rows)
+    assert all(row.validation_sample_count == 4 for row in regime_rows)
+    assert all(row.mean_model_disagreement is not None for row in regime_rows)
     assert {row.group_value for row in report.rows if row.group_type == "market"} == {
         "JP",
         "US",
@@ -90,6 +105,25 @@ def test_rolling_origin_uses_only_history_available_at_origin():
     assert first_point.origin_at == second_point.origin_at
     assert first_point.predicted_return == second_point.predicted_return
     assert first_point.actual_return != second_point.actual_return
+
+
+def test_direction_accuracy_uses_separate_direction_head_when_available():
+    origin = datetime(2025, 1, 1, tzinfo=UTC)
+    point = ForecastValidationPoint(
+        symbol="AAPL",
+        market="US",
+        asset_type="stock",
+        regime="downtrend",
+        model_name="forecast_consensus",
+        horizon_days=20,
+        origin_at=origin,
+        target_at=origin + timedelta(days=20),
+        predicted_return=Decimal("0.10"),
+        direction_predicted_return=Decimal("-0.02"),
+        actual_return=Decimal("-0.05"),
+    )
+
+    assert _direction_accuracy([point]) == Decimal("1.0000")
 
 
 def test_short_history_is_recorded_as_skipped():

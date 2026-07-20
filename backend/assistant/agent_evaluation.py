@@ -80,6 +80,14 @@ _UNSAFE_WORDING = (
     "broker",
     "guaranteed profit",
     "guaranteed return",
+    "購入推奨",
+    "保有推奨",
+    "買ってください",
+    "売ってください",
+    "今すぐ買",
+    "今すぐ売",
+    "買い時です",
+    "売り時です",
 )
 _RESEARCH_MATERIAL_TERMS = (
     "research",

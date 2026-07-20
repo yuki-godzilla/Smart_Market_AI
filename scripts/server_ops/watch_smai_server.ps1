@@ -14,8 +14,22 @@ $logDir = Join-Path $projectRoot "logs\server_ops"
 $logPath = Join-Path $logDir "watch_server.log"
 $maintenanceLogPath = Join-Path $logDir "maintenance.log"
 $supervisorStopRequestPath = Join-Path $projectRoot "data\ops\server_ops\streamlit.stop"
+if ([string]::IsNullOrWhiteSpace($env:SMAI_CONFIG_FILE)) {
+    $env:SMAI_CONFIG_FILE = Join-Path $projectRoot "config\server.yaml"
+}
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    Write-Error "SMAI Python environment was not found: $python"
+    exit 1
+}
+$network = & $python -m backend.server_ops.network --emit-json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $null -eq $network) {
+    Write-Error "SMAI network settings could not be resolved. Watcher was not started."
+    exit 1
+}
+$mainPort = [int]$network.port
 
 function Write-WatchLog {
     param([string]$Message)
@@ -30,15 +44,18 @@ function Write-MaintenanceLog {
     Add-Content -LiteralPath $maintenanceLogPath -Value $line -Encoding UTF8
 }
 
-function Test-SmaiListener {
-    $connection = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue |
+function Get-SmaiListenerState {
+    $connection = Get-NetTCPConnection -LocalPort $mainPort -State Listen -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    if ($null -eq $connection) { return $false }
+    if ($null -eq $connection) { return "down" }
     $process = Get-CimInstance Win32_Process `
         -Filter ("ProcessId=" + $connection.OwningProcess) `
         -ErrorAction SilentlyContinue
-    if ($null -eq $process) { return $false }
-    return ([string]$process.CommandLine -match "(?i)streamlit.+ui[\\/]+app\.py")
+    if ($null -eq $process) { return "unknown" }
+    $commandLine = [string]$process.CommandLine
+    if ([string]::IsNullOrWhiteSpace($commandLine)) { return "unknown" }
+    if ($commandLine -match "(?i)streamlit.+ui[\\/]+app\.py") { return "healthy" }
+    return "unknown"
 }
 
 function Start-SmaiRecovery {
@@ -49,15 +66,15 @@ function Start-SmaiRecovery {
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden
     Start-Sleep -Seconds 20
-    if (Test-SmaiListener) {
+    if ((Get-SmaiListenerState) -eq "healthy") {
         Write-WatchLog "[OK] SMAI recovery succeeded."
     } else {
-        Write-WatchLog "[ERROR] SMAI recovery did not open TCP 8501."
+        Write-WatchLog "[ERROR] SMAI recovery did not open TCP $mainPort."
     }
 }
 
 function Restart-SmaiService {
-    $connection = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue |
+    $connection = Get-NetTCPConnection -LocalPort $mainPort -State Listen -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if ($null -eq $connection) {
         Write-WatchLog "[INFO] SMAI listener already stopped before maintenance restart."
@@ -66,7 +83,7 @@ function Restart-SmaiService {
             -Filter ("ProcessId=" + $connection.OwningProcess) `
             -ErrorAction SilentlyContinue
         if ($null -eq $process -or [string]$process.CommandLine -notmatch "(?i)streamlit.+ui[\\/]+app\.py") {
-            throw "TCP 8501 listener is not the expected SMAI Streamlit process."
+            throw "TCP $mainPort listener is not the expected SMAI Streamlit process."
         }
         New-Item -ItemType Directory -Path (Split-Path $supervisorStopRequestPath) -Force |
             Out-Null
@@ -130,19 +147,17 @@ function Invoke-MaintenanceCheck {
     Restart-SmaiService
 }
 
-if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-    Write-WatchLog "[ERROR] Python virtual environment was not found: $python"
-    exit 1
-}
-
 Write-WatchLog "[START] SMAI server watcher started (interval=${IntervalMinutes}m)."
 do {
     try {
-        if (Test-SmaiListener) {
-            Write-WatchLog "[OK] Streamlit process and TCP 8501 listener are healthy."
+        $listenerState = Get-SmaiListenerState
+        if ($listenerState -eq "healthy") {
+            Write-WatchLog "[OK] Streamlit process and TCP $mainPort listener are healthy."
             Invoke-MaintenanceCheck
-        } else {
+        } elseif ($listenerState -eq "down") {
             Start-SmaiRecovery
+        } else {
+            Write-WatchLog "[WARN] TCP $mainPort listener ownership could not be verified. Recovery skipped."
         }
     } catch {
         Write-WatchLog ("[ERROR] Watch cycle failed: " + $_.Exception.Message)

@@ -9,10 +9,11 @@ import numpy as np
 from pydantic import ConfigDict, Field
 
 from backend.core.data_contracts import Bar, StrictBaseModel
+from backend.forecast.horizon import OPEN_ENDED_FORECAST_HORIZONS
 
 ADVANCED_LINEAR_ADAPTER_NAME = "advanced_linear"
 ADVANCED_LINEAR_CLIP_VERSION = "robust-linear-clip-v1"
-SUPPORTED_ADVANCED_LINEAR_HORIZONS = tuple(range(1, 61))
+SUPPORTED_ADVANCED_LINEAR_HORIZONS = OPEN_ENDED_FORECAST_HORIZONS
 DEFAULT_RANDOM_STATE = 42
 
 AdvancedLinearModelName = Literal["Ridge", "ElasticNet"]
@@ -111,7 +112,7 @@ class AdvancedLinearForecastAdapter:
         horizon_days: int,
     ) -> AdvancedLinearForecastResult:
         if horizon_days not in SUPPORTED_ADVANCED_LINEAR_HORIZONS:
-            raise ValueError("horizon_days must be between 1 and 60")
+            raise ValueError("horizon_days must be at least 1")
 
         sorted_bars = sorted(bars, key=lambda bar: bar.ts)
         if not sorted_bars:

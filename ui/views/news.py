@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import cast
 from urllib.parse import quote
@@ -12,22 +13,35 @@ import pandas as pd
 import streamlit as st
 from zoneinfo import ZoneInfo
 
+import backend.news.sources as news_sources
 from backend.news import (
     NewsCategoryLane,
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsUpdateStatus,
+    RadarCandidate,
+    RadarCandidateDataStatus,
+    RadarCandidateMap,
+    RadarEvidenceBundle,
+    RadarInterpretationResult,
     build_demo_news_dashboard_snapshot,
+    build_radar_candidate_map,
+    build_radar_evidence_bundle,
+    build_radar_interpretation_from_settings,
+    build_radar_research_context,
     build_standard_news_dashboard_snapshot,
+    filter_radar_candidates,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
     refresh_news_dashboard_cache,
 )
+from backend.news.radar_market import RadarMarketSnapshot, RadarMarketTile
 from ui.components.mascot import (
     render_page_title,
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
+from ui.content.symbol_texts import SYMBOL_UNIVERSE_DISPLAY_LABELS
 from ui.favorites import (
     evaluate_favorite_refresh_status,
     is_favorite,
@@ -37,8 +51,10 @@ from ui.favorites import (
 from ui.notification_center import START_PROFILE_QUERY_KEY
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
+from ui.user_data import current_user_id
 
 OpenSymbolCallback = Callable[[str], None]
+MarketSnapshotCallback = Callable[[Sequence[RadarCandidate], int], RadarMarketSnapshot]
 
 NEWS_DASHBOARD_REFRESH_STATE_KEY = "investment_news_dashboard_refresh_message"
 NEWS_DASHBOARD_WATCHLIST_STATE_KEY = "investment_news_watchlist_symbols"
@@ -51,13 +67,86 @@ NEWS_MARKET_PROXY_SYMBOL_DISPLAY_LIMIT = 5
 NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
-NEWS_FEATURED_HEADLINE_LIMIT = 3
+# Keep a bounded rotating pool, while showing only three readable cards at a
+# time.  The source snapshot is already normalized and bounded separately.
+NEWS_FEATURED_HEADLINE_PAGE_SIZE = 3
+NEWS_FEATURED_HEADLINE_POOL_LIMIT = 12
+NEWS_FEATURED_HEADLINE_ROTATION_SECONDS = 8
+NEWS_RADAR_CANDIDATE_FOOTER_LIMIT = 6
+NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
+NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY = "investment_radar_candidate_detail_request_id"
+NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY = "investment_radar_evidence_bundles"
+NEWS_RADAR_INTERPRETATIONS_STATE_KEY = "investment_radar_interpretations"
+NEWS_RADAR_SESSION_OWNER_STATE_KEY = "investment_radar_session_owner_user_id"
+NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT = 4
+NEWS_RADAR_CANDIDATE_QUICK_DIRECT_ONLY_KEY = "investment_radar_candidate_quick_direct_only"
+NEWS_RADAR_CANDIDATE_QUICK_WATCHLIST_ONLY_KEY = "investment_radar_candidate_quick_watchlist_only"
+NEWS_RADAR_CANDIDATE_QUICK_UNCHECKED_ONLY_KEY = "investment_radar_candidate_quick_unchecked_only"
+NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY = "investment_radar_candidate_triage_provenance"
+NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY = "investment_radar_candidate_triage_priority"
+NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY = "investment_radar_market_snapshot"
+NEWS_RADAR_MARKET_GROUPING_STATE_KEY = "investment_radar_market_grouping"
+NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES = 15
+# A dense sector should not be cut to the same number as a sparse one.  The
+# cap remains a readability guard, not a target or an investment ranking.
+NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM = 12
+# Sector and industry groups with one or two names do not form a useful map by
+# themselves.  Consolidate only the presentation while retaining the original
+# labels in the group summary; news groups remain one-to-one with their source.
+NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM = 2
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
     "recent": "近日",
     "stale": "古め",
     "unknown": "未確認",
+}
+
+_RADAR_PROVENANCE_LABELS = {
+    "direct_mention": "本文に出た銘柄",
+    "inferred_candidate": "SMAI推測候補",
+    "macro_proxy": "市場背景の確認",
+}
+_RADAR_PROVENANCE_GUIDANCE = {
+    "direct_mention": "記事本文または見出しに明示された銘柄です。まず根拠記事を確認します。",
+    "inferred_candidate": "ニュースのテーマからの関連候補です。記事に銘柄名が出たとは限りません。",
+    "macro_proxy": "個別銘柄候補ではなく、市場全体の背景を確認するための指標です。",
+}
+_RADAR_MATERIAL_TONE_LABELS = {
+    "positive": "好材料を含む",
+    "caution": "注意材料を含む",
+    "mixed": "材料が混在",
+    "unknown": "材料の方向は未確認",
+}
+_RADAR_DATA_STATUS_LABELS = {
+    "available": "確認可能",
+    "partial": "一部確認",
+    "unavailable": "未取得",
+    "not_checked": "未確認",
+}
+_RADAR_TRIAGE_PRIORITY_LABELS = {
+    "first": "先に確認",
+    "next": "次に確認",
+    "as_needed": "必要に応じて",
+}
+
+# Keep this display-only compatibility data alongside the Radar copy.  A
+# Streamlit page reload can pick up this module while retaining an already
+# imported RadarCandidate class from the previous process revision.
+_RADAR_PRIORITY_FRESHNESS_POINTS = {
+    "latest": 40,
+    "recent": 28,
+    "stale": 12,
+    "unknown": 6,
+}
+_RADAR_PRIORITY_MATERIAL_POINTS = {
+    "risk": 12,
+    "earnings": 10,
+    "policy": 8,
+    "macro": 7,
+    "shareholder_return": 6,
+    "theme": 6,
+    "fund_flow": 4,
 }
 
 _MATERIAL_LABELS = {
@@ -71,12 +160,15 @@ _MATERIAL_LABELS = {
 }
 
 _MATERIAL_TONES = {
-    "earnings": "positive",
-    "fund_flow": "neutral",
-    "macro": "important",
-    "policy": "important",
-    "risk": "risk",
-    "shareholder_return": "positive",
+    # Material taxonomy is not a validated positive/negative reading of the
+    # headline. Keep the news surface neutral or attention-oriented until a
+    # separate evidence-grounded direction contract exists.
+    "earnings": "news",
+    "fund_flow": "news",
+    "macro": "news",
+    "policy": "news",
+    "risk": "news",
+    "shareholder_return": "news",
     "theme": "news",
 }
 
@@ -117,30 +209,12 @@ _NEWS_MARKET_PROXY_LABELS = {
     "XLE": "エネルギーETF",
 }
 
-_HEATMAP_TILE_OFFSETS = (0.0, -0.35, 0.28, 0.62, -0.72, 0.18, -0.15, 0.45, -0.42, 0.08)
-
 _HEATMAP_MARKET_CAP_WEIGHTS = {
     "mega": 1.4,
     "large": 1.0,
     "mid": 0.52,
     "small": 0.22,
     "micro": 0.02,
-}
-
-_HEATMAP_MARKET_CAP_AREA_WEIGHTS = {
-    "mega": 2.6,
-    "large": 2.1,
-    "mid": 1.45,
-    "small": 0.85,
-    "micro": 0.45,
-}
-
-_HEATMAP_MARKET_CAP_LABELS = {
-    "mega": "超大型",
-    "large": "大型",
-    "mid": "中型",
-    "small": "小型",
-    "micro": "超小型",
 }
 
 _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
@@ -366,16 +440,46 @@ _HEATMAP_SYMBOL_SHORT_NAMES = {
 }
 
 
+def _clear_news_radar_user_transient_state() -> None:
+    """Clear page-local transient state when the active local user changes."""
+
+    removable_keys = (
+        NEWS_DASHBOARD_REFRESH_STATE_KEY,
+        NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
+        "investment_news_watchlist_source",
+    )
+    for key in tuple(st.session_state):
+        name = str(key)
+        if (
+            name.startswith("investment_radar_")
+            or name.startswith("investment_news_filter_")
+            or name in removable_keys
+        ):
+            st.session_state.pop(key, None)
+
+
+def _ensure_news_radar_user_scope() -> None:
+    """Prevent one local profile's transient Radar state from appearing in another."""
+
+    active_user_id = current_user_id() or "default"
+    if st.session_state.get(NEWS_RADAR_SESSION_OWNER_STATE_KEY) == active_user_id:
+        return
+    _clear_news_radar_user_transient_state()
+    st.session_state[NEWS_RADAR_SESSION_OWNER_STATE_KEY] = active_user_id
+
+
 def render_news_dashboard_page(
     *,
     open_symbol_callback: OpenSymbolCallback,
+    market_snapshot_callback: MarketSnapshotCallback,
 ) -> None:
     """Render the Investment Radar dashboard MVP."""
 
+    _ensure_news_radar_user_scope()
     snapshot, status = _load_dashboard_snapshot()
     render_page_title(
         "投資レーダー",
-        "市場ニュースの流れ、投資ヒートマップ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
+        "ニュースから注目テーマと銘柄を見つけます。",
         "investment_radar",
         accessory_html=news_dashboard_freshness_badge_html(snapshot),
     )
@@ -384,14 +488,23 @@ def render_news_dashboard_page(
     _render_status_message()
     _render_update_warning(status)
     symbol_name_map = _news_symbol_name_map()
-    filtered_snapshot = _render_news_detail_filters(snapshot)
-    _render_heatmap(filtered_snapshot)
-    _render_news_stream(filtered_snapshot)
-    _render_category_lanes(
-        filtered_snapshot,
-        open_symbol_callback=open_symbol_callback,
-        symbol_name_map=symbol_name_map,
-    )
+    today_candidate_map = _radar_candidate_map_for_snapshot(snapshot)
+    market_tab, news_tab = st.tabs(["市場レーダー", "ニュース一覧"])
+    with market_tab:
+        _render_news_stream(snapshot, ticker_id="investment-news-market-headlines")
+        _render_market_heatmap(
+            today_candidate_map,
+            market_snapshot_callback=market_snapshot_callback,
+            news_context_by_category=_radar_market_news_context_by_category(snapshot),
+        )
+    with news_tab:
+        _render_news_stream(snapshot, ticker_id="investment-news-list-headlines")
+        _render_category_lanes(
+            snapshot,
+            open_symbol_callback=open_symbol_callback,
+            symbol_name_map=symbol_name_map,
+        )
+        _render_radar_candidate_footer(today_candidate_map)
 
 
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
@@ -415,7 +528,7 @@ def news_dashboard_stock_heatmap_groups(
         return []
     lanes_by_category = {lane.category: lane for lane in snapshot.category_lanes}
     groups: list[dict[str, object]] = []
-    sorted_frame = frame.sort_values("加熱度", ascending=False).head(max_groups)
+    sorted_frame = frame.sort_values("加熱度", ascending=False)
     for group_index, row in enumerate(sorted_frame.to_dict("records")):
         category = str(row["投資カテゴリ"])
         lane = lanes_by_category.get(category)
@@ -425,20 +538,37 @@ def news_dashboard_stock_heatmap_groups(
             row,
             max_tiles_per_group,
         )
-        symbol_sentiments = _heatmap_group_symbol_sentiments(lane.headlines if lane else [])
         if not symbol_scores:
-            symbol_scores = [(category, 0.0)]
+            # A macro-only category remains available in the separate market
+            # background lane. Do not invent a cockpit-linked tile without a
+            # direct or inferred symbol in the displayed evidence.
+            continue
+        evidence_details = _heatmap_group_symbol_evidence_details(lane.headlines if lane else [])
+        symbol_scores = sorted(
+            symbol_scores,
+            key=lambda item: (
+                _coerce_int(evidence_details.get(item[0], {}).get("evidence_count"), 0),
+                _coerce_int(evidence_details.get(item[0], {}).get("source_count"), 0),
+                item[1],
+                item[0],
+            ),
+            reverse=True,
+        )
         tiles = [
             _stock_heatmap_tile(
                 symbol,
                 row,
                 tile_index,
                 symbol_score,
-                symbol_sentiments.get(symbol, 0.0),
+                evidence_details.get(symbol, {}),
             )
             for tile_index, (symbol, symbol_score) in enumerate(symbol_scores)
         ]
-        balance_label = _stock_heatmap_group_balance_label(tiles)
+        _apply_stock_heatmap_tile_layout(tiles)
+        balance_label = _stock_heatmap_group_balance_label(
+            tiles,
+            market_measured=str(row["市場指標"]) == "市場データ",
+        )
         groups.append(
             {
                 "category": category,
@@ -452,6 +582,8 @@ def news_dashboard_stock_heatmap_groups(
                 "tiles": tiles,
             }
         )
+        if len(groups) >= max_groups:
+            break
     return groups
 
 
@@ -467,27 +599,62 @@ def news_dashboard_heatmap_group_kind_label(category: str) -> str:
     return _HEATMAP_GROUP_KIND_LABELS[news_dashboard_heatmap_group_kind(category)]
 
 
-def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
+def news_dashboard_stock_heatmap_html(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    max_groups: int = 12,
+    max_tiles_per_group: int = 8,
+    include_topline: bool = True,
+    start_group: int = 0,
+) -> str:
     """Return a classified stock heatmap HTML surface."""
 
-    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    all_groups = news_dashboard_stock_heatmap_groups(
+        snapshot,
+        max_groups=999,
+        max_tiles_per_group=max_tiles_per_group,
+    )
+    bounded_start = max(0, start_group)
+    groups = all_groups[bounded_start : bounded_start + max_groups]
     if not groups:
         return ""
     tile_count = sum(_stock_heatmap_group_tile_count(group) for group in groups)
+    hidden_group_count = max(0, len(all_groups) - bounded_start - len(groups))
+    has_category_market_data = any(str(group["metric_source"]) == "市場データ" for group in groups)
     group_html = "".join(_stock_heatmap_group_html(group) for group in groups)
-    return (
-        '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
+    more_themes = (
+        f'<span class="investment-stock-heatmap-more">ほか {hidden_group_count}テーマ</span>'
+        if hidden_group_count
+        else ""
+    )
+    category_market_note = (
+        '<span class="investment-stock-heatmap-legend market-metric">'
+        "カテゴリ市場データは見出しのみ"
+        "</span>"
+        if has_category_market_data
+        else ""
+    )
+    topline = (
         '<div class="investment-stock-heatmap-topline">'
         '<span class="investment-stock-heatmap-read">'
         f"表示: {len(groups)}カテゴリ / {tile_count}銘柄タイル。"
-        "色は値動き、面積は注目度の目安です。"
-        "市場データがないカテゴリはニュース代理で補完します。"
+        "面積は重複を除いた根拠記事数、色は鮮度の目安です。"
         "</span>"
+        f"{more_themes}"
         '<span class="investment-stock-heatmap-click">コックピット連携</span>'
-        '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
-        '<span class="investment-stock-heatmap-legend neutral">中立</span>'
-        '<span class="investment-stock-heatmap-legend positive">好材料</span>'
+        '<span class="investment-stock-heatmap-legend evidence">面積: 根拠記事数</span>'
+        '<span class="investment-stock-heatmap-legend freshness">色: 古い→最新</span>'
+        '<span class="investment-stock-heatmap-legend direct">本文に出た</span>'
+        '<span class="investment-stock-heatmap-legend inferred">テーマ関連</span>'
+        '<span class="investment-stock-heatmap-legend neutral">タイルの価格方向: 未確認</span>'
+        f"{category_market_note}"
         "</div>"
+        if include_topline
+        else ""
+    )
+    return (
+        '<section class="investment-stock-heatmap" aria-label="investment theme map">'
+        f"{topline}"
         f'<div class="investment-stock-heatmap-board">{group_html}</div>'
         "</section>"
     )
@@ -899,21 +1066,14 @@ def news_dashboard_freshness_badge_html(
 def _heatmap_cell_row(cell: object) -> dict[str, object]:
     actual_price_change_pct = _optional_float_attr(cell, "price_change_pct")
     actual_volume_activity_score = _optional_float_attr(cell, "volume_activity_score")
-    price_change_pct = (
-        actual_price_change_pct
-        if actual_price_change_pct is not None
-        else _fallback_price_signal(cell)
+    market_measured = (
+        getattr(cell, "market_metric_source", "news_proxy") == "market_measured"
+        and actual_price_change_pct is not None
+        and actual_volume_activity_score is not None
     )
-    volume_activity_score = (
-        actual_volume_activity_score
-        if actual_volume_activity_score is not None
-        else _fallback_volume_signal(cell)
-    )
-    metric_source = (
-        "市場データ"
-        if actual_price_change_pct is not None and actual_volume_activity_score is not None
-        else "ニュース代理"
-    )
+    price_change_pct = actual_price_change_pct if market_measured else None
+    volume_activity_score = actual_volume_activity_score if market_measured else None
+    metric_source = "市場データ" if market_measured else "ニュース代理"
     region = getattr(cell, "region", None) or "全体"
     return {
         "カテゴリ": getattr(cell, "category"),
@@ -923,20 +1083,19 @@ def _heatmap_cell_row(cell: object) -> dict[str, object]:
         "加熱度": getattr(cell, "heat_score"),
         "市場指標": metric_source,
         "値動き": price_change_pct,
-        "値動きスコア": price_change_pct,
+        "値動きスコア": price_change_pct if price_change_pct is not None else 0.0,
         "値動き表示": _price_change_label(
             price_change_pct,
-            inferred=actual_price_change_pct is None,
+            inferred=not market_measured,
         ),
         "取引量": volume_activity_score,
-        "取引量スコア": volume_activity_score,
+        "取引量スコア": volume_activity_score if volume_activity_score is not None else 1.0,
         "取引量目安": _volume_label(
             volume_activity_score,
-            inferred=actual_volume_activity_score is None,
+            inferred=not market_measured,
         ),
         "ニュース件数": getattr(cell, "news_count"),
         "リスク材料": getattr(cell, "risk_count"),
-        "ポジティブ材料": getattr(cell, "positive_count"),
         "公式開示": getattr(cell, "official_source_count"),
         "鮮度比率": round(getattr(cell, "freshness_ratio") * 100, 1),
         "主な材料": _material_label(getattr(cell, "dominant_material_type")),
@@ -953,46 +1112,12 @@ def _optional_float_attr(value: object, name: str) -> float | None:
         return None
 
 
-def _fallback_price_signal(cell: object) -> float:
-    risk_count = _int_attr(cell, "risk_count")
-    positive_count = _int_attr(cell, "positive_count")
-    official_count = _int_attr(cell, "official_source_count")
-    material_type = getattr(cell, "dominant_material_type", None)
-    signal = (positive_count - risk_count) * 0.85 + official_count * 0.2
-    if material_type == "risk":
-        signal -= 1.15
-    elif material_type in {"earnings", "theme", "shareholder_return"}:
-        signal += 0.85
-    elif material_type == "fund_flow":
-        signal += 0.25
-    elif material_type in {"macro", "policy"}:
-        signal -= 0.2
-    if signal == 0:
-        signal = min(1.0, _float_attr(cell, "heat_score") / 6.0)
-    return round(max(-3.0, min(3.0, signal)), 1)
-
-
-def _fallback_volume_signal(cell: object) -> float:
-    heat_score = _float_attr(cell, "heat_score")
-    news_count = _int_attr(cell, "news_count")
-    signal = 1.0 + min(1.25, heat_score / 10.0 + news_count * 0.08)
-    return round(max(1.0, min(2.3, signal)), 2)
-
-
 def _float_attr(value: object, name: str) -> float:
     raw_value = getattr(value, name, 0.0)
     try:
         return float(raw_value)
     except (TypeError, ValueError):
         return 0.0
-
-
-def _int_attr(value: object, name: str) -> int:
-    raw_value = getattr(value, name, 0)
-    try:
-        return int(raw_value)
-    except (TypeError, ValueError):
-        return 0
 
 
 @lru_cache(maxsize=1)
@@ -1029,7 +1154,6 @@ def _heatmap_group_symbol_scores(
 ) -> list[tuple[str, float]]:
     if limit <= 0:
         return []
-    profile = _HEATMAP_CATEGORY_PROFILES.get(category, _HEATMAP_DEFAULT_PROFILE)
     scores: dict[str, float] = {}
     market_signal = _heatmap_market_signal_boost(row)
     for card_index, card in enumerate(cards):
@@ -1047,10 +1171,9 @@ def _heatmap_group_symbol_scores(
                 symbol,
                 card_score + market_signal - 1.0 - symbol_index * 0.16,
             )
-    for symbol, universe_score in _heatmap_universe_symbol_scores(category, profile):
-        _add_heatmap_symbol_score(scores, symbol, universe_score + market_signal)
-    for symbol_index, symbol in enumerate(profile.get("seed_symbols", ())):
-        _add_heatmap_symbol_score(scores, symbol, 5.2 + market_signal - symbol_index * 0.08)
+    # Do not add category seed or symbol-universe entries here. A theme-map
+    # tile must be traceable to the currently displayed news evidence; generic
+    # related-symbol suggestions belong in a future, explicitly labelled view.
     ranked_symbols = sorted(
         scores.items(),
         key=lambda item: (
@@ -1060,6 +1183,85 @@ def _heatmap_group_symbol_scores(
         reverse=True,
     )
     return ranked_symbols[:limit]
+
+
+def _heatmap_group_symbol_evidence_details(
+    cards: list[NewsHeadlineCard],
+) -> dict[str, dict[str, object]]:
+    """Collect display-only evidence facts for the visible theme-map tiles.
+
+    A map tile may be large or visually prominent only because multiple
+    displayed news cards support it.  Company size, category market metrics,
+    and material taxonomy stay out of this presentation contract.
+    """
+
+    details: dict[str, dict[str, object]] = {}
+    freshness_rank = {"unknown": 0, "stale": 1, "recent": 2, "latest": 3}
+    for card in cards:
+        card_key = _news_headline_dedupe_key(card)
+        source_key = (card.source_name or card.source_type or "未確認").strip().lower()
+        direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+        for relation, symbols in (
+            ("direct", direct_symbols),
+            ("inferred", inferred_symbols),
+        ):
+            for symbol in symbols:
+                normalized_symbol = symbol.strip().upper()
+                if not normalized_symbol:
+                    continue
+                detail = details.setdefault(
+                    normalized_symbol,
+                    {
+                        "evidence_keys": set(),
+                        "source_keys": set(),
+                        "freshness_rank": 0,
+                        "has_direct_mention": False,
+                    },
+                )
+                evidence_keys = cast(set[str], detail["evidence_keys"])
+                source_keys = cast(set[str], detail["source_keys"])
+                is_new_evidence = card_key not in evidence_keys
+                evidence_keys.add(card_key)
+                if is_new_evidence:
+                    source_keys.add(source_key)
+                detail["freshness_rank"] = max(
+                    _coerce_int(detail["freshness_rank"], 0),
+                    freshness_rank.get(card.freshness_status, 0),
+                )
+                if relation == "direct":
+                    detail["has_direct_mention"] = True
+
+    normalized_details: dict[str, dict[str, object]] = {}
+    for symbol, detail in details.items():
+        evidence_keys = cast(set[str], detail["evidence_keys"])
+        source_keys = cast(set[str], detail["source_keys"])
+        normalized_details[symbol] = {
+            "evidence_count": len(evidence_keys),
+            "source_count": len(source_keys),
+            "freshness_rank": _coerce_int(detail["freshness_rank"], 0),
+            "relationship": "direct" if bool(detail["has_direct_mention"]) else "inferred",
+        }
+    return normalized_details
+
+
+def _news_headline_dedupe_key(card: NewsHeadlineCard) -> str:
+    """Resolve the headline key across Streamlit partial module reloads.
+
+    Streamlit can reload this UI module while retaining a previously imported
+    ``backend.news.sources`` module. The helper was publicized from
+    ``_headline_dedupe_key`` to ``news_headline_dedupe_key`` during the Radar
+    update, so accept the immediately preceding private name until the server
+    process has been fully restarted.
+    """
+
+    for helper_name in ("news_headline_dedupe_key", "_headline_dedupe_key"):
+        helper = getattr(news_sources, helper_name, None)
+        if callable(helper):
+            return str(helper(card))
+    if card.url:
+        return re.sub(r"[?#].*$", "", card.url.strip()).casefold()
+    normalized_title = re.sub(r"\s+", " ", card.title.strip()).casefold()
+    return f"{card.category}|{normalized_title}"
 
 
 def _add_heatmap_symbol_score(
@@ -1095,39 +1297,6 @@ def _heatmap_news_card_score(card: NewsHeadlineCard) -> float:
     }.get(card.material_type, 0.35)
     official_weight = 0.35 if card.is_official_source else 0.0
     return 3.7 + freshness_weight + material_weight + official_weight
-
-
-def _heatmap_group_symbol_sentiments(cards: list[NewsHeadlineCard]) -> dict[str, float]:
-    sentiments: dict[str, float] = {}
-    for card_index, card in enumerate(cards):
-        polarity = _heatmap_news_card_polarity(card)
-        if polarity == 0.0:
-            continue
-        freshness = 1.0 if card.freshness_status == "latest" else 0.72
-        weight = max(0.35, freshness - card_index * 0.08)
-        direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
-        for symbol_index, symbol in enumerate([*direct_symbols, *inferred_symbols]):
-            normalized = symbol.strip().upper()
-            if not normalized:
-                continue
-            source_weight = 1.0 if symbol_index < len(direct_symbols) else 0.65
-            current = sentiments.get(normalized, 0.0)
-            sentiments[normalized] = (
-                current + polarity * max(0.25, weight - symbol_index * 0.08) * source_weight
-            )
-    return {symbol: max(-1.0, min(1.0, value)) for symbol, value in sentiments.items()}
-
-
-def _heatmap_news_card_polarity(card: NewsHeadlineCard) -> float:
-    if card.material_type == "risk":
-        return -1.0
-    if card.material_type in {"earnings", "theme", "shareholder_return"}:
-        return 0.8
-    if card.material_type == "fund_flow":
-        return 0.25
-    if card.material_type in {"macro", "policy"}:
-        return -0.25
-    return 0.0
 
 
 def _heatmap_market_signal_boost(row: dict[str, object]) -> float:
@@ -1236,60 +1405,44 @@ def _stable_heatmap_symbol_offset(category: str, symbol: str) -> float:
     return (ordinal_sum % 1000) / 10000.0
 
 
-def _stable_heatmap_symbol_unit(category: str, symbol: str) -> float:
-    seed = f"{category}:{symbol}"
-    ordinal_sum = sum((index + 1) * ord(character) for index, character in enumerate(seed))
-    return ((ordinal_sum % 2001) / 1000.0) - 1.0
-
-
 def _stock_heatmap_tile(
     symbol: str,
     row: dict[str, object],
     tile_index: int,
     symbol_score: float,
-    symbol_sentiment: float = 0.0,
+    evidence_detail: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    base_change = _coerce_float(row.get("値動きスコア"), 0.0)
-    offset = _HEATMAP_TILE_OFFSETS[tile_index % len(_HEATMAP_TILE_OFFSETS)]
-    direction = -1.0 if base_change < -0.25 else 1.0
-    score_boost = min(0.55, max(0.0, symbol_score - 4.2) * 0.06)
-    symbol_dispersion = _stable_heatmap_symbol_unit("tile-change", symbol) * 0.35
-    sentiment_shift = max(-1.0, min(1.0, symbol_sentiment)) * 0.9
-    change = round(
-        max(
-            -3.0,
-            min(
-                3.0,
-                base_change * 0.72
-                + offset * 0.45
-                + sentiment_shift
-                + symbol_dispersion
-                + direction * score_boost,
-            ),
-        ),
-        1,
+    # A heatmap cell has at most a category-level market metric. It must not
+    # become a fabricated individual-symbol move or red/green tile. Individual
+    # tile direction remains unknown until a per-symbol market-data contract is
+    # supplied.
+    change = 0.0
+    inferred = True
+    detail = evidence_detail or {}
+    evidence_count = max(1, _coerce_int(detail.get("evidence_count"), 1))
+    source_count = max(1, _coerce_int(detail.get("source_count"), 1))
+    freshness_rank = min(3, max(0, _coerce_int(detail.get("freshness_rank"), 0)))
+    relationship = (
+        "direct" if str(detail.get("relationship", "inferred")) == "direct" else "inferred"
     )
-    inferred = str(row.get("市場指標")) != "市場データ"
     display_name, full_name = _stock_heatmap_tile_names(symbol)
     display_name = _stock_heatmap_tile_display_name(display_name, symbol, tile_index)
-    market_cap_tier = _stock_heatmap_market_cap_tier(symbol)
-    market_cap_label = _stock_heatmap_market_cap_label(market_cap_tier)
     area_score = _stock_heatmap_area_score(
-        symbol_score=symbol_score,
-        change=change,
-        market_cap_tier=market_cap_tier,
+        evidence_count=evidence_count,
+        source_count=source_count,
     )
     span_cols, span_rows = _stock_heatmap_tile_spans(area_score, tile_index)
     size = _stock_heatmap_tile_size(span_cols, span_rows)
     factors_label = _stock_heatmap_tile_factors_label(
-        change_label=_price_change_label(change, inferred=inferred),
-        market_cap_label=market_cap_label,
-        symbol_score=symbol_score,
+        evidence_count=evidence_count,
+        source_count=source_count,
     )
     label_parts = [symbol]
     if full_name:
         label_parts.append(full_name)
+    label_parts.append("本文に出た銘柄" if relationship == "direct" else "テーマ関連候補")
     label_parts.append(f"面積根拠: {factors_label}")
+    label_parts.append("価格方向: 未確認")
     label = " / ".join(label_parts)
     return {
         "symbol": symbol,
@@ -1301,10 +1454,20 @@ def _stock_heatmap_tile(
         "change_label": _price_change_label(change, inferred=inferred),
         "score": round(symbol_score, 2),
         "factors_label": factors_label,
+        "evidence_count": evidence_count,
+        "source_count": source_count,
+        "freshness_rank": freshness_rank,
+        "relationship": relationship,
+        "relationship_label": "本文に出た" if relationship == "direct" else "テーマ関連",
         "area_score": round(area_score, 2),
         "span_cols": span_cols,
         "span_rows": span_rows,
-        "color_style": _stock_heatmap_tile_color_style(symbol, change),
+        "color_style": _stock_heatmap_tile_color_style(
+            symbol,
+            change,
+            non_directional=True,
+            freshness_ratio=freshness_rank / 3.0,
+        ),
         "tone": _stock_heatmap_tone(change),
         "size": size,
     }
@@ -1352,77 +1515,81 @@ def _stock_heatmap_tone(change: float) -> str:
     return "neutral"
 
 
-def _stock_heatmap_group_balance_label(tiles: list[dict[str, object]]) -> str:
-    positive = 0
-    negative = 0
-    neutral = 0
-    for tile in tiles:
-        change = _coerce_float(tile.get("change"), 0.0)
-        if change >= 0.35:
-            positive += 1
-        elif change <= -0.35:
-            negative += 1
-        else:
-            neutral += 1
-    if positive and negative:
-        if positive > negative:
-            return "上昇・銘柄差"
-        if negative > positive:
-            return "下降・銘柄差"
-        return "まちまち"
-    if positive:
-        return "上昇・一方向"
-    if negative:
-        return "下降・一方向"
-    if neutral:
-        return "中立中心"
-    return "方向感未確認"
-
-
-def _stock_heatmap_market_cap_tier(symbol: str) -> str:
-    row = _heatmap_symbol_universe_by_symbol().get(symbol.strip().upper(), {})
-    tier = row.get("market_cap_tier", "").strip().lower()
-    return tier if tier in _HEATMAP_MARKET_CAP_AREA_WEIGHTS else ""
-
-
-def _stock_heatmap_market_cap_label(market_cap_tier: str) -> str:
-    return _HEATMAP_MARKET_CAP_LABELS.get(market_cap_tier, "規模不明")
+def _stock_heatmap_group_balance_label(
+    tiles: list[dict[str, object]],
+    *,
+    market_measured: bool,
+) -> str:
+    if not market_measured:
+        return "ニュース上の注目度"
+    # The category metric belongs to the header, not the individual tiles.
+    del tiles
+    return "カテゴリの市場指標"
 
 
 def _stock_heatmap_area_score(
     *,
-    symbol_score: float,
-    change: float,
-    market_cap_tier: str,
+    evidence_count: int,
+    source_count: int,
 ) -> float:
-    cap_weight = _HEATMAP_MARKET_CAP_AREA_WEIGHTS.get(market_cap_tier, 1.0)
-    change_weight = min(3.0, abs(change)) * 0.75
-    attention_weight = max(0.0, symbol_score) * 0.62
-    return round(attention_weight + cap_weight + change_weight, 3)
+    """Return a display area derived only from the deduplicated evidence count."""
+
+    # Source breadth is disclosed as supporting context on the tile, but must
+    # not quietly change its area.  The map legend can therefore state the
+    # precise visual contract: area equals deduplicated evidence count.
+    del source_count
+    return float(max(1, evidence_count))
 
 
 def _stock_heatmap_tile_factors_label(
     *,
-    change_label: str,
-    market_cap_label: str,
-    symbol_score: float,
+    evidence_count: int,
+    source_count: int,
 ) -> str:
-    del change_label
-    return f"{market_cap_label}・注目{symbol_score:.1f}"
+    if source_count > 1:
+        return f"根拠{evidence_count}件・独立出典{source_count}件"
+    return f"根拠{evidence_count}件"
 
 
 def _stock_heatmap_tile_spans(area_score: float, tile_index: int) -> tuple[int, int]:
-    if area_score >= 14.0:
+    if area_score >= 4.0:
         spans = (3, 3)
-    elif area_score >= 12.5:
+    elif area_score >= 3.0:
         spans = (3, 2)
-    elif area_score >= 10.5:
+    elif area_score >= 2.0:
         spans = (2, 2)
-    elif area_score >= 8.5:
+    elif area_score >= 1.5:
         spans = (2, 1)
     else:
         spans = (1, 1)
     return _stock_heatmap_tile_span_cap(spans, tile_index)
+
+
+def _apply_stock_heatmap_tile_layout(tiles: list[dict[str, object]]) -> None:
+    """Fill the compact board without inventing visual importance.
+
+    The initial Radar surface intentionally shows at most three symbols per
+    theme.  Equal evidence should therefore use equal area instead of leaving
+    a mostly empty treemap.  A clearly larger evidence set keeps the familiar
+    lead-tile hierarchy from the earlier map while its area remains traceable.
+    """
+
+    layout_spans: tuple[tuple[int, int], ...]
+    if len(tiles) == 1:
+        layout_spans = ((6, 5),)
+    elif len(tiles) == 2:
+        layout_spans = ((3, 5), (3, 5))
+    elif len(tiles) == 3:
+        area_scores = [_coerce_float(tile.get("area_score"), 1.0) for tile in tiles]
+        lead_is_distinct = max(area_scores) >= min(area_scores) + 1.0
+        layout_spans = ((3, 5), (3, 3), (3, 2)) if lead_is_distinct else ((2, 5), (2, 5), (2, 5))
+    else:
+        return
+
+    for tile, (span_cols, span_rows) in zip(tiles, layout_spans):
+        tile["span_cols"] = span_cols
+        tile["span_rows"] = span_rows
+        tile["size"] = _stock_heatmap_tile_size(span_cols, span_rows)
 
 
 def _stock_heatmap_tile_span_cap(spans: tuple[int, int], tile_index: int) -> tuple[int, int]:
@@ -1450,7 +1617,19 @@ def _stock_heatmap_tile_size(span_cols: int, span_rows: int) -> str:
     return "minor"
 
 
-def _stock_heatmap_tile_color_style(symbol: str, change: float) -> str:
+def _stock_heatmap_tile_color_style(
+    symbol: str,
+    change: float,
+    *,
+    non_directional: bool = False,
+    freshness_ratio: float = 0.0,
+) -> str:
+    if non_directional:
+        # Freshness is exposed through a labelled CSS class so the visual
+        # scale remains consistent across all tiles instead of drifting by
+        # symbol-specific pseudo-random offsets.
+        del symbol, change, freshness_ratio
+        return ""
     offset = _stable_heatmap_symbol_offset("tile-color", symbol)
     strength = min(3.0, abs(change)) / 3.0
     if change > 0.25:
@@ -1502,8 +1681,11 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     tiles = cast(list[dict[str, object]], tiles_raw) if isinstance(tiles_raw, list) else []
     tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles)
     count_class = f"count-{min(len(tiles), 12)}"
+    trend_html = (
+        f'<span class="investment-stock-heatmap-group-trend {tone}">{trend}</span>' if trend else ""
+    )
     return (
-        f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
+        f'<article class="investment-stock-heatmap-group {group_class} {group_kind} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'
         '<div class="investment-stock-heatmap-group-main">'
         f'<span class="investment-stock-heatmap-group-title">{category}</span>'
@@ -1513,7 +1695,7 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
         f'<span class="investment-stock-heatmap-group-kind {group_kind}">'
         f"{group_kind_label}</span>"
         f'<span class="investment-stock-heatmap-group-badge">{badge}</span>'
-        f'<span class="investment-stock-heatmap-group-trend {tone}">{trend}</span>'
+        f"{trend_html}"
         "</div>"
         "</header>"
         f'<div class="investment-stock-heatmap-tiles">{tile_html}</div>'
@@ -1525,25 +1707,24 @@ def _stock_heatmap_group_meta_parts(
     metric_source: str,
     summary_label: str,
 ) -> dict[str, str]:
+    if metric_source.strip() != "市場データ":
+        return {
+            "score": "方向未確認",
+            "badge": "ニュース根拠",
+            "trend": "",
+            "tone": "neutral",
+        }
     parts = [part.strip() for part in summary_label.split("/") if part.strip()]
     score = parts[0] if parts else "変化なし"
-    raw_trend = parts[-1] if len(parts) > 1 else "中立"
-    trend = {
-        "上昇・一方向": "上昇優勢",
-        "下降・一方向": "下落優勢",
-        "下落・一方向": "下落優勢",
-        "まちまち": "まちまち",
-        "中立": "中立",
-        "中立中心": "中立",
-    }.get(raw_trend, raw_trend)
+    trend = "個別タイルは方向未確認"
     tone = (
         "negative"
-        if score.startswith("-") or trend == "下落優勢"
-        else ("positive" if score.startswith("+") or trend == "上昇優勢" else "neutral")
+        if score.startswith("-")
+        else ("positive" if score.startswith("+") else "neutral")
     )
     return {
         "score": score,
-        "badge": metric_source.strip() or "市場データ",
+        "badge": "カテゴリ市場データ",
         "trend": trend,
         "tone": tone,
     }
@@ -1559,8 +1740,10 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
     name = html.escape(str(tile["name"]))
     label = html.escape(str(tile["label"]), quote=True)
     href = html.escape(str(tile["href"]), quote=True)
-    change_label = html.escape(str(tile["change_label"]))
     factors_label = html.escape(str(tile["factors_label"]))
+    relationship = html.escape(str(tile.get("relationship", "inferred")))
+    relationship_label = html.escape(str(tile.get("relationship_label", "テーマ関連")))
+    freshness_rank = min(3, max(0, _coerce_int(tile.get("freshness_rank"), 0)))
     tone = html.escape(str(tile["tone"]))
     size = html.escape(str(tile["size"]))
     span_cols = _coerce_int(tile.get("span_cols"), 1)
@@ -1570,27 +1753,20 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
         f"grid-column: span {span_cols}; grid-row: span {span_rows}; {color_style}",
         quote=True,
     )
-    is_small = size in {"compact", "minor"}
-    primary_name = symbol if is_small else (name or symbol)
-    symbol_html = (
-        f'<span class="investment-stock-heatmap-symbol">{symbol}</span>'
-        if name and not is_small
-        else ""
-    )
-    factors_html = (
-        f'<span class="investment-stock-heatmap-factors">{factors_label}</span>'
-        if size in {"hero", "major"}
-        else ""
-    )
+    primary_name = name or symbol
+    symbol_html = f'<span class="investment-stock-heatmap-symbol">{symbol}</span>' if name else ""
     return (
-        f'<a class="investment-stock-heatmap-tile text-safe {tone} {size}" '
+        f'<a class="investment-stock-heatmap-tile text-safe {tone} {relationship} '
+        f'freshness-{freshness_rank} {size}" '
         f'href="{href}" target="_self" title="{label}" aria-label="{label}" style="{style}">'
         '<span class="investment-stock-heatmap-identity">'
         f'<span class="investment-stock-heatmap-name">{primary_name}</span>'
         f"{symbol_html}"
         "</span>"
-        f'<span class="investment-stock-heatmap-change">{change_label}</span>'
-        f"{factors_html}"
+        '<span class="investment-stock-heatmap-evidence-meta">'
+        f'<span class="investment-stock-heatmap-evidence {relationship}">{relationship_label}</span>'
+        f'<span class="investment-stock-heatmap-factors">{factors_label}</span>'
+        "</span>"
         "</a>"
     )
 
@@ -1644,72 +1820,66 @@ def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]
 
 
 def _render_refresh_controls() -> None:
-    col_action, col_note = st.columns([1.05, 1.95])
-    with col_action:
-        st.markdown(
-            '<div class="smai-news-refresh-action-anchor"></div>',
+    st.markdown(
+        '<div class="smai-news-refresh-action-anchor"></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "ニュースを更新",
+        key="investment_news_refresh",
+        type="primary",
+        use_container_width=False,
+    ):
+        now = datetime.now(UTC)
+        loading_slot = st.empty()
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+        loading_slot.markdown(
+            workflow_loading_html(
+                title="最新ニュースを更新中",
+                message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
+                current_step="外部ニュースRSSへ接続しています。",
+                progress=0.12,
+                mode="blocking",
+                headlines=loading_headlines,
+                headline_note=loading_headline_note,
+            ),
             unsafe_allow_html=True,
         )
-        if st.button(
-            "ニュース表示を更新",
-            key="investment_news_refresh",
-            type="primary",
-            use_container_width=True,
-        ):
-            now = datetime.now(UTC)
-            loading_slot = st.empty()
-            loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+        try:
+            result = refresh_news_dashboard_cache(
+                lambda: build_standard_news_dashboard_snapshot(
+                    allow_network=True,
+                    now=now,
+                    fallback_to_demo=False,
+                ),
+                force=True,
+            )
             loading_slot.markdown(
                 workflow_loading_html(
                     title="最新ニュースを更新中",
                     message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
-                    current_step="外部ニュースRSSへ接続しています。",
-                    progress=0.12,
+                    current_step="ニュースを分類して表示を更新しています。",
+                    progress=0.9,
                     mode="blocking",
                     headlines=loading_headlines,
                     headline_note=loading_headline_note,
                 ),
                 unsafe_allow_html=True,
             )
-            try:
-                result = refresh_news_dashboard_cache(
-                    lambda: build_standard_news_dashboard_snapshot(
-                        allow_network=True,
-                        now=now,
-                        fallback_to_demo=False,
-                    ),
-                    force=True,
-                )
-                loading_slot.markdown(
-                    workflow_loading_html(
-                        title="最新ニュースを更新中",
-                        message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
-                        current_step="ニュースを分類して表示を更新しています。",
-                        progress=0.9,
-                        mode="blocking",
-                        headlines=loading_headlines,
-                        headline_note=loading_headline_note,
-                    ),
-                    unsafe_allow_html=True,
-                )
-            finally:
-                loading_slot.empty()
-            if result.refreshed:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = "ニュース表示を更新しました。"
-            elif result.used_fallback_cache:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
-                    "更新に失敗したため、前回保存データを表示しています。"
-                )
-            else:
-                st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
-                    "ニュース表示を更新できませんでした。"
-                )
-            st.rerun()
-    with col_note:
-        st.caption(
-            "手動更新では外部ニュースRSSを広めに取得し、重複を除いて最大100件の確認材料に整理します。"
-            "スコアやランキング順位は変更しません。"
-        )
+        finally:
+            loading_slot.empty()
+        if result.refreshed:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = "ニュース表示を更新しました。"
+        elif result.used_fallback_cache:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
+                "更新に失敗したため、前回保存データを表示しています。"
+            )
+        else:
+            st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = (
+                "ニュース表示を更新できませんでした。"
+            )
+        st.rerun()
+    st.caption("外部ニュースを取得して重複を除きます。スコア・ランキングは変わりません。")
 
 
 def _render_status_message() -> None:
@@ -1838,26 +2008,1581 @@ def _render_news_detail_filters(
 
 def _render_news_stream(
     snapshot: NewsDashboardSnapshot,
+    *,
+    ticker_id: str,
 ) -> None:
-    st.markdown("### 重要ニュース")
-    featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_LIMIT]
+    st.markdown("### 市場ニュースヘッドライン")
+    featured = snapshot.stream_headlines[:NEWS_FEATURED_HEADLINE_POOL_LIMIT]
     if not featured:
         st.info("表示できるニュースはまだありません。")
         return
-    st.markdown(_news_ticker_html(featured), unsafe_allow_html=True)
+    st.markdown(_news_ticker_html(featured, ticker_id=ticker_id), unsafe_allow_html=True)
+
+
+def _radar_market_news_context_by_category(
+    snapshot: NewsDashboardSnapshot,
+) -> dict[str, NewsHeadlineCard]:
+    """Return the first traceable headline for each category market group."""
+
+    return {
+        lane.category: lane.headlines[0]
+        for lane in snapshot.category_lanes
+        if lane.category and lane.headlines
+    }
+
+
+def _render_radar_candidate_footer(candidate_map: RadarCandidateMap) -> None:
+    """Keep the deterministic candidate list as a quiet follow-up to the news list."""
+
+    candidates = [
+        candidate for candidate in candidate_map.candidates if candidate.is_investigation_candidate
+    ]
+    if not candidates:
+        return
+    visible_candidates = candidates[:NEWS_RADAR_CANDIDATE_FOOTER_LIMIT]
+    hidden_count = len(candidates) - len(visible_candidates)
+    with st.expander(f"確認候補（補助）・{len(candidates)}件", expanded=False):
+        st.caption(
+            "記事に明示された銘柄とテーマ関連候補の簡易一覧です。"
+            "投資魅力度やランキングではありません。詳しい確認は銘柄コックピットで行えます。"
+        )
+        st.markdown(_radar_candidate_footer_html(visible_candidates), unsafe_allow_html=True)
+        if hidden_count:
+            st.caption(f"ほか {hidden_count}件は、この一覧では表示を省略しています。")
+
+
+def _radar_candidate_footer_html(candidates: Sequence[RadarCandidate]) -> str:
+    """Return a bounded, click-through candidate summary without evidence tooling."""
+
+    if not candidates:
+        return ""
+    item_html: list[str] = []
+    for candidate in candidates:
+        provenance = "本文言及" if candidate.provenance == "direct_mention" else "テーマ関連"
+        evidence_count = max(len(candidate.evidence_ids), len(candidate.evidence), 1)
+        watchlist = " · WL" if candidate.watchlist_match else ""
+        display_name = _radar_candidate_display_name(candidate)
+        item_html.append(
+            '<a class="investment-radar-candidate-footer-item" '
+            f'href="{html.escape(news_dashboard_cockpit_href(candidate.symbol))}" '
+            f'aria-label="{html.escape(display_name)}を銘柄コックピットで確認">'
+            f"<strong>{html.escape(display_name)}</strong>"
+            f"<span>{html.escape(candidate.symbol)} · {provenance} · 根拠{evidence_count}件{watchlist}</span>"
+            "</a>"
+        )
+    return (
+        '<div class="investment-radar-candidate-footer-list" '
+        'aria-label="ニュース確認候補の簡易一覧">' + "".join(item_html) + "</div>"
+    )
+
+
+def radar_market_treemap_rectangles(
+    tiles: Sequence[RadarMarketTile],
+    *,
+    width: float = 100.0,
+    height: float = 56.0,
+) -> list[tuple[RadarMarketTile, float, float, float, float]]:
+    """Lay out proportional price-movement tiles with a squarified treemap."""
+
+    if not tiles or width <= 0 or height <= 0:
+        return []
+    ordered = sorted(tiles, key=lambda item: (-item.magnitude_pct, item.symbol))
+    maximum_weight = max(item.magnitude_pct for item in ordered)
+    minimum_display_weight = max(0.25, maximum_weight * 0.08)
+    raw_weights = [max(item.magnitude_pct, minimum_display_weight) for item in ordered]
+    scale = (width * height) / sum(raw_weights)
+    sizes = [value * scale for value in raw_weights]
+    rectangles: list[tuple[RadarMarketTile, float, float, float, float]] = []
+
+    def worst(row: list[float], side: float) -> float:
+        if not row or side <= 0:
+            return float("inf")
+        total = sum(row)
+        return max(
+            (side * side * max(row)) / (total * total),
+            (total * total) / (side * side * min(row)),
+        )
+
+    def place(
+        row_tiles: list[RadarMarketTile],
+        row_sizes: list[float],
+        x: float,
+        y: float,
+        dx: float,
+        dy: float,
+    ) -> tuple[float, float, float, float]:
+        total = sum(row_sizes)
+        if dx >= dy:
+            # The remaining canvas is wider than it is tall.  Place the next
+            # row as a vertical column so the largest tiles sit beside each
+            # other instead of becoming a stack of full-width strips.
+            # This is the orientation used by a squarified treemap: each row
+            # is laid out along the shorter remaining edge.
+            row_width = total / dy
+            cursor = y
+            for tile, size in zip(row_tiles, row_sizes, strict=True):
+                tile_height = size / row_width
+                rectangles.append((tile, x, cursor, row_width, tile_height))
+                cursor += tile_height
+            return x + row_width, y, max(0.0, dx - row_width), dy
+        row_height = total / dx
+        cursor = x
+        for tile, size in zip(row_tiles, row_sizes, strict=True):
+            tile_width = size / row_height
+            rectangles.append((tile, cursor, y, tile_width, row_height))
+            cursor += tile_width
+        return x, y + row_height, dx, max(0.0, dy - row_height)
+
+    x = y = 0.0
+    dx, dy = width, height
+    row_tiles: list[RadarMarketTile] = []
+    row_sizes: list[float] = []
+    remaining = list(zip(ordered, sizes, strict=True))
+    while remaining:
+        tile, size = remaining[0]
+        side = min(dx, dy)
+        if not row_sizes or worst([*row_sizes, size], side) <= worst(row_sizes, side):
+            row_tiles.append(tile)
+            row_sizes.append(size)
+            remaining.pop(0)
+            continue
+        x, y, dx, dy = place(row_tiles, row_sizes, x, y, dx, dy)
+        row_tiles, row_sizes = [], []
+    if row_sizes:
+        place(row_tiles, row_sizes, x, y, dx, dy)
+    return rectangles
+
+
+def radar_market_heatmap_groups(
+    snapshot: RadarMarketSnapshot,
+    *,
+    grouping: str,
+) -> list[tuple[str, list[RadarMarketTile]]]:
+    """Group verified price tiles by sector, industry, or news category."""
+
+    grouped: dict[str, list[RadarMarketTile]] = {}
+    for tile in snapshot.tiles:
+        if grouping == "sector":
+            labels = [_radar_market_sector_label(tile.sector)]
+        elif grouping == "industry":
+            labels = [tile.industry or "未分類"]
+        else:
+            labels = tile.news_categories or [tile.category]
+        for label in dict.fromkeys(label.strip() or "未分類" for label in labels):
+            grouped.setdefault(label, []).append(tile)
+    groups = [
+        (label, sorted(tiles, key=lambda item: (-item.magnitude_pct, item.symbol)))
+        for label, tiles in grouped.items()
+    ]
+    groups.sort(
+        key=lambda item: (
+            -max(tile.magnitude_pct for tile in item[1]),
+            -sum(tile.evidence_count for tile in item[1]),
+            item[0],
+        )
+    )
+    return groups
+
+
+def radar_market_heatmap_display_groups(
+    snapshot: RadarMarketSnapshot,
+    *,
+    grouping: str,
+) -> list[tuple[str, list[RadarMarketTile], list[str]]]:
+    """Return readable heatmap cards without fragmenting sparse classifications.
+
+    The underlying sector and industry grouping remains exact.  Only the
+    presentation combines multiple one- or two-tile groups into one card, and
+    lists the original classifications in that card's summary.  News groups
+    stay one-to-one with their source-news cards.
+    """
+
+    groups = radar_market_heatmap_groups(snapshot, grouping=grouping)
+    if grouping not in {"sector", "industry"}:
+        return [(label, tiles, []) for label, tiles in groups]
+
+    sparse_groups = [
+        (label, tiles)
+        for label, tiles in groups
+        if len(tiles) <= NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM
+    ]
+    if len(sparse_groups) < 2:
+        return [(label, tiles, []) for label, tiles in groups]
+
+    sparse_labels = [label for label, _ in sparse_groups]
+    sparse_tiles = sorted(
+        (tile for _, tiles in sparse_groups for tile in tiles),
+        key=lambda item: (-item.magnitude_pct, item.symbol),
+    )
+    consolidated_label = "少数セクター" if grouping == "sector" else "少数業種"
+    display_groups: list[tuple[str, list[RadarMarketTile], list[str]]] = [
+        (label, tiles, [])
+        for label, tiles in groups
+        if len(tiles) > NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM
+    ]
+    display_groups.append((consolidated_label, sparse_tiles, sparse_labels))
+    display_groups.sort(
+        key=lambda item: (
+            -max(tile.magnitude_pct for tile in item[1]),
+            -sum(tile.evidence_count for tile in item[1]),
+            item[0],
+        )
+    )
+    return display_groups
+
+
+def radar_market_heatmap_html(
+    snapshot: RadarMarketSnapshot,
+    *,
+    grouping: str = "sector",
+    news_context_by_category: Mapping[str, NewsHeadlineCard] | None = None,
+) -> str:
+    """Return grouped verified price maps; missing values are never colored."""
+
+    if not snapshot.tiles:
+        return ""
+    max_magnitude = max(tile.magnitude_pct for tile in snapshot.tiles) or 1.0
+    featured = max(
+        snapshot.tiles,
+        key=lambda tile: (tile.confirmation_priority, tile.magnitude_pct, tile.symbol),
+    )
+    display_groups = radar_market_heatmap_display_groups(snapshot, grouping=grouping)
+    group_html = "".join(
+        _radar_market_group_html(
+            label,
+            tiles,
+            max_magnitude=max_magnitude,
+            featured_symbol=featured.symbol,
+            grouped_labels=grouped_labels,
+            news_context=(
+                (news_context_by_category or {}).get(label) if grouping == "news" else None
+            ),
+        )
+        for label, tiles, grouped_labels in display_groups
+    )
+    period_label = f"直近{snapshot.lookback_sessions}営業日"
+    as_of = max(tile.as_of for tile in snapshot.tiles).astimezone(NEWS_DISPLAY_TIMEZONE)
+    unavailable = (
+        f"<span>価格不足 {len(snapshot.unavailable_symbols)}銘柄</span>"
+        if snapshot.unavailable_symbols
+        else ""
+    )
+    market_count = (
+        f"<span>実測表示 {len(snapshot.tiles)} / 取得対象 {snapshot.requested_count}銘柄</span>"
+    )
+    grouping_label = {"sector": "セクター", "industry": "業種", "news": "注目ニュース"}.get(
+        grouping, "注目ニュース"
+    )
+    source_group_count = len(radar_market_heatmap_groups(snapshot, grouping=grouping))
+    classification_coverage = (
+        f"<span>分類 {source_group_count} · 実測 {len(snapshot.tiles)}銘柄</span>"
+    )
+    sparse_group_note = (
+        "<span>少数分類: 2銘柄以下は元の分類名を示してまとめて表示</span>"
+        if grouping in {"sector", "industry"}
+        else ""
+    )
+    return (
+        '<section class="investment-market-heatmap">'
+        '<div class="investment-market-heatmap-meta">'
+        f"<strong>{period_label}の値動き · {html.escape(grouping_label)}別</strong>"
+        "<span>面積: 騰落幅（最低表示面積あり）</span>"
+        "<span>色: 上昇／下落</span>"
+        "<span>本文／推測: ニュースからの抽出方法</span>"
+        f"<span>取得元: {html.escape(snapshot.provider)}</span>"
+        f"<span>価格基準: {as_of:%Y-%m-%d %H:%M} {NEWS_DISPLAY_TIMEZONE_LABEL}</span>"
+        f"{market_count}"
+        f"{unavailable}"
+        f"{classification_coverage}"
+        f"{sparse_group_note}"
+        "</div>"
+        f'<div class="investment-market-heatmap-groups">{group_html}</div>'
+        '<div class="investment-market-heatmap-scale" aria-label="色の凡例">'
+        '<span class="negative">▼ 下落</span><span class="flat">― 横ばい</span>'
+        '<span class="positive">▲ 上昇</span></div>'
+        "</section>"
+    )
+
+
+def _radar_market_group_html(
+    label: str,
+    tiles: Sequence[RadarMarketTile],
+    *,
+    max_magnitude: float,
+    featured_symbol: str,
+    grouped_labels: Sequence[str] = (),
+    news_context: NewsHeadlineCard | None = None,
+) -> str:
+    displayed_tiles = list(tiles[:NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM])
+    featured_tile = next((tile for tile in tiles if tile.symbol == featured_symbol), None)
+    if featured_tile is not None and featured_tile not in displayed_tiles and displayed_tiles:
+        displayed_tiles[-1] = featured_tile
+        displayed_tiles.sort(key=lambda tile: (-tile.magnitude_pct, tile.symbol))
+    rectangles = radar_market_treemap_rectangles(displayed_tiles)
+    tile_html: list[str] = []
+    for tile, x, y, width, height in rectangles:
+        intensity = min(1.0, tile.magnitude_pct / max(max_magnitude, 1.0))
+        if tile.change_pct > 0.02:
+            direction_class, direction, arrow = "positive", "上昇", "▲"
+            leading_alpha = 0.45 + intensity * 0.42
+            background = (
+                "linear-gradient(135deg, "
+                f"rgba(16, 185, 129, {leading_alpha:.3f}) 0%, "
+                f"rgba(5, 75, 66, {0.58 + intensity * 0.24:.3f}) 100%)"
+            )
+        elif tile.change_pct < -0.02:
+            direction_class, direction, arrow = "negative", "下落", "▼"
+            leading_alpha = 0.45 + intensity * 0.42
+            background = (
+                "linear-gradient(135deg, "
+                f"rgba(244, 63, 94, {leading_alpha:.3f}) 0%, "
+                f"rgba(92, 28, 52, {0.58 + intensity * 0.24:.3f}) 100%)"
+            )
+        else:
+            direction_class, direction, arrow = "flat", "横ばい", "―"
+            background = (
+                "linear-gradient(135deg, rgba(100, 116, 139, 0.68), " "rgba(30, 41, 59, 0.88))"
+            )
+        change_label = f"{tile.change_pct:+.2f}%"
+        density_class = _radar_market_tile_density_class(width, height)
+        featured_badge = (
+            '<span class="investment-market-heatmap-pick">先に確認</span>'
+            if tile.symbol == featured_symbol and tile.confirmation_priority > 0
+            else ""
+        )
+        relation = "本文" if tile.provenance == "direct_mention" else "テーマ推測"
+        watchlist = " · WL" if tile.watchlist_match else ""
+        href = news_dashboard_cockpit_href(tile.symbol)
+        tooltip = f"{tile.display_name} ({tile.symbol}) · {direction} {change_label}"
+        tile_html.append(
+            '<a class="investment-market-heatmap-tile '
+            f'{direction_class}{density_class}" style="left:{x:.4f}%;top:{y / 56 * 100:.4f}%;'
+            f'width:{width:.4f}%;height:{height / 56 * 100:.4f}%;background:{background}" '
+            f'href="{html.escape(href)}" '
+            f'title="{html.escape(tooltip)}" '
+            f'aria-label="{html.escape(tile.display_name)} {direction} {change_label}。'
+            f'{relation}、根拠{tile.evidence_count}件">'
+            f"{featured_badge}"
+            f'<span class="investment-market-heatmap-name">{html.escape(tile.display_name)}</span>'
+            f'<span class="investment-market-heatmap-symbol">{html.escape(tile.symbol)}</span>'
+            '<strong class="investment-market-heatmap-change">'
+            '<span class="investment-market-heatmap-change-direction">'
+            f'<span class="investment-market-heatmap-change-arrow">{arrow}</span>'
+            f'<span class="investment-market-heatmap-change-word">{direction}</span>'
+            "</span>"
+            f'<span class="investment-market-heatmap-change-value">{change_label}</span>'
+            "</strong>"
+            f"<small>{relation} · 根拠{tile.evidence_count}件{watchlist}</small>"
+            "</a>"
+        )
+    up_count = sum(tile.change_pct > 0.02 for tile in displayed_tiles)
+    down_count = sum(tile.change_pct < -0.02 for tile in displayed_tiles)
+    group_summary = (
+        f"表示{len(displayed_tiles)} / 該当{len(tiles)}銘柄"
+        if len(tiles) > len(displayed_tiles)
+        else f"全{len(displayed_tiles)}銘柄 · 上昇{up_count} / 下落{down_count}"
+    )
+    grouped_label_summary = " / ".join(grouped_labels[:3])
+    if len(grouped_labels) > 3:
+        grouped_label_summary += f" ほか{len(grouped_labels) - 3}分類"
+    if grouped_label_summary:
+        group_summary = f"{grouped_label_summary} · {group_summary}"
+    overflow_tiles = [tile for tile in tiles if tile not in displayed_tiles]
+    overflow_html = _radar_market_group_overflow_html(overflow_tiles)
+    density_class = _radar_market_group_density_class(len(displayed_tiles))
+    singleton_class = " singleton" if len(displayed_tiles) == 1 else ""
+    news_context_html = _radar_market_news_context_card_html(news_context)
+    return "".join(
+        (
+            f'<article class="investment-market-heatmap-group {density_class}{singleton_class}">',
+            '<header class="investment-market-heatmap-group-header">',
+            f"<strong>{html.escape(label)}</strong>",
+            f"<span>{group_summary}</span>",
+            "</header>",
+            news_context_html,
+            '<div class="investment-market-heatmap-canvas">',
+            "".join(tile_html),
+            "</div>",
+            overflow_html,
+            "</article>",
+        )
+    )
+
+
+def _radar_market_news_context_card_html(card: NewsHeadlineCard | None) -> str:
+    """Render one compact source-news card above a news-category treemap."""
+
+    if card is None:
+        return ""
+    source = card.source_name or _source_type_label(card.source_type)
+    published = _datetime_label(card.published_at)
+    context = " · ".join(item for item in (source, f"公開 {published}") if item)
+    link_label = "元記事を開く ↗" if card.url else "元記事URL未取得"
+    if card.url:
+        wrapper_open = (
+            '<a class="investment-market-news-context is-link" '
+            f'href="{html.escape(card.url)}" target="_blank" rel="noopener noreferrer" '
+            f'aria-label="{html.escape(card.title)}。元記事を開く">'
+        )
+        wrapper_close = "</a>"
+    else:
+        wrapper_open = '<div class="investment-market-news-context">'
+        wrapper_close = "</div>"
+    return "".join(
+        (
+            wrapper_open,
+            '<span class="investment-market-news-context-label">根拠ニュース</span>',
+            f'<strong title="{html.escape(card.title)}">{html.escape(card.title)}</strong>',
+            f"<small>{html.escape(context)} · {link_label}</small>",
+            wrapper_close,
+        )
+    )
+
+
+def _radar_market_group_density_class(displayed_count: int) -> str:
+    """Return a canvas-height class that keeps dense groups readable."""
+
+    if displayed_count >= 9:
+        return "dense"
+    if displayed_count >= 5:
+        return "medium"
+    return "compact"
+
+
+def _radar_market_tile_density_class(width: float, height: float) -> str:
+    """Choose a text layout that fits the assigned treemap rectangle.
+
+    A small proportional rectangle must not retain a larger card's four lines
+    of text and then crop them.  The exact symbol and return remain available
+    in the link label and tooltip; the micro form keeps the return visible in
+    the limited space available on the map itself.
+    """
+
+    height_percent = height / 56 * 100
+    if width < 14 or height_percent < 13:
+        return " micro"
+    if width < 22 or height_percent < 23:
+        return " minimal"
+    if width < 34 or height_percent < 35:
+        return " compact"
+    return ""
+
+
+def _radar_market_group_overflow_html(tiles: Sequence[RadarMarketTile]) -> str:
+    """Expose capped tiles without turning them into unreadable treemap fragments."""
+
+    if not tiles:
+        return ""
+    item_html: list[str] = []
+    for tile in tiles:
+        if tile.change_pct > 0.02:
+            direction, arrow = "上昇", "▲"
+        elif tile.change_pct < -0.02:
+            direction, arrow = "下落", "▼"
+        else:
+            direction, arrow = "横ばい", "―"
+        href = news_dashboard_cockpit_href(tile.symbol)
+        item_html.append(
+            '<a class="investment-market-heatmap-overflow-item" '
+            f'href="{html.escape(href)}">'
+            f"<strong>{html.escape(tile.display_name)}</strong>"
+            f"<span>{html.escape(tile.symbol)} · {arrow} {direction} "
+            f"{tile.change_pct:+.2f}%</span>"
+            "</a>"
+        )
+    return (
+        '<details class="investment-market-heatmap-overflow">'
+        f"<summary>あと{len(tiles)}銘柄を見る</summary>"
+        '<div class="investment-market-heatmap-overflow-list">'
+        + "".join(item_html)
+        + "</div></details>"
+    )
+
+
+def _radar_market_sector_label(sector: str) -> str:
+    labels = SYMBOL_UNIVERSE_DISPLAY_LABELS.get("sector", {})
+    return labels.get(sector, sector or "未分類")
+
+
+def _market_snapshot_from_state() -> RadarMarketSnapshot | None:
+    raw_snapshot = st.session_state.get(NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY)
+    if isinstance(raw_snapshot, RadarMarketSnapshot):
+        return raw_snapshot
+    if isinstance(raw_snapshot, Mapping):
+        try:
+            return RadarMarketSnapshot.model_validate(raw_snapshot)
+        except ValueError:
+            return None
+    return None
+
+
+def radar_market_snapshot_needs_refresh(
+    snapshot: RadarMarketSnapshot | None,
+    *,
+    lookback_sessions: int,
+    now: datetime | None = None,
+) -> bool:
+    """Return whether page entry should refresh the bounded daily-price snapshot."""
+
+    if snapshot is None or snapshot.lookback_sessions != lookback_sessions:
+        return True
+    checked_at = now or datetime.now(UTC)
+    age_seconds = (checked_at - snapshot.generated_at.astimezone(UTC)).total_seconds()
+    return age_seconds >= NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60
+
+
+def _radar_market_auto_fetch_enabled() -> bool:
+    return os.getenv("SMAI_RADAR_AUTO_FETCH", "1").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
+
+
+@st.fragment(run_every=NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60)
+def _render_market_heatmap(
+    candidate_map: RadarCandidateMap,
+    *,
+    market_snapshot_callback: MarketSnapshotCallback,
+    news_context_by_category: Mapping[str, NewsHeadlineCard],
+) -> None:
+    _render_radar_today_summary(candidate_map)
+    st.markdown("### 市場ヒートマップ")
+    st.caption(
+        "ニュース候補を、セクター・業種・注目ニュースで並べます。" "タイルを選ぶと銘柄を開けます。"
+    )
+    period = 20
+    grouping = str(
+        st.radio(
+            "分類",
+            options=["sector", "industry", "news"],
+            format_func=lambda value: {
+                "sector": "セクター",
+                "industry": "業種",
+                "news": "注目ニュース",
+            }[value],
+            horizontal=True,
+            key=NEWS_RADAR_MARKET_GROUPING_STATE_KEY,
+        )
+    )
+    refresh_requested = st.button(
+        "今すぐ更新",
+        key="investment_radar_market_refresh",
+    )
+    market_snapshot = _market_snapshot_from_state()
+    auto_refresh = _radar_market_auto_fetch_enabled() and radar_market_snapshot_needs_refresh(
+        market_snapshot,
+        lookback_sessions=period,
+    )
+    if refresh_requested or auto_refresh:
+        with st.spinner("候補銘柄の価格を確認しています…"):
+            st.session_state[NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY] = market_snapshot_callback(
+                candidate_map.candidates, period
+            )
+        market_snapshot = _market_snapshot_from_state()
+    if market_snapshot is None:
+        st.info(
+            "価格はまだ取得していません。通常は画面表示時に、ニュース候補を"
+            "最大30銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
+        )
+        return
+    heatmap_html = radar_market_heatmap_html(
+        market_snapshot,
+        grouping=grouping,
+        news_context_by_category=news_context_by_category,
+    )
+    if not heatmap_html:
+        st.warning(
+            "比較に必要な価格履歴を取得できませんでした。Provider設定や銘柄コードを確認し、"
+            "時間をおいて再実行してください。"
+        )
+        return
+    st.markdown(heatmap_html, unsafe_allow_html=True)
+    st.caption(
+        f"比較期間は約1か月（20営業日）固定です。画面表示時に取得し、開いている間は"
+        f"{NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES}分ごとにサーバー側で鮮度を確認して自動更新します。"
+        "正確な騰落率は各タイルの数値を確認してください。"
+    )
 
 
 def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
-    st.markdown("### 投資ヒートマップ")
-    st.caption(
-        "色は値動き、面積は注目度の目安です。"
-        "市場データがないカテゴリはニュース代理で補完します。"
+    st.markdown("### ニューステーマ")
+    st.caption("ニュース根拠が集まるテーマを確認します。価格方向は市場ヒートマップで確認します。")
+    heatmap_html = news_dashboard_stock_heatmap_html(
+        snapshot,
+        max_groups=3,
+        max_tiles_per_group=3,
     )
-    heatmap_html = news_dashboard_stock_heatmap_html(snapshot)
     if not heatmap_html:
         st.info("投資ヒートマップを集計できる材料はまだありません。")
         return
     st.markdown(heatmap_html, unsafe_allow_html=True)
+    all_groups = news_dashboard_stock_heatmap_groups(
+        snapshot,
+        max_groups=999,
+        max_tiles_per_group=3,
+    )
+    hidden_group_count = max(0, len(all_groups) - 3)
+    if hidden_group_count:
+        with st.expander(f"ほか {hidden_group_count}テーマを見る", expanded=False):
+            st.caption(
+                "初期表示には直近の3テーマだけを置いています。"
+                "以下は同じ根拠量・鮮度の見方で確認できます。"
+            )
+            expanded_html = news_dashboard_stock_heatmap_html(
+                snapshot,
+                max_groups=999,
+                max_tiles_per_group=3,
+                include_topline=False,
+                start_group=3,
+            )
+            st.markdown(expanded_html, unsafe_allow_html=True)
+
+
+def news_radar_candidate_map_frame(candidates: Sequence[RadarCandidate]) -> pd.DataFrame:
+    """Return a display-only frame for candidate diagnostics and regression tests."""
+
+    return pd.DataFrame(
+        [
+            {
+                "candidate_id": candidate.candidate_id,
+                "symbol": candidate.symbol,
+                "name": candidate.display_name or candidate.symbol,
+                "provenance": _RADAR_PROVENANCE_LABELS[candidate.provenance],
+                "directness": candidate.directness,
+                "confirmation_priority": candidate.confirmation_priority,
+                "source_breadth": max(1, candidate.independent_source_count),
+                "material_tone": _RADAR_MATERIAL_TONE_LABELS[candidate.material_tone],
+                "material_type": _radar_candidate_material_type_label(candidate),
+                "data_status": _RADAR_DATA_STATUS_LABELS[candidate.symbol_data_status],
+                "freshness": _freshness_label(candidate.freshness_status),
+                "watchlist": "Myウォッチリスト一致" if candidate.watchlist_match else "",
+            }
+            for candidate in candidates
+        ]
+    )
+
+
+def _radar_candidate_map_for_snapshot(snapshot: NewsDashboardSnapshot) -> RadarCandidateMap:
+    """Build the display-only Radar map once so summary and queue stay aligned."""
+
+    return _candidate_map_with_rag_state(
+        build_radar_candidate_map(
+            snapshot,
+            watchlist_symbols=_radar_watchlist_symbols(),
+            symbol_metadata_by_symbol=_heatmap_symbol_universe_by_symbol(),
+        )
+    )
+
+
+def _render_radar_candidate_map(candidate_map: RadarCandidateMap) -> None:
+    st.markdown("### ニュースからの確認候補")
+    st.caption(
+        "ニュース根拠を、本文に出た銘柄・SMAI推測候補・市場背景に分けて整理します。"
+        "投資魅力度・期待収益・ランキング順位ではありません。"
+    )
+    _render_radar_candidate_guide(candidate_map)
+    _render_radar_candidate_triage(candidate_map.candidates)
+    candidates = _render_radar_candidate_filters(candidate_map)
+    if not candidates:
+        st.info("選択中の条件で、根拠へ戻れる追加候補はありません。")
+        return
+
+    selected_candidate = _selected_radar_candidate(candidate_map.candidates)
+    st.caption(
+        f"条件一致: {len(candidates)}件。初期表示は各レーン最大"
+        f"{NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT}件です。候補を選ぶだけでは、"
+        "価格取得・根拠資料確認・保存は開始しません。"
+    )
+    _render_radar_candidate_lanes(
+        candidates,
+        selected_candidate_id=selected_candidate.candidate_id,
+    )
+
+
+def _render_radar_candidate_guide(candidate_map: RadarCandidateMap) -> None:
+    del candidate_map
+    st.markdown(
+        "**見方：** ① 本文に出た銘柄は記事で明示された対象、"
+        "② SMAI推測候補はテーマとの関連を確認する対象、"
+        "③ 市場背景の確認は個別銘柄ではなく市場の背景です。"
+    )
+    st.caption(
+        "「確認の順番」はニュースの鮮度・追跡できる根拠・材料種別・"
+        "Myウォッチリスト一致を整理した目安であり、投資判断ではありません。"
+    )
+    st.caption(
+        "初期表示は「本文に出た銘柄」と「SMAI推測候補」です。"
+        "市場背景の確認は「詳しい探索条件」から追加できます。"
+    )
+
+
+def _selected_radar_candidate(candidates: Sequence[RadarCandidate]) -> RadarCandidate:
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    selected_candidate_id = st.session_state.get(NEWS_RADAR_CANDIDATE_STATE_KEY)
+    if selected_candidate_id not in candidate_by_id:
+        selected_candidate_id = candidates[0].candidate_id
+        st.session_state[NEWS_RADAR_CANDIDATE_STATE_KEY] = selected_candidate_id
+    return candidate_by_id[selected_candidate_id]
+
+
+def _select_radar_candidate(candidate_id: str) -> None:
+    st.session_state[NEWS_RADAR_CANDIDATE_STATE_KEY] = candidate_id
+
+
+def _request_radar_candidate_detail(candidate_id: str) -> None:
+    _select_radar_candidate(candidate_id)
+    st.session_state[NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY] = candidate_id
+
+
+def _rerun_with_radar_candidate_detail(candidate_id: str) -> None:
+    """Preserve the explicit detail surface after an explicit detail action reruns."""
+
+    _request_radar_candidate_detail(candidate_id)
+    st.rerun()
+
+
+def _radar_candidate_material_type_label(candidate: RadarCandidate) -> str:
+    """Return an evidence taxonomy label without implying a price direction."""
+
+    material_types = _unique_text(
+        [str(getattr(evidence, "material_type", "")).strip() for evidence in candidate.evidence]
+    )
+    if not material_types:
+        return "材料種別: 未確認"
+    labels = [
+        _MATERIAL_LABELS.get(material_type, material_type) for material_type in material_types
+    ]
+    displayed = labels[:2]
+    suffix = f"ほか{len(labels) - len(displayed)}種" if len(labels) > len(displayed) else ""
+    return "材料種別: " + " / ".join([*displayed, *([suffix] if suffix else [])])
+
+
+def _radar_candidate_display_name(candidate: RadarCandidate) -> str:
+    display_name = (candidate.display_name or "").strip()
+    if display_name and display_name.upper() != candidate.symbol.strip().upper():
+        return display_name
+    return candidate.symbol
+
+
+def _radar_candidate_priority_bucket(candidate: RadarCandidate) -> str:
+    if candidate.confirmation_priority >= 70:
+        return "first"
+    if candidate.confirmation_priority >= 55:
+        return "next"
+    return "as_needed"
+
+
+def news_radar_confirmation_triage_frame(candidates: Sequence[RadarCandidate]) -> pd.DataFrame:
+    """Return a compact, display-only by-lane confirmation overview."""
+
+    rows: list[dict[str, object]] = []
+    for priority_bucket, priority_label in _RADAR_TRIAGE_PRIORITY_LABELS.items():
+        for provenance, provenance_label in _RADAR_PROVENANCE_LABELS.items():
+            matched = [
+                candidate
+                for candidate in candidates
+                if candidate.provenance == provenance
+                and _radar_candidate_priority_bucket(candidate) == priority_bucket
+            ]
+            rows.append(
+                {
+                    "確認の順番": priority_label,
+                    "候補由来": provenance_label,
+                    "件数": len(matched),
+                    "候補": " / ".join(
+                        _radar_candidate_display_name(candidate) for candidate in matched[:2]
+                    ),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _apply_radar_triage_filter(provenance: str, priority_bucket: str) -> None:
+    _clear_radar_candidate_filters()
+    st.session_state[NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY] = provenance
+    st.session_state[NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY] = priority_bucket
+    st.session_state["investment_radar_candidate_provenance"] = [provenance]
+
+
+def _clear_radar_candidate_filters() -> None:
+    for key in (
+        NEWS_RADAR_CANDIDATE_QUICK_DIRECT_ONLY_KEY,
+        NEWS_RADAR_CANDIDATE_QUICK_WATCHLIST_ONLY_KEY,
+        NEWS_RADAR_CANDIDATE_QUICK_UNCHECKED_ONLY_KEY,
+        NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY,
+        NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY,
+        "investment_radar_candidate_markets",
+        "investment_radar_candidate_asset_types",
+        "investment_radar_candidate_provenance",
+        "investment_radar_candidate_rag_status",
+    ):
+        st.session_state.pop(key, None)
+
+
+def _render_radar_candidate_triage(candidates: Sequence[RadarCandidate]) -> None:
+    active_provenance = st.session_state.get(NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY)
+    active_priority = st.session_state.get(NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY)
+    active_provenance_label = (
+        _RADAR_PROVENANCE_LABELS.get(active_provenance)
+        if isinstance(active_provenance, str)
+        else None
+    )
+    active_priority_label = (
+        _RADAR_TRIAGE_PRIORITY_LABELS.get(active_priority)
+        if isinstance(active_priority, str)
+        else None
+    )
+    triage_active = active_provenance_label is not None and active_priority_label is not None
+    with st.expander("確認トリアージ（候補を絞る）", expanded=triage_active):
+        st.caption(
+            "候補由来とニュース確認の順番を組み合わせた見取り図です。"
+            "投資魅力度・予想収益・ランキングではありません。"
+        )
+        if active_provenance_label is not None and active_priority_label is not None:
+            st.caption(f"適用中: {active_provenance_label} / {active_priority_label}")
+            st.button(
+                "条件を解除",
+                key="investment_radar_triage_clear",
+                on_click=_clear_radar_candidate_filters,
+            )
+        for priority_bucket, priority_label in _RADAR_TRIAGE_PRIORITY_LABELS.items():
+            st.markdown(f"**{priority_label}**")
+            columns = st.columns(3)
+            for column, provenance in zip(columns, _RADAR_PROVENANCE_LABELS, strict=False):
+                matched = [
+                    candidate
+                    for candidate in candidates
+                    if candidate.provenance == provenance
+                    and _radar_candidate_priority_bucket(candidate) == priority_bucket
+                ]
+                with column:
+                    st.caption(_RADAR_PROVENANCE_LABELS[provenance])
+                    st.markdown(f"**{len(matched)}件**")
+                    if matched:
+                        st.caption(
+                            " / ".join(
+                                _radar_candidate_display_name(candidate)
+                                for candidate in matched[:2]
+                            )
+                        )
+                    else:
+                        st.caption("該当なし")
+                    st.button(
+                        "この条件で絞り込む",
+                        key=f"investment_radar_triage_{provenance}_{priority_bucket}",
+                        on_click=_apply_radar_triage_filter,
+                        args=(provenance, priority_bucket),
+                        disabled=not matched,
+                        use_container_width=True,
+                    )
+
+
+def _render_radar_today_summary(candidate_map: RadarCandidateMap) -> None:
+    """Render today's extraction context as a compact map preface."""
+
+    candidates = candidate_map.candidates
+    if not candidates:
+        return
+    selected_candidate = max(
+        candidates,
+        key=lambda candidate: (
+            candidate.confirmation_priority,
+            candidate.provenance == "direct_mention",
+            candidate.directness,
+            candidate.candidate_id,
+        ),
+    )
+    counts = {
+        provenance: sum(candidate.provenance == provenance for candidate in candidates)
+        for provenance in _RADAR_PROVENANCE_LABELS
+    }
+    status_parts = [
+        _RADAR_PROVENANCE_LABELS[selected_candidate.provenance],
+        _radar_candidate_material_type_label(selected_candidate),
+        f"ニュース {_freshness_label(selected_candidate.freshness_status)}",
+    ]
+    if selected_candidate.watchlist_match:
+        status_parts.append("Myウォッチリスト一致")
+    st.markdown(
+        '<section class="investment-radar-market-summary" aria-label="今日の抽出状況">'
+        '<div class="investment-radar-market-summary-counts">'
+        f'<span>本文 <strong>{counts["direct_mention"]}</strong></span>'
+        f'<span>テーマ推測 <strong>{counts["inferred_candidate"]}</strong></span>'
+        f'<span>市場背景 <strong>{counts["macro_proxy"]}</strong></span>'
+        "</div>"
+        '<div class="investment-radar-market-summary-pick">'
+        '<span class="investment-radar-market-summary-label">最初に確認</span>'
+        f"<strong>{html.escape(_radar_candidate_display_name(selected_candidate))}</strong>"
+        f"<code>{html.escape(selected_candidate.symbol)}</code>"
+        f'<small>{html.escape(" · ".join(status_parts))}</small>'
+        "</div>"
+        "</section>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_radar_candidate_lanes(
+    candidates: Sequence[RadarCandidate],
+    *,
+    selected_candidate_id: str,
+) -> None:
+    candidates_by_provenance = {
+        provenance: [candidate for candidate in candidates if candidate.provenance == provenance]
+        for provenance in _RADAR_PROVENANCE_LABELS
+    }
+    for provenance in ("direct_mention", "inferred_candidate"):
+        _render_radar_candidate_lane(
+            provenance,
+            candidates_by_provenance[provenance],
+            selected_candidate_id=selected_candidate_id,
+        )
+    macro_candidates = candidates_by_provenance["macro_proxy"]
+    if macro_candidates:
+        macro_selected = selected_candidate_id in {
+            candidate.candidate_id for candidate in macro_candidates
+        }
+        with st.expander("市場背景の確認", expanded=macro_selected):
+            _render_radar_candidate_lane(
+                "macro_proxy",
+                macro_candidates,
+                selected_candidate_id=selected_candidate_id,
+            )
+
+
+def radar_candidate_lane_visible_items(
+    candidates: Sequence[RadarCandidate],
+    *,
+    expanded: bool,
+    limit: int = NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT,
+) -> tuple[list[RadarCandidate], int]:
+    """Bound a candidate lane while retaining the backend's deterministic order."""
+
+    bounded_limit = max(1, limit)
+    visible = list(candidates) if expanded else list(candidates[:bounded_limit])
+    return visible, max(0, len(candidates) - len(visible))
+
+
+def _radar_candidate_lane_expanded_key(provenance: str) -> str:
+    return f"investment_radar_candidate_lane_expanded_{provenance}"
+
+
+def _toggle_radar_candidate_lane(provenance: str) -> None:
+    key = _radar_candidate_lane_expanded_key(provenance)
+    st.session_state[key] = not bool(st.session_state.get(key, False))
+
+
+def _render_radar_candidate_lane(
+    provenance: str,
+    candidates: Sequence[RadarCandidate],
+    *,
+    selected_candidate_id: str,
+) -> None:
+    st.markdown(f"#### {_RADAR_PROVENANCE_LABELS[provenance]}（{len(candidates)}件）")
+    st.caption(_RADAR_PROVENANCE_GUIDANCE[provenance])
+    if not candidates:
+        st.caption("表示中の候補はありません。")
+        return
+    expanded = bool(st.session_state.get(_radar_candidate_lane_expanded_key(provenance), False))
+    visible_candidates, hidden_count = radar_candidate_lane_visible_items(
+        candidates, expanded=expanded
+    )
+    for candidate in visible_candidates:
+        _render_radar_candidate_card(
+            candidate,
+            selected=candidate.candidate_id == selected_candidate_id,
+        )
+    if hidden_count or expanded:
+        label = f"あと {hidden_count}件を見る" if hidden_count else "表示をたたむ"
+        st.button(
+            label,
+            key=f"investment_radar_candidate_lane_toggle_{provenance}",
+            on_click=_toggle_radar_candidate_lane,
+            args=(provenance,),
+            use_container_width=True,
+        )
+
+
+def _render_radar_candidate_card(
+    candidate: RadarCandidate,
+    *,
+    selected: bool,
+) -> None:
+    with st.container(border=True):
+        selected_label = "　（選択中）" if selected else ""
+        st.markdown(f"**{html.escape(_radar_candidate_display_name(candidate))}{selected_label}**")
+        if _radar_candidate_display_name(candidate) != candidate.symbol:
+            st.caption(f"銘柄コード: {candidate.symbol}")
+        status_parts = [
+            _radar_candidate_material_type_label(candidate),
+            f"ニュース: {_freshness_label(candidate.freshness_status)}",
+            f"独立根拠: {candidate.independent_source_count}件",
+            f"確認の順番: {_radar_candidate_priority_label(candidate)}",
+        ]
+        if candidate.watchlist_match:
+            status_parts.append("Myウォッチリスト一致")
+        st.caption(" / ".join(status_parts))
+        st.button(
+            "詳細を開く",
+            key=f"investment_radar_candidate_open_detail_{candidate.candidate_id}",
+            on_click=_request_radar_candidate_detail,
+            args=(candidate.candidate_id,),
+            use_container_width=True,
+        )
+
+
+def _render_requested_radar_candidate_detail(
+    candidates: Sequence[RadarCandidate],
+    *,
+    as_of: date,
+    open_symbol_callback: OpenSymbolCallback,
+) -> None:
+    """Consume exactly one explicit detail request without reopening after close."""
+
+    requested_candidate_id = st.session_state.pop(
+        NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY, None
+    )
+    if not isinstance(requested_candidate_id, str):
+        return
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    candidate = candidate_by_id.get(requested_candidate_id)
+    if candidate is None:
+        return
+    _show_radar_candidate_detail_dialog(
+        candidate,
+        as_of=as_of,
+        open_symbol_callback=open_symbol_callback,
+    )
+
+
+def _render_radar_candidate_filters(candidate_map: RadarCandidateMap) -> list[RadarCandidate]:
+    candidates = candidate_map.candidates
+    markets = sorted({candidate.market for candidate in candidates if candidate.market})
+    asset_types = sorted({candidate.asset_type for candidate in candidates if candidate.asset_type})
+    rag_statuses = sorted({candidate.rag_data_status for candidate in candidates})
+    provenance_options = ["direct_mention", "inferred_candidate", "macro_proxy"]
+    st.markdown("#### 探索条件")
+    quick_direct_only = st.checkbox(
+        "本文に出た銘柄",
+        key=NEWS_RADAR_CANDIDATE_QUICK_DIRECT_ONLY_KEY,
+    )
+    quick_watchlist_only = st.checkbox(
+        "Myウォッチリスト",
+        key=NEWS_RADAR_CANDIDATE_QUICK_WATCHLIST_ONLY_KEY,
+    )
+    quick_unchecked_only = st.checkbox(
+        "資料未確認",
+        key=NEWS_RADAR_CANDIDATE_QUICK_UNCHECKED_ONLY_KEY,
+    )
+    with st.expander("詳しい探索条件", expanded=False):
+        market_col, asset_col, provenance_col = st.columns(3)
+        with market_col:
+            selected_markets = st.multiselect(
+                "市場",
+                markets,
+                key="investment_radar_candidate_markets",
+            )
+        with asset_col:
+            selected_asset_types = st.multiselect(
+                "資産種別",
+                asset_types,
+                key="investment_radar_candidate_asset_types",
+            )
+        with provenance_col:
+            selected_provenance_values = st.multiselect(
+                "候補由来",
+                provenance_options,
+                default=["direct_mention", "inferred_candidate"],
+                format_func=lambda value: _RADAR_PROVENANCE_LABELS[value],
+                key="investment_radar_candidate_provenance",
+            )
+        selected_rag_statuses = st.multiselect(
+            "根拠資料の状態",
+            rag_statuses,
+            format_func=lambda value: _RADAR_DATA_STATUS_LABELS[value],
+            key="investment_radar_candidate_rag_status",
+        )
+    st.button(
+        "条件を解除",
+        key="investment_radar_candidate_filters_clear",
+        on_click=_clear_radar_candidate_filters,
+    )
+    selected_provenances = cast(list[object], selected_provenance_values)
+    filtered = filter_radar_candidates(
+        candidate_map,
+        markets=selected_markets,
+        asset_types=selected_asset_types,
+        provenances=cast(list, selected_provenances),
+        rag_statuses=cast(list[RadarCandidateDataStatus], selected_rag_statuses),
+        watchlist_only=quick_watchlist_only,
+    )
+    if quick_direct_only:
+        filtered = [candidate for candidate in filtered if candidate.provenance == "direct_mention"]
+    if quick_unchecked_only:
+        filtered = [
+            candidate for candidate in filtered if candidate.rag_data_status == "not_checked"
+        ]
+    triage_provenance = st.session_state.get(NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY)
+    triage_priority = st.session_state.get(NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY)
+    if triage_provenance in _RADAR_PROVENANCE_LABELS:
+        filtered = [
+            candidate for candidate in filtered if candidate.provenance == triage_provenance
+        ]
+    if triage_priority in _RADAR_TRIAGE_PRIORITY_LABELS:
+        filtered = [
+            candidate
+            for candidate in filtered
+            if _radar_candidate_priority_bucket(candidate) == triage_priority
+        ]
+    active_conditions: list[str] = []
+    if quick_direct_only:
+        active_conditions.append("本文に出た銘柄")
+    if quick_watchlist_only:
+        active_conditions.append("Myウォッチリスト")
+    if quick_unchecked_only:
+        active_conditions.append("資料未確認")
+    if (
+        triage_provenance in _RADAR_PROVENANCE_LABELS
+        and triage_priority in _RADAR_TRIAGE_PRIORITY_LABELS
+    ):
+        active_conditions.append(
+            f"{_RADAR_PROVENANCE_LABELS[triage_provenance]} / "
+            f"{_RADAR_TRIAGE_PRIORITY_LABELS[triage_priority]}"
+        )
+    if active_conditions:
+        st.caption("絞り込み中: " + " / ".join(active_conditions))
+    return filtered
+
+
+def _render_radar_candidate_detail(
+    candidate: RadarCandidate,
+    *,
+    as_of: date,
+    open_symbol_callback: OpenSymbolCallback,
+) -> None:
+    with st.container(border=True):
+        st.markdown(f"#### 選択中の候補：{html.escape(_radar_candidate_label(candidate))}")
+        st.caption(
+            f"{_RADAR_PROVENANCE_LABELS[candidate.provenance]} / "
+            f"{_radar_candidate_material_type_label(candidate)} / "
+            f"ニュース鮮度: {_freshness_label(candidate.freshness_status)}"
+        )
+        st.markdown("**なぜこの候補か**")
+        categories = " / ".join(candidate.categories) or "未分類"
+        st.write(
+            f"候補由来: {_RADAR_PROVENANCE_LABELS[candidate.provenance]}。"
+            f"カテゴリ: {categories}。"
+            f"独立した根拠: {candidate.independent_source_count}件。"
+        )
+        st.markdown(_radar_evidence_path_html(candidate), unsafe_allow_html=True)
+        if candidate.watchlist_match:
+            st.caption("Myウォッチリストと一致しています。")
+        st.markdown("**データの状態**")
+        st.caption("銘柄DB: " f"{_RADAR_DATA_STATUS_LABELS[candidate.symbol_data_status]}")
+        st.caption(f"価格: {_radar_price_data_status_label(candidate)}")
+        st.caption(f"根拠資料: {_radar_rag_data_status_label(candidate)}")
+        st.markdown("**確認の順番**")
+        st.write(_radar_candidate_priority_label(candidate))
+        for kind, detail, points in _radar_candidate_priority_reason_rows(candidate):
+            reason_text = _radar_candidate_priority_reason_text(
+                candidate,
+                kind,
+                detail,
+                points,
+            )
+            st.caption(f"・{reason_text}")
+        st.caption(
+            "確認優先度はニュース確認の順番です。投資魅力度・期待収益・ランキング順位を示しません。"
+        )
+        evidence_bundle = _render_radar_evidence_bundle(candidate)
+        _render_radar_interpretation(candidate)
+        st.markdown("**根拠記事**")
+        for evidence in candidate.evidence:
+            source = evidence.source_name or _source_type_label(evidence.source_type)
+            label = f"{evidence.headline_title} — {source}"
+            if evidence.source_url:
+                st.markdown(
+                    f'<a href="{html.escape(evidence.source_url, quote=True)}" '
+                    f'target="_blank" rel="noopener noreferrer">{html.escape(label)} ↗</a>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.write(label)
+        st.markdown("**次の確認**")
+        for gap in candidate.confirmation_gaps:
+            st.caption(f"・{gap}")
+        if candidate.is_investigation_candidate:
+            if st.button(
+                "根拠資料を確認",
+                key=f"investment_radar_candidate_research_{candidate.candidate_id}",
+            ):
+                _store_radar_evidence_bundle(candidate, as_of=as_of)
+                _rerun_with_radar_candidate_detail(candidate.candidate_id)
+            if evidence_bundle is not None and st.button(
+                "AIで根拠を整理（明示実行）",
+                key=f"investment_radar_candidate_interpret_{candidate.candidate_id}",
+            ):
+                _store_radar_interpretation(candidate, evidence_bundle)
+                _rerun_with_radar_candidate_detail(candidate.candidate_id)
+            st.button(
+                "銘柄コックピットで確認",
+                key=f"investment_radar_candidate_open_{candidate.candidate_id}",
+                on_click=open_symbol_callback,
+                args=(candidate.symbol,),
+                type="primary",
+            )
+            st.caption(
+                "この画面での選択・遷移では、価格取得、RAG検索、外部資料取得、保存は開始しません。"
+            )
+        else:
+            st.info("市場背景の確認は、個別銘柄候補としてではなく市場の状況確認に使います。")
+
+
+def _radar_evidence_path_html(candidate: RadarCandidate) -> str:
+    extraction_label = (
+        "本文言及"
+        if candidate.provenance == "direct_mention"
+        else "テーマ推測" if candidate.provenance == "inferred_candidate" else "市場背景"
+    )
+    rag_class = "ready" if candidate.rag_data_status in {"available", "partial"} else "pending"
+    rag_label = "RAG確認済み" if rag_class == "ready" else "RAG未確認"
+    return (
+        '<div class="investment-radar-evidence-path" aria-label="根拠の確認経路">'
+        '<span class="ready">ニュース根拠</span><b>→</b>'
+        f'<span class="ready">{html.escape(extraction_label)}</span><b>→</b>'
+        f'<span class="{rag_class}">{rag_label}</span><b>→</b>'
+        '<span class="next">銘柄コックピット</span>'
+        "</div>"
+    )
+
+
+def _show_radar_candidate_detail_dialog(
+    candidate: RadarCandidate,
+    *,
+    as_of: date,
+    open_symbol_callback: OpenSymbolCallback,
+) -> None:
+    """Open candidate detail only for the explicit click that requested it."""
+
+    def render_body() -> None:
+        st.markdown(
+            '<span class="investment-radar-candidate-detail-dialog-marker"></span>',
+            unsafe_allow_html=True,
+        )
+        _render_radar_candidate_detail(
+            candidate,
+            as_of=as_of,
+            open_symbol_callback=open_symbol_callback,
+        )
+
+    dialog = getattr(st, "dialog", None)
+    if callable(dialog):
+
+        @dialog("確認候補の詳細", width="large")
+        def _dialog() -> None:
+            render_body()
+
+        _dialog()
+        return
+    with st.container(border=True):
+        st.subheader("確認候補の詳細")
+        render_body()
+
+
+def _radar_candidate_priority_label(candidate: RadarCandidate) -> str:
+    return _RADAR_TRIAGE_PRIORITY_LABELS[_radar_candidate_priority_bucket(candidate)]
+
+
+def _radar_candidate_priority_reason_rows(
+    candidate: RadarCandidate,
+) -> list[tuple[str, str, int]]:
+    """Return priority rows, including candidates built before the reason field existed.
+
+    Streamlit reloads the page script independently of imported domain modules.
+    During a rolling local update, a just-reloaded page can therefore receive a
+    ``RadarCandidate`` created by the previous in-memory contract.  The fallback
+    mirrors that previous deterministic priority formula strictly for display;
+    it does not alter the score or persist any data.
+    """
+
+    current_reasons = getattr(candidate, "confirmation_priority_reasons", None)
+    if current_reasons is not None:
+        rows = [
+            (
+                str(getattr(reason, "kind", "unknown")),
+                str(getattr(reason, "detail", "unknown")),
+                int(getattr(reason, "points", 0)),
+            )
+            for reason in current_reasons
+        ]
+        if sum(points for _, _, points in rows) == candidate.confirmation_priority:
+            return rows
+
+    evidence = list(getattr(candidate, "evidence", ()) or ())
+    freshness_status = max(
+        (str(getattr(item, "freshness_status", "unknown")) for item in evidence),
+        key=lambda value: (_RADAR_PRIORITY_FRESHNESS_POINTS.get(value, 0), value),
+        default="unknown",
+    )
+    freshness_points = _RADAR_PRIORITY_FRESHNESS_POINTS.get(freshness_status, 0)
+    material_type = max(
+        (str(getattr(item, "material_type", "unknown")) for item in evidence),
+        key=lambda value: (_RADAR_PRIORITY_MATERIAL_POINTS.get(value, 3), value),
+        default="unknown",
+    )
+    material_points = _RADAR_PRIORITY_MATERIAL_POINTS.get(material_type, 3) if evidence else 0
+    rows = [
+        ("freshness", freshness_status, freshness_points),
+        ("evidence_breadth", str(min(3, len(evidence))), min(3, len(evidence)) * 8),
+        ("material_type", material_type, material_points),
+    ]
+    if candidate.watchlist_match:
+        rows.append(("watchlist_match", "watchlist_match", 14))
+    return rows if sum(points for _, _, points in rows) == candidate.confirmation_priority else []
+
+
+def _radar_candidate_priority_reason_text(
+    candidate: RadarCandidate,
+    kind: str,
+    detail: str,
+    points: int,
+) -> str:
+    del points
+    if kind == "freshness":
+        return f"ニュース鮮度: {_freshness_label(candidate.freshness_status)}"
+    if kind == "evidence_breadth":
+        return f"追跡できる根拠記事: {detail}件"
+    if kind == "material_type":
+        material_label = _MATERIAL_LABELS.get(detail, detail)
+        return f"材料の種類: {material_label}"
+    if kind == "watchlist_match":
+        return "Myウォッチリスト一致"
+    return "確認材料"
+
+
+def _radar_price_data_status_label(candidate: RadarCandidate) -> str:
+    if candidate.price_data_status == "not_checked":
+        return "未実行（銘柄コックピットで確認）"
+    return _RADAR_DATA_STATUS_LABELS[candidate.price_data_status]
+
+
+def _radar_rag_data_status_label(candidate: RadarCandidate) -> str:
+    if candidate.rag_data_status == "not_checked":
+        return "未実行（「根拠資料を確認」で開始）"
+    return _RADAR_DATA_STATUS_LABELS[candidate.rag_data_status]
+
+
+def _candidate_map_with_rag_state(candidate_map: RadarCandidateMap) -> RadarCandidateMap:
+    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    if not isinstance(stored, dict):
+        return candidate_map
+    candidates: list[RadarCandidate] = []
+    for candidate in candidate_map.candidates:
+        bundle = _radar_evidence_bundle_from_state(stored.get(candidate.candidate_id))
+        if bundle is None:
+            candidates.append(candidate)
+            continue
+        rag_status: RadarCandidateDataStatus = (
+            "available" if bundle.status == "available" else "partial"
+        )
+        candidates.append(
+            candidate.model_copy(
+                update={
+                    "rag_data_status": rag_status,
+                    "confirmation_gaps": _unique_text(
+                        [
+                            *candidate.confirmation_gaps,
+                            *bundle.confirmation_gaps,
+                        ]
+                    ),
+                }
+            )
+        )
+    return candidate_map.model_copy(update={"candidates": candidates})
+
+
+def _render_radar_evidence_bundle(candidate: RadarCandidate) -> RadarEvidenceBundle | None:
+    bundle = _radar_evidence_bundle_for_candidate(candidate)
+    if bundle is None:
+        return None
+    st.markdown("**根拠資料の確認**")
+    if bundle.citations:
+        for citation in bundle.citations:
+            st.markdown(
+                f"**{citation.title}** · {citation.source_type} · "
+                f"{_freshness_label(citation.freshness_status)}"
+            )
+            st.caption(citation.excerpt)
+    else:
+        st.info("ローカルRAG根拠は確認できませんでした。確認不足として扱います。")
+    for gap in bundle.confirmation_gaps:
+        st.caption(f"・{gap}")
+    if bundle.retrieval_quality is not None:
+        with st.expander("検索の状態（ローカルRAG）", expanded=False):
+            st.caption(
+                f"方式: {bundle.retrieval_quality.backend} / "
+                f"候補: {bundle.retrieval_quality.candidate_count}件 / "
+                f"根拠: {bundle.retrieval_quality.evidence_count}件"
+            )
+    return bundle
+
+
+def _store_radar_evidence_bundle(candidate: RadarCandidate, *, as_of: date) -> None:
+    """Run local RAG only after the user explicitly asks to confirm evidence."""
+
+    from backend.research import (
+        HybridResearchRetrievalService,
+        ResearchRetrievalService,
+        ResearchSearchError,
+    )
+    from ui.research_state import (
+        autoload_local_research_documents,
+        research_store,
+        research_vector_store,
+    )
+
+    context = build_radar_research_context(candidate, as_of=as_of)
+    try:
+        autoload_local_research_documents()
+        retriever = HybridResearchRetrievalService(
+            ResearchRetrievalService(research_store()),
+            vector_store=research_vector_store(),
+        )
+        bundle = build_radar_evidence_bundle(
+            candidate,
+            context=context,
+            retriever=retriever,
+        )
+    except (OSError, ResearchSearchError, ValueError):
+        bundle = RadarEvidenceBundle(
+            candidate_id=candidate.candidate_id,
+            context=context,
+            status="unavailable",
+            confirmation_gaps=["ローカルRAG根拠を確認できませんでした。後で再試行してください。"],
+            generated_at=datetime.now(UTC),
+        )
+    existing = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    bundles = dict(existing) if isinstance(existing, dict) else {}
+    bundles[candidate.candidate_id] = bundle
+    st.session_state[NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY] = bundles
+
+
+def _render_radar_interpretation(candidate: RadarCandidate) -> None:
+    stored = st.session_state.get(NEWS_RADAR_INTERPRETATIONS_STATE_KEY, {})
+    result = _radar_interpretation_from_state(
+        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
+    )
+    if result is None:
+        return
+    st.markdown("**AIによる根拠整理**")
+    st.caption(
+        "参照IDに結び付いた説明です。投資判断・順位・スコア・予測値を変更するものではありません。"
+    )
+    st.write(result.overall_reading)
+    _render_radar_interpretation_points("材料", result.material_points)
+    _render_radar_interpretation_points("注意点", result.caution_points)
+    _render_radar_interpretation_points("不明点", result.unknowns)
+    _render_radar_interpretation_points("次の確認", result.next_checks)
+    if result.fallback_reason is not None:
+        st.caption(f"表示状態: {_radar_interpretation_status_label(result)}")
+    if result.warnings:
+        for warning in result.warnings:
+            st.caption(f"・{warning}")
+
+
+def _render_radar_interpretation_points(label: str, points: Sequence[object]) -> None:
+    if not points:
+        return
+    st.markdown(f"*{label}*")
+    for point in points:
+        summary = str(getattr(point, "summary", "")).strip()
+        evidence_ids = getattr(point, "evidence_ids", [])
+        if not summary:
+            continue
+        reference = "、".join(str(value) for value in evidence_ids[:3])
+        st.write(f"・{summary}")
+        if reference:
+            st.caption(f"根拠ID: {reference}")
+
+
+def _store_radar_interpretation(
+    candidate: RadarCandidate,
+    evidence_bundle: RadarEvidenceBundle,
+) -> None:
+    try:
+        result = build_radar_interpretation_from_settings(candidate, evidence_bundle)
+    except ValueError:
+        return
+    existing = st.session_state.get(NEWS_RADAR_INTERPRETATIONS_STATE_KEY, {})
+    interpretations = dict(existing) if isinstance(existing, dict) else {}
+    interpretations[candidate.candidate_id] = result
+    st.session_state[NEWS_RADAR_INTERPRETATIONS_STATE_KEY] = interpretations
+
+
+def _radar_evidence_bundle_for_candidate(candidate: RadarCandidate) -> RadarEvidenceBundle | None:
+    stored = st.session_state.get(NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY, {})
+    return _radar_evidence_bundle_from_state(
+        stored.get(candidate.candidate_id) if isinstance(stored, dict) else None
+    )
+
+
+def _radar_interpretation_from_state(value: object) -> RadarInterpretationResult | None:
+    if isinstance(value, RadarInterpretationResult):
+        return value
+    if isinstance(value, Mapping):
+        try:
+            return RadarInterpretationResult.model_validate(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _radar_interpretation_status_label(result: RadarInterpretationResult) -> str:
+    labels = {
+        "disabled": "AI根拠整理は設定で無効です。確認不足として扱います。",
+        "fallback": "AI根拠整理を取得できませんでした。確認不足として扱います。",
+        "validation_error": "AI応答を根拠制約に照らして採用しませんでした。",
+    }
+    return labels.get(result.status, "根拠IDに結び付けたAI整理を表示しています。")
+
+
+def _radar_evidence_bundle_from_state(value: object) -> RadarEvidenceBundle | None:
+    if isinstance(value, RadarEvidenceBundle):
+        return value
+    if isinstance(value, Mapping):
+        try:
+            return RadarEvidenceBundle.model_validate(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _unique_text(values: Sequence[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = value.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def _radar_watchlist_symbols() -> list[str]:
+    manual_symbols = parse_news_watchlist_symbols(
+        str(st.session_state.get(NEWS_DASHBOARD_WATCHLIST_STATE_KEY) or "")
+    )
+    favorite_symbols = [favorite.symbol for favorite in load_favorites()]
+    source = str(st.session_state.get("investment_news_watchlist_source", "favorites_watchlist"))
+    return combine_news_watchlist_symbols(manual_symbols, favorite_symbols, source=source)
+
+
+def _radar_candidate_label(candidate: RadarCandidate) -> str:
+    name = _radar_candidate_display_name(candidate)
+    identity = name if name == candidate.symbol else f"{name}（{candidate.symbol}）"
+    return f"{identity} — {_RADAR_PROVENANCE_LABELS[candidate.provenance]}"
 
 
 def _render_category_lanes(
@@ -2010,27 +3735,38 @@ def _lane_heading_html(category: str) -> str:
     )
 
 
-def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
+def _news_ticker_html(
+    cards: list[NewsHeadlineCard],
+    *,
+    ticker_id: str = "investment-news-headlines",
+) -> str:
     if not cards:
         return ""
     unique_cards = _unique_news_ticker_cards(cards)
-    pages = [unique_cards[index : index + 4] for index in range(0, len(unique_cards), 4)]
+    pages = [
+        unique_cards[index : index + NEWS_FEATURED_HEADLINE_PAGE_SIZE]
+        for index in range(0, len(unique_cards), NEWS_FEATURED_HEADLINE_PAGE_SIZE)
+    ]
     page_count = len(pages)
-    duration_seconds = max(6, page_count * 6)
+    page_duration_seconds = NEWS_FEATURED_HEADLINE_ROTATION_SECONDS
+    duration_seconds = max(page_duration_seconds, page_count * page_duration_seconds)
+    latest_published = max(
+        (card.published_at for card in unique_cards if card.published_at), default=None
+    )
     visible_percent = round(100 / page_count, 4) if page_count > 1 else 100
     animation_css = (
         ""
         if page_count == 1
         else (
             "<style>"
-            f"@keyframes investment-news-board-cycle{{0%,{visible_percent - 1}%{{opacity:1;transform:translateY(0);pointer-events:auto}}"
-            f"{visible_percent}%,100%{{opacity:0;transform:translateY(10px);pointer-events:none}}}}"
+            f"@keyframes {ticker_id}-cycle{{0%,{visible_percent - 1}%{{opacity:1;transform:translateX(0);pointer-events:auto}}"
+            f"{visible_percent}%,100%{{opacity:0;transform:translateX(2rem);pointer-events:none}}}}"
             + "".join(
                 (
-                    f".investment-news-board-page--{index}{{animation-delay:{index * 6}s}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page{{animation:none;opacity:0;transform:none;pointer-events:none}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page--{index}{{opacity:1;pointer-events:auto}}"
-                    f"#investment-news-board-page-{index}:checked~.investment-news-board-nav label[for=investment-news-board-page-{index}]{{background:#67e8f9;transform:scale(1.18)}}"
+                    f"#{ticker_id} .investment-news-board-page--{index}{{animation-name:{ticker_id}-cycle;animation-delay:{index * page_duration_seconds}s}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page{{animation:none;opacity:0;transform:none;pointer-events:none}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page--{index}{{opacity:1;pointer-events:auto}}"
+                    f"#{ticker_id}-page-{index}:checked~.investment-news-board-nav label[for={ticker_id}-page-{index}]{{background:#67e8f9;transform:scale(1.18)}}"
                 )
                 for index in range(page_count)
             )
@@ -2038,14 +3774,18 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
         )
     )
     controls = "".join(
-        f'<input class="investment-news-board-radio" type="radio" name="investment-news-board-page" id="investment-news-board-page-{index}" />'
+        f'<input class="investment-news-board-radio" type="radio" name="{ticker_id}-page" id="{ticker_id}-page-{index}" />'
         for index in range(page_count)
     )
     page_html = "".join(
         (
             f'<div class="investment-news-board-page investment-news-board-page--{page_index}" '
-            f'style="--investment-news-board-duration:{duration_seconds}s">'
-            + "".join(_news_ticker_item_html(card) for card in page)
+            f'style="--investment-news-board-duration:{duration_seconds}s;'
+            f'--investment-news-flow-duration:{max(6, len(page) * 3)}s">'
+            + "".join(
+                _news_ticker_item_html(card, flow_index=item_index)
+                for item_index, card in enumerate(page)
+            )
             + "</div>"
         )
         for page_index, page in enumerate(pages)
@@ -2053,17 +3793,22 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     navigation = (
         '<div class="investment-news-board-nav" aria-label="ヘッドラインページ">'
         + "".join(
-            f'<label for="investment-news-board-page-{index}" title="{index + 1}ページ目"><span>{index + 1}</span></label>'
+            f'<label for="{ticker_id}-page-{index}" title="{index + 1}ページ目"><span>{index + 1}</span></label>'
             for index in range(page_count)
         )
-        + '<span class="investment-news-board-nav-note">ホバーで一時停止</span></div>'
+        + '<span class="investment-news-board-nav-note">ホバーで一時停止 · 8秒ごとに切替</span></div>'
         if page_count > 1
         else ""
     )
     return (
         animation_css
-        + '<section class="investment-news-ticker investment-news-board" aria-label="市場ニュースヘッドライン">'
+        + f'<section id="{ticker_id}" class="investment-news-ticker investment-news-board" aria-label="市場ニュースヘッドライン">'
         + controls
+        + '<div class="investment-news-ticker-flow" aria-label="ヘッドラインの更新表示">'
+        + '<span class="investment-news-ticker-flow-label"><i aria-hidden="true"></i>HEADLINE FLOW</span>'
+        + f'<span class="investment-news-ticker-flow-count">{len(unique_cards)}件を{NEWS_FEATURED_HEADLINE_PAGE_SIZE}件ずつ表示</span>'
+        + f'<time class="investment-news-ticker-flow-time">最新公開 {_datetime_label(latest_published)}</time>'
+        + "</div>"
         + f'<div class="investment-news-board-viewport">{page_html}</div>'
         + navigation
         + "</section>"
@@ -2082,7 +3827,7 @@ def _unique_news_ticker_cards(cards: list[NewsHeadlineCard]) -> list[NewsHeadlin
     return unique
 
 
-def _news_ticker_item_html(card: NewsHeadlineCard) -> str:
+def _news_ticker_item_html(card: NewsHeadlineCard, *, flow_index: int = 0) -> str:
     tag = "a" if card.url else "article"
     link_attributes = (
         f' href="{html.escape(card.url or "", quote=True)}" target="_blank" rel="noopener noreferrer"'
@@ -2091,9 +3836,11 @@ def _news_ticker_item_html(card: NewsHeadlineCard) -> str:
     )
     source = card.source_name or _source_type_label(card.source_type)
     return (
-        f'<{tag} class="investment-news-ticker-item"{link_attributes}>'
+        f'<{tag} class="investment-news-ticker-item" '
+        f'style="--investment-news-flow-delay:{flow_index * 3}s"{link_attributes}>'
         f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
-        f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
+        f'<span class="investment-news-ticker-title" title="{html.escape(card.title, quote=True)}">'
+        f"{html.escape(card.title)}</span>"
         f"<small>{html.escape(source)}</small>"
         f"</{tag}>"
     )
@@ -2126,17 +3873,19 @@ def _datetime_label(value: datetime | None) -> str:
 
 
 def _price_change_label(value: float | None, *, inferred: bool = False) -> str:
+    if inferred:
+        return "方向未確認"
     if value is None:
         return "未取得"
-    if inferred:
-        return f"材料{value:+.1f}"
     return f"{value:+.1f}%"
 
 
 def _volume_label(value: float | None, *, inferred: bool = False) -> str:
+    if inferred:
+        return "ニュース集計"
     if value is None:
         return "未取得"
-    suffix = "相当" if inferred else ""
+    suffix = ""
     if value >= 1.8:
         return f"高い{suffix}"
     if value >= 1.3:

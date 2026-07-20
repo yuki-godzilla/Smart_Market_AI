@@ -605,9 +605,7 @@ def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         return
     render_section_heading("03 上昇気配・下降警戒")
-    st.caption(
-        "ランキングと同じ上昇気配・下降警戒を、1銘柄の深掘り用に確認します。売買推奨ではありません。"
-    )
+    st.caption("ランキングと同じ上昇気配・下降警戒を、1銘柄で確認します。")
     columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
@@ -690,7 +688,7 @@ def render_cockpit_summary_header(
     title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
     render_dashboard_header(
         title,
-        "価格・予測・AI調査を一つの流れで確認する分析ビューです。表示内容は売買推奨ではありません。",
+        "価格・予測・AI調査を一つの流れで確認する分析ビューです。",
         chips=[
             ("データ取得元", _item_value(item_by_label, "データ取得元")),
             ("基準日", _item_value(item_by_label, "基準日")),

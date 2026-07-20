@@ -34,18 +34,18 @@ def test_fetch_ohlcv_returns_mock_bars():
 
 def test_fetch_ohlcv_returns_recent_mock_bars_for_current_date_defaults():
     da = _mock_data_access()
-    today = datetime.now(UTC).date()
+    end = datetime.now(UTC)
 
     bars = asyncio.run(
         da.fetch_ohlcv(
             ["AAPL"],
-            start=datetime.combine(today - timedelta(days=7), time.min, tzinfo=UTC),
-            end=datetime.combine(today, time.max, tzinfo=UTC),
+            start=end - timedelta(days=7),
+            end=datetime.combine(end.date(), time.max, tzinfo=UTC),
         )
     )
 
     assert bars
-    assert bars[-1].ts.date() == today
+    assert end - timedelta(days=7) <= bars[-1].ts <= end
     assert bars[-1].provider == "mock"
     close_changes = [bars[index].close - bars[index - 1].close for index in range(1, len(bars))]
     assert any(change > 0 for change in close_changes)

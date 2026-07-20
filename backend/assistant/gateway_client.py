@@ -27,6 +27,7 @@ from backend.assistant.gateway_contracts import (
     build_assistant_gateway_request,
 )
 from backend.assistant.response_sanitizer import (
+    contains_investment_advice,
     sanitize_presentation_items,
     sanitize_presentation_text,
 )
@@ -771,6 +772,17 @@ class GatewayBackedAssistantService:
                 prompt_chars=prompt_chars,
             )
 
+        if _gateway_response_contains_investment_advice(gateway_response):
+            return _fallback_response(
+                fallback_response,
+                request_id=gateway_request.request_id,
+                started=started,
+                reason="unsafe_llm_presentation",
+                timeout_sec=timeout_sec,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
+            )
+
         return _assistant_response_from_gateway_response(
             gateway_response,
             fallback_response=fallback_response,
@@ -808,6 +820,20 @@ def _coerce_gateway_response(
     if isinstance(response, AssistantGatewayResponse):
         return response
     return AssistantGatewayResponse.model_validate(response)
+
+
+def _gateway_response_contains_investment_advice(response: AssistantGatewayResponse) -> bool:
+    """Reject prescriptive LLM text before any response field reaches the UI."""
+
+    return any(
+        contains_investment_advice(text)
+        for text in (
+            response.answer,
+            *response.materials,
+            *response.cautions,
+            *response.next_checkpoints,
+        )
+    )
 
 
 def _assistant_response_from_gateway_response(

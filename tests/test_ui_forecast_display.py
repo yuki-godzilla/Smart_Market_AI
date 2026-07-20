@@ -81,6 +81,7 @@ from ui.app import (
     _advanced_forecast_model_help,
     _advanced_forecast_ranking_signal_fields,
     _advanced_forecast_rows_for_ranking,
+    _advanced_forecast_warning_display,
     _apply_navigation_query_params,
     _background_workers_disabled,
     _build_market_data_ranking_rows,
@@ -179,6 +180,7 @@ from ui.app import (
     _research_operation_insight,
     _research_quality_warning_rows,
     _research_result_overview_html,
+    _research_retrieval_quality_caption,
     _research_retrieval_quality_rows,
     _research_score_component_rows,
     _research_score_context_caption,
@@ -1168,9 +1170,9 @@ def test_favorite_filter_and_sort_rows_applies_selected_controls(monkeypatch):
 
 def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
-    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
-    assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
-    assert default_forecast_horizon_days(date(2021, 5, 23), date(2026, 5, 23)) == 60
+    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 1
+    assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 20
+    assert default_forecast_horizon_days(date(2021, 5, 23), date(2026, 5, 23)) == 100
 
 
 def test_market_data_period_dates_support_decision_review_presets():
@@ -1206,10 +1208,10 @@ def test_market_data_period_dates_clamp_month_end_and_leap_day():
 
 
 def test_market_data_period_help_explains_review_basis():
-    assert "任意の期間" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
+    assert "自由に指定" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
     assert "決算" in market_data_period_help("medium_3m")
-    assert "長期保有" in market_data_period_help("long_5y")
-    assert "任意の期間" in market_data_period_help("unknown")
+    assert "長期の変化" in market_data_period_help("long_5y")
+    assert "自由に指定" in market_data_period_help("unknown")
 
 
 def test_market_data_provider_defaults_to_yahoo_without_config(monkeypatch):
@@ -2661,7 +2663,7 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     markup = "\n".join(markdown_calls)
 
     assert clicked is True
-    assert [label for label, _ in button_calls] == ["AI調査を開始・更新"]
+    assert [label for label, _ in button_calls] == ["AIメモを更新"]
     assert "AI調査はまだ未取得です" in markup
     assert "未取得通知" not in markup
     assert "確認方針" not in markup
@@ -2765,19 +2767,19 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     markup += _ir_summary_html(summary.ir_items)
     markup += _news_summary_html(summary.news_items)
 
-    assert "企業リサーチサマリー" in markup
+    assert "企業メモ" in markup
     assert "企業概要" in markup
     assert "事業内容" in markup
     assert "セクター: 一般消費財" in markup
     assert "業種: 自動車メーカー" in markup
     assert "Consumer Cyclical" not in markup
     assert "Auto Manufacturers" not in markup
-    assert "定量情報サマリー" in markup
+    assert "主要数値" in markup
     assert "売上高" in markup
-    assert "IR情報サマリー" in markup
+    assert "IR・開示" in markup
     assert "関連候補あり" in markup
     assert "取得済み・要約済み" not in markup
-    assert "最新ニュース・開示サマリー" in markup
+    assert "ニュース・開示" in markup
     assert "market-intelligence-panel" in markup
     assert "Market Intelligence" in markup
     assert "market-news-grid" in markup
@@ -2827,7 +2829,7 @@ def test_company_research_summary_panel_hides_ai_reading_notes_initially(monkeyp
     _render_company_research_summary_panel(summary)
 
     markup = "".join(markdown_calls)
-    assert "企業リサーチサマリー" in markup
+    assert "企業メモ" in markup
     assert "AI読み取りメモ" not in markup
     assert "AI内部メモです。" not in markup
 
@@ -3055,7 +3057,7 @@ def test_investment_question_summary_html_prioritizes_initial_questions():
         "valuation",
         "recent_news_impact",
     ]
-    assert "企業理解の確認ポイント" in markup
+    assert "次に見ること" in markup
     assert "Q. この会社は何で稼いでいるか？" in markup
     assert "根拠: 中" in markup
     assert "根拠: 不足" in markup
@@ -3125,7 +3127,7 @@ def test_research_summary_advanced_detail_omits_duplicate_reading_sections(monke
     _render_research_summary_panel(report, detail_expanded=False)
 
     rendered_text = "\n".join(rendered)
-    assert "詳細情報・開発者向け" in rendered_text
+    assert "詳細・開発者向け" in rendered_text
     assert "Research Score" in rendered_text
     assert "検索品質" in rendered_text or "根拠資料の詳細" in rendered_text
     assert "AI読み取りメモ" not in rendered_text
@@ -4400,6 +4402,22 @@ def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():
     assert claim_rows[0]["観点"] == "growth"
     assert claim_rows[0]["信頼度"] == "0.75"
 
+    hybrid_caption = _research_retrieval_quality_caption(
+        report.model_copy(
+            update={
+                "retrieval_quality": report.retrieval_quality.model_copy(
+                    update={
+                        "backend": "hybrid",
+                        "document_count": 1,
+                        "vector_candidate_count": 2,
+                    }
+                )
+            }
+        )
+    )
+    assert "ハイブリッド検索" in hybrid_caption
+    assert "根拠: 2件" in hybrid_caption
+
 
 def test_research_evidence_report_section_carries_data_quality_warnings():
     warning = "検索できたResearch根拠の信頼度が低いため、出所を確認してください。"
@@ -4727,11 +4745,11 @@ def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
 
 
 def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
-    assert "通常表示では投資判断に必要な列だけ" in RANKING_TABLE_SORT_GUIDANCE
+    assert "通常表示は、比較に使う列だけ" in RANKING_TABLE_SORT_GUIDANCE
     assert "詳細列を表示する" in RANKING_TABLE_SORT_GUIDANCE
-    assert "ニュース材料はAI要約による参考情報" in RANKING_TABLE_SORT_GUIDANCE
-    assert "ランキング順位には反映していません" in RANKING_TABLE_SORT_GUIDANCE
-    assert "N/Aは未取得または未評価" in RANKING_TABLE_SORT_GUIDANCE
+    assert "ニュース材料は順位に反映していません" in RANKING_TABLE_SORT_GUIDANCE
+    assert "N/Aは未取得・未評価" in RANKING_TABLE_SORT_GUIDANCE
+    assert "N/Aは未取得・未評価" in RANKING_TABLE_SORT_GUIDANCE
 
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
@@ -4853,6 +4871,12 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
     assert session_state["market_data_period_preset"] == MARKET_DATA_PERIOD_CUSTOM
     assert session_state["market_data_start"] == date(2026, 5, 17)
     assert session_state["market_data_end"] == date(2026, 5, 24)
+    assert session_state["market_data_navigation_source"] == {
+        "source_page": "ranking",
+        "source_label": "銘柄ランキング",
+        "symbol": "7203.T",
+        "period_label": "2026-05-17〜2026-05-24",
+    }
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state
     assert "market_data_ranking_deep_dive_symbol" not in session_state
@@ -5758,9 +5782,9 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     assert "予測・上昇気配 25%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "下振れ警戒 10%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert ranking_purpose_weight_summary(RANKING_PURPOSE_SORT_PER) == (
-        "PER低い順 100%",
-        "N/A 末尾",
-        "同値は総合スコア補助",
+        "主指標 PER低い順",
+        "欠損データ N/Aは末尾",
+        "同点補正 総合スコアで補助",
     )
     assert "上向きシグナル" in ranking_purpose_focus_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "低い順" in ranking_purpose_focus_summary(RANKING_PURPOSE_SORT_PER)
@@ -6287,7 +6311,7 @@ def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
             end=date(2026, 5, 17),
         )
     )
-    assert source_key.startswith("signal-v4|")
+    assert source_key.startswith(f"{app_module.RANKING_BUILD_CACHE_VERSION}|")
     assert (
         _ranking_source_key_for_selection(
             provider="yahoo",
@@ -6361,28 +6385,46 @@ def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatc
     assert get_cached_ranking_build("missing") is None
 
 
-def test_ranking_build_job_state_blocks_restore_only_while_running():
-    cache_key = "test-running-ranking-build"
+def test_ranking_build_cache_expires_after_ttl(monkeypatch):
+    cache: dict[str, dict[str, list[dict[str, str]]]] = {}
+    accessed_at: dict[str, float] = {}
+    now = 100.0
+    monkeypatch.setattr(app_module, "_ranking_build_cache", lambda: cache)
+    monkeypatch.setattr(app_module, "_ranking_build_cache_accessed_at", lambda: accessed_at)
+    monkeypatch.setattr(app_module.perf_time, "monotonic", lambda: now)
 
-    app_module.begin_ranking_build(cache_key)
-    assert app_module.ranking_build_is_running(cache_key)
+    app_module.set_cached_ranking_build("ranking", rows=[{"symbol": "AAPL"}], error_rows=[])
+    now += app_module.RANKING_BUILD_CACHE_TTL_SECONDS + 1
 
-    app_module.complete_ranking_build(cache_key)
-    assert not app_module.ranking_build_is_running(cache_key)
+    assert app_module.get_cached_ranking_build("ranking") is None
+    assert cache == {}
+    assert accessed_at == {}
 
-    app_module.begin_ranking_build(cache_key)
-    app_module.fail_ranking_build(cache_key)
-    assert not app_module.ranking_build_is_running(cache_key)
+
+def test_ranking_cache_caps_are_bounded_for_server_memory() -> None:
+    assert app_module.MAX_RANKING_OHLCV_CACHE_SYMBOLS == 500
+    assert app_module.MAX_RANKING_FUNDAMENTAL_CACHE_SYMBOLS == 1_000
+    assert app_module.MAX_RANKING_ADVANCED_FORECAST_CACHE_SYMBOLS == 2_000
 
 
 def test_ranking_symbol_db_preflight_is_protected_from_maintenance_restart():
-    source = inspect.getsource(app_module._render_market_data_ranking)
+    source = inspect.getsource(app_module._execute_market_data_ranking_job)
 
     preflight_start = source.index("_run_symbol_database_preflight_refresh(")
     preflight_guard = source.index('maintenance_operation("ranking_build_preflight")')
     market_data_guard = source.index('maintenance_operation("ranking_build")')
 
     assert preflight_guard < preflight_start < market_data_guard
+
+
+def test_ranking_render_starts_session_independent_background_job():
+    render_source = inspect.getsource(app_module._render_market_data_ranking)
+    worker_source = inspect.getsource(app_module._execute_market_data_ranking_job)
+
+    assert "start_ranking_job(" in render_source
+    assert "asyncio.run(" not in render_source
+    assert "asyncio.run(" in worker_source
+    assert "st.session_state" not in worker_source
 
 
 def test_ranking_widgets_use_session_state_without_conflicting_index_defaults():
@@ -6476,6 +6518,36 @@ def test_large_live_ranking_uses_bounded_cohorts(monkeypatch):
     assert set(released_symbols) == set(symbols)
     assert len(rows) == len(symbols)
     assert errors == []
+
+
+def test_large_live_ranking_continues_after_one_unexpected_cohort_failure(monkeypatch):
+    calls = 0
+
+    async def fake_fast(symbols, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ValueError("unexpected provider payload")
+        return ([{"symbol": symbol} for symbol in symbols], [])
+
+    monkeypatch.setattr(app_module, "_build_market_data_ranking_rows_fast", fake_fast)
+    monkeypatch.setattr(app_module, "_release_ranking_cohort_cache", lambda *_: None)
+    symbols = [f"{index:04d}.T" for index in range(250)]
+
+    rows, errors = asyncio.run(
+        app_module._build_market_data_ranking_rows(
+            symbols,
+            start=date(2023, 1, 1),
+            end=date(2026, 1, 1),
+            provider="yahoo",
+        )
+    )
+
+    assert len(rows) == 150
+    assert len(errors) == 1
+    assert errors[0]["code"] == "APP-2000"
+    assert "unexpected provider payload" not in errors[0]["details"]
+    assert "ValueError" in errors[0]["details"]
 
 
 def test_large_ranking_releases_only_completed_cohort_caches(monkeypatch):
@@ -6785,7 +6857,7 @@ def test_ranking_period_dates_use_beginner_presets():
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
     assert ranking_period_dates("long_3y", end) == (date(2023, 5, 17), end)
     assert ranking_period_dates("long_5y", end) == (date(2021, 5, 17), end)
-    assert "標準は3か月" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "予測日数は取得期間から自動計算" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "1か月は直近反応" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "3年/5年は長期トレンド" in RANKING_FILTER_HELP_TEXTS["period"]
 
@@ -7585,8 +7657,7 @@ def test_ranking_summary_cards_describe_current_screening_scope():
     assert cards[1]["value"] == "2"
     assert cards[2]["value"] == "75.0"
     assert cards[3]["value"] == "1"
-    assert cards[4]["value"] == "成長投資枠"
-    assert cards[5]["value"] == "日本 / 個別株"
+    assert len(cards) == 4
 
 
 def test_ranking_visualization_frames_skip_missing_scores():
@@ -7805,7 +7876,10 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert cards[0]["research_status"] == "根拠あり"
     card_html = _ranking_candidate_card_html(cards[0], index=0)
     assert "Toyota Motor" in card_html
-    assert "総合スコア 82" in card_html
+    assert 'smai-ranking-card-metric-label">総合スコア' in card_html
+    assert 'smai-ranking-card-metric-value">82' in card_html
+    assert "総合スコア 82 / 総合スコア 82" not in card_html
+    assert card_html.count("総合スコア") == 1
     assert [row["観点"] for row in breakdown] == [
         "投資スコア",
         "基礎評価",
@@ -8164,8 +8238,8 @@ def test_ranking_table_renders_llm_reference_columns():
 
 
 def test_llm_reference_disclaimer_is_visible():
-    assert "ニュース材料はAI要約による参考情報" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
-    assert "売買推奨ではありません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ニュース材料はAI要約です" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ランキング順位には反映していません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
     assert "ランキング順位には反映していません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
 
 
@@ -8417,11 +8491,16 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
         {
             "horizon_days": "10",
             "predicted_return": "2.50%",
+            "direction_predicted_return": "1.75%",
             "predicted_return_lower": "-1.00%",
             "predicted_return_upper": "4.00%",
             "weighted_direction_score": "61.25%",
             "confidence": "medium",
             "agreement": "MEDIUM",
+            "selection_policy_version": "horizon_validation_router_v1",
+            "selected_models": "advanced_linear,advanced_quantile",
+            "center_excluded_models": "advanced_linear",
+            "selection_reason": "quantile中心",
         }
     ]
 
@@ -8430,6 +8509,7 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
     assert fields["advanced_forecast_model"] == "advanced_linear,advanced_quantile"
     assert fields["advanced_forecast_horizon_days"] == "10"
     assert fields["advanced_forecast_predicted_return"] == "+2.5%"
+    assert fields["advanced_forecast_direction_predicted_return"] == "+1.75%"
     assert fields["advanced_forecast_score"] == "61.25"
     assert fields["advanced_forecast_upside_score"]
     assert fields["advanced_forecast_downside_score"]
@@ -8437,6 +8517,10 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
     assert fields["advanced_forecast_confidence"] == "medium"
     assert fields["advanced_forecast_range"] == "-1%〜+4%"
     assert fields["advanced_forecast_agreement"] == "MEDIUM"
+    assert fields["advanced_forecast_selection_policy"] == "horizon_validation_router_v1"
+    assert fields["advanced_forecast_selected_models"] == ("advanced_linear,advanced_quantile")
+    assert fields["advanced_forecast_center_excluded_models"] == "advanced_linear"
+    assert fields["advanced_forecast_selection_reason"] == "quantile中心"
 
 
 def test_advanced_forecast_ranking_signal_fields_neutralize_low_quality():
@@ -9336,7 +9420,7 @@ def test_decision_report_download_buttons_explain_export_roles(monkeypatch):
         "manifest（内容確認）をダウンロード",
         "一式ZIP（保存用）をダウンロード",
     ]
-    assert "人が読むため" in str(button_calls[0][1]["help"])
+    assert "読み返し用" in str(button_calls[0][1]["help"])
     assert "再現確認" in str(button_calls[1][1]["help"])
     assert "ファイル" in str(button_calls[2][1]["help"])
     assert "保存用パッケージ" in str(button_calls[3][1]["help"])
@@ -10737,6 +10821,7 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "horizon_days": "10",
             "model_count": "4",
             "predicted_return": "2.35%",
+            "direction_predicted_return": "2.10%",
             "forecast_close": "104.2",
             "predicted_return_lower": "-1.20%",
             "predicted_return_upper": "4.80%",
@@ -10749,6 +10834,14 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "mean_rmse_improvement": "0.0031",
             "best_adapter": "advanced_gbdt_sklearn",
             "best_model": "HistGradientBoostingRegressor",
+            "horizon_band": "short",
+            "selection_mode": "validated_consensus",
+            "center_models": "advanced_quantile,advanced_tree_sklearn",
+            "direction_models": (
+                "advanced_linear,advanced_tree_sklearn," "advanced_gbdt_sklearn,advanced_quantile"
+            ),
+            "center_excluded_models": "advanced_linear,advanced_gbdt_sklearn",
+            "selection_reason": "過去検証gateを通過したモデルだけを中心値に採用しました。",
             "warnings": (
                 "Advanced forecast consensus is reference information, not investment advice.; "
                 "Advanced model directions are mixed."
@@ -10765,10 +10858,18 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "予測日数": "10",
             "モデル数": "4",
             "統合予測": "+2.35%",
+            "方向判定用変化率": "+2.1%",
             "予測価格": "104.2",
             "想定レンジ": "-1.2%〜+4.8%",
             "予測ばらつき": "やや広い",
             "モデル合意度": "4モデル中3モデルが上昇寄り",
+            "モデル選択": "短期 / 検証通過モデルを統合（中心2モデル）",
+            "中心モデル": "advanced_quantile,advanced_tree_sklearn",
+            "方向モデル": (
+                "advanced_linear,advanced_tree_sklearn," "advanced_gbdt_sklearn,advanced_quantile"
+            ),
+            "中心値から除外": "advanced_linear,advanced_gbdt_sklearn",
+            "選択理由": "過去検証gateを通過したモデルだけを中心値に採用しました。",
             "信頼度": "中くらい",
             "過去検証の方向一致率": "54.20%",
             "平均RMSE": "0.0412",
@@ -10780,9 +10881,26 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             ),
         }
     ]
-    assert "統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
-    assert "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数" in help_text
+    assert "中心予測 = Σ(選択モデルの予測変化率 × 検証重み) ÷ Σ重み" in help_text
+    assert "重み = 信頼度 × 誤差改善 × 方向一致 × 検証数" in help_text
     assert "予測価格 = 最新価格 × (1 + 統合予測)" in help_text
+    assert "方向判定は60日以内では監査済みの従来合議を維持" in help_text
+
+
+def test_advanced_forecast_warning_display_localizes_semicolon_in_source_message():
+    displayed = _advanced_forecast_warning_display(
+        "Advanced forecast consensus is reference information, not investment advice.; "
+        "Consensus weights are capped; validation metrics support comparison but do not "
+        "guarantee future accuracy.; "
+        "At least one advanced model did not improve RMSE over the zero-return baseline."
+    )
+
+    assert displayed == (
+        "AI予測インサイトは参考情報です。売買判断そのものではありません。 / "
+        "重みは保守的に制限しています。検証指標は比較材料であり、将来精度の保証ではありません。 / "
+        "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
+    )
+    assert "Consensus weights" not in displayed
 
 
 def test_advanced_forecast_insight_card_html_is_information_dense():
@@ -10798,6 +10916,8 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
             "forecast_close_upper": "3120.1",
             "agreement": "MEDIUM",
             "confidence": "low",
+            "center_confidence": "low",
+            "direction_confidence": "medium",
             "direction_agreement_score": "50",
             "mean_direction_accuracy": "54.20%",
             "mean_rmse": "0.0412",
@@ -10816,6 +10936,9 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "主な理由" in html
     assert "注意点" in html
     assert "予測期間" in html
+    assert "中心予測の信頼度" in html
+    assert "方向判定の信頼度" in html
+    assert "中くらい" in html
     assert "モデル合意度" in html
     assert "4モデル中2モデルが中立寄り" in html
     assert "smai-insight-mini-grid" in html
@@ -10927,7 +11050,7 @@ def test_price_forecast_hero_keeps_guidance_inside_cards(monkeypatch):
         forecast_horizon_days=31,
     )
 
-    assert caption_calls == ["予測期間: 31日"]
+    assert caption_calls == ["予測期間: 31営業日相当（取得履歴から自動計算）"]
     assert warning_calls == []
 
 
@@ -11854,6 +11977,8 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
     assert "AI材料分析" in html
     assert "参考表示" in html
     assert "根拠資料の補助" in html
+    assert "実行方式:" in html
+    assert "根拠候補 1件 / 採用 1件" in html
     assert "Ranking・予測・Investment Scoreには反映していません" in html
     assert "売買推奨ではありません" in html
     assert "&lt;script&gt;増配&lt;/script&gt;" in html

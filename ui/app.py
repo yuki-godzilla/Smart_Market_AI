@@ -9584,6 +9584,13 @@ def _ranking_advanced_forecast_fields(
             fields["advanced_forecast_predicted_return"] = _signed_percent_from_text(
                 predicted_return
             )
+        direction_predicted_return = str(
+            consensus_row.get("direction_predicted_return", "")
+        ).strip()
+        if direction_predicted_return:
+            fields["advanced_forecast_direction_predicted_return"] = _signed_percent_from_text(
+                direction_predicted_return
+            )
         direction_score_value = _decimal_from_text(direction_score)
         if direction_score_value is not None:
             fields["advanced_forecast_score"] = _format_ranking_decimal_value(direction_score_value)
@@ -9595,8 +9602,17 @@ def _ranking_advanced_forecast_fields(
         ):
             fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
         fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
+        fields["advanced_forecast_selection_policy"] = consensus_row.get(
+            "selection_policy_version", ""
+        )
+        fields["advanced_forecast_selected_models"] = consensus_row.get("selected_models", "")
+        fields["advanced_forecast_center_excluded_models"] = consensus_row.get(
+            "center_excluded_models", ""
+        )
+        fields["advanced_forecast_selection_reason"] = consensus_row.get("selection_reason", "")
         fields["advanced_forecast_consensus_note"] = (
-            "AI予測インサイトは、信頼度・誤差改善・モデル合意度を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
+            "AI予測インサイトは、取得期間由来の予測期間と過去検証gateでモデルを選び、"
+            "レンジモデルを保守的な中心として統合した参考値です。AI総合では補助材料として控えめに加味します。"
         )
         return fields
 
@@ -17881,7 +17897,9 @@ def _advanced_forecast_insight_summary(row: Mapping[str, str]) -> dict[str, obje
 
 
 def _advanced_forecast_conclusion_label(row: Mapping[str, str]) -> str:
-    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    predicted_return = _decimal_from_text(row.get("direction_predicted_return"))
+    if predicted_return is None:
+        predicted_return = _decimal_from_text(row.get("predicted_return"))
     confidence = str(row.get("confidence", "")).strip()
     dispersion = _advanced_forecast_dispersion_label(row)
     if predicted_return is None:
@@ -17918,7 +17936,9 @@ def _advanced_forecast_model_agreement_display(row: Mapping[str, str]) -> str:
         return _forecast_agreement_label(row.get("agreement", "")) or "未計算"
     agreed = int((agreement_score * Decimal(model_count) / Decimal("100")).to_integral_value())
     agreed = max(0, min(model_count, agreed))
-    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    predicted_return = _decimal_from_text(row.get("direction_predicted_return"))
+    if predicted_return is None:
+        predicted_return = _decimal_from_text(row.get("predicted_return"))
     if predicted_return is None or abs(predicted_return) < Decimal("0.5"):
         direction_label = "中立寄り"
     elif predicted_return > 0:
@@ -17926,6 +17946,21 @@ def _advanced_forecast_model_agreement_display(row: Mapping[str, str]) -> str:
     else:
         direction_label = "下振れ寄り"
     return f"{model_count}モデル中{agreed}モデルが{direction_label}"
+
+
+def _advanced_forecast_selection_display(row: Mapping[str, str]) -> str:
+    band_labels = {"short": "短期", "medium": "中期", "long": "長期・監査外"}
+    mode_labels = {
+        "validated_consensus": "検証通過モデルを統合",
+        "quantile_anchor": "レンジモデル中心",
+        "best_available_fallback": "単一モデルへ縮退",
+        "range_first_long_horizon": "レンジ優先",
+    }
+    band = band_labels.get(str(row.get("horizon_band", "")).strip(), "期間判定未取得")
+    mode = mode_labels.get(str(row.get("selection_mode", "")).strip(), "選択結果未取得")
+    center_models = str(row.get("center_models", "")).strip()
+    center_count = len([name for name in center_models.split(",") if name.strip()])
+    return f"{band} / {mode}" + (f"（中心{center_count}モデル）" if center_count else "")
 
 
 def _advanced_forecast_dispersion_label(row: Mapping[str, str]) -> str:
@@ -17953,6 +17988,9 @@ def _advanced_forecast_reason_lines(
         f"複数の高度予測モデルを統合した結論は「{conclusion}」です。",
         f"モデル合意度は {agreement_count}、信頼度は{confidence}です。",
     ]
+    selection_reason = str(row.get("selection_reason", "")).strip()
+    if selection_reason:
+        lines.append(selection_reason)
     if dispersion in {"やや広い", "大きめ"}:
         lines.append(f"予測ばらつきは{dispersion}で、過信せず確認します。")
     improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
@@ -18047,6 +18085,7 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         ("モデル合意度", agreement_count),
         ("予測ばらつき", dispersion),
         ("予測期間", f"{horizon}日" if horizon else "未計算"),
+        ("モデル選択", _advanced_forecast_selection_display(row)),
     )
     metric_html = "".join(
         '<div class="smai-insight-mini-field">'
@@ -18061,6 +18100,7 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
             badge_html(ADVANCED_FORECAST_CONSENSUS_LABEL, "info"),
             badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(dict(row))),
             badge_html(f"予測期間 {horizon}日" if horizon else "予測期間 未計算", "neutral"),
+            badge_html(_advanced_forecast_selection_display(row), "neutral"),
         )
     )
     return (
@@ -22404,10 +22444,18 @@ def advanced_forecast_consensus_display_rows(
             ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL: _signed_percent_from_text(
                 row.get("predicted_return", "")
             ),
+            "方向判定用変化率": _signed_percent_from_text(
+                row.get("direction_predicted_return", "")
+            ),
             "予測価格": row.get("forecast_close", ""),
             "想定レンジ": _advanced_forecast_range_display(row),
             "予測ばらつき": _advanced_forecast_dispersion_label(row),
             "モデル合意度": _advanced_forecast_model_agreement_display(row),
+            "モデル選択": _advanced_forecast_selection_display(row),
+            "中心モデル": row.get("center_models", ""),
+            "方向モデル": row.get("direction_models", ""),
+            "中心値から除外": row.get("center_excluded_models", ""),
+            "選択理由": row.get("selection_reason", ""),
             "信頼度": _advanced_forecast_confidence_label(row.get("confidence", "")),
             "過去検証の方向一致率": row.get("mean_direction_accuracy", ""),
             "平均RMSE": row.get("mean_rmse", ""),
@@ -22551,12 +22599,18 @@ def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
 
 def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
     model_count = row.get("model_count") or "0"
+    center_models = row.get("center_models") or "未取得"
+    direction_models = row.get("direction_models") or "未取得"
+    selection_reason = row.get("selection_reason") or "取得期間と過去検証から自動選択します。"
     return (
-        f"{model_count}モデルを保守的にまとめた参考シナリオです。"
-        "計算式: 統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
-        "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数を0.70〜1.30に丸めた値。"
+        f"方向確認には{model_count}モデルを使う参考シナリオです。"
+        f"中心モデル: {center_models}。方向モデル: {direction_models}。{selection_reason}"
+        "計算式: 中心予測 = Σ(選択モデルの予測変化率 × 検証重み) ÷ Σ重み。"
+        "重み = 信頼度 × 誤差改善 × 方向一致 × 検証数を保守的に制限し、"
+        "レンジモデルがある場合は中心重みを50%以上にします。"
         "予測価格 = 最新価格 × (1 + 統合予測)。"
-        "レンジは個別モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
+        "方向判定は60日以内では監査済みの従来合議を維持し、中心価格とは別に評価します。"
+        "レンジは選択モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )
 
 
@@ -22660,6 +22714,21 @@ def _advanced_forecast_warning_display(value: str) -> str:
         "Advanced model directions are mixed.": ("高度予測モデルの方向感が割れています。"),
         "At least one advanced model did not improve RMSE over the zero-return baseline.": (
             "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
+        ),
+        "The audited quantile anchor was unavailable for this forecast.": (
+            "監査済みのレンジモデルを利用できないため、別モデルへ縮退しています。"
+        ),
+        "No model passed the validation gate; the consensus used one fallback model.": (
+            "検証条件を通過したモデルがなく、利用可能な1モデルへ縮退しています。"
+        ),
+        "This horizon is routed by interpolation between the sealed 20-day and 60-day audits.": (
+            "20日・60日の封印監査間を補間した予測期間です。信頼度を上限付きで扱います。"
+        ),
+        "This horizon is outside the sealed 20-day and 60-day audits; confidence is capped low.": (
+            "20日・60日の封印監査外の予測期間なので、信頼度を低めに制限しています。"
+        ),
+        "Some available adapters were excluded from the price-center consensus by the horizon validation policy.": (
+            "取得期間と過去検証の条件により、一部モデルを価格中心値の統合から除外しました。"
         ),
     }
     localized_value = value

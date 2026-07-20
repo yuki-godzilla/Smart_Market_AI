@@ -56,6 +56,7 @@ class ForecastValidationPoint(StrictBaseModel):
     origin_at: datetime
     target_at: datetime
     predicted_return: Decimal
+    direction_predicted_return: Decimal | None = None
     actual_return: Decimal
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
@@ -73,6 +74,7 @@ class ForecastPredictionRow(StrictBaseModel):
     horizon_days: int = Field(ge=1)
     as_of: datetime
     predicted_return: Decimal
+    direction_predicted_return: Decimal | None = None
     confidence: str = Field(min_length=1)
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
@@ -325,6 +327,7 @@ def _evaluate_case_origins(
                     origin_at=bars[origin_index].ts,
                     target_at=target.ts,
                     predicted_return=consensus.consensus_predicted_return,
+                    direction_predicted_return=consensus.direction_predicted_return,
                     actual_return=actual_return,
                     model_disagreement=consensus.predicted_return_range,
                 )
@@ -392,6 +395,7 @@ def _latest_predictions(
                 horizon_days=horizon_days,
                 as_of=bars[-1].ts,
                 predicted_return=consensus.consensus_predicted_return,
+                direction_predicted_return=consensus.direction_predicted_return,
                 confidence=consensus.confidence,
                 model_disagreement=consensus.predicted_return_range,
             )
@@ -678,7 +682,14 @@ def _direction_accuracy(points: list[ForecastValidationPoint]) -> Decimal:
     if not points:
         return Decimal("0.0000")
     matches = sum(
-        1 for point in points if _sign(point.predicted_return) == _sign(point.actual_return)
+        1
+        for point in points
+        if _sign(
+            point.direction_predicted_return
+            if point.direction_predicted_return is not None
+            else point.predicted_return
+        )
+        == _sign(point.actual_return)
     )
     return _decimal(Decimal(matches) / Decimal(len(points)))
 

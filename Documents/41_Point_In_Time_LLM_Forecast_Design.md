@@ -13,7 +13,15 @@
 価格経路の初回監査は不採用となった。60銘柄・1,440点で調整し、完全非重複52銘柄・1,248点で
 監査した横断GBDTは、Consensus比では20日4.37%、60日10.27%改善したが、より強い固定anchor比では
 20日1.96%、60日1.31%悪化した。別の非重複39銘柄・936点でもanchor比20日2.60%、60日2.68%
-悪化し、失敗が再現した。したがってForecast、Cockpit、Ranking、Investment Scoreは変更しない。
+悪化し、失敗が再現した。したがって横断GBDTによってForecast、Cockpit、Ranking、Investment Scoreを
+変更しない。
+
+一方、既存4adapterの役割選択だけを行う`horizon_validation_router_v1`は、取得履歴連動horizonと
+接続した。quantileをprice centerの50%以上に固定し、60日以内は予測origin以前の検証を1%以上改善した
+tree / GBDTだけを期間帯別上限つきで追加する。方向headは従来Consensusを保持する。既存2cohortの
+historical safety regressionでは20 / 60日の統合validation RMSEを12.56% / 6.68%、統合auditを
+3.37% / 7.17%改善し、方向returnは516 / 516点一致、重大subgroup劣化0件だったためruntimeへ採用した。
+これは横断GBDTや固定anchorの採用ではなく、後日の新暦期間auditの代替でもない。
 
 材料経路は因果契約、Source Memory、市場残差ラベルまで実装した。ただし実ニュース・開示の
 point-in-time archiveがまだ存在しないため、LLMあり/なしの実市場精度比較は未実施である。既存の
@@ -176,8 +184,13 @@ horizon = raw_horizonを期間帯別stepで下方向へ丸める
   取得期間から計算し、銘柄ごとに都合のよいhorizonへ変えない。
 
 モデル選択指標は引き続き役割別とする。price centerはRMSE / MAE、directionはbalanced accuracy /
-Brier、rangeはcoverage / width、Ranking用途はrank IC / Top-k liftを使う。横断GBDTは不採用のまま
-で、今回変更するのはhorizon contractと選択方法であり、不採用modelをruntime採用する変更ではない。
+Brier、rangeはcoverage / width、Ranking用途はrank IC / Top-k liftを使う。runtime routerは既存の
+advanced adapterだけを役割選択し、横断GBDT、固定calibration、残差Ridgeなど不採用modelを採用しない。
+
+routerは短期30日以下でquantile + gate通過tree / GBDT最大2本、中期31〜60日で最大1本、60日超は
+quantile単独とする。20 / 60日以外は補間扱いとしてconfidence highをmediumへ制限し、60日超は
+監査外としてlowへ制限する。中心returnとdirection returnを別fieldで保持し、Rankingの上昇方向は
+従来head、下振れと価格シナリオは選択center / quantile rangeを使う。
 
 このpolicy v1は統計的に評価可能な範囲を選ぶもので、将来精度の数学的な最適値を保証しない。
 今後はhorizon帯ごとのsealed auditで`effective_points / horizon`別の誤差・方向・range coverageを測定し、
@@ -243,11 +256,20 @@ prequential比較する。horizon満了後にしかmemoryを更新しない。
   - 実観測数、日足cadence、coverage、非重複窓数からの自動horizon
   - 固定60日上限なし、安定した下方向丸め、長期監査warning
   - Cockpit実bar / Ranking共通期間 / API省略時の同一policy
+- `backend/forecast/model_policy.py`
+  - short / medium / longのhorizon別role router
+  - quantile 50%以上のcenter anchor、非線形modelのpast-only quantile比1% gate
+  - 60日以内の従来direction head保持、60日超のrange-first fallback
+- `backend/forecast/service.py` / `backend/forecast/evaluation.py`
+  - price center / direction returnのtyped分離
+  - 選択policy、adapter、weight、理由、監査状態の観測情報
+  - RMSEはcenter、方向一致率はdirection headで評価
 - `tools/evaluate_cross_sectional_residual_forecast.py`
   - symbol非重複監査runner
   - manifest、metrics、predictions、decisions、Markdown report
 - `tests/test_point_in_time_llm_events.py`
 - `tests/test_cross_sectional_residual_forecast.py`
+- `tests/test_forecast_model_policy.py`
 
 ## 9. 次の作業
 

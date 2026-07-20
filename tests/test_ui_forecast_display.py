@@ -8491,11 +8491,16 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
         {
             "horizon_days": "10",
             "predicted_return": "2.50%",
+            "direction_predicted_return": "1.75%",
             "predicted_return_lower": "-1.00%",
             "predicted_return_upper": "4.00%",
             "weighted_direction_score": "61.25%",
             "confidence": "medium",
             "agreement": "MEDIUM",
+            "selection_policy_version": "horizon_validation_router_v1",
+            "selected_models": "advanced_linear,advanced_quantile",
+            "center_excluded_models": "advanced_linear",
+            "selection_reason": "quantile中心",
         }
     ]
 
@@ -8504,6 +8509,7 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
     assert fields["advanced_forecast_model"] == "advanced_linear,advanced_quantile"
     assert fields["advanced_forecast_horizon_days"] == "10"
     assert fields["advanced_forecast_predicted_return"] == "+2.5%"
+    assert fields["advanced_forecast_direction_predicted_return"] == "+1.75%"
     assert fields["advanced_forecast_score"] == "61.25"
     assert fields["advanced_forecast_upside_score"]
     assert fields["advanced_forecast_downside_score"]
@@ -8511,6 +8517,10 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
     assert fields["advanced_forecast_confidence"] == "medium"
     assert fields["advanced_forecast_range"] == "-1%〜+4%"
     assert fields["advanced_forecast_agreement"] == "MEDIUM"
+    assert fields["advanced_forecast_selection_policy"] == "horizon_validation_router_v1"
+    assert fields["advanced_forecast_selected_models"] == ("advanced_linear,advanced_quantile")
+    assert fields["advanced_forecast_center_excluded_models"] == "advanced_linear"
+    assert fields["advanced_forecast_selection_reason"] == "quantile中心"
 
 
 def test_advanced_forecast_ranking_signal_fields_neutralize_low_quality():
@@ -10811,6 +10821,7 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "horizon_days": "10",
             "model_count": "4",
             "predicted_return": "2.35%",
+            "direction_predicted_return": "2.10%",
             "forecast_close": "104.2",
             "predicted_return_lower": "-1.20%",
             "predicted_return_upper": "4.80%",
@@ -10823,6 +10834,14 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "mean_rmse_improvement": "0.0031",
             "best_adapter": "advanced_gbdt_sklearn",
             "best_model": "HistGradientBoostingRegressor",
+            "horizon_band": "short",
+            "selection_mode": "validated_consensus",
+            "center_models": "advanced_quantile,advanced_tree_sklearn",
+            "direction_models": (
+                "advanced_linear,advanced_tree_sklearn," "advanced_gbdt_sklearn,advanced_quantile"
+            ),
+            "center_excluded_models": "advanced_linear,advanced_gbdt_sklearn",
+            "selection_reason": "過去検証gateを通過したモデルだけを中心値に採用しました。",
             "warnings": (
                 "Advanced forecast consensus is reference information, not investment advice.; "
                 "Advanced model directions are mixed."
@@ -10839,10 +10858,18 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "予測日数": "10",
             "モデル数": "4",
             "統合予測": "+2.35%",
+            "方向判定用変化率": "+2.1%",
             "予測価格": "104.2",
             "想定レンジ": "-1.2%〜+4.8%",
             "予測ばらつき": "やや広い",
             "モデル合意度": "4モデル中3モデルが上昇寄り",
+            "モデル選択": "短期 / 検証通過モデルを統合（中心2モデル）",
+            "中心モデル": "advanced_quantile,advanced_tree_sklearn",
+            "方向モデル": (
+                "advanced_linear,advanced_tree_sklearn," "advanced_gbdt_sklearn,advanced_quantile"
+            ),
+            "中心値から除外": "advanced_linear,advanced_gbdt_sklearn",
+            "選択理由": "過去検証gateを通過したモデルだけを中心値に採用しました。",
             "信頼度": "中くらい",
             "過去検証の方向一致率": "54.20%",
             "平均RMSE": "0.0412",
@@ -10854,9 +10881,10 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             ),
         }
     ]
-    assert "統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
-    assert "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数" in help_text
+    assert "中心予測 = Σ(選択モデルの予測変化率 × 検証重み) ÷ Σ重み" in help_text
+    assert "重み = 信頼度 × 誤差改善 × 方向一致 × 検証数" in help_text
     assert "予測価格 = 最新価格 × (1 + 統合予測)" in help_text
+    assert "方向判定は60日以内では監査済みの従来合議を維持" in help_text
 
 
 def test_advanced_forecast_warning_display_localizes_semicolon_in_source_message():

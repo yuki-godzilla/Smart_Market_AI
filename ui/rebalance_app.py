@@ -1408,13 +1408,22 @@ def advanced_forecast_consensus_rows_for_results(
             "symbol": consensus.symbol,
             "horizon_days": str(consensus.horizon_days),
             "model_count": str(consensus.model_count),
+            "available_model_count": str(consensus.available_model_count),
+            "center_model_count": str(consensus.center_model_count),
             "predicted_return": _format_percent(consensus.consensus_predicted_return),
+            "direction_predicted_return": _format_percent(consensus.direction_predicted_return),
             "forecast_close": _format_decimal(consensus.consensus_forecast_close),
             "predicted_return_lower": _format_optional_percent(consensus.predicted_return_lower),
             "predicted_return_upper": _format_optional_percent(consensus.predicted_return_upper),
             "forecast_close_lower": _format_optional_decimal(consensus.forecast_close_lower),
             "forecast_close_upper": _format_optional_decimal(consensus.forecast_close_upper),
             "predicted_return_range": _format_percent(consensus.predicted_return_range),
+            "center_predicted_return_range": _format_percent(
+                consensus.center_predicted_return_range
+            ),
+            "direction_predicted_return_range": _format_percent(
+                consensus.direction_predicted_return_range
+            ),
             "agreement": consensus.agreement,
             "confidence": consensus.confidence,
             "direction_agreement_score": _format_decimal(consensus.direction_agreement_score),
@@ -1424,6 +1433,19 @@ def advanced_forecast_consensus_rows_for_results(
             "mean_rmse_improvement": _format_optional_decimal(consensus.mean_rmse_improvement),
             "best_adapter": consensus.best_adapter_name,
             "best_model": consensus.best_model_name,
+            "selection_policy_version": consensus.selection_policy_version,
+            "horizon_band": consensus.horizon_band,
+            "audit_status": consensus.audit_status,
+            "selection_mode": consensus.selection_mode,
+            "center_models": ",".join(consensus.center_adapter_names),
+            "direction_models": ",".join(consensus.direction_adapter_names),
+            "selected_models": ",".join(consensus.selected_adapter_names),
+            "center_excluded_models": ",".join(consensus.center_excluded_adapter_names),
+            "model_weights": ",".join(
+                f"{name}:{_format_decimal(weight)}"
+                for name, weight in consensus.model_weights.items()
+            ),
+            "selection_reason": consensus.selection_reason,
             "warnings": "; ".join(consensus.warnings),
         }
     ]

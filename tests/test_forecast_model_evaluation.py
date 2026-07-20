@@ -13,6 +13,7 @@ from backend.forecast import (
     evaluated_consensus_prediction,
     write_forecast_evaluation_artifacts,
 )
+from backend.forecast.evaluation import ForecastValidationPoint, _direction_accuracy
 
 
 def test_evaluation_runs_real_consensus_folds_and_group_summaries():
@@ -94,6 +95,25 @@ def test_rolling_origin_uses_only_history_available_at_origin():
     assert first_point.origin_at == second_point.origin_at
     assert first_point.predicted_return == second_point.predicted_return
     assert first_point.actual_return != second_point.actual_return
+
+
+def test_direction_accuracy_uses_separate_direction_head_when_available():
+    origin = datetime(2025, 1, 1, tzinfo=UTC)
+    point = ForecastValidationPoint(
+        symbol="AAPL",
+        market="US",
+        asset_type="stock",
+        regime="downtrend",
+        model_name="forecast_consensus",
+        horizon_days=20,
+        origin_at=origin,
+        target_at=origin + timedelta(days=20),
+        predicted_return=Decimal("0.10"),
+        direction_predicted_return=Decimal("-0.02"),
+        actual_return=Decimal("-0.05"),
+    )
+
+    assert _direction_accuracy([point]) == Decimal("1.0000")
 
 
 def test_short_history_is_recorded_as_skipped():

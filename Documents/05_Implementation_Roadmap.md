@@ -2670,6 +2670,16 @@ Markdown UTF-8 check:
 runtime採用ではない。次の評価は20 / 60固定だけでなく、自動選択horizon帯と`effective_points / horizon`
 別にpurged walk-forward、方向、range coverage、subgroupを監査する。
 
+2026-07-20追加: `horizon_validation_router_v1`をruntime高度予測へ接続した。price centerは
+`advanced_quantile`を50%以上のanchorとし、30日以下はorigin以前のquantile比1% RMSE gateを通過したtree / GBDTを
+最大2本、31〜60日は最大1本だけ追加する。60日超はquantile単独、confidence lowへ縮退する。
+direction headは60日以内で従来4adapter Consensusを保持し、中心returnとは別fieldで評価する。
+固定2cohortのhistorical safety regressionでは、統合validation 132点/horizonのRMSEを20日12.56%・
+60日6.68%、統合audit 126点/horizonを3.37%・7.17%改善した。旧direction returnは516/516点一致し、
+10点以上かつ相対10%超・絶対0.005超の重大subgroup劣化は0件だった。過去に不採用とした固定profile、
+適応weight、残差Ridge、横断GBDT、LLM Factorはruntimeへ接続しない。60日超と補間horizonの後日監査を
+継続課題とする。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`

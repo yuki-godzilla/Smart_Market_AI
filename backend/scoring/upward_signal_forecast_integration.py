@@ -239,7 +239,11 @@ def evaluate_forecast_validation_points(
         confidence = _validation_confidence(disagreement, len(returns), agreement)
         integration = calculate_forecast_integration(
             {
-                "consensus_predicted_return": consensus.predicted_return,
+                "consensus_predicted_return": (
+                    consensus.direction_predicted_return
+                    if consensus.direction_predicted_return is not None
+                    else consensus.predicted_return
+                ),
                 "predicted_return_lower": min(returns),
                 "predicted_return_upper": max(returns),
                 "predicted_return_range": disagreement,
@@ -261,7 +265,11 @@ def evaluate_forecast_validation_points(
                 origin_at=consensus.origin_at,
                 target_at=consensus.target_at,
                 actual_return=consensus.actual_return,
-                predicted_return=consensus.predicted_return,
+                predicted_return=(
+                    consensus.direction_predicted_return
+                    if consensus.direction_predicted_return is not None
+                    else consensus.predicted_return
+                ),
                 forecast_integration_score=integration.forecast_integration_score,
                 confidence=integration.consensus_confidence,
                 model_disagreement_pct=integration.model_disagreement_pct,

@@ -1,5 +1,25 @@
 # 99_Work_Log
 
+## 2026-07-20 取得履歴連動Forecastモデル選択・役割別Consensus
+
+- `backend/forecast/model_policy.py`へ`horizon_validation_router_v1`を追加した。取得履歴から決まる
+  共通horizonを短期30日以下、中期31〜60日、長期60日超に分け、price centerは
+  `advanced_quantile`を50%以上に固定する。短期はorigin以前のquantile比1% RMSE gateを通過したtree / GBDTを
+  最大2本、中期は最大1本だけ追加し、60日超はquantile単独へ縮退する。linearを含む個別4modelは
+  引き続き表示する。
+- price-center returnとdirection returnをtyped contract、rolling-origin評価、CSV、Cockpit、Rankingで
+  分離した。60日以内のdirection headは旧4adapter Consensusを完全保持し、60日超は監査外のため
+  quantile単独・confidence lowとする。選択policy、期間帯、監査状態、center / direction model、
+  center weight、中心値からの除外、選択理由を観測可能にした。
+- 固定2cohortを直近750 bars、20 / 60日、最大3 originsで再実行した。統合validation 132点/horizonの
+  RMSEは20日0.0994→0.0869（12.56%改善）、60日0.2377→0.2218（6.68%改善）。統合audit
+  126点/horizonは20日0.0770→0.0744（3.37%改善）、60日0.2019→0.1874（7.17%改善）。
+  方向returnは516 / 516点で旧runtimeと一致し、標本10点以上かつ相対10%超・絶対0.005超の
+  market / asset type / regime重大劣化は0件だった。
+- 既に結果を確認済みの履歴を使うsafety regressionであり、後日の新暦期間sealed auditではない。
+  固定calibration、適応weight、残差Ridge、横断GBDT、LLM Factorは不採用のまま接続していない。
+  60日超、20 / 60日間の補間horizon、range coverageは次の独立監査対象とする。
+
 ## 2026-07-20 取得履歴連動Forecast horizon・60日上限撤廃
 
 - 固定20日 / 60日選択をruntime既定から外し、指定期間の平日数または取得後の実bar数、同日重複、

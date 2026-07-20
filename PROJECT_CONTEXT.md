@@ -111,6 +111,20 @@ genuinely later-period audit and a real
 point-in-time LLM material archive; existing synthetic/static LLM Factor results cannot justify
 integration. See `Documents/40_Forecast_Model_Selection_Report.md`.
 
+The acquisition-history horizon policy is now connected to runtime advanced-model role selection
+through `horizon_validation_router_v1`. For horizons up to 30 days, the price center uses
+`advanced_quantile` as at least 50% of the weight and may add at most two tree/GBDT adapters that
+beat the quantile anchor's past-only RMSE by at least 1%; 31-60 days permits at most one secondary, and horizons
+above 60 days use quantile alone with low confidence because they are outside the sealed 20/60-day
+audit anchors. The direction head remains the previous all-adapter advanced consensus through
+60 days and is exposed separately from the price-center return. Re-running the two fixed validation
+cohorts (132 points/horizon) improved center RMSE by 12.56% / 6.68% at 20/60 days; the two audit
+cohorts (126 points/horizon) improved it by 3.37% / 7.17%. Direction returns matched the previous
+runtime at all 516 points, and no market / asset type / regime group with at least 10 points crossed
+the predefined relative 10% plus absolute 0.005 material-degradation gate. This is historical
+safety regression, not a later-calendar sealed audit. Previously rejected calibration, adaptive,
+residual, cross-sectional, and LLM candidates remain disconnected.
+
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,
 `backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,

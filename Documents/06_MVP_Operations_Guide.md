@@ -249,10 +249,10 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - `advanced_gbdt_sklearn` forecast adapter using scikit-learn `HistGradientBoostingRegressor` for boosting-style nonlinear checks
   - `advanced_quantile` forecast adapter for deterministic historical forward-return range checks
   - advanced forecast consensus layer that conservatively combines registered advanced adapters at one common horizon using confidence, error improvement, model agreement, and validation sample context
-  - `POST /forecast/evaluate` accepts `adapter=advanced_linear`, `adapter=advanced_tree_sklearn`, `adapter=advanced_gbdt_sklearn`, or `adapter=advanced_quantile` with `horizon_days` 1-60 and returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
-  - Cockpit overlays advanced forecast context on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. The initial chart emphasizes actual price, `AI予測インサイト` as the consensus line, and its lower-to-upper prediction range band; advanced model lines and simple forecast lines can be added with two grouped chart checkboxes that only filter already-built chart rows, while the fixed-color chart legend dims individual displayed series. Individual advanced model cards remain visible below the chart for detail confirmation. Naive / moving-average / momentum simple forecasts stay available as backend baseline / detail context, but are not part of the default Cockpit chart or main model-card display. The chart legend sits below the chart, the right forecast-focus chart is titled `予測スコープ`, and the full chart restores small point markers while keeping the actual-price line thinner. `表示通貨` は JPY / USD の二択にし、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。取得済み USDJPY レートはラジオボタン右横に `＄円相場` として短く表示する。換算はチャート表示だけで、スコア、予測計算、Ranking には影響しない。
+  - `POST /forecast/evaluate` accepts `adapter=advanced_linear`, `adapter=advanced_tree_sklearn`, `adapter=advanced_gbdt_sklearn`, or `adapter=advanced_quantile` with any positive `horizon_days`; omit it to derive the horizon from acquired bars. It returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
+  - Cockpit overlays advanced forecast context on the existing price / forecast chart using the same automatically derived horizon as baseline forecasts. The policy uses observed daily points, coverage, and roughly 12 non-overlapping target windows without a fixed 60-day ceiling. The initial chart emphasizes actual price, `AI予測インサイト` as the consensus line, and its lower-to-upper prediction range band; advanced model lines and simple forecast lines can be added with two grouped chart checkboxes that only filter already-built chart rows, while the fixed-color chart legend dims individual displayed series. Individual advanced model cards remain visible below the chart for detail confirmation. Naive / moving-average / momentum simple forecasts stay available as backend baseline / detail context, but are not part of the default Cockpit chart or main model-card display. The chart legend sits below the chart, the right forecast-focus chart is titled `予測スコープ`, and the full chart restores small point markers while keeping the actual-price line thinner. `表示通貨` は JPY / USD の二択にし、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。取得済み USDJPY レートはラジオボタン右横に `＄円相場` として短く表示する。換算はチャート表示だけで、スコア、予測計算、Ranking には影響しない。
   - Ranking rows retain one period-derived common-horizon advanced forecast consensus return (`advanced_forecast_predicted_return`), horizon days, score, confidence, and AI総合用の高度予測上昇 / 下降警戒 / 信頼スコア. Ranking の上昇気配 / 下降警戒にはAI予測インサイトを25%までブレンドし、`AI総合` はこれらを `予測・上昇気配30%` / `リスク・下振れ警戒25%` の中で低信頼時に中立寄せしながら加味する。Ranking の理由表示、深掘り候補、score detail、Decision Report でも同じ文脈で説明する
-  - Ridge-style lightweight deterministic forecasting, scikit-learn tree ensemble / histogram gradient boosting forecasting, and quantile range checks for 1-60 day forward returns
+  - Ridge-style lightweight deterministic forecasting, scikit-learn tree ensemble / histogram gradient boosting forecasting, and quantile range checks for positive forward-return horizons without a fixed day ceiling
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
   - designed to keep normal checks network-free; `scikit-learn` is pinned in setup requirements for tree / boosting adapters
 - Low-cost Assistant backend first slice
@@ -417,7 +417,7 @@ http://127.0.0.1:8000/openapi.json
 | `POST /risk/pre-trade-check` | trade intent を deterministic risk rule で評価 |
 | `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
-| `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す。`adapter=advanced_linear` 指定時は 1〜60日の線形高度予測、`adapter=advanced_tree_sklearn` 指定時は scikit-learn ツリー型高度予測、`adapter=advanced_gbdt_sklearn` 指定時は scikit-learn ブースティング高度予測、`adapter=advanced_quantile` 指定時はレンジ高度予測を返す。各高度予測は予測変化率、予測価格、信頼度、検証指標、特徴量要約または注意点を返し、`advanced_quantile` は下振れ / 上振れレンジも返す |
+| `POST /forecast/evaluate` | OHLCV から baseline forecast とwalk-forward metricsを返す。`horizon_days`省略時は取得barから自動計算し、明示時は固定上限のない正の営業日数を受理する。`adapter=advanced_linear`は線形、`advanced_tree_sklearn`はツリー、`advanced_gbdt_sklearn`はブースティング、`advanced_quantile`はレンジ高度予測を返す。各高度予測は予測変化率、予測価格、信頼度、検証指標、特徴量要約または注意点を返し、`advanced_quantile`は下振れ / 上振れレンジも返す |
 | `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す。`research_scores_by_symbol` は任意入力で、既定 weight は 0.0 |
 
 エラー応答は JSON です。
@@ -629,7 +629,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - `データを取得` 実行中は、入力確認、価格・予測材料取得、予測 / スコア / チャート整理、表示更新の進捗を共通SMAIローディング画面で表示する。
 - `AI調査を更新` 実行中は、外部参照ソース取得、企業リサーチレポート生成、ニュース / 開示材料整理、表示更新の進捗を共通SMAIローディング画面で表示する。ローディング画面の `市場トピック` は保存済みニュースcacheだけを使い、追加通信しない。
 - 右下の floating `SMAI Copilot` は、現在見ているコックピット section に応じて固定質問を出す。データ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report の読み方を deterministic に説明し、価格取得や予測再計算は走らせない
-- 価格・予測チャート: 初期表示では実績価格、`AI予測インサイト`、予測レンジ帯を先に確認し、個別モデル線の重なりで読みづらくしない。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile` を取得期間から決まる共通の予測日数で計算する。高度予測モデルと単純予測モデルはチャート直上のグループチェックでまとめて追加する。このチェックは取得済みチャート行の表示対象だけを変え、データ取得や予測再計算は走らせない。表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。`表示通貨` は円 (JPY) と $ (USD) の二択で、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。USDJPY が取得できた場合だけチャートの全価格系列を表示換算し、ラジオボタン右横には `＄円相場` の短い値だけを表示する。スコアや予測計算は変えない。`AI予測インサイト` カードは結論、中心予測（高度予測モデルの統合結果）、下振れ予測 / 上振れ予測、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、主な理由、注意点を主表示にする。信頼度が低い、または判断保留に近い場合は amber accent を使う。個別高度モデルカードは常時表示し、平均 RMSE、誤差改善、過去検証の方向一致率、相対的に安定したモデル、単純予測比較は `高度予測モデルの詳細を見る` / `検証指標を見る` / `単純予測との比較を見る` で確認する。Consensus helper には `統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み` と、重みを信頼度・誤差改善・モデル合意度・検証数から保守的に丸めることを明記する。各モデルの helper も直近値維持、移動平均、モメンタム、線形、ツリー、ブースティング、レンジの考え方を初心者向けの短い計算式で説明する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べ、タイトルは `予測スコープ（31日）` のように期間を示す。全体チャートは `価格チャート` として小さな点マーカーを復活させつつ線を主役にする。naive / moving-average / momentum の単純予測は backend baseline / fallback / 詳細確認用として残すが、既定のチャート表示と主要モデルカードには出さない。
+- 価格・予測チャート: 初期表示では実績価格、`AI予測インサイト`、予測レンジ帯を先に確認し、個別モデル線の重なりで読みづらくしない。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile` を取得期間から決まる共通の予測日数で計算する。高度予測モデルと単純予測モデルはチャート直上のグループチェックでまとめて追加する。このチェックは取得済みチャート行の表示対象だけを変え、データ取得や予測再計算は走らせない。表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。`表示通貨` は円 (JPY) と $ (USD) の二択で、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。USDJPY が取得できた場合だけチャートの全価格系列を表示換算し、ラジオボタン右横には `＄円相場` の短い値だけを表示する。スコアや予測計算は変えない。`AI予測インサイト` カードは結論、中心予測（高度予測モデルの統合結果）、下振れ予測 / 上振れ予測、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、主な理由、注意点を主表示にする。信頼度が低い、または判断保留に近い場合は amber accent を使う。個別高度モデルカードは常時表示し、平均 RMSE、誤差改善、過去検証の方向一致率、相対的に安定したモデル、単純予測比較は `高度予測モデルの詳細を見る` / `検証指標を見る` / `単純予測との比較を見る` で確認する。Consensus helper には `統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み` と、重みを信頼度・誤差改善・モデル合意度・検証数から保守的に丸めることを明記する。各モデルの helper も直近値維持、移動平均、モメンタム、線形、ツリー、ブースティング、レンジの考え方を初心者向けの短い計算式で説明する。予測日数は実bar数、coverage、約12個の非重複target窓から自動計算し、固定60日上限を置かない。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べ、タイトルは `予測スコープ（31日）` のように期間を示す。全体チャートは `価格チャート` として小さな点マーカーを復活させつつ線を主役にする。naive / moving-average / momentum の単純予測は backend baseline / fallback / 詳細確認用として残すが、既定のチャート表示と主要モデルカードには出さない。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary
@@ -712,7 +712,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
   - 株式: 業種/テーマ、時価総額、市場感応度（β）、配当利回り、PER、PBR、ROE、NISA
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - `取得期間` の `?` help では、標準3か月は20日/60日系の予測材料、1か月は直近反応、6か月は中期トレンド、1年は安定性確認に使うことを説明
+  - `取得期間` の `?` helpでは、予測日数が取得期間から自動計算され、同一Rankingでは共通になることを説明
   - 時価総額は、日本株では 10兆円 / 1兆円 / 1,000億円 / 100億円、米国株では $200B / $10B / $2B / $300M を目安に表示
   - 配当/分配金カテゴリは、0%、0%超〜3%未満、3%以上の利回り帯を選択肢に表示。ただし連続増配候補は curated metadata 由来
   - 配当/分配金カテゴリと数値条件の `配当/分配金利回り(%)` は同じ軸の条件なので、片方を指定した場合はもう片方を非活性にする
@@ -1018,6 +1018,16 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 通常の自動テストと local checks は `tests/fixtures/config/local.yaml` などで `mock` を明示し、外部 API に依存させません。
 
 ## 8. ローカル検証
+
+### 確認頻度
+
+- 変更した作業単位ごとに、対象moduleのtargeted test / lintを実行する。
+- GitHub Actionsは各commit / pushのたびに待機・再確認せず、通常は完了した5作業単位を目安に
+  まとめて確認する。
+- merge前、release前、CI workflow変更時、Forecast / Ranking / Scoring / Riskなど高リスク変更の
+  統合時は、5作業単位未満でもCIを確認する。
+- handoffでは、実行したlocal check、最後に確認したCIのcommit、今回CIを確認していない場合は
+  その理由を区別して記録する。
 
 まとめて確認:
 

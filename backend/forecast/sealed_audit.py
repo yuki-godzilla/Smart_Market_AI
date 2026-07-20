@@ -35,6 +35,16 @@ SEALED_AUDIT_DATABASE_VERSION = 1
 SEALED_AUDIT_INTERVAL_POLICY_VERSION = "advanced-consensus-quantile-range-v1"
 DEFAULT_SEALED_AUDIT_DATABASE = Path("data/cache/forecast_sealed_audit.sqlite")
 DEFAULT_SEALED_AUDIT_HORIZONS = (20, 40, 60, 80, 100, 120)
+SEALED_AUDIT_HARD_MATURATION_REASONS = frozenset(
+    {
+        "duplicate_bar_timestamp",
+        "origin_bar_missing",
+        "origin_close_revised",
+        "prediction_recorded_after_target",
+        "target_close_non_positive",
+        "bar_timestamp_naive",
+    }
+)
 
 AuditCohort = Literal["new_calendar", "new_symbol", "mixed"]
 
@@ -723,6 +733,7 @@ def mature_forecast_sealed_predictions(
     bars_by_symbol: dict[str, list[Bar]],
     *,
     observed_at: datetime,
+    atomic_on_hard_failure: bool = False,
 ) -> ForecastSealedAuditMaturationResult:
     """Attach outcomes only after the exact trading-bar horizon is observable."""
 
@@ -781,7 +792,12 @@ def mature_forecast_sealed_predictions(
                 target_bar_offset=prediction.horizon_days,
             )
         )
-    write_result = repository.add_outcomes(outcomes)
+    hard_failure = any(skip.reason in SEALED_AUDIT_HARD_MATURATION_REASONS for skip in skips)
+    write_result = (
+        ForecastSealedAuditWriteResult(inserted_count=0, duplicate_count=0)
+        if atomic_on_hard_failure and hard_failure
+        else repository.add_outcomes(outcomes)
+    )
     return ForecastSealedAuditMaturationResult(
         manifest_id=manifest_id,
         pending_count=len(pending),

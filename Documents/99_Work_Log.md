@@ -14,8 +14,13 @@
   保存した。同一origin再実行は360件skip、target未到来360件、outcome 0件である。
 - 全行schema / hash / foreign key / SQLite検証、atomic online backup、prediction / outcomeのhash付きJSONL
   exportを追加し、成熟前snapshotもDB外へ安全に退避できるようにした。
-- network-free全体回帰は2412 passed / 16 skipped、Ruff、Black（497ファイル）、backend/forecast・
-  backend/app・uiのMypy（77ファイル）を通過した。warning 1件は既存Altair APIの非推奨通知である。
+- strict live snapshotとreplay-safe run-onceを追加した。全cohortのbar / metadata / provider / timestamp contractが
+  揃わなければDB更新前に停止し、重大成熟異常はoutcomeをall-or-none、captureは全候補成功後に一括追記する。
+- DB単位の多重起動lockと、collection / cycle別のtyped failure JSON・非0 exit codeを追加した。
+- 保存済み60銘柄snapshotを新run-onceで再生し、既存origin 360件skip、pending 360件、outcome追加0件、
+  DB verify、hash付きexport、検証済みbackupの完了を確認した。
+- network-free全体回帰は2418 passed / 16 skipped、Ruff、Black（502ファイル）、backend/forecast・
+  backend/app・uiのMypy（79ファイル）を通過した。warning 1件は既存Altair APIの非推奨通知である。
 
 ## 2026-07-20 Rolling Conformal予測レンジshadow
 

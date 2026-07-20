@@ -166,6 +166,13 @@ origin; all targets remain immature. Full digest / foreign-key verification, ato
 and hashed prediction / outcome JSONL export protect the pre-maturity evidence. See
 `Documents/44_Forecast_Sealed_Audit_Backend.md`.
 
+The same backend now has a replay-safe run-once boundary. Strict live collection writes a unique
+diagnostic snapshot and refuses every database mutation unless the full frozen cohort has bars and
+metadata with valid daily/provider/timestamp contracts. A cycle then performs hard-failure-atomic
+maturation, all-candidate capture, whole-database verification, hashed export, and verified atomic
+backup. Replaying the current 60-symbol snapshot skipped all 360 existing origin keys and retained
+360 pending predictions with zero outcomes, as expected. No scheduler or UI is connected yet.
+
 The 2026-07-20 evaluation-only forecast slice adds two boundaries derived from recent
 point-in-time Financial RAG and financial forecasting benchmark research. First,
 `backend/llm_factor/point_in_time.py` now defines timezone-aware event/evidence availability,

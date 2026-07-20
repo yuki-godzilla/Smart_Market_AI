@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import csv
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -10,6 +9,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from backend.forecast.live_dataset import (  # noqa: E402
+    collect_forecast_live_dataset,
+    write_forecast_ohlcv_csv,
+)
 
 DEFAULT_SYMBOLS = (
     "7203.T",
@@ -62,8 +66,6 @@ async def _run(args: argparse.Namespace) -> int:
     from backend.core.config import DataAccessConfig, TimeoutConfig
     from backend.marketdata.providers.yahoo import YahooMarketDataProviderAdapter
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
     end = datetime.now(UTC)
     start = end - timedelta(days=365 * args.years)
     provider = YahooMarketDataProviderAdapter(
@@ -73,84 +75,31 @@ async def _run(args: argparse.Namespace) -> int:
             timeouts_ms=TimeoutConfig(connect=5000, read=30000),
         )
     )
-    all_bars = []
-    failures: list[dict[str, str]] = []
     symbols = list(dict.fromkeys(args.symbols))
-    for offset in range(0, len(symbols), args.batch_size):
-        batch = symbols[offset : offset + args.batch_size]
-        try:
-            bars = await provider.fetch_ohlcv(batch, start=start, end=end, interval="1d")
-        except Exception as exc:  # noqa: BLE001 - explicit live collection must continue.
-            bars = []
-            failures.append(
-                {
-                    "symbols": ",".join(batch),
-                    "error": type(exc).__name__,
-                }
-            )
-        returned = {bar.symbol.raw for bar in bars}
-        all_bars.extend(bars)
-        for symbol in batch:
-            if symbol not in returned:
-                failures.append({"symbols": symbol, "error": "no_bars"})
-        print(f"batch {offset // args.batch_size + 1}: {len(bars)} bars")
-
-    _write_ohlcv(output_dir / "ohlcv.csv", all_bars)
-    _write_metadata_subset(
-        Path(args.metadata),
-        output_dir / "symbols.csv",
-        {bar.symbol.raw for bar in all_bars},
+    result = await collect_forecast_live_dataset(
+        provider,
+        provider_name="yahoo",
+        symbols=symbols,
+        start=start,
+        end=end,
+        batch_size=args.batch_size,
+        metadata_source=Path(args.metadata),
+        output_dir=Path(args.output_dir),
+        started_at=end,
     )
-    _write_failures(output_dir / "fetch_failures.csv", failures)
     print(
-        f"forecast evaluation live dataset: {len(all_bars)} bars / {len(set(bar.symbol.raw for bar in all_bars))} symbols"
+        f"forecast evaluation live dataset: {result.bar_count} bars / "
+        f"{len(result.returned_symbols)} symbols / complete={str(result.complete).lower()}"
     )
-    return 0 if all_bars else 2
+    for failure in result.failures:
+        print(
+            f"failure: {','.join(failure.symbols)}:{failure.reason}:" f"{failure.error_type or '-'}"
+        )
+    return 0 if result.complete else 2
 
 
 def _write_ohlcv(path: Path, bars) -> None:
-    fieldnames = ["symbol", "ts", "open", "high", "low", "close", "volume"]
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        for bar in sorted(bars, key=lambda item: (item.symbol.raw, item.ts)):
-            writer.writerow(
-                {
-                    "symbol": bar.symbol.raw,
-                    "ts": bar.ts.isoformat(),
-                    "open": bar.open,
-                    "high": bar.high,
-                    "low": bar.low,
-                    "close": bar.close,
-                    "volume": bar.volume,
-                }
-            )
-
-
-def _write_metadata_subset(source: Path, target: Path, symbols: set[str]) -> None:
-    with source.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        rows = [row for row in reader if row.get("symbol") in symbols]
-    by_symbol = {row["symbol"]: row for row in rows}
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        for symbol in sorted(symbols):
-            row = by_symbol.get(symbol)
-            if row is not None:
-                writer.writerow(row)
-
-
-def _write_failures(path: Path, rows: list[dict[str, str]]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=["symbols", "error"],
-            lineterminator="\n",
-        )
-        writer.writeheader()
-        writer.writerows(rows)
+    write_forecast_ohlcv_csv(path, bars)
 
 
 if __name__ == "__main__":

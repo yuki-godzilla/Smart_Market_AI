@@ -1260,6 +1260,26 @@ hash付きJSONLにも出力する。`verify`はSQLite / foreign key / 全payload
 backupだけをatomic確定する。100件/horizon到達は評価開始条件であり、自動採用条件ではない。詳細は
 `Documents/44_Forecast_Sealed_Audit_Backend.md`を参照する。
 
+通常運用では、個別commandの代わりに次のrun-onceを使う。`--allow-live`を指定しない限り外部通信せず、
+live取得で1銘柄でも欠損・Provider error・metadata不備があれば監査DBを変更しない。出力先には一意のrun directory、
+取得snapshot、cycle JSON / Markdown、hash付きexport、完全性検証済みSQLite backupを作る。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_forecast_sealed_audit_cycle.py `
+  --manifest-id fsa_20260720_new_calendar_v1 `
+  --source-revision 79ccef8d1c2fe9ae4f4b414e62225c2999df3840 `
+  --output reports\forecast_new_calendar_sealed_audit_runs `
+  --allow-live `
+  --metadata-source data\marketdata\symbol_universe.csv `
+  --years 5
+```
+
+保存済みsnapshotを再生するときは`--allow-live`を外し、`--ohlcv`と`--metadata`を両方指定する。同一originは
+上書きせず全件skipし、未到来targetは正常なpendingとして報告する。origin消失・価格改訂などの重大成熟異常は、
+そのrunのoutcomeを1件も追加せず失敗終了する。
+同一DBの多重runはfile lockで拒否する。既知の失敗はrun directoryの
+`sealed_forecast_audit_cycle_failure.json`に`collection` / `cycle` stage、例外型、短い理由、retry-safe状態を残す。
+
 ### Point-in-Time材料archiveとLLM risk shadow
 
 実ニュース・IRを将来の時点整合評価用に保存する場合:

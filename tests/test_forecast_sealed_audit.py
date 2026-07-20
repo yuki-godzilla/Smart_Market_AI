@@ -136,6 +136,20 @@ def test_maturation_fails_closed_for_late_capture_and_revised_origin(tmp_path: P
     )
     assert [item.reason for item in revised_result.skips] == ["origin_close_revised"]
 
+    atomic_repository = SealedForecastAuditRepository(tmp_path / "atomic.sqlite")
+    atomic_manifest = _manifest(manifest_id="fsa_atomic_maturation_001")
+    atomic_repository.add_manifest(atomic_manifest)
+    atomic_repository.add_predictions([_prediction(atomic_manifest)])
+    atomic_result = mature_forecast_sealed_predictions(
+        atomic_repository,
+        atomic_manifest.manifest_id,
+        {"AAPL": revised},
+        observed_at=bars[-1].ts + timedelta(hours=1),
+        atomic_on_hard_failure=True,
+    )
+    assert atomic_result.inserted_count == 0
+    assert atomic_repository.list_outcomes(atomic_manifest.manifest_id) == []
+
 
 def test_manifest_boundary_and_policy_version_are_enforced(tmp_path: Path) -> None:
     manifest = _manifest()

@@ -138,16 +138,11 @@ def _initialize(args: argparse.Namespace, parser: argparse.ArgumentParser) -> in
 
 
 def _capture(args: argparse.Namespace) -> int:
-    from backend.forecast import (
-        AUDITED_HORIZON_MAX_DAYS,
-        advanced_forecast_adapter_keys,
-        evaluate_advanced_forecast,
-        summarize_advanced_forecast_evaluations,
-    )
     from backend.forecast.dataset import load_forecast_evaluation_dataset
-    from backend.forecast.sealed_audit import (
-        SealedForecastAuditRepository,
-        build_forecast_sealed_prediction,
+    from backend.forecast.sealed_audit import SealedForecastAuditRepository
+    from backend.forecast.sealed_audit_cycle import (
+        ForecastSealedAuditCycleError,
+        capture_forecast_sealed_predictions,
     )
 
     repository = SealedForecastAuditRepository(Path(args.database))
@@ -160,75 +155,37 @@ def _capture(args: argparse.Namespace) -> int:
         Path(args.metadata),
         required_bar_count=args.required_bars,
     )
-    cases = {case.symbol.strip().upper(): case for case in dataset.cases}
-    existing = {
-        (item.symbol, item.horizon_days, item.origin_at)
-        for item in repository.list_predictions(manifest.manifest_id)
-    }
-    recorded_at = datetime.now(UTC)
-    predictions = []
-    failures: list[str] = []
-    skipped_existing = 0
-    for symbol in manifest.symbols:
-        case = cases.get(symbol)
-        if case is None:
-            failures.append(f"{symbol}:eligible_daily_bars_missing")
-            continue
-        origin_at = max(bar.ts for bar in case.bars)
-        for horizon in manifest.horizons:
-            if (symbol, horizon, origin_at) in existing:
-                skipped_existing += 1
-                continue
-            evaluations = []
-            adapter_names = (
-                advanced_forecast_adapter_keys()
-                if horizon <= AUDITED_HORIZON_MAX_DAYS
-                else ("advanced_quantile",)
-            )
-            for adapter_name in adapter_names:
-                try:
-                    evaluations.append(
-                        evaluate_advanced_forecast(
-                            case.bars,
-                            adapter_name=adapter_name,
-                            horizon_days=horizon,
-                        )
-                    )
-                except ValueError:
-                    continue
-            consensus = summarize_advanced_forecast_evaluations(evaluations)
-            if consensus is None:
-                failures.append(f"{symbol}/{horizon}:consensus_unavailable")
-                continue
-            try:
-                predictions.append(
-                    build_forecast_sealed_prediction(
-                        manifest,
-                        consensus,
-                        case.bars,
-                        recorded_at=recorded_at,
-                        market=case.market,
-                        asset_type=case.asset_type,
-                        regime=case.regime,
-                    )
-                )
-            except ValueError as exc:
-                failures.append(f"{symbol}/{horizon}:{exc}")
-    result = repository.add_predictions(predictions)
-    print(f"manifest: {manifest.manifest_id}")
+    try:
+        result = capture_forecast_sealed_predictions(
+            repository,
+            args.manifest_id,
+            dataset,
+            source_revision=args.source_revision,
+            recorded_at=datetime.now(UTC),
+        )
+    except ForecastSealedAuditCycleError as exc:
+        print(str(exc))
+        return 1
+    print(f"manifest: {result.manifest_id}")
     print(f"inserted: {result.inserted_count}")
     print(f"duplicates: {result.duplicate_count}")
-    print(f"existing origin skipped: {skipped_existing}")
-    if failures:
+    print(f"existing origin skipped: {result.existing_origin_skipped_count}")
+    if result.failures:
         print("failures:")
-        for failure in failures:
-            print(f"- {failure}")
-    return 1 if failures else 0
+        for failure in result.failures:
+            key = (
+                failure.symbol
+                if failure.horizon_days is None
+                else f"{failure.symbol}/{failure.horizon_days}"
+            )
+            print(f"- {key}:{failure.reason}")
+    return 1 if result.failures else 0
 
 
 def _mature(args: argparse.Namespace) -> int:
     from backend.forecast.dataset import load_forecast_evaluation_dataset
     from backend.forecast.sealed_audit import (
+        SEALED_AUDIT_HARD_MATURATION_REASONS,
         SealedForecastAuditRepository,
         mature_forecast_sealed_predictions,
     )
@@ -263,15 +220,7 @@ def _mature(args: argparse.Namespace) -> int:
             "not matured: "
             + ", ".join(f"{reason}={count}" for reason, count in sorted(reason_counts.items()))
         )
-    hard_failures = {
-        "duplicate_bar_timestamp",
-        "origin_bar_missing",
-        "origin_close_revised",
-        "prediction_recorded_after_target",
-        "target_close_non_positive",
-        "bar_timestamp_naive",
-    }
-    return 1 if hard_failures.intersection(reason_counts) else 0
+    return 1 if SEALED_AUDIT_HARD_MATURATION_REASONS.intersection(reason_counts) else 0
 
 
 def _status_or_export(args: argparse.Namespace) -> int:

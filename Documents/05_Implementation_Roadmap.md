@@ -2717,6 +2717,10 @@ fail-closedとする。成熟pointは既存`ForecastValidationPoint` CSVへexpor
 6 horizon・360 predictionの新暦期間監査を開始した。全targetは未成熟である。SQLite / foreign key / 全行hashの
 一括verify、atomic online backup、hash付きprediction / outcome JSONL exportも追加し、成熟前証拠を保全する。
 
+さらに、固定cohortの全symbol / metadata / bar contractが揃わないlive snapshotをDB更新前に拒否し、重大成熟異常時の
+outcome追記をall-or-none、capture候補計算を全件成功後の一括追記とするrun-once backendを追加した。60銘柄の
+保存済みsnapshot再生では既存360件をskip、pending 360件を維持し、verify / export / backupを一括完了した。
+
 成果物:
 
 - `forecast_model_evaluation_summary.md`

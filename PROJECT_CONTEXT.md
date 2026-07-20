@@ -212,6 +212,10 @@ product/service, region, and customer classification policies now live outside t
 Research service behind a thin compatibility façade. This removes about 1,660 lines from
 `backend/research/service.py` without changing Research contracts or classification results.
 
+The first `ui.app` split moves pure Ranking policy guidance, reversal-score tables, and condition
+summary HTML to `ui/ranking_policy_presenter.py`. Existing app-level names remain imported for
+compatibility; Streamlit state, Ranking formulas, ordering, and display text are unchanged.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

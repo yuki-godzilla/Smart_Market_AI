@@ -97,6 +97,10 @@ ui/assets/styles/      # base / component / page別CSS
 - Streamlit session / job registryはcontroller adapterに限定する。
 - 既存function名はcompatibility façadeとして残し、CLIとテストを新use caseへ移行する。
 
+進捗: 最初に副作用のないpolicy説明、上向き兆候の点数表、条件summary HTMLを
+`ui/ranking_policy_presenter.py`へ移した。`ui.app`は同名functionをimportするため、既存test / callerの
+import contractを維持する。次はjob request / result contractとMarketData orchestrationを分離する。
+
 ### R2: Cockpit application flowを分離
 
 - symbol/date/provider選択、取得、Forecast実行、表示model生成を分ける。

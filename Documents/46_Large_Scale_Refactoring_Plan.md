@@ -107,7 +107,9 @@ ranking job起動controllerを分離し、runtime経路も新controllerへ移し
 matching completed jobだけをbrowser sessionごとに一度だけ採用するStreamlit非依存controller adapterへ
 分離した。既存のrows / error rows / source / timestamp / ranking history handoff keyは維持し、描画と
 `st.rerun()`は`ui.app`に残す。次は実際のMarketData取得・特徴量・score build pipelineを`ui.app`から
-段階的に分離する。
+段階的に分離する。最初に、live providerのcohort分割、高速build、fixture preview fallback、live失敗時の
+fail-closed error rowを選ぶ外側pipelineをStreamlit非依存adapterへ移した。次は高速build内部のMarketData
+取得、特徴量生成、score row組立をtyped portごとに分離する。
 
 ### R2: Cockpit application flowを分離
 

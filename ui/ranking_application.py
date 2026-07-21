@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Literal, MutableMapping, Protocol
+from typing import Any, Callable, Literal, MutableMapping, Protocol
 
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
 from backend.investment_candidates.service import (
@@ -50,8 +50,14 @@ class LegacyMarketDataRankingBuilder(Protocol):
         start: date,
         end: date,
         provider: str,
-        progress_callback: ProgressReporter,
+        progress_callback: ProgressReporter | None,
     ) -> tuple[list[dict[str, str]], list[dict[str, str]]]: ...
+
+
+RankingRowsBuilder = LegacyMarketDataRankingBuilder
+RankingProviderErrorRowsBuilder = Callable[[str, list[str], Exception], list[dict[str, str]]]
+RankingLiveProviderChecker = Callable[[str], bool]
+RankingProgressReporter = Callable[[ProgressReporter | None, str, float], None]
 
 
 class RankingJobStarter(Protocol):
@@ -111,6 +117,67 @@ class MarketDataRankingBuilderAdapter:
             progress_callback=progress_callback,
         )
         return RankingBuildResult(rows=rows, error_rows=error_rows)
+
+
+@dataclass(frozen=True)
+class MarketDataRankingPipeline:
+    """Route one Ranking build through its bounded live-data failure policy.
+
+    Provider-specific fetch, feature, and score functions are injected at the
+    application edge. This keeps the pipeline selection and fallback contract
+    independent of Streamlit while preserving the established implementations.
+    """
+
+    is_live_provider: RankingLiveProviderChecker
+    live_cohort_size: int
+    build_large: RankingRowsBuilder
+    build_fast: RankingRowsBuilder
+    build_previews: RankingRowsBuilder
+    provider_error_rows: RankingProviderErrorRowsBuilder
+    app_error_type: type[Exception]
+    report_progress: RankingProgressReporter
+
+    async def build(
+        self,
+        symbols: list[str],
+        *,
+        start: date,
+        end: date,
+        provider: str,
+        progress_callback: ProgressReporter | None = None,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        is_live = self.is_live_provider(provider)
+        if is_live and len(symbols) > self.live_cohort_size:
+            return await self.build_large(
+                symbols,
+                start=start,
+                end=end,
+                provider=provider,
+                progress_callback=progress_callback,
+            )
+        try:
+            return await self.build_fast(
+                symbols,
+                start=start,
+                end=end,
+                provider=provider,
+                progress_callback=progress_callback,
+            )
+        except self.app_error_type as exc:
+            if is_live:
+                self.report_progress(
+                    progress_callback,
+                    "Yahoo live data の一括取得に失敗しました。",
+                    1.0,
+                )
+                return [], self.provider_error_rows(provider, symbols, exc)
+            return await self.build_previews(
+                symbols,
+                start=start,
+                end=end,
+                provider=provider,
+                progress_callback=progress_callback,
+            )
 
 
 def execute_ranking_build_request(

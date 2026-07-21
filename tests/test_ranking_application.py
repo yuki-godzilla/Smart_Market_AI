@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import contextmanager
 from datetime import date
 from typing import Any
 
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
 from ui.ranking_application import (
+    MarketDataRankingPipeline,
     RankingJobSessionKeys,
     adopt_completed_ranking_job,
     execute_ranking_build_request,
@@ -205,3 +207,84 @@ def test_ranking_job_adoption_rejects_non_matching_or_non_completed_job() -> Non
         updated_at="now",
     )
     assert session_state == {}
+
+
+def test_market_data_ranking_pipeline_uses_live_cohorts_above_limit() -> None:
+    calls: list[str] = []
+
+    async def build_large(symbols, **_kwargs):
+        calls.append(f"large:{','.join(symbols)}")
+        return [{"symbol": symbols[0]}], []
+
+    async def unexpected_builder(*_args, **_kwargs):
+        raise AssertionError("unexpected pipeline route")
+
+    pipeline = MarketDataRankingPipeline(
+        is_live_provider=lambda provider: provider == "yahoo",
+        live_cohort_size=1,
+        build_large=build_large,
+        build_fast=unexpected_builder,
+        build_previews=unexpected_builder,
+        provider_error_rows=lambda _provider, _symbols, _exc: [],
+        app_error_type=RuntimeError,
+        report_progress=lambda _message, _ratio: None,
+    )
+
+    rows, errors = asyncio.run(
+        pipeline.build(
+            ["7203.T", "AAPL"],
+            start=date(2024, 7, 20),
+            end=date(2026, 7, 20),
+            provider="yahoo",
+        )
+    )
+
+    assert rows == [{"symbol": "7203.T"}]
+    assert errors == []
+    assert calls == ["large:7203.T,AAPL"]
+
+
+def test_market_data_ranking_pipeline_falls_back_or_fails_closed_by_provider() -> None:
+    progress: list[tuple[str, float]] = []
+
+    async def fail_fast(*_args, **_kwargs):
+        raise RuntimeError("provider unavailable")
+
+    async def previews(symbols, **_kwargs):
+        return [{"symbol": symbols[0]}], []
+
+    pipeline = MarketDataRankingPipeline(
+        is_live_provider=lambda provider: provider == "yahoo",
+        live_cohort_size=100,
+        build_large=previews,
+        build_fast=fail_fast,
+        build_previews=previews,
+        provider_error_rows=lambda provider, symbols, _exc: [
+            {"provider": provider, "symbol": ",".join(symbols)}
+        ],
+        app_error_type=RuntimeError,
+        report_progress=lambda _callback, message, ratio: progress.append((message, ratio)),
+    )
+
+    preview_rows, preview_errors = asyncio.run(
+        pipeline.build(
+            ["7203.T"],
+            start=date(2024, 7, 20),
+            end=date(2026, 7, 20),
+            provider="fixture",
+        )
+    )
+    live_rows, live_errors = asyncio.run(
+        pipeline.build(
+            ["7203.T"],
+            start=date(2024, 7, 20),
+            end=date(2026, 7, 20),
+            provider="yahoo",
+        )
+    )
+
+    assert preview_rows == [{"symbol": "7203.T"}]
+    assert preview_errors == []
+    assert live_rows == []
+    assert live_errors == [{"provider": "yahoo", "symbol": "7203.T"}]
+    assert progress == [("Yahoo live data の一括取得に失敗しました。", 1.0)]

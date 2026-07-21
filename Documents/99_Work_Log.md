@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 MarketData pipeline routing split
+
+- Ranking buildのlive cohort選択、通常の高速build、fixture preview fallback、live provider失敗時の
+  fail-closed error row化を、`ui/ranking_application.py`のStreamlit非依存pipelineへ分離した。
+- 既存のMarketData取得、feature生成、Forecast / score計算、provider選択、fallback、Ranking順は
+  `ui/app.py`の互換façade経由で同じ実装を使い、結果を変更していない。
+- liveのcohort経路、fixture fallback、live失敗のerror化をnetwork-freeで回帰した。Ranking applicationと
+  UI表示回帰は402 passed、対象Ruff / Black、`ui/ranking_application.py`のMypyを通過した。
+
 ## 2026-07-21 Ranking R1 completed-job session adoption split
 
 - `ui/ranking_application.py`へ、process-wide Ranking jobの完了結果をbrowser sessionへ一度だけ

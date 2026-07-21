@@ -347,6 +347,7 @@ from ui.ranking import (
     symbol_universe_rows,
 )
 from ui.ranking_application import (
+    MarketDataRankingPipeline,
     RankingJobSessionKeys,
     adopt_completed_ranking_job,
     execute_ranking_build_request,
@@ -9495,37 +9496,25 @@ async def _build_market_data_ranking_rows(
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    if provider in LIVE_MARKET_DATA_PROVIDERS and len(symbols) > RANKING_PIPELINE_COHORT_SIZE:
-        return await _build_large_market_data_ranking_rows(
-            symbols,
-            start=start,
-            end=end,
-            provider=provider,
-            progress_callback=progress_callback,
-        )
-    try:
-        return await _build_market_data_ranking_rows_fast(
-            symbols,
-            start=start,
-            end=end,
-            provider=provider,
-            progress_callback=progress_callback,
-        )
-    except AppError as exc:
-        if provider in LIVE_MARKET_DATA_PROVIDERS:
-            _report_ranking_progress(
-                progress_callback,
-                "Yahoo live data の一括取得に失敗しました。",
-                1.0,
-            )
-            return [], ranking_provider_error_rows(provider, symbols, exc)
-        return await _build_market_data_ranking_rows_from_previews(
-            symbols,
-            start=start,
-            end=end,
-            provider=provider,
-            progress_callback=progress_callback,
-        )
+    """Compatibility façade for the Streamlit-independent build pipeline."""
+
+    pipeline = MarketDataRankingPipeline(
+        is_live_provider=lambda candidate: candidate in LIVE_MARKET_DATA_PROVIDERS,
+        live_cohort_size=RANKING_PIPELINE_COHORT_SIZE,
+        build_large=_build_large_market_data_ranking_rows,
+        build_fast=_build_market_data_ranking_rows_fast,
+        build_previews=_build_market_data_ranking_rows_from_previews,
+        provider_error_rows=ranking_provider_error_rows,
+        app_error_type=AppError,
+        report_progress=_report_ranking_progress,
+    )
+    return await pipeline.build(
+        symbols,
+        start=start,
+        end=end,
+        provider=provider,
+        progress_callback=progress_callback,
+    )
 
 
 async def _build_large_market_data_ranking_rows(

@@ -111,7 +111,9 @@ matching completed jobだけをbrowser sessionごとに一度だけ採用するS
 fail-closed error rowを選ぶ外側pipelineをStreamlit非依存adapterへ移した。次は高速build内部のMarketData
 取得、特徴量生成、score row組立をtyped portごとに分離する。最初にOHLCV取得、display symbol復元、FX取得、
 利用可能銘柄・Quote確定、no bar / insufficient bar error row作成を`RankingMarketDataInputs` contractとして
-分離した。Provider/cache実装はUI edgeから注入し、次はfundamental取得、特徴量生成、score row組立を分離する。
+分離した。Provider/cache実装はUI edgeから注入する。続いて、provider symbolへの変換、fundamental取得の
+non-fatal error row、display symbol復元を`RankingFundamentalInputs` contractとして分離した。次は特徴量生成と
+score row組立を分離する。
 
 ### R2: Cockpit application flowを分離
 

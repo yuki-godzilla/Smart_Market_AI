@@ -378,7 +378,10 @@ from ui.ranking_jobs import (
     RankingProgressCallback as BackgroundRankingProgressCallback,
 )
 from ui.ranking_jobs import get_ranking_job, ranking_job_is_running, start_ranking_job
-from ui.ranking_market_data import acquire_ranking_market_data_inputs
+from ui.ranking_market_data import (
+    acquire_ranking_fundamental_inputs,
+    acquire_ranking_market_data_inputs,
+)
 from ui.ranking_policy_presenter import (
     ranking_condition_summary_chips_html,
     ranking_creation_target_summary_html,
@@ -9696,23 +9699,18 @@ async def _build_market_data_ranking_rows_fast(
     usd_jpy_rate = market_data.usd_jpy_rate
 
     _report_ranking_progress(progress_callback, "ファンダメンタル情報を取得しています。", 0.55)
-    provider_available_symbols = [
-        provider_symbols_by_symbol[symbol] for symbol in available_symbols
-    ]
-    provider_fundamentals, fundamental_error_rows = await _fetch_ranking_fundamentals_tolerant(
-        adapter,
-        provider_available_symbols,
+    fundamental_data = await acquire_ranking_fundamental_inputs(
+        available_symbols,
         provider=provider,
         as_of=end,
+        adapter=adapter,
+        provider_symbols_by_symbol=provider_symbols_by_symbol,
         display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
+        fetch_fundamentals=_fetch_ranking_fundamentals_tolerant,
+        fundamentals_with_display_symbols=_fundamentals_with_display_symbols,
     )
-    error_rows.extend(fundamental_error_rows)
-    fundamentals = _fundamentals_with_display_symbols(
-        provider_fundamentals,
-        provider_symbols_by_symbol={
-            symbol: provider_symbols_by_symbol[symbol] for symbol in available_symbols
-        },
-    )
+    error_rows.extend(fundamental_data.error_rows)
+    fundamentals = fundamental_data.fundamentals
     _report_ranking_progress(progress_callback, "スクリーニング用特徴量を作成しています。", 0.65)
     feature_rows = build_daily_snapshots_from_market_data(
         symbols=available_symbols,

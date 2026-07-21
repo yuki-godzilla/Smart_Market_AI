@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from backend.core.data_contracts import Bar, Quote
+from backend.core.data_contracts import Bar, FundamentalSnapshot, Quote
 
 RankingRow = dict[str, str]
 RankingProgressReporter = Callable[[Callable[[str, float], None] | None, str, float], None]
@@ -17,6 +17,8 @@ BarsDisplayMapper = Callable[..., list[Bar]]
 BarsBySymbolBuilder = Callable[[list[str], list[Bar]], dict[str, list[Bar]]]
 CurrencyBySymbolBuilder = Callable[[dict[str, list[Bar]]], dict[str, str]]
 ErrorRowBuilder = Callable[..., RankingRow]
+FundamentalsFetcher = Callable[..., Awaitable[tuple[list[FundamentalSnapshot], list[RankingRow]]]]
+FundamentalsDisplayMapper = Callable[..., list[FundamentalSnapshot]]
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,14 @@ class RankingMarketDataInputs:
     source_currency_by_symbol: dict[str, str]
     jpy_fx_rates: dict[str, Any]
     usd_jpy_rate: Any | None
+
+
+@dataclass(frozen=True)
+class RankingFundamentalInputs:
+    """Fundamentals and non-fatal fetch errors for usable Ranking symbols."""
+
+    fundamentals: list[FundamentalSnapshot]
+    error_rows: list[RankingRow]
 
 
 async def acquire_ranking_market_data_inputs(
@@ -146,3 +156,33 @@ async def acquire_ranking_market_data_inputs(
         jpy_fx_rates=jpy_fx_rates,
         usd_jpy_rate=jpy_fx_rates.get("USD"),
     )
+
+
+async def acquire_ranking_fundamental_inputs(
+    symbols: list[str],
+    *,
+    provider: str,
+    as_of: date,
+    adapter: Any,
+    provider_symbols_by_symbol: Mapping[str, str],
+    display_symbols_by_provider_symbol: Mapping[str, list[str]],
+    fetch_fundamentals: FundamentalsFetcher,
+    fundamentals_with_display_symbols: FundamentalsDisplayMapper,
+) -> RankingFundamentalInputs:
+    """Fetch and restore fundamentals without coupling the score stage to a provider."""
+
+    provider_symbols = [provider_symbols_by_symbol[symbol] for symbol in symbols]
+    provider_fundamentals, error_rows = await fetch_fundamentals(
+        adapter,
+        provider_symbols,
+        provider=provider,
+        as_of=as_of,
+        display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
+    )
+    fundamentals = fundamentals_with_display_symbols(
+        provider_fundamentals,
+        provider_symbols_by_symbol={
+            symbol: provider_symbols_by_symbol[symbol] for symbol in symbols
+        },
+    )
+    return RankingFundamentalInputs(fundamentals=fundamentals, error_rows=error_rows)

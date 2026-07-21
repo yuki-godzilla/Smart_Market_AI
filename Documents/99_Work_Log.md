@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 fundamental input split
+
+- `ui/ranking_market_data.py`へ、利用可能display symbolのprovider symbol変換、fundamental取得、
+  銘柄別non-fatal error row保持、display symbol復元を`RankingFundamentalInputs` contractとして追加した。
+- feature / Forecast / score計算は移動しておらず、Provider、fallback、Ranking数値・順位は変更していない。
+- fundamental error rowを保持しつつsymbol mappingを復元するnetwork-free regressionを追加した。Ranking関連の
+  UI回帰は404 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 MarketData input acquisition split
 
 - 高速Ranking buildから、OHLCVのchunk取得、display symbol復元、FX取得、利用可能銘柄・Quoteの確定、

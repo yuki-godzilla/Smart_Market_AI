@@ -233,8 +233,10 @@ errors without changing the existing fetch / feature / score implementations. Th
 internal slice now returns a typed `RankingMarketDataInputs` contract after OHLCV acquisition,
 display-symbol restoration, FX lookup, usable-symbol selection, Quote creation, and per-symbol
 no-bar / insufficient-bar handling. Provider/cache behavior remains injected at the UI edge. The
-next R1 slice extracts the fundamental fetch, feature construction, and score-row assembly from
-`ui/app.py` behind typed ports.
+following fundamental-input slice now maps usable display symbols to provider symbols, retains
+non-fatal fundamental fetch errors, and restores display symbols through a typed contract. The
+next R1 slice extracts feature construction and score-row assembly from `ui/app.py` behind typed
+ports.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

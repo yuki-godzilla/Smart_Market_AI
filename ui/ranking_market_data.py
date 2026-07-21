@@ -35,6 +35,10 @@ ForecastConsensusBuilder = Callable[..., ForecastConsensus | None]
 ScreeningScorer = Callable[..., list[Any]]
 InvestmentScorer = Callable[..., list[Any]]
 InvestmentRowsBuilder = Callable[[list[Any]], list[RankingRow]]
+FeatureDetailEnricher = Callable[..., list[RankingRow]]
+AdvancedForecastEnricher = Callable[[list[RankingRow], dict[str, dict[str, str]]], list[RankingRow]]
+RankingRowsSorter = Callable[[list[RankingRow]], list[RankingRow]]
+LatestVolumeBuilder = Callable[[Mapping[str, list[Bar]]], dict[str, str]]
 
 
 @dataclass(frozen=True)
@@ -83,6 +87,13 @@ class RankingScoreInputs:
     screening_scores: list[Any]
     investment_scores: list[Any]
     score_rows: list[RankingRow]
+
+
+@dataclass(frozen=True)
+class RankingPresentationInputs:
+    """Fully enriched and sorted rows returned by a Ranking build."""
+
+    ranked_rows: list[RankingRow]
 
 
 async def acquire_ranking_market_data_inputs(
@@ -327,3 +338,36 @@ def build_ranking_score_inputs(
         investment_scores=investment_scores,
         score_rows=build_investment_rows(investment_scores),
     )
+
+
+def build_ranking_presentation_inputs(
+    score_rows: list[RankingRow],
+    *,
+    feature_rows: list[DailySnapshot],
+    bars_by_symbol: Mapping[str, list[Bar]],
+    source_currency_by_symbol: Mapping[str, str],
+    usd_jpy_rate: Any | None,
+    jpy_fx_rates: Mapping[str, Any],
+    provider_name: str,
+    advanced_forecast_fields_by_symbol: dict[str, dict[str, str]],
+    enrich_feature_details: FeatureDetailEnricher,
+    enrich_advanced_forecast: AdvancedForecastEnricher,
+    build_latest_volume: LatestVolumeBuilder,
+    sort_rows: RankingRowsSorter,
+) -> RankingPresentationInputs:
+    """Enrich base score rows for display and apply the established final order."""
+
+    enriched_rows = enrich_feature_details(
+        score_rows,
+        feature_rows,
+        latest_volume_by_symbol=build_latest_volume(bars_by_symbol),
+        source_currency_by_symbol=source_currency_by_symbol,
+        usd_jpy_rate=usd_jpy_rate,
+        jpy_fx_rates=jpy_fx_rates,
+        provider_name=provider_name,
+    )
+    enriched_rows = enrich_advanced_forecast(
+        enriched_rows,
+        advanced_forecast_fields_by_symbol,
+    )
+    return RankingPresentationInputs(ranked_rows=sort_rows(enriched_rows))

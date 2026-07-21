@@ -241,7 +241,10 @@ following Forecast slice now creates one point-in-time consensus per usable symb
 existing horizon, evaluators, summary logic, and progress cadence through injected ports. The next
 slice now also separates deterministic Screening, Investment Score, and base score-row assembly
 behind typed ports. The next R1 slice extracts display enrichment, advanced-forecast field merge,
-and final ranking order from `ui/app.py`.
+and final ranking order from `ui/app.py`. That presentation slice is now also a typed boundary:
+existing feature-detail enrichment, advanced-field merge, and ranking sorter are injected and retain
+their previous result contract. The remaining R1 work is limited to optional refinement of the
+large-cohort / advanced-forecast orchestration, not a change to Ranking calculations.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

@@ -10,6 +10,7 @@ from ui.ranking_market_data import (
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
     build_ranking_forecast_inputs,
+    build_ranking_presentation_inputs,
     build_ranking_score_inputs,
 )
 
@@ -202,3 +203,41 @@ def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
     assert [event[0] for event in events] == ["screening", "investment", "rows"]
     assert events[0][2] is consensus
     assert events[1][1] == ["screening-score"]
+
+
+def test_presentation_input_stage_enriches_then_sorts_existing_rows() -> None:
+    events: list[object] = []
+
+    def enrich_feature(rows, feature_rows, **kwargs):
+        events.append(("feature", rows, feature_rows, kwargs))
+        return [{**row, "feature": "ready"} for row in rows]
+
+    def enrich_advanced(rows, fields):
+        events.append(("advanced", rows, fields))
+        return [{**row, "advanced": fields.get(row["symbol"], {}).get("value", "")} for row in rows]
+
+    def sort_rows(rows):
+        events.append(("sort", rows))
+        return list(reversed(rows))
+
+    result = build_ranking_presentation_inputs(
+        [{"symbol": "AAA"}, {"symbol": "BBB"}],
+        feature_rows=[],
+        bars_by_symbol={},
+        source_currency_by_symbol={"AAA": "USD"},
+        usd_jpy_rate="150",
+        jpy_fx_rates={"USD": "150"},
+        provider_name="fixture",
+        advanced_forecast_fields_by_symbol={"AAA": {"value": "up"}},
+        enrich_feature_details=enrich_feature,
+        enrich_advanced_forecast=enrich_advanced,
+        build_latest_volume=lambda _bars: {"AAA": "100"},
+        sort_rows=sort_rows,
+    )
+
+    assert [event[0] for event in events] == ["feature", "advanced", "sort"]
+    assert events[0][3]["latest_volume_by_symbol"] == {"AAA": "100"}
+    assert result.ranked_rows == [
+        {"symbol": "BBB", "feature": "ready", "advanced": ""},
+        {"symbol": "AAA", "feature": "ready", "advanced": "up"},
+    ]

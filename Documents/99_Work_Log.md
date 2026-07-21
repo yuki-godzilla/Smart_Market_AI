@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 presentation assembly split
+
+- `ui/ranking_market_data.py`へ、基本score rowへfeature詳細・通貨・出来高を付加し、高度Forecast fieldを
+  統合して既存sortを適用する`RankingPresentationInputs` contractを追加した。
+- 既存のdetail enricher、advanced-field enricher、sorterはUI edgeから注入する。表示row形式、Ranking順、
+  計算値を変更していない。
+- feature詳細→高度Forecast統合→sortの順序と既存値の受渡しをnetwork-freeで回帰した。Ranking関連UI回帰は
+  408 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 deterministic score assembly split
 
 - `ui/ranking_market_data.py`へ、`FeatureSnapshot`とForecast consensusからScreening、Investment Score、

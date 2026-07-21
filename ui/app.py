@@ -382,6 +382,7 @@ from ui.ranking_market_data import (
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
     build_ranking_forecast_inputs,
+    build_ranking_presentation_inputs,
     build_ranking_score_inputs,
 )
 from ui.ranking_policy_presenter import (
@@ -9766,22 +9767,22 @@ async def _build_market_data_ranking_rows_fast(
         ),
         build_investment_rows=investment_score_rows,
     )
-    score_rows = _enrich_ranking_rows_with_feature_details(
+    presentation_data = build_ranking_presentation_inputs(
         score_data.score_rows,
-        feature_rows,
-        latest_volume_by_symbol=_latest_volume_by_symbol(bars_by_symbol),
+        feature_rows=feature_rows,
+        bars_by_symbol=bars_by_symbol,
         source_currency_by_symbol=source_currency_by_symbol,
         usd_jpy_rate=usd_jpy_rate,
         jpy_fx_rates=jpy_fx_rates,
         provider_name=provider_name,
+        advanced_forecast_fields_by_symbol=advanced_forecast_fields_by_symbol,
+        enrich_feature_details=_enrich_ranking_rows_with_feature_details,
+        enrich_advanced_forecast=_enrich_ranking_rows_with_advanced_forecast,
+        build_latest_volume=_latest_volume_by_symbol,
+        sort_rows=rank_investment_score_rows,
     )
-    score_rows = _enrich_ranking_rows_with_advanced_forecast(
-        score_rows,
-        advanced_forecast_fields_by_symbol,
-    )
-    ranked_rows = rank_investment_score_rows(score_rows)
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
-    return ranked_rows, error_rows
+    return presentation_data.ranked_rows, error_rows
 
 
 def _ranking_advanced_forecast_fields_for_symbols(

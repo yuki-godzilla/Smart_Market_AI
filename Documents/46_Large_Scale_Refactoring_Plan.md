@@ -117,7 +117,9 @@ score row組立を分離する。特徴量生成は`RankingFeatureInputs` contra
 `FeatureSnapshot`、provider名をまとめて後続へ渡す。Forecast consensusも`RankingForecastInputs` contractとして
 分離し、horizon、既存評価器・summary、進捗cadenceを維持した。次はScreening / Investment Score row組立を分離する。
 Screening、Investment Score、基本score row組立も`RankingScoreInputs` contractとして分離し、次は表示向けfeature詳細、
-高度予測fieldの付加、最終sortを分離する。
+高度予測fieldの付加、最終sortを分離する。これらも`RankingPresentationInputs` contractとして分離し、R1の通常buildは
+入力取得、fundamental、feature、Forecast、score、表示row、session採用の各境界を持つ。残作業はlarge-cohort / advanced
+forecast orchestrationを必要に応じてさらに小さくすることであり、数値ロジック変更とは分離する。
 
 ### R2: Cockpit application flowを分離
 

@@ -109,7 +109,9 @@ matching completed jobだけをbrowser sessionごとに一度だけ採用するS
 `st.rerun()`は`ui.app`に残す。次は実際のMarketData取得・特徴量・score build pipelineを`ui.app`から
 段階的に分離する。最初に、live providerのcohort分割、高速build、fixture preview fallback、live失敗時の
 fail-closed error rowを選ぶ外側pipelineをStreamlit非依存adapterへ移した。次は高速build内部のMarketData
-取得、特徴量生成、score row組立をtyped portごとに分離する。
+取得、特徴量生成、score row組立をtyped portごとに分離する。最初にOHLCV取得、display symbol復元、FX取得、
+利用可能銘柄・Quote確定、no bar / insufficient bar error row作成を`RankingMarketDataInputs` contractとして
+分離した。Provider/cache実装はUI edgeから注入し、次はfundamental取得、特徴量生成、score row組立を分離する。
 
 ### R2: Cockpit application flowを分離
 

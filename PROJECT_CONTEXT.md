@@ -229,9 +229,12 @@ result / source / timestamp / history-handoff state keys, and leaves rendering a
 the UI edge. Ranking formulas, rows, order, provider behavior, cache semantics, and history format
 are unchanged. The outer MarketData build pipeline is now also a Streamlit-independent adapter:
 it selects bounded live cohorts, fast build, fixture preview fallback, or fail-closed live-provider
-errors without changing the existing fetch / feature / score implementations. The next R1 slice
-extracts the fast-build internals (MarketData fetch, feature construction, and score-row assembly)
-from `ui/app.py` behind typed ports.
+errors without changing the existing fetch / feature / score implementations. The first fast-build
+internal slice now returns a typed `RankingMarketDataInputs` contract after OHLCV acquisition,
+display-symbol restoration, FX lookup, usable-symbol selection, Quote creation, and per-symbol
+no-bar / insufficient-bar handling. Provider/cache behavior remains injected at the UI edge. The
+next R1 slice extracts the fundamental fetch, feature construction, and score-row assembly from
+`ui/app.py` behind typed ports.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

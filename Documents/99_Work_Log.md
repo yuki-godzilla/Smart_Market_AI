@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 MarketData input acquisition split
+
+- 高速Ranking buildから、OHLCVのchunk取得、display symbol復元、FX取得、利用可能銘柄・Quoteの確定、
+  銘柄別no bar / insufficient bar error row収集を`ui/ranking_market_data.py`へ分離した。
+- `RankingMarketDataInputs`はStreamlit stateを持たず、bars、bars-by-symbol、quotes、利用可能銘柄、
+  error rows、通貨、FXを後続のfundamental / feature / score段階へ渡す。Provider/cache/fetch実装は
+  UI edgeから注入し、Ranking数値・順位・fallbackの意味を変更していない。
+- provider fetch失敗と通常のno-barを混同しないunit regressionを追加した。Ranking applicationとUI表示回帰は
+  403 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 MarketData pipeline routing split
 
 - Ranking buildのlive cohort選択、通常の高速build、fixture preview fallback、live provider失敗時の

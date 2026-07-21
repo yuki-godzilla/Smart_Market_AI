@@ -45,7 +45,6 @@ from backend.core.data_contracts import (
     DataQuality,
     FeatureSnapshot,
     FundamentalSnapshot,
-    Quote,
 )
 from backend.core.errors import AppError, DataSourceError, ProviderTimeoutError
 from backend.forecast import determine_forecast_horizon, forecast_model_display_name
@@ -379,6 +378,7 @@ from ui.ranking_jobs import (
     RankingProgressCallback as BackgroundRankingProgressCallback,
 )
 from ui.ranking_jobs import get_ranking_job, ranking_job_is_running, start_ranking_job
+from ui.ranking_market_data import acquire_ranking_market_data_inputs
 from ui.ranking_policy_presenter import (
     ranking_condition_summary_chips_html,
     ranking_creation_target_summary_html,
@@ -9655,90 +9655,45 @@ async def _build_market_data_ranking_rows_fast(
     end_dt = datetime.combine(end, time.max, tzinfo=UTC)
     feature_start = min(start, end - timedelta(days=90))
     feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
-    bars: list[Bar] = []
-    error_rows: list[dict[str, str]] = []
-    provider_fetch_error_symbols: set[str] = set()
     provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
     fetch_symbols = _unique_provider_symbols(provider_symbols_by_symbol.values())
     symbol_chunks = ranking_symbol_chunks(fetch_symbols)
     display_symbols_by_provider_symbol = _display_symbols_by_provider_symbol(
         provider_symbols_by_symbol
     )
-    for index, symbol_chunk in enumerate(symbol_chunks, start=1):
-        _report_ranking_progress(
-            progress_callback,
-            f"価格データをまとめて取得しています ({index}/{len(symbol_chunks)})。",
-            0.1 + (0.35 * (index - 1) / len(symbol_chunks)),
-        )
-        chunk_bars, chunk_errors, chunk_failed_symbols = await _fetch_ranking_ohlcv_tolerant(
-            adapter,
-            symbol_chunk,
-            provider=provider,
-            start=feature_start_dt,
-            end=end_dt,
-            display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
-        )
-        bars.extend(chunk_bars)
-        error_rows.extend(chunk_errors)
-        provider_fetch_error_symbols.update(chunk_failed_symbols)
-    bars = _bars_with_display_symbols(
-        bars,
+    market_data = await acquire_ranking_market_data_inputs(
+        symbols,
+        provider=provider,
+        start=start,
+        end=end,
+        adapter=adapter,
+        feature_start=feature_start_dt,
+        fetch_end=end_dt,
         provider_symbols_by_symbol=provider_symbols_by_symbol,
+        symbol_chunks=symbol_chunks,
+        display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
+        fetch_ohlcv=_fetch_ranking_ohlcv_tolerant,
+        bars_with_display_symbols=_bars_with_display_symbols,
+        bars_by_symbol_builder=_ranking_bars_by_symbol,
+        currency_by_symbol_builder=_latest_currency_by_symbol,
+        fetch_jpy_fx_rates=_ranking_jpy_fx_rates,
+        no_bars_error_row=ranking_no_bars_error_row,
+        insufficient_bars_error_row=ranking_insufficient_bars_error_row,
+        report_progress=_report_ranking_progress,
+        progress_callback=progress_callback,
     )
-    _report_ranking_progress(progress_callback, "価格データを整理しています。", 0.45)
-    bars_by_symbol = _ranking_bars_by_symbol(symbols, bars)
-    source_currency_by_symbol = _latest_currency_by_symbol(bars_by_symbol)
-    source_currencies = {
-        currency or ("JPY" if symbol.endswith(".T") else "USD")
-        for symbol, currency in source_currency_by_symbol.items()
-    }
-    jpy_fx_rates = await _ranking_jpy_fx_rates(adapter, source_currencies)
-    usd_jpy_rate = jpy_fx_rates.get("USD")
-
-    available_symbols: list[str] = []
-    quotes: list[Quote] = []
-    for symbol in symbols:
-        symbol_bars = bars_by_symbol[symbol]
-        if not symbol_bars:
-            if symbol in provider_fetch_error_symbols:
-                continue
-            error_rows.append(
-                ranking_no_bars_error_row(
-                    provider=provider,
-                    symbol=symbol,
-                    display_start=start,
-                    display_end=end,
-                    fetch_start=feature_start_dt,
-                    fetch_end=end_dt,
-                )
-            )
-            continue
-        if len(symbol_bars) < 2:
-            error_rows.append(
-                ranking_insufficient_bars_error_row(
-                    provider=provider,
-                    symbol=symbol,
-                    bar_count=len(symbol_bars),
-                    display_start=start,
-                    display_end=end,
-                )
-            )
-            continue
-        latest = symbol_bars[-1]
-        available_symbols.append(symbol)
-        quotes.append(
-            Quote(
-                symbol=latest.symbol,
-                bid=None,
-                ask=None,
-                last=latest.close,
-                ts=latest.ts,
-            )
-        )
-
-    if not available_symbols:
+    if not market_data.available_symbols:
         _report_ranking_progress(progress_callback, "ランキング対象の価格データがありません。", 1.0)
-        return [], error_rows
+        return [], market_data.error_rows
+
+    bars = market_data.bars
+    bars_by_symbol = market_data.bars_by_symbol
+    quotes = market_data.quotes
+    available_symbols = market_data.available_symbols
+    error_rows = market_data.error_rows
+    source_currency_by_symbol = market_data.source_currency_by_symbol
+    jpy_fx_rates = market_data.jpy_fx_rates
+    usd_jpy_rate = market_data.usd_jpy_rate
 
     _report_ranking_progress(progress_callback, "ファンダメンタル情報を取得しています。", 0.55)
     provider_available_symbols = [

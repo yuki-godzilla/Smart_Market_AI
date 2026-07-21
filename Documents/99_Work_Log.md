@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-22 Cockpit application flow R2 preview boundary
+
+- `ui/cockpit_application.py`へ、symbol・期間・provider・forecast horizonを明示する
+  `CockpitPreviewRequest`、preview取得adapter、preview/session state採用contractを追加した。
+- 既存のMarketData preview builderはUI edgeから注入する。preview、status、forecast daysを保存し、
+  前回のchart display currencyを無効化する既存state遷移を固定した。widget、progress、エラー/toast、
+  symbol DB preflight、描画は`ui.app`に残し、MarketData、Forecast、Scoreの計算と表示結果は変更していない。
+- request伝播とsession state採用をnetwork-free testで追加し、Cockpit/Ranking関連UI回帰398件、Ruff、Blackを
+  確認した。次はForecast実行後のCockpit表示model / presenter境界を分離する。
+
 ## 2026-07-22 Ranking R1 large-cohort advanced Forecast split
 
 - `ui/ranking_application.py`へ、large-cohort buildの上位候補だけへ高度Forecastを再適用するoptional

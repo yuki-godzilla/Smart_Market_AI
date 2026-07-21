@@ -130,7 +130,11 @@ Streamlit非依存に保ち、R1は完了とする。次はR2 Cockpit applicatio
 
 進捗: 最初にfilter defaults、active-condition判定、universe絞り込み、keyword / alias / sector /
 theme検索順位を`ui/cockpit_filter_policy.py`へ分離した。新moduleはStreamlit stateを参照せず、
-`ui.app`にはsession stateの読書きと描画を残した。
+`ui.app`にはsession stateの読書きと描画を残した。続いて`ui/cockpit_application.py`へ
+`CockpitPreviewRequest`、preview load、preview/session state採用を分離した。symbol、期間、provider、
+forecast horizonの入力と、preview、status、forecast days、chart display currencyの更新境界を固定し、
+widget、progress、error/toast、後続renderは`ui.app`に残した。次はForecast実行後の表示modelとpresenterを
+同じrerun-state contractで分離する。
 
 ### R3: Research serviceをuse case別に分割
 

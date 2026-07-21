@@ -252,6 +252,11 @@ usable. R1 is complete; the next refactoring target is Cockpit flow separation (
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,
 writes, and rendering remain at the UI edge, and existing app-level imports stay compatible.
+The following Cockpit slice adds a typed preview request and a Streamlit-independent preview
+adoption contract. `ui.app` still owns widget input, progress, error display, and completion-only
+side effects; the controller now fixes the symbol/date/provider request, preview result, forecast
+horizon, status, and chart-currency invalidation boundary. MarketData, Forecast, and score
+calculation behavior are unchanged.
 
 Strategy references:
 

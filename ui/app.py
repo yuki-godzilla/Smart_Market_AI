@@ -149,6 +149,12 @@ from backend.symbols.background import (
 from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
+from ui.cockpit_application import (
+    CockpitPreviewRequest,
+    CockpitPreviewSessionKeys,
+    adopt_cockpit_preview,
+    load_cockpit_preview,
+)
 from ui.cockpit_filter_policy import (
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
     cockpit_detail_filters_for_category,
@@ -8165,16 +8171,26 @@ def _render_market_data_cockpit() -> None:
             progress_status = st.empty()
             update_cockpit_progress("入力条件と自動予測期間を確認しています。", 0.12)
             update_cockpit_progress("価格データと予測材料を取得しています。", 0.32)
+            preview_request = CockpitPreviewRequest(
+                symbol=symbol.strip(),
+                start=start_date,
+                end=end_date,
+                provider=provider,
+            )
             preview = asyncio.run(
-                build_market_data_preview(
-                    symbol=symbol.strip(),
-                    start=start_date,
-                    end=end_date,
-                    provider_override=provider,
-                    forecast_horizon_days=None,
+                load_cockpit_preview(
+                    preview_request,
+                    build_preview=lambda symbol, start, end, provider, forecast_horizon_days: (
+                        build_market_data_preview(
+                            symbol=symbol,
+                            start=start,
+                            end=end,
+                            provider_override=provider,
+                            forecast_horizon_days=forecast_horizon_days,
+                        )
+                    ),
                 )
             )
-            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = preview.forecast_horizon_days
             update_cockpit_progress("予測モデル、スコア、チャート材料を整理しています。", 0.86)
         except ValueError as exc:
             clear_cockpit_progress()
@@ -8185,9 +8201,16 @@ def _render_market_data_cockpit() -> None:
             st.error(str(exc))
             return
 
-        st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
-        st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
-        st.session_state.pop(MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY, None)
+        adopt_cockpit_preview(
+            st.session_state,
+            preview=preview,
+            keys=CockpitPreviewSessionKeys(
+                preview=MARKET_DATA_PREVIEW_STATE_KEY,
+                status=MARKET_DATA_STATUS_STATE_KEY,
+                forecast_days=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+                chart_display_currency=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
+            ),
+        )
         if preview.status == "OK":
             update_cockpit_progress("表示内容を更新しています。", 0.96)
             st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"

@@ -346,7 +346,12 @@ from ui.ranking import (
     symbol_universe_filter_value_counts,
     symbol_universe_rows,
 )
-from ui.ranking_application import execute_ranking_build_request, start_ranking_build_job
+from ui.ranking_application import (
+    RankingJobSessionKeys,
+    adopt_completed_ranking_job,
+    execute_ranking_build_request,
+    start_ranking_build_job,
+)
 from ui.ranking_filter_chips import (
     applied_exploration_filters,
     apply_ranking_applied_exploration_filters,
@@ -10234,19 +10239,23 @@ def _render_ranking_background_job(cache_key: str) -> None:
             f"もう一度実行してください。{error_suffix}"
         )
         return
-    adopted = str(st.session_state.get(RANKING_JOB_ADOPTED_STATE_KEY) or "")
-    if adopted == job.job_id:
-        st.success("ランキング作成が完了しました。")
-        return
-    st.session_state[MARKET_DATA_RANKING_STATE_KEY] = job.rows
-    st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = job.error_rows
-    st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
-    st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
-        "%Y-%m-%d %H:%M"
+    adopted = adopt_completed_ranking_job(
+        job,
+        cache_key=cache_key,
+        session_state=st.session_state,
+        session_keys=RankingJobSessionKeys(
+            rows=MARKET_DATA_RANKING_STATE_KEY,
+            error_rows=MARKET_DATA_RANKING_ERROR_STATE_KEY,
+            source=MARKET_DATA_RANKING_SOURCE_STATE_KEY,
+            updated_at=MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY,
+            adopted_job_id=RANKING_JOB_ADOPTED_STATE_KEY,
+            history_pending_job_id=RANKING_JOB_HISTORY_PENDING_STATE_KEY,
+        ),
+        updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
-    st.session_state[RANKING_JOB_ADOPTED_STATE_KEY] = job.job_id
-    st.session_state[RANKING_JOB_HISTORY_PENDING_STATE_KEY] = job.job_id
-    st.rerun()
+    if adopted:
+        st.rerun()
+    st.success("ランキング作成が完了しました。")
 
 
 def _touch_ranking_client_session(*, force: bool = False) -> bool:

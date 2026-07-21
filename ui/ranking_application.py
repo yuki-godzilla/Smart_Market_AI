@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal, Protocol
+from typing import Any, Literal, MutableMapping, Protocol
 
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
 from backend.investment_candidates.service import (
@@ -64,6 +64,18 @@ class RankingRequestExecutor(Protocol):
         request: RankingBuildRequest,
         progress_callback: RankingProgressCallback,
     ) -> RankingBuildResult: ...
+
+
+@dataclass(frozen=True)
+class RankingJobSessionKeys:
+    """Session-state keys owned by the Streamlit Ranking controller."""
+
+    rows: str
+    error_rows: str
+    source: str
+    updated_at: str
+    adopted_job_id: str
+    history_pending_job_id: str
 
 
 @dataclass(frozen=True)
@@ -141,3 +153,32 @@ def start_ranking_build_job(
         return execute_request(request, progress_callback).as_legacy_tuple()
 
     return start_job(request.cache_key, worker)
+
+
+def adopt_completed_ranking_job(
+    job: RankingJobSnapshot,
+    *,
+    cache_key: str,
+    session_state: MutableMapping[str, Any],
+    session_keys: RankingJobSessionKeys,
+    updated_at: str,
+) -> bool:
+    """Adopt one completed process-wide job into a browser session exactly once.
+
+    The worker result is immutable process-wide state. This controller adapter
+    keeps per-browser adoption, history handoff, and timestamp state out of the
+    Streamlit view while preserving the existing session-state contract.
+    """
+
+    if job.status != "completed" or job.cache_key != cache_key:
+        return False
+    if str(session_state.get(session_keys.adopted_job_id) or "") == job.job_id:
+        return False
+
+    session_state[session_keys.rows] = job.rows
+    session_state[session_keys.error_rows] = job.error_rows
+    session_state[session_keys.source] = cache_key
+    session_state[session_keys.updated_at] = updated_at
+    session_state[session_keys.adopted_job_id] = job.job_id
+    session_state[session_keys.history_pending_job_id] = job.job_id
+    return True

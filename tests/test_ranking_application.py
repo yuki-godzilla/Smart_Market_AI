@@ -5,7 +5,12 @@ from datetime import date
 from typing import Any
 
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
-from ui.ranking_application import execute_ranking_build_request, start_ranking_build_job
+from ui.ranking_application import (
+    RankingJobSessionKeys,
+    adopt_completed_ranking_job,
+    execute_ranking_build_request,
+    start_ranking_build_job,
+)
 from ui.ranking_jobs import RankingJobSnapshot
 
 
@@ -104,3 +109,99 @@ def test_ranking_job_controller_keeps_typed_request_until_worker_execution() -> 
 
     assert snapshot.job_id == "job-1"
     assert received == [request]
+
+
+def test_completed_ranking_job_adoption_updates_one_browser_session_once() -> None:
+    session_keys = RankingJobSessionKeys(
+        rows="rows",
+        error_rows="errors",
+        source="source",
+        updated_at="updated_at",
+        adopted_job_id="adopted_job_id",
+        history_pending_job_id="history_pending_job_id",
+    )
+    job = RankingJobSnapshot(
+        job_id="job-1",
+        cache_key="ranking-typed-request",
+        status="completed",
+        message="完了",
+        ratio=1.0,
+        rows=[{"symbol": "7203.T"}],
+        error_rows=[{"symbol": "AAPL"}],
+        error_type="",
+        started_at=1.0,
+        updated_at=2.0,
+    )
+    session_state: dict[str, object] = {"unrelated": "kept"}
+
+    assert adopt_completed_ranking_job(
+        job,
+        cache_key="ranking-typed-request",
+        session_state=session_state,
+        session_keys=session_keys,
+        updated_at="2026-07-21 12:34",
+    )
+    assert session_state == {
+        "unrelated": "kept",
+        "rows": [{"symbol": "7203.T"}],
+        "errors": [{"symbol": "AAPL"}],
+        "source": "ranking-typed-request",
+        "updated_at": "2026-07-21 12:34",
+        "adopted_job_id": "job-1",
+        "history_pending_job_id": "job-1",
+    }
+    assert not adopt_completed_ranking_job(
+        job,
+        cache_key="ranking-typed-request",
+        session_state=session_state,
+        session_keys=session_keys,
+        updated_at="later",
+    )
+    assert session_state["updated_at"] == "2026-07-21 12:34"
+
+
+def test_ranking_job_adoption_rejects_non_matching_or_non_completed_job() -> None:
+    session_keys = RankingJobSessionKeys(
+        "rows", "errors", "source", "updated", "adopted", "history"
+    )
+    session_state: dict[str, object] = {}
+    running = RankingJobSnapshot(
+        job_id="job-1",
+        cache_key="ranking-typed-request",
+        status="running",
+        message="実行中",
+        ratio=0.5,
+        rows=[],
+        error_rows=[],
+        error_type="",
+        started_at=1.0,
+        updated_at=2.0,
+    )
+
+    assert not adopt_completed_ranking_job(
+        running,
+        cache_key="ranking-typed-request",
+        session_state=session_state,
+        session_keys=session_keys,
+        updated_at="now",
+    )
+    completed_elsewhere = RankingJobSnapshot(
+        job_id=running.job_id,
+        cache_key="other-cache",
+        status="completed",
+        message=running.message,
+        ratio=1.0,
+        rows=running.rows,
+        error_rows=running.error_rows,
+        error_type=running.error_type,
+        started_at=running.started_at,
+        updated_at=running.updated_at,
+    )
+    assert not adopt_completed_ranking_job(
+        completed_elsewhere,
+        cache_key="ranking-typed-request",
+        session_state=session_state,
+        session_keys=session_keys,
+        updated_at="now",
+    )
+    assert session_state == {}

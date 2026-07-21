@@ -103,8 +103,11 @@ import contractを維持する。次のsliceでは`RankingBuildRequest` / `Ranki
 `RankingBuildService`をbackend側へ追加し、cache再利用、銘柄DB preflight、MarketData build、結果publishの
 順序をStreamlit非依存serviceへ移した。`ui.app._execute_market_data_ranking_job`は互換façadeとして残す。
 続くsliceで`ui/ranking_application.py`へpreflight / MarketData builder adapterとtyped requestを保持する
-ranking job起動controllerを分離し、runtime経路も新controllerへ移した。次は実際のMarketData取得・特徴量・
-score build pipelineと、完了jobのsession state採用処理を`ui.app`から段階的に分離する。
+ranking job起動controllerを分離し、runtime経路も新controllerへ移した。完了jobのsession state採用も、
+matching completed jobだけをbrowser sessionごとに一度だけ採用するStreamlit非依存controller adapterへ
+分離した。既存のrows / error rows / source / timestamp / ranking history handoff keyは維持し、描画と
+`st.rerun()`は`ui.app`に残す。次は実際のMarketData取得・特徴量・score build pipelineを`ui.app`から
+段階的に分離する。
 
 ### R2: Cockpit application flowを分離
 

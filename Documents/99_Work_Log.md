@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 completed-job session adoption split
+
+- `ui/ranking_application.py`へ、process-wide Ranking jobの完了結果をbrowser sessionへ一度だけ
+  採用するcontroller adapterを追加した。completedかつ同一cache keyのjobだけを受理し、既存の
+  rows / error rows / source / timestamp / history handoff state keyへ反映する。
+- `ui/app.py`はStreamlitの描画、現在時刻、`st.rerun()`だけを保持する。Ranking計算、取得、score、
+  並び、provider、cache、history形式は変更していない。
+- matching以外のjob、running job、二重採用を拒否する回帰を追加した。`tests/test_ranking_application.py`
+  と`tests/test_ui_forecast_display.py`は400 passed、対象Ruff / Black、`ui/ranking_application.py`のMypyを通過した。
+
 ## 2026-07-20 大規模リファクタリングR0（責務境界）
 
 - Python module 238、内部import edge 692と巨大moduleを静的監査し、`ui/app.py` 23,468行、

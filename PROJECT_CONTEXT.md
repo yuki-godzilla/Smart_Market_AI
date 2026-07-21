@@ -223,8 +223,12 @@ execution order; the existing `ui.app` worker remains a compatibility façade. R
 rows, order, provider behavior, and cache semantics are unchanged. A subsequent R1 slice adds
 explicit preflight and MarketData builder adapters plus a typed ranking-job launch controller in
 `ui/ranking_application.py`; the runtime path now uses that controller while the legacy worker name
-remains available. The next R1 slice extracts the actual MarketData fetch / feature / score build
-pipeline and completed-job session adoption from `ui/app.py`.
+remains available. The completed-job session adoption is now a Streamlit-independent controller
+adapter: it accepts only the matching completed job once per browser session, writes the existing
+result / source / timestamp / history-handoff state keys, and leaves rendering and `st.rerun()` at
+the UI edge. Ranking formulas, rows, order, provider behavior, cache semantics, and history format
+are unchanged. The next R1 slice extracts the actual MarketData fetch / feature / score build
+pipeline from `ui/app.py`.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

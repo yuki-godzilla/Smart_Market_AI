@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 feature snapshot split
+
+- `ui/ranking_market_data.py`へ、MarketData / fundamental入力からfeature rows、`FeatureSnapshot`、
+  provider名を生成する`RankingFeatureInputs` contractを追加した。feature builder、missing / quality集計は
+  UI edgeから注入し、既存の決定論的なfeature計算を維持する。
+- Forecast、Screening、Investment Score、Ranking順はこのsliceでは変更していない。
+- feature builderへの入力、provider名、missing / quality summaryを保持するnetwork-free regressionを追加した。
+  Ranking関連UI回帰は405 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 fundamental input split
 
 - `ui/ranking_market_data.py`へ、利用可能display symbolのprovider symbol変換、fundamental取得、

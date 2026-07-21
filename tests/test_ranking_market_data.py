@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from ui.ranking_market_data import (
     acquire_ranking_fundamental_inputs,
     acquire_ranking_market_data_inputs,
+    build_ranking_feature_inputs,
 )
 
 
@@ -85,3 +86,37 @@ def test_fundamental_input_stage_restores_symbols_and_keeps_non_fatal_errors() -
     assert received["adapter"] == "adapter"
     assert received["symbols"] == ["7203.T", "AAPL"]
     assert received["mapping"] == {"7203.T": "7203.T", "AAPL": "AAPL"}
+
+
+def test_feature_input_stage_preserves_builder_rows_provider_and_summaries() -> None:
+    received: dict[str, object] = {}
+
+    class Adapter:
+        @staticmethod
+        def healthcheck() -> dict[str, str]:
+            return {"provider": "fixture-provider"}
+
+    def build_rows(**kwargs):
+        received.update(kwargs)
+        return []
+
+    result = build_ranking_feature_inputs(
+        ["7203.T"],
+        as_of=date(2026, 7, 20),
+        adapter=Adapter(),
+        provider="fixture",
+        quotes=[],
+        fundamentals=[],
+        bars=[],
+        feature_builder_config="feature-config",
+        build_feature_rows=build_rows,
+        build_missing_summary=lambda _rows: {"close": 1},
+        build_quality_summary=lambda _rows: {"WARN": 1},
+    )
+
+    assert received["symbols"] == ["7203.T"]
+    assert received["cfg"] == "feature-config"
+    assert result.provider_name == "fixture-provider"
+    assert result.feature_rows == []
+    assert result.feature_snapshot.missing_summary == {"close": 1}
+    assert result.feature_snapshot.quality_summary == {"WARN": 1}

@@ -7,7 +7,14 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from backend.core.data_contracts import Bar, FundamentalSnapshot, Quote
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
 
 RankingRow = dict[str, str]
 RankingProgressReporter = Callable[[Callable[[str, float], None] | None, str, float], None]
@@ -19,6 +26,9 @@ CurrencyBySymbolBuilder = Callable[[dict[str, list[Bar]]], dict[str, str]]
 ErrorRowBuilder = Callable[..., RankingRow]
 FundamentalsFetcher = Callable[..., Awaitable[tuple[list[FundamentalSnapshot], list[RankingRow]]]]
 FundamentalsDisplayMapper = Callable[..., list[FundamentalSnapshot]]
+FeatureRowsBuilder = Callable[..., list[DailySnapshot]]
+MissingSummaryBuilder = Callable[[list[DailySnapshot]], dict[str, int]]
+QualitySummaryBuilder = Callable[[list[DailySnapshot]], dict[DataQuality, int]]
 
 
 @dataclass(frozen=True)
@@ -41,6 +51,15 @@ class RankingFundamentalInputs:
 
     fundamentals: list[FundamentalSnapshot]
     error_rows: list[RankingRow]
+
+
+@dataclass(frozen=True)
+class RankingFeatureInputs:
+    """Feature rows and their immutable snapshot for the Ranking score stage."""
+
+    feature_rows: list[DailySnapshot]
+    feature_snapshot: FeatureSnapshot
+    provider_name: str
 
 
 async def acquire_ranking_market_data_inputs(
@@ -186,3 +205,42 @@ async def acquire_ranking_fundamental_inputs(
         },
     )
     return RankingFundamentalInputs(fundamentals=fundamentals, error_rows=error_rows)
+
+
+def build_ranking_feature_inputs(
+    symbols: list[str],
+    *,
+    as_of: date,
+    adapter: Any,
+    provider: str,
+    quotes: list[Quote],
+    fundamentals: list[FundamentalSnapshot],
+    bars: list[Bar],
+    feature_builder_config: Any,
+    build_feature_rows: FeatureRowsBuilder,
+    build_missing_summary: MissingSummaryBuilder,
+    build_quality_summary: QualitySummaryBuilder,
+) -> RankingFeatureInputs:
+    """Build the deterministic FeatureSnapshot used by Ranking scoring."""
+
+    feature_rows = build_feature_rows(
+        symbols=symbols,
+        as_of=as_of,
+        quotes=quotes,
+        fundamentals=fundamentals,
+        bars=bars,
+        cfg=feature_builder_config,
+    )
+    provider_name = adapter.healthcheck().get("provider", provider)
+    feature_snapshot = FeatureSnapshot(
+        as_of=as_of,
+        provider=provider_name,
+        rows=feature_rows,
+        missing_summary=build_missing_summary(feature_rows),
+        quality_summary=build_quality_summary(feature_rows),
+    )
+    return RankingFeatureInputs(
+        feature_rows=feature_rows,
+        feature_snapshot=feature_snapshot,
+        provider_name=provider_name,
+    )

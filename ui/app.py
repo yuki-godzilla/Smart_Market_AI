@@ -43,7 +43,6 @@ from backend.core.data_contracts import (
     Bar,
     DailySnapshot,
     DataQuality,
-    FeatureSnapshot,
     FundamentalSnapshot,
 )
 from backend.core.errors import AppError, DataSourceError, ProviderTimeoutError
@@ -381,6 +380,7 @@ from ui.ranking_jobs import get_ranking_job, ranking_job_is_running, start_ranki
 from ui.ranking_market_data import (
     acquire_ranking_fundamental_inputs,
     acquire_ranking_market_data_inputs,
+    build_ranking_feature_inputs,
 )
 from ui.ranking_policy_presenter import (
     ranking_condition_summary_chips_html,
@@ -9712,22 +9712,22 @@ async def _build_market_data_ranking_rows_fast(
     error_rows.extend(fundamental_data.error_rows)
     fundamentals = fundamental_data.fundamentals
     _report_ranking_progress(progress_callback, "スクリーニング用特徴量を作成しています。", 0.65)
-    feature_rows = build_daily_snapshots_from_market_data(
-        symbols=available_symbols,
+    feature_data = build_ranking_feature_inputs(
+        available_symbols,
         as_of=end,
+        adapter=adapter,
+        provider=provider,
         quotes=quotes,
         fundamentals=fundamentals,
         bars=bars,
-        cfg=settings.feature_builder,
+        feature_builder_config=settings.feature_builder,
+        build_feature_rows=build_daily_snapshots_from_market_data,
+        build_missing_summary=_feature_missing_summary,
+        build_quality_summary=_feature_quality_summary,
     )
-    provider_name = adapter.healthcheck().get("provider", provider)
-    feature_snapshot = FeatureSnapshot(
-        as_of=end,
-        provider=provider_name,
-        rows=feature_rows,
-        missing_summary=_feature_missing_summary(feature_rows),
-        quality_summary=_feature_quality_summary(feature_rows),
-    )
+    feature_rows = feature_data.feature_rows
+    feature_snapshot = feature_data.feature_snapshot
+    provider_name = feature_data.provider_name
     forecast_horizon_days = default_forecast_horizon_days(start, end)
     forecast_consensus_by_symbol = {}
     for index, symbol in enumerate(available_symbols, start=1):

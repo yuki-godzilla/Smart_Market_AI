@@ -74,6 +74,14 @@ class CockpitDisplayModel:
     score_display_rows: list[dict[str, str]]
 
 
+@dataclass(frozen=True)
+class CockpitPresentationContext:
+    """Stable display inputs shared by the Cockpit hero and detail presenters."""
+
+    symbol_label: str
+    display: CockpitDisplayModel
+
+
 async def load_cockpit_preview(
     request: CockpitPreviewRequest,
     *,

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import date
 
 from ui.cockpit_application import (
+    CockpitDisplayModel,
+    CockpitPresentationContext,
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
@@ -149,3 +151,20 @@ def test_build_cockpit_display_model_preserves_one_common_horizon():
         "consensus",
         "metrics",
     ]
+
+
+def test_cockpit_presentation_context_keeps_one_display_model_for_renderers():
+    display = CockpitDisplayModel(
+        forecast_horizon_days=10,
+        advanced_forecast_rows=[],
+        advanced_forecast_consensus_rows=[],
+        forecast_rows=[{"close": "100"}],
+        consensus_rows=[{"ensemble_forecast_close": "101"}],
+        metric_rows=[{"rmse": "2"}],
+        score_display_rows=[{"総合スコア": "70"}],
+    )
+
+    presentation = CockpitPresentationContext(symbol_label="7203.T - Toyota", display=display)
+
+    assert presentation.symbol_label == "7203.T - Toyota"
+    assert presentation.display is display

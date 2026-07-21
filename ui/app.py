@@ -150,6 +150,7 @@ from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
 from ui.cockpit_application import (
+    CockpitPresentationContext,
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
@@ -12566,12 +12567,13 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         ),
         score_display_rows_for_preview=investment_score_display_rows,
     )
-    advanced_forecast_rows = display_model.advanced_forecast_rows
-    advanced_forecast_consensus_rows = display_model.advanced_forecast_consensus_rows
-    forecast_rows = display_model.forecast_rows
     consensus_rows = display_model.consensus_rows
     metric_rows = display_model.metric_rows
     score_display_rows = display_model.score_display_rows
+    presentation = CockpitPresentationContext(
+        symbol_label=symbol_label,
+        display=display_model,
+    )
 
     symbol = _market_data_preview_symbol(preview)
     provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
@@ -12608,21 +12610,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     _render_favorite_next_action_hint()
     score_row = _render_investment_score_section(
         preview,
-        symbol_label,
+        presentation.symbol_label,
         rows=score_display_rows,
     )
     if score_row is not None:
-        _render_cockpit_direction_signal_section(score_row, consensus_rows)
-    _render_price_forecast_hero(
-        preview,
-        symbol_label,
-        forecast_rows,
-        consensus_rows,
-        metric_rows,
-        advanced_forecast_rows,
-        advanced_forecast_consensus_rows,
-        forecast_horizon_days=forecast_horizon_days,
-    )
+        _render_cockpit_direction_signal_section(score_row, presentation.display.consensus_rows)
+    _render_price_forecast_hero(preview, presentation)
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     llm_factor_response = _cockpit_llm_factor_result(preview) if symbol else None
     _render_cockpit_research_summary(preview)
@@ -12631,26 +12624,28 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         preview,
         llm_factor_result=llm_factor_response.result if llm_factor_response else None,
         price_summary=summary_rows,
-        forecast_summary=forecast_consensus_display_rows(consensus_rows),
+        forecast_summary=forecast_consensus_display_rows(presentation.display.consensus_rows),
         advanced_forecast_summary=(
-            advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows)
-            if advanced_forecast_consensus_rows
+            advanced_forecast_consensus_display_rows(
+                presentation.display.advanced_forecast_consensus_rows
+            )
+            if presentation.display.advanced_forecast_consensus_rows
             else []
         ),
         investment_score_summary=[score_row] if score_row is not None else score_display_rows[:1],
     )
     if score_row is not None:
-        _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
+        _render_score_breakdown_context(
+            preview,
+            presentation.symbol_label,
+            score_row,
+            presentation.display.score_display_rows,
+        )
     _render_cockpit_decision_report(preview)
     _render_cockpit_technical_detail_expander(
         preview,
-        symbol_label=symbol_label,
-        score_display_rows=score_display_rows,
+        presentation=presentation,
         score_row=score_row,
-        consensus_rows=consensus_rows,
-        metric_rows=metric_rows,
-        advanced_forecast_rows=advanced_forecast_rows,
-        advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
         summary_rows=summary_rows,
     )
 
@@ -12662,58 +12657,56 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
 def _render_cockpit_technical_detail_expander(
     preview: MarketDataPreview,
     *,
-    symbol_label: str,
-    score_display_rows: list[dict[str, str]],
+    presentation: CockpitPresentationContext,
     score_row: dict[str, str] | None,
-    consensus_rows: list[dict[str, str]],
-    metric_rows: list[dict[str, str]],
-    advanced_forecast_rows: list[dict[str, str]],
-    advanced_forecast_consensus_rows: list[dict[str, str]],
     summary_rows: list[dict[str, str]],
 ) -> None:
+    display = presentation.display
     with st.expander("詳細データ・開発者向け", expanded=False):
         tabs = st.tabs(["予測", "スコア", "取得元", "特徴量", "エクスポート"])
         with tabs[0]:
             st.caption(
                 "予測モデルごとの詳細値です。チャートで気になった点を確認するための補助データです。"
             )
-            for index, message in enumerate(forecast_metric_summary(metric_rows)):
+            for index, message in enumerate(forecast_metric_summary(display.metric_rows)):
                 if index == 0:
                     st.info(message)
                 else:
                     st.caption(message)
             st.subheader("予測サマリー")
-            _render_target_symbol_caption(symbol_label)
+            _render_target_symbol_caption(presentation.symbol_label)
             _render_table(
-                forecast_consensus_display_rows(consensus_rows),
+                forecast_consensus_display_rows(display.consensus_rows),
                 EMPTY_STATE_MESSAGES["forecast_summary"],
             )
             st.subheader("予測精度")
-            _render_target_symbol_caption(symbol_label)
+            _render_target_symbol_caption(presentation.symbol_label)
             _render_table(
-                forecast_metric_display_rows(metric_rows),
+                forecast_metric_display_rows(display.metric_rows),
                 EMPTY_STATE_MESSAGES["forecast_metrics"],
             )
-            if advanced_forecast_consensus_rows:
+            if display.advanced_forecast_consensus_rows:
                 st.subheader(ADVANCED_FORECAST_CONSENSUS_LABEL)
                 _render_table(
-                    advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows),
+                    advanced_forecast_consensus_display_rows(
+                        display.advanced_forecast_consensus_rows
+                    ),
                     f"{ADVANCED_FORECAST_CONSENSUS_LABEL}を表示するには、もう少し長い価格データが必要です。",
                 )
-            if advanced_forecast_rows:
+            if display.advanced_forecast_rows:
                 st.subheader("高度予測モデル")
                 st.caption(
                     "高度予測は取得期間に合わせた予測先で表示します。売買判断ではなく、価格レンジと注意点の確認に使います。"
                 )
                 _render_table(
-                    advanced_forecast_display_rows(advanced_forecast_rows),
+                    advanced_forecast_display_rows(display.advanced_forecast_rows),
                     "高度予測を表示するには、もう少し長い価格データが必要です。",
                 )
         with tabs[1]:
             st.markdown("#### スコア・リスク詳細")
             if score_row is not None:
                 detail_rows = cockpit_direction_signal_detail_rows(
-                    score_row, consensus_rows[0] if consensus_rows else {}
+                    score_row, display.consensus_rows[0] if display.consensus_rows else {}
                 )
                 _render_symbol_detail_table(detail_rows)
                 _render_score_breakdown_chart(score_component_rows(score_row))
@@ -12726,7 +12719,7 @@ def _render_cockpit_technical_detail_expander(
             st.markdown("#### 主要確認サマリー")
             _render_symbol_detail_table(summary_rows)
             st.markdown("#### 投資スコア")
-            _render_table(score_display_rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
+            _render_table(display.score_display_rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
             st.markdown("#### スクリーニング")
             _render_table(preview.screening_rows, EMPTY_STATE_MESSAGES["screening_score_rows"])
 
@@ -12746,18 +12739,18 @@ def _render_cockpit_technical_detail_expander(
 
         with tabs[4]:
             st.caption("JSON / CSVは保存・再確認が必要な場合に利用します。")
-            if metric_rows:
+            if display.metric_rows:
                 col_json, col_csv = st.columns(2)
                 col_json.download_button(
                     "予測JSONをダウンロード",
-                    data=forecast_metric_json_download(metric_rows),
+                    data=forecast_metric_json_download(display.metric_rows),
                     file_name="forecast_metrics.json",
                     mime="application/json",
                 )
                 with col_csv:
                     render_csv_download_button(
                         label="予測CSVをダウンロード",
-                        data=forecast_metric_csv_download(metric_rows),
+                        data=forecast_metric_csv_download(display.metric_rows),
                         file_name="forecast_metrics.csv",
                     )
             if preview.investment_score_rows:
@@ -17244,33 +17237,30 @@ def _render_market_data_cockpit_header(
 
 def _render_price_forecast_hero(
     preview: MarketDataPreview,
-    symbol_label: str,
-    forecast_rows: list[dict[str, str]],
-    consensus_rows: list[dict[str, str]],
-    metric_rows: list[dict[str, str]],
-    advanced_forecast_rows: list[dict[str, str]],
-    advanced_forecast_consensus_rows: list[dict[str, str]],
-    *,
-    forecast_horizon_days: int,
+    presentation: CockpitPresentationContext,
 ) -> None:
+    display = presentation.display
     st.subheader("02 価格・AI予測")
     horizon_summary = str(getattr(preview, "forecast_horizon_summary", "") or "").strip()
     st.caption(
-        f"予測期間: {forecast_horizon_days}営業日相当（取得履歴から自動計算）"
+        f"予測期間: {display.forecast_horizon_days}営業日相当（取得履歴から自動計算）"
         + (f" / {horizon_summary}" if horizon_summary else "")
     )
     for warning in getattr(preview, "forecast_horizon_warnings", []):
         st.warning(str(warning))
     chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
-    _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
-    _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
-    _register_cockpit_forecast_assistant_context(
-        symbol_label,
-        advanced_forecast_consensus_rows,
-        forecast_horizon_days=forecast_horizon_days,
+    _render_advanced_forecast_status(
+        display.advanced_forecast_rows,
+        horizon_days=display.forecast_horizon_days,
     )
-    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
-    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
+    _render_advanced_forecast_consensus_cards(display.advanced_forecast_consensus_rows)
+    _register_cockpit_forecast_assistant_context(
+        presentation.symbol_label,
+        display.advanced_forecast_consensus_rows,
+        forecast_horizon_days=display.forecast_horizon_days,
+    )
+    selected_chart_series = _render_forecast_chart_filters(display.forecast_rows)
+    display_forecast_rows = filter_forecast_chart_rows(display.forecast_rows, selected_chart_series)
     display_currency = _render_market_chart_currency_selector(chart_currency, preview.fx_rows)
     display_forecast_rows = convert_market_chart_rows_currency(
         display_forecast_rows,
@@ -17282,15 +17272,15 @@ def _render_price_forecast_hero(
         display_forecast_rows,
         currency=display_currency,
         title="",
-        color_series_labels=forecast_chart_series_labels(forecast_rows),
+        color_series_labels=forecast_chart_series_labels(display.forecast_rows),
         legend_series_labels=forecast_chart_series_labels(display_forecast_rows),
     )
     latest_close = preview.bars[-1].close if preview.bars else None
     latest_date = preview.bars[-1].ts.date() if preview.bars else None
     _render_forecast_model_detail_expanders(
-        metric_rows,
-        advanced_forecast_rows,
-        advanced_forecast_consensus_rows,
+        display.metric_rows,
+        display.advanced_forecast_rows,
+        display.advanced_forecast_consensus_rows,
         latest_close=latest_close,
         latest_date=latest_date,
     )

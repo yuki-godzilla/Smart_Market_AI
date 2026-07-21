@@ -304,6 +304,7 @@ from ui.app import (
     symbol_universe_nisa_display,
     symbol_universe_overview_rows,
 )
+from ui.cockpit_application import CockpitDisplayModel, CockpitPresentationContext
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_BETA_RISK_STANDARD_OR_LOWER,
@@ -11060,13 +11061,18 @@ def test_price_forecast_hero_keeps_guidance_inside_cards(monkeypatch):
 
     _render_price_forecast_hero(
         preview,
-        "AAPL - Apple Inc.",
-        forecast_rows,
-        [],
-        [],
-        advanced_rows,
-        consensus_rows,
-        forecast_horizon_days=31,
+        CockpitPresentationContext(
+            symbol_label="AAPL - Apple Inc.",
+            display=CockpitDisplayModel(
+                forecast_horizon_days=31,
+                advanced_forecast_rows=advanced_rows,
+                advanced_forecast_consensus_rows=consensus_rows,
+                forecast_rows=forecast_rows,
+                consensus_rows=[],
+                metric_rows=[],
+                score_display_rows=[],
+            ),
+        ),
     )
 
     assert caption_calls == ["予測期間: 31営業日相当（取得履歴から自動計算）"]

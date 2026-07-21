@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-22 Cockpit application flow R2 presenter context
+
+- `CockpitPresentationContext`を追加し、symbol labelと`CockpitDisplayModel`を価格・AI予測heroと
+  詳細データpresenterの共通入力へ集約した。
+- Forecast chart / consensus / metrics / 高度Forecast / score rowを個別引数で受け渡す代わりに同一display
+  modelを参照する。summary、Research、Decision Report、chart filter、通貨選択などの描画・操作は変更していない。
+- presenter contextを固定する回帰を追加し、Cockpit/Ranking関連UI回帰412件、Ruff、Black、追加moduleのMypyを
+  確認した。
+
 ## 2026-07-22 Cockpit application flow R2 display model boundary
 
 - `CockpitDisplayModel`を追加し、共通forecast horizonでadvanced Forecast、chart、consensus、metrics、

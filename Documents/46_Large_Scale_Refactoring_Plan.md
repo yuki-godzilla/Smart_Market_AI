@@ -133,8 +133,10 @@ theme検索順位を`ui/cockpit_filter_policy.py`へ分離した。新moduleはS
 `ui.app`にはsession stateの読書きと描画を残した。続いて`ui/cockpit_application.py`へ
 `CockpitPreviewRequest`、preview load、preview/session state採用を分離した。symbol、期間、provider、
 forecast horizonの入力と、preview、status、forecast days、chart display currencyの更新境界を固定し、
-widget、progress、error/toast、後続renderは`ui.app`に残した。次はForecast実行後の表示modelとpresenterを
-同じrerun-state contractで分離する。
+widget、progress、error/toast、後続renderは`ui.app`に残した。さらに`CockpitDisplayModel`へ、同一horizonの
+Forecast chart、consensus、metrics、高度Forecast、score display rowsを組み立てる順序を移した。既存Forecast
+functionはUI edgeから注入し、renderとinteractive stateは`ui.app`に残す。次はsummary / hero / detail presenterの
+引数群をこの表示modelへ集約する。
 
 ### R3: Research serviceをuse case別に分割
 

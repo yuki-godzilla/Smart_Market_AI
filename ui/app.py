@@ -153,6 +153,7 @@ from ui.cockpit_application import (
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
+    build_cockpit_display_model,
     load_cockpit_preview,
 )
 from ui.cockpit_filter_policy import (
@@ -12534,31 +12535,47 @@ def _advanced_forecast_rows_match_horizon(
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol_label = _market_data_preview_symbol_label(preview)
     forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
-    advanced_forecast_rows = _market_data_preview_advanced_forecast_rows(
+    display_model = build_cockpit_display_model(
         preview,
-        horizon_days=forecast_horizon_days,
+        forecast_horizon_days=forecast_horizon_days,
+        advanced_rows_for_preview=lambda preview, horizon_days: (
+            _market_data_preview_advanced_forecast_rows(preview, horizon_days=horizon_days)
+        ),
+        advanced_consensus_for_preview=lambda preview, advanced_rows, horizon_days: (
+            _market_data_preview_advanced_forecast_consensus_rows(
+                preview,
+                advanced_rows,
+                horizon_days=horizon_days,
+            )
+        ),
+        chart_rows_for_bars=lambda bars, horizon_days, advanced_rows, advanced_consensus_rows: (
+            forecast_chart_rows(
+                bars,
+                horizon_days=horizon_days,
+                advanced_forecast_rows=advanced_rows,
+                advanced_forecast_consensus_rows=advanced_consensus_rows,
+            )
+        ),
+        consensus_rows_for_bars=lambda bars, horizon_days: forecast_consensus_rows_for_bars(
+            bars,
+            horizon_days=horizon_days,
+        ),
+        metric_rows_for_bars=lambda bars, horizon_days: forecast_metric_rows_for_bars(
+            bars,
+            horizon_days=horizon_days,
+        ),
+        score_display_rows_for_preview=investment_score_display_rows,
     )
-    advanced_forecast_consensus_rows = _market_data_preview_advanced_forecast_consensus_rows(
-        preview,
-        advanced_forecast_rows,
-        horizon_days=forecast_horizon_days,
-    )
-    forecast_rows = forecast_chart_rows(
-        preview.bars,
-        horizon_days=forecast_horizon_days,
-        advanced_forecast_rows=advanced_forecast_rows,
-        advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
-    )
-    consensus_rows = forecast_consensus_rows_for_bars(
-        preview.bars,
-        horizon_days=forecast_horizon_days,
-    )
-    metric_rows = forecast_metric_rows_for_bars(preview.bars, horizon_days=forecast_horizon_days)
+    advanced_forecast_rows = display_model.advanced_forecast_rows
+    advanced_forecast_consensus_rows = display_model.advanced_forecast_consensus_rows
+    forecast_rows = display_model.forecast_rows
+    consensus_rows = display_model.consensus_rows
+    metric_rows = display_model.metric_rows
+    score_display_rows = display_model.score_display_rows
 
     symbol = _market_data_preview_symbol(preview)
     provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
     reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
-    score_display_rows = investment_score_display_rows(preview.investment_score_rows)
     summary_items = cockpit_summary_items(
         symbol=symbol,
         name=symbol_name(symbol) or "",

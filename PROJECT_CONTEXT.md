@@ -257,6 +257,9 @@ adoption contract. `ui.app` still owns widget input, progress, error display, an
 side effects; the controller now fixes the symbol/date/provider request, preview result, forecast
 horizon, status, and chart-currency invalidation boundary. MarketData, Forecast, and score
 calculation behavior are unchanged.
+The following slice assembles the common-horizon Forecast chart, consensus, metrics, advanced-Forecast,
+and score display rows as a `CockpitDisplayModel`. Existing Forecast functions remain injected at
+the UI edge, while Streamlit render order and all interactive controls remain unchanged.
 
 Strategy references:
 

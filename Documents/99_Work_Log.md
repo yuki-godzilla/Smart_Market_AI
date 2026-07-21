@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-22 Cockpit application flow R2 display model boundary
+
+- `CockpitDisplayModel`を追加し、共通forecast horizonでadvanced Forecast、chart、consensus、metrics、
+  score display rowsを組み立てるapplication contractを分離した。
+- Forecastの既存計算・legacy previewのhorizon再計算はUI edgeから注入したまま維持し、Streamlitのheader、
+  favorite操作、chart filter、currency選択、research、report、detail renderは変更していない。
+- common horizonの入力伝播と組立順をnetwork-free regressionで固定し、Cockpit/Ranking関連UI回帰399件、
+  Ruff、Black、追加moduleのMypyを確認した。次はsummary / hero / detail presenterの引数を表示modelへ集約する。
+
 ## 2026-07-22 Cockpit application flow R2 preview boundary
 
 - `ui/cockpit_application.py`へ、symbol・期間・provider・forecast horizonを明示する

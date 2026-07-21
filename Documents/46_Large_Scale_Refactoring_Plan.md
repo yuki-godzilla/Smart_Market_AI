@@ -119,7 +119,9 @@ score row組立を分離する。特徴量生成は`RankingFeatureInputs` contra
 Screening、Investment Score、基本score row組立も`RankingScoreInputs` contractとして分離し、次は表示向けfeature詳細、
 高度予測fieldの付加、最終sortを分離する。これらも`RankingPresentationInputs` contractとして分離し、R1の通常buildは
 入力取得、fundamental、feature、Forecast、score、表示row、session採用の各境界を持つ。残作業はlarge-cohort / advanced
-forecast orchestrationを必要に応じてさらに小さくすることであり、数値ロジック変更とは分離する。
+forecast orchestrationを必要に応じてさらに小さくすることであり、数値ロジック変更とは分離する。large-cohortの上位候補へ
+advanced Forecastを適用するoptional orchestrationも分離した。bounded candidate選定、失敗隔離、cache release、再sortを
+Streamlit非依存に保ち、R1は完了とする。次はR2 Cockpit application flowを分離する。
 
 ### R2: Cockpit application flowを分離
 

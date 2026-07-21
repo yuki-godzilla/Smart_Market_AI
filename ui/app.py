@@ -348,6 +348,7 @@ from ui.ranking_application import (
     MarketDataRankingPipeline,
     RankingJobSessionKeys,
     adopt_completed_ranking_job,
+    enrich_large_ranking_with_advanced_forecast,
     execute_ranking_build_request,
     start_ranking_build_job,
 )
@@ -9595,46 +9596,20 @@ async def _build_large_market_data_ranking_rows(
         _release_ranking_cohort_cache(provider, sorted(releasable_symbols))
         retained_cache_symbols = next_retained_symbols
     _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
-    provisional_rows = rank_investment_score_rows(rows)
-    advanced_symbols = [
-        str(row.get("symbol", "")).strip().upper()
-        for row in provisional_rows[:RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT]
-        if str(row.get("symbol", "")).strip()
-    ]
-    if not advanced_symbols:
-        return provisional_rows, error_rows
-    _report_ranking_progress(
-        progress_callback,
-        "上位候補に高度予測を適用しています。",
-        0.995,
+    ranked_rows = await enrich_large_ranking_with_advanced_forecast(
+        rows,
+        candidate_limit=RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT,
+        start=start,
+        end=end,
+        provider=provider,
+        build_rows=_build_market_data_ranking_rows_fast,
+        enrich_advanced_fields=_enrich_ranking_rows_with_advanced_forecast,
+        sort_rows=rank_investment_score_rows,
+        release_cohort_cache=_release_ranking_cohort_cache,
+        report_progress=_report_ranking_progress,
+        progress_callback=progress_callback,
     )
-    try:
-        advanced_rows, _advanced_errors = await _build_market_data_ranking_rows_fast(
-            advanced_symbols,
-            start=start,
-            end=end,
-            provider=provider,
-            progress_callback=None,
-            include_advanced_forecast=True,
-        )
-        advanced_fields_by_symbol = {
-            str(row.get("symbol", ""))
-            .strip()
-            .upper(): {
-                key: value for key, value in row.items() if key.startswith("advanced_forecast_")
-            }
-            for row in advanced_rows
-            if str(row.get("symbol", "")).strip()
-        }
-        provisional_rows = _enrich_ranking_rows_with_advanced_forecast(
-            provisional_rows,
-            advanced_fields_by_symbol,
-        )
-    except Exception:  # noqa: BLE001 - advanced forecast is optional enrichment.
-        pass
-    finally:
-        _release_ranking_cohort_cache(provider, advanced_symbols)
-    return rank_investment_score_rows(provisional_rows), error_rows
+    return ranked_rows, error_rows
 
 
 async def _build_market_data_ranking_rows_fast(

@@ -1,5 +1,15 @@
 # 99_Work_Log
 
+## 2026-07-22 Ranking R1 large-cohort advanced Forecast split
+
+- `ui/ranking_application.py`へ、large-cohort buildの上位候補だけへ高度Forecastを再適用するoptional
+  orchestrationを分離した。候補数上限、advanced field抽出、既存rowへの統合、cache release、最終sortを明示した。
+- 高度Forecast側が失敗しても通常のRanking rowsを返し、cache releaseは必ず実行する。Forecast計算、Ranking数値、
+  Provider、通常fallbackの意味は変更していない。
+- bounded candidate、advanced field統合、cache release、progressを確認するnetwork-free regressionを追加した。
+  Ranking application / UI回帰は403 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+- これによりRanking application flow R1を完了とし、次の構造作業はR2 Cockpit application flowとする。
+
 ## 2026-07-21 Ranking R1 presentation assembly split
 
 - `ui/ranking_market_data.py`へ、基本score rowへfeature詳細・通貨・出来高を付加し、高度Forecast fieldを

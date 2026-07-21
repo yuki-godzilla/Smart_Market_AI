@@ -51,6 +51,7 @@ class LegacyMarketDataRankingBuilder(Protocol):
         end: date,
         provider: str,
         progress_callback: ProgressReporter | None,
+        include_advanced_forecast: bool = True,
     ) -> tuple[list[dict[str, str]], list[dict[str, str]]]: ...
 
 
@@ -58,6 +59,11 @@ RankingRowsBuilder = LegacyMarketDataRankingBuilder
 RankingProviderErrorRowsBuilder = Callable[[str, list[str], Exception], list[dict[str, str]]]
 RankingLiveProviderChecker = Callable[[str], bool]
 RankingProgressReporter = Callable[[ProgressReporter | None, str, float], None]
+RankingRowsSorter = Callable[[list[dict[str, str]]], list[dict[str, str]]]
+RankingAdvancedFieldEnricher = Callable[
+    [list[dict[str, str]], dict[str, dict[str, str]]], list[dict[str, str]]
+]
+RankingCohortCacheReleaser = Callable[[str, list[str]], None]
 
 
 class RankingJobStarter(Protocol):
@@ -178,6 +184,57 @@ class MarketDataRankingPipeline:
                 provider=provider,
                 progress_callback=progress_callback,
             )
+
+
+async def enrich_large_ranking_with_advanced_forecast(
+    provisional_rows: list[dict[str, str]],
+    *,
+    candidate_limit: int,
+    start: date,
+    end: date,
+    provider: str,
+    build_rows: RankingRowsBuilder,
+    enrich_advanced_fields: RankingAdvancedFieldEnricher,
+    sort_rows: RankingRowsSorter,
+    release_cohort_cache: RankingCohortCacheReleaser,
+    report_progress: RankingProgressReporter,
+    progress_callback: ProgressReporter | None,
+) -> list[dict[str, str]]:
+    """Apply optional advanced fields only to retained large-build candidates."""
+
+    ranked_rows = sort_rows(provisional_rows)
+    advanced_symbols = [
+        str(row.get("symbol", "")).strip().upper()
+        for row in ranked_rows[:candidate_limit]
+        if str(row.get("symbol", "")).strip()
+    ]
+    if not advanced_symbols:
+        return ranked_rows
+    report_progress(progress_callback, "上位候補に高度予測を適用しています。", 0.995)
+    try:
+        advanced_rows, _advanced_errors = await build_rows(
+            advanced_symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=None,
+            include_advanced_forecast=True,
+        )
+        fields_by_symbol = {
+            str(row.get("symbol", ""))
+            .strip()
+            .upper(): {
+                key: value for key, value in row.items() if key.startswith("advanced_forecast_")
+            }
+            for row in advanced_rows
+            if str(row.get("symbol", "")).strip()
+        }
+        ranked_rows = enrich_advanced_fields(ranked_rows, fields_by_symbol)
+    except Exception:  # noqa: BLE001 - advanced forecast is optional enrichment.
+        pass
+    finally:
+        release_cohort_cache(provider, advanced_symbols)
+    return sort_rows(ranked_rows)
 
 
 def execute_ranking_build_request(

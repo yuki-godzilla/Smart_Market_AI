@@ -10,6 +10,7 @@ from ui.ranking_application import (
     MarketDataRankingPipeline,
     RankingJobSessionKeys,
     adopt_completed_ranking_job,
+    enrich_large_ranking_with_advanced_forecast,
     execute_ranking_build_request,
     start_ranking_build_job,
 )
@@ -207,6 +208,42 @@ def test_ranking_job_adoption_rejects_non_matching_or_non_completed_job() -> Non
         updated_at="now",
     )
     assert session_state == {}
+
+
+def test_large_ranking_advanced_enrichment_is_bounded_and_optional() -> None:
+    released: list[tuple[str, list[str]]] = []
+    progress: list[tuple[str, float]] = []
+
+    async def build_rows(symbols, **kwargs):
+        assert kwargs["include_advanced_forecast"] is True
+        assert kwargs["progress_callback"] is None
+        return ([{"symbol": symbols[0], "advanced_forecast_return": "4.2"}], [])
+
+    def enrich(rows, fields):
+        return [{**row, **fields.get(row["symbol"], {})} for row in rows]
+
+    result = asyncio.run(
+        enrich_large_ranking_with_advanced_forecast(
+            [{"symbol": "BBB", "score": "1"}, {"symbol": "AAA", "score": "2"}],
+            candidate_limit=1,
+            start=date(2024, 7, 20),
+            end=date(2026, 7, 20),
+            provider="yahoo",
+            build_rows=build_rows,
+            enrich_advanced_fields=enrich,
+            sort_rows=lambda rows: sorted(rows, key=lambda row: row["symbol"]),
+            release_cohort_cache=lambda provider, symbols: released.append((provider, symbols)),
+            report_progress=lambda _callback, message, ratio: progress.append((message, ratio)),
+            progress_callback=None,
+        )
+    )
+
+    assert result == [
+        {"symbol": "AAA", "score": "2", "advanced_forecast_return": "4.2"},
+        {"symbol": "BBB", "score": "1"},
+    ]
+    assert released == [("yahoo", ["AAA"])]
+    assert progress == [("上位候補に高度予測を適用しています。", 0.995)]
 
 
 def test_market_data_ranking_pipeline_uses_live_cohorts_above_limit() -> None:

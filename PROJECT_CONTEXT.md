@@ -237,7 +237,9 @@ following fundamental-input slice now maps usable display symbols to provider sy
 non-fatal fundamental fetch errors, and restores display symbols through a typed contract. Feature
 construction now also returns a typed contract containing the original rows, `FeatureSnapshot`, and
 provider name, with the existing feature builder and quality summaries injected at the UI edge. The
-next R1 slice extracts Forecast / score-row assembly from `ui/app.py` behind typed ports.
+following Forecast slice now creates one point-in-time consensus per usable symbol and preserves the
+existing horizon, evaluators, summary logic, and progress cadence through injected ports. The next
+R1 slice extracts Screening / Investment Score row assembly from `ui/app.py` behind typed ports.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

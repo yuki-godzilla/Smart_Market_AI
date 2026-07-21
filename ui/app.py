@@ -381,6 +381,7 @@ from ui.ranking_market_data import (
     acquire_ranking_fundamental_inputs,
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
+    build_ranking_forecast_inputs,
 )
 from ui.ranking_policy_presenter import (
     ranking_condition_summary_chips_html,
@@ -9729,34 +9730,23 @@ async def _build_market_data_ranking_rows_fast(
     feature_snapshot = feature_data.feature_snapshot
     provider_name = feature_data.provider_name
     forecast_horizon_days = default_forecast_horizon_days(start, end)
-    forecast_consensus_by_symbol = {}
-    for index, symbol in enumerate(available_symbols, start=1):
-        forecast_history_bars = bars_by_symbol[symbol]
-        forecast_consensus = summarize_forecast_evaluations_for_ui(
-            _available_forecast_evaluations(
-                forecast_history_bars,
-                horizon_days=forecast_horizon_days,
-            ),
-            history=forecast_history_bars,
-        )
-        if forecast_consensus is not None:
-            forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
-        should_report_progress = index == 1 or index % 10 == 0 or index == len(available_symbols)
-        if not should_report_progress:
-            continue
-        progress = 0.65 + (0.05 * index / len(available_symbols))
-        _report_ranking_progress(
-            progress_callback,
-            f"基本予測を計算しています ({index}/{len(available_symbols)})。",
-            progress,
-        )
+    forecast_data = build_ranking_forecast_inputs(
+        available_symbols,
+        bars_by_symbol=bars_by_symbol,
+        horizon_days=forecast_horizon_days,
+        build_evaluations=_available_forecast_evaluations,
+        summarize_consensus=summarize_forecast_evaluations_for_ui,
+        report_progress=_report_ranking_progress,
+        progress_callback=progress_callback,
+    )
+    forecast_consensus_by_symbol = forecast_data.consensus_by_symbol
 
     advanced_forecast_fields_by_symbol: dict[str, dict[str, str]] = {}
     if include_advanced_forecast:
         advanced_forecast_fields_by_symbol = _ranking_advanced_forecast_fields_for_symbols(
             available_symbols,
             bars_by_symbol=bars_by_symbol,
-            horizon_days=forecast_horizon_days,
+            horizon_days=forecast_data.horizon_days,
             progress_callback=progress_callback,
         )
     _report_ranking_progress(progress_callback, "総合スコアを計算しています。", 0.9)

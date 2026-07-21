@@ -114,7 +114,8 @@ fail-closed error rowを選ぶ外側pipelineをStreamlit非依存adapterへ移�
 分離した。Provider/cache実装はUI edgeから注入する。続いて、provider symbolへの変換、fundamental取得の
 non-fatal error row、display symbol復元を`RankingFundamentalInputs` contractとして分離した。次は特徴量生成と
 score row組立を分離する。特徴量生成は`RankingFeatureInputs` contractとして分離し、元のfeature rows、
-`FeatureSnapshot`、provider名をまとめて後続へ渡す。次はForecast / score row組立を分離する。
+`FeatureSnapshot`、provider名をまとめて後続へ渡す。Forecast consensusも`RankingForecastInputs` contractとして
+分離し、horizon、既存評価器・summary、進捗cadenceを維持した。次はScreening / Investment Score row組立を分離する。
 
 ### R2: Cockpit application flowを分離
 

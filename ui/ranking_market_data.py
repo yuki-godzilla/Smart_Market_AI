@@ -15,6 +15,7 @@ from backend.core.data_contracts import (
     FundamentalSnapshot,
     Quote,
 )
+from backend.forecast.service import ForecastConsensus
 
 RankingRow = dict[str, str]
 RankingProgressReporter = Callable[[Callable[[str, float], None] | None, str, float], None]
@@ -29,6 +30,8 @@ FundamentalsDisplayMapper = Callable[..., list[FundamentalSnapshot]]
 FeatureRowsBuilder = Callable[..., list[DailySnapshot]]
 MissingSummaryBuilder = Callable[[list[DailySnapshot]], dict[str, int]]
 QualitySummaryBuilder = Callable[[list[DailySnapshot]], dict[DataQuality, int]]
+ForecastEvaluationBuilder = Callable[..., list[Any]]
+ForecastConsensusBuilder = Callable[..., ForecastConsensus | None]
 
 
 @dataclass(frozen=True)
@@ -60,6 +63,14 @@ class RankingFeatureInputs:
     feature_rows: list[DailySnapshot]
     feature_snapshot: FeatureSnapshot
     provider_name: str
+
+
+@dataclass(frozen=True)
+class RankingForecastInputs:
+    """Point-in-time Forecast consensus values used by Ranking scoring."""
+
+    horizon_days: int
+    consensus_by_symbol: dict[str, ForecastConsensus]
 
 
 async def acquire_ranking_market_data_inputs(
@@ -243,4 +254,39 @@ def build_ranking_feature_inputs(
         feature_rows=feature_rows,
         feature_snapshot=feature_snapshot,
         provider_name=provider_name,
+    )
+
+
+def build_ranking_forecast_inputs(
+    symbols: list[str],
+    *,
+    bars_by_symbol: Mapping[str, list[Bar]],
+    horizon_days: int,
+    build_evaluations: ForecastEvaluationBuilder,
+    summarize_consensus: ForecastConsensusBuilder,
+    report_progress: RankingProgressReporter,
+    progress_callback: Callable[[str, float], None] | None,
+) -> RankingForecastInputs:
+    """Create the existing deterministic consensus once for each usable symbol."""
+
+    consensus_by_symbol: dict[str, ForecastConsensus] = {}
+    for index, symbol in enumerate(symbols, start=1):
+        history = bars_by_symbol[symbol]
+        consensus = summarize_consensus(
+            build_evaluations(history, horizon_days=horizon_days),
+            history=history,
+        )
+        if consensus is not None:
+            consensus_by_symbol[consensus.symbol] = consensus
+        if index != 1 and index % 10 != 0 and index != len(symbols):
+            continue
+        progress = 0.65 + (0.05 * index / len(symbols))
+        report_progress(
+            progress_callback,
+            f"基本予測を計算しています ({index}/{len(symbols)})。",
+            progress,
+        )
+    return RankingForecastInputs(
+        horizon_days=horizon_days,
+        consensus_by_symbol=consensus_by_symbol,
     )

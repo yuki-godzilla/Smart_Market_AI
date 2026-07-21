@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
 from ui.ranking_market_data import (
     acquire_ranking_fundamental_inputs,
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
+    build_ranking_forecast_inputs,
 )
 
 
@@ -120,3 +123,38 @@ def test_feature_input_stage_preserves_builder_rows_provider_and_summaries() -> 
     assert result.feature_rows == []
     assert result.feature_snapshot.missing_summary == {"close": 1}
     assert result.feature_snapshot.quality_summary == {"WARN": 1}
+
+
+def test_forecast_input_stage_preserves_consensus_and_progress_cadence() -> None:
+    progress: list[tuple[str, float]] = []
+    evaluation_calls: list[tuple[list[object], int]] = []
+    bars_by_symbol = {symbol: [object()] for symbol in ["AAA", "BBB", "CCC"]}
+    symbols_by_history_id = {id(bars[0]): symbol for symbol, bars in bars_by_symbol.items()}
+
+    def build_evaluations(history, *, horizon_days):
+        evaluation_calls.append((history, horizon_days))
+        return ["evaluation"]
+
+    def summarize(evaluations, *, history):
+        assert evaluations == ["evaluation"]
+        return SimpleNamespace(symbol=symbols_by_history_id[id(history[0])])
+
+    result = build_ranking_forecast_inputs(
+        ["AAA", "BBB", "CCC"],
+        bars_by_symbol=bars_by_symbol,
+        horizon_days=20,
+        build_evaluations=build_evaluations,
+        summarize_consensus=summarize,
+        report_progress=lambda _callback, message, ratio: progress.append((message, ratio)),
+        progress_callback=None,
+    )
+
+    assert set(result.consensus_by_symbol) == {"AAA", "BBB", "CCC"}
+    assert result.horizon_days == 20
+    assert [horizon for _history, horizon in evaluation_calls] == [20, 20, 20]
+    assert [message for message, _ratio in progress] == [
+        "基本予測を計算しています (1/3)。",
+        "基本予測を計算しています (3/3)。",
+    ]
+    assert math.isclose(progress[0][1], 0.65 + 0.05 / 3)
+    assert math.isclose(progress[1][1], 0.7)

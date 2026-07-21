@@ -1,5 +1,13 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 Forecast consensus split
+
+- `ui/ranking_market_data.py`へ、usable symbolごとにpoint-in-time Forecast consensusを作る
+  `RankingForecastInputs` contractを追加した。horizon、評価器、consensus summary、進捗reporterはUI edgeから
+  注入し、Forecastモデル・数値・Rankingへの入力を変更していない。
+- Forecastを計算する銘柄、horizon、consensusの収集、最初／10件ごと／最終件のprogress cadenceを確認する
+  network-free regressionを追加した。Ranking関連UI回帰は406 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 feature snapshot split
 
 - `ui/ranking_market_data.py`へ、MarketData / fundamental入力からfeature rows、`FeatureSnapshot`、

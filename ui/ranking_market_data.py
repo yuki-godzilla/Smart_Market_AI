@@ -32,6 +32,9 @@ MissingSummaryBuilder = Callable[[list[DailySnapshot]], dict[str, int]]
 QualitySummaryBuilder = Callable[[list[DailySnapshot]], dict[DataQuality, int]]
 ForecastEvaluationBuilder = Callable[..., list[Any]]
 ForecastConsensusBuilder = Callable[..., ForecastConsensus | None]
+ScreeningScorer = Callable[..., list[Any]]
+InvestmentScorer = Callable[..., list[Any]]
+InvestmentRowsBuilder = Callable[[list[Any]], list[RankingRow]]
 
 
 @dataclass(frozen=True)
@@ -71,6 +74,15 @@ class RankingForecastInputs:
 
     horizon_days: int
     consensus_by_symbol: dict[str, ForecastConsensus]
+
+
+@dataclass(frozen=True)
+class RankingScoreInputs:
+    """Deterministic Screening and Investment Score outputs before UI enrichment."""
+
+    screening_scores: list[Any]
+    investment_scores: list[Any]
+    score_rows: list[RankingRow]
 
 
 async def acquire_ranking_market_data_inputs(
@@ -289,4 +301,29 @@ def build_ranking_forecast_inputs(
     return RankingForecastInputs(
         horizon_days=horizon_days,
         consensus_by_symbol=consensus_by_symbol,
+    )
+
+
+def build_ranking_score_inputs(
+    feature_snapshot: FeatureSnapshot,
+    *,
+    forecast_consensus_by_symbol: Mapping[str, ForecastConsensus],
+    score_screening: ScreeningScorer,
+    score_investment: InvestmentScorer,
+    build_investment_rows: InvestmentRowsBuilder,
+) -> RankingScoreInputs:
+    """Run the existing deterministic score services before display enrichment."""
+
+    screening_scores = score_screening(
+        feature_snapshot,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
+    investment_scores = score_investment(
+        screening_scores,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
+    return RankingScoreInputs(
+        screening_scores=screening_scores,
+        investment_scores=investment_scores,
+        score_rows=build_investment_rows(investment_scores),
     )

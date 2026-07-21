@@ -10,6 +10,7 @@ from ui.ranking_market_data import (
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
     build_ranking_forecast_inputs,
+    build_ranking_score_inputs,
 )
 
 
@@ -158,3 +159,46 @@ def test_forecast_input_stage_preserves_consensus_and_progress_cadence() -> None
     ]
     assert math.isclose(progress[0][1], 0.65 + 0.05 / 3)
     assert math.isclose(progress[1][1], 0.7)
+
+
+def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
+    events: list[object] = []
+    feature_snapshot = build_ranking_feature_inputs(
+        [],
+        as_of=date(2026, 7, 20),
+        adapter=type("Adapter", (), {"healthcheck": lambda self: {"provider": "fixture"}})(),
+        provider="fixture",
+        quotes=[],
+        fundamentals=[],
+        bars=[],
+        feature_builder_config=None,
+        build_feature_rows=lambda **_kwargs: [],
+        build_missing_summary=lambda _rows: {},
+        build_quality_summary=lambda _rows: {},
+    ).feature_snapshot
+    consensus = {"AAA": SimpleNamespace(symbol="AAA")}
+
+    def score_screening(snapshot, *, forecast_consensus_by_symbol):
+        events.append(("screening", snapshot, forecast_consensus_by_symbol))
+        return ["screening-score"]
+
+    def score_investment(screening_scores, *, forecast_consensus_by_symbol):
+        events.append(("investment", screening_scores, forecast_consensus_by_symbol))
+        return ["investment-score"]
+
+    def build_rows(investment_scores):
+        events.append(("rows", investment_scores))
+        return [{"symbol": "AAA"}]
+
+    result = build_ranking_score_inputs(
+        feature_snapshot,
+        forecast_consensus_by_symbol=consensus,
+        score_screening=score_screening,
+        score_investment=score_investment,
+        build_investment_rows=build_rows,
+    )
+
+    assert result.score_rows == [{"symbol": "AAA"}]
+    assert [event[0] for event in events] == ["screening", "investment", "rows"]
+    assert events[0][2] is consensus
+    assert events[1][1] == ["screening-score"]

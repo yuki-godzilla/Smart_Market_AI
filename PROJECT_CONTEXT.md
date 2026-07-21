@@ -239,7 +239,9 @@ construction now also returns a typed contract containing the original rows, `Fe
 provider name, with the existing feature builder and quality summaries injected at the UI edge. The
 following Forecast slice now creates one point-in-time consensus per usable symbol and preserves the
 existing horizon, evaluators, summary logic, and progress cadence through injected ports. The next
-R1 slice extracts Screening / Investment Score row assembly from `ui/app.py` behind typed ports.
+slice now also separates deterministic Screening, Investment Score, and base score-row assembly
+behind typed ports. The next R1 slice extracts display enrichment, advanced-forecast field merge,
+and final ranking order from `ui/app.py`.
 
 The first Cockpit split moves filter defaults, active-condition policy, universe filtering, and
 keyword/alias/sector/theme search ranking to a Streamlit-independent module. Session-state reads,

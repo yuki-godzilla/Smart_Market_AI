@@ -382,6 +382,7 @@ from ui.ranking_market_data import (
     acquire_ranking_market_data_inputs,
     build_ranking_feature_inputs,
     build_ranking_forecast_inputs,
+    build_ranking_score_inputs,
 )
 from ui.ranking_policy_presenter import (
     ranking_condition_summary_chips_html,
@@ -9750,16 +9751,23 @@ async def _build_market_data_ranking_rows_fast(
             progress_callback=progress_callback,
         )
     _report_ranking_progress(progress_callback, "総合スコアを計算しています。", 0.9)
-    screening_scores = ScreeningService().score(
+    score_data = build_ranking_score_inputs(
         feature_snapshot,
         forecast_consensus_by_symbol=forecast_consensus_by_symbol,
-    )
-    investment_scores = InvestmentScoringService(weights=settings.scoring.weights).score(
-        screening_scores,
-        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+        score_screening=lambda snapshot, *, forecast_consensus_by_symbol: ScreeningService().score(
+            snapshot,
+            forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+        ),
+        score_investment=lambda screening_scores, *, forecast_consensus_by_symbol: (
+            InvestmentScoringService(weights=settings.scoring.weights).score(
+                screening_scores,
+                forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+            )
+        ),
+        build_investment_rows=investment_score_rows,
     )
     score_rows = _enrich_ranking_rows_with_feature_details(
-        investment_score_rows(investment_scores),
+        score_data.score_rows,
         feature_rows,
         latest_volume_by_symbol=_latest_volume_by_symbol(bars_by_symbol),
         source_currency_by_symbol=source_currency_by_symbol,

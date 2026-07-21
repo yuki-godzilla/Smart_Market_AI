@@ -116,6 +116,8 @@ non-fatal error row、display symbol復元を`RankingFundamentalInputs` contract
 score row組立を分離する。特徴量生成は`RankingFeatureInputs` contractとして分離し、元のfeature rows、
 `FeatureSnapshot`、provider名をまとめて後続へ渡す。Forecast consensusも`RankingForecastInputs` contractとして
 分離し、horizon、既存評価器・summary、進捗cadenceを維持した。次はScreening / Investment Score row組立を分離する。
+Screening、Investment Score、基本score row組立も`RankingScoreInputs` contractとして分離し、次は表示向けfeature詳細、
+高度予測fieldの付加、最終sortを分離する。
 
 ### R2: Cockpit application flowを分離
 

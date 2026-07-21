@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-07-21 Ranking R1 deterministic score assembly split
+
+- `ui/ranking_market_data.py`へ、`FeatureSnapshot`とForecast consensusからScreening、Investment Score、
+  基本score rowを作る`RankingScoreInputs` contractを追加した。既存serviceとrow builderはUI edgeから注入する。
+- feature詳細・通貨・出来高・高度Forecastの表示field付加と最終Ranking順は未移動であり、Score計算、Forecast、
+  Ranking数値・順位を変更していない。
+- service呼出順、consensusの受渡し、基本row作成を確認するnetwork-free regressionを追加した。Ranking関連UI回帰は
+  407 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
 ## 2026-07-21 Ranking R1 Forecast consensus split
 
 - `ui/ranking_market_data.py`へ、usable symbolごとにpoint-in-time Forecast consensusを作る

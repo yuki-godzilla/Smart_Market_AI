@@ -11740,6 +11740,9 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert focus_spec["height"] == MARKET_CHART_HEIGHT
     assert chart_spec["title"] == "価格チャート"
     assert focus_spec["title"] == "予測スコープ"
+    assert chart_spec["layer"][1]["encoding"]["x"]["title"] == "日付"
+    assert chart_spec["layer"][1]["encoding"]["x"]["axis"]["format"] == "%Y/%m/%d"
+    assert focus_spec["layer"][1]["encoding"]["x"]["axis"]["format"] == "%Y/%m/%d"
     assert chart_spec["layer"][1]["mark"]["point"]["filled"] is True
     assert (
         chart_spec["layer"][1]["mark"]["point"]["size"]

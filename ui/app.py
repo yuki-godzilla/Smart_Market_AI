@@ -21580,7 +21580,11 @@ def _market_chart_layers(
     latest_actual_data = latest_actual_price_frame(rows)
     forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
     actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
-    base_x = alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0))
+    base_x = alt.X(
+        "date:T",
+        title="日付",
+        axis=alt.Axis(format="%Y/%m/%d", labelAngle=0),
+    )
     base_encoding = {
         "x": base_x,
         "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),

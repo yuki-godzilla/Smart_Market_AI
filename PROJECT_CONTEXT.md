@@ -297,6 +297,16 @@ Score, Research Score, Decision Report content, citations, and rendering order a
 remaining R2-B slice is to extract those external fetch and report-generation use cases from the
 Research button controller.
 
+That remaining R2-B use-case slice is now implemented. `run_cockpit_research_refresh` owns the
+external Research fetch, company-report build, stock-news build, progress events, and elapsed-time
+trace without importing Streamlit or session state. It publishes each successful external, report, or
+news result through injected UI adapters immediately after that step, so a later failure cannot discard
+already obtained session-local evidence. An external `AppError` retains the prior fail-open behavior:
+it records the failure and continues report/news generation. The UI controller retains only button,
+loading, notification, technical-detail, trace display, and rerun behavior. The next R2 decision is
+whether to split the remaining Research operation card / display panel into page-controller-presenter
+parts or close R2 and begin R3 summary-builder decomposition.
+
 The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
 in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
 protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.

@@ -155,6 +155,7 @@ from ui.cockpit_application import (
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     CockpitResearchContext,
+    CockpitResearchRefreshResult,
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
@@ -163,6 +164,7 @@ from ui.cockpit_application import (
     clear_cockpit_preview,
     cockpit_preview_state_from_session,
     load_cockpit_preview,
+    run_cockpit_research_refresh,
 )
 from ui.cockpit_filter_policy import (
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
@@ -12826,6 +12828,25 @@ def _cockpit_research_context(preview: MarketDataPreview) -> CockpitResearchCont
     )
 
 
+def _run_cockpit_research_refresh(
+    preview: MarketDataPreview,
+    *,
+    report_progress: Callable[[str, float], None],
+) -> CockpitResearchRefreshResult:
+    """Inject Cockpit adapters into the Streamlit-independent Research refresh use case."""
+
+    return run_cockpit_research_refresh(
+        fetch_external_research=lambda: _fetch_external_research_result_for_preview(preview),
+        publish_external_research_result=_store_cockpit_external_research_fetch_result,
+        build_research_report=lambda: _build_cockpit_research_report(preview),
+        build_stock_news_report=lambda: _build_cockpit_stock_news_report(preview),
+        publish_research_report=lambda report: _store_cockpit_research_report(report),
+        publish_stock_news_report=lambda report: _store_cockpit_stock_news_report(report),
+        report_progress=report_progress,
+        monotonic_time=perf_time.perf_counter,
+    )
+
+
 def _render_cockpit_research_summary(
     preview: MarketDataPreview,
     *,
@@ -12888,14 +12909,22 @@ def _render_cockpit_research_summary(
         progress_status = st.empty()
         update_research_progress("調査対象と取得元を確認しています。", 0.08)
         try:
-            refresh_started = perf_time.perf_counter()
-            trace_rows: list[tuple[str, float]] = []
-            try:
-                update_research_progress("外部参照ソースとニュースを取得しています。", 0.24)
-                step_started = perf_time.perf_counter()
-                external_result = _fetch_external_research_for_preview(preview)
-                trace_rows.append(("外部取得", perf_time.perf_counter() - step_started))
-                update_research_progress("外部参照ソースをAI調査に反映しています。", 0.52)
+            refresh_result = _run_cockpit_research_refresh(
+                preview,
+                report_progress=update_research_progress,
+            )
+            external_result = refresh_result.external_research_result
+            if refresh_result.external_fetch_error is not None:
+                exc = refresh_result.external_fetch_error
+                st.warning(
+                    "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
+                )
+                st.caption(_external_research_fetch_failure_caption(exc))
+                with st.expander("取得失敗の技術詳細", expanded=False):
+                    st.caption(exc.message)
+                    if exc.details:
+                        st.json(exc.details)
+            elif external_result is not None:
                 if external_result.entries:
                     st.success(
                         f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
@@ -12911,29 +12940,7 @@ def _render_cockpit_research_summary(
                 )
                 for warning in external_result.warnings[3:]:
                     st.warning(warning)
-            except AppError as exc:
-                st.warning(
-                    "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
-                )
-                st.caption(_external_research_fetch_failure_caption(exc))
-                with st.expander("取得失敗の技術詳細", expanded=False):
-                    st.caption(exc.message)
-                    if exc.details:
-                        st.json(exc.details)
-                update_research_progress("保存済み資料と既存データで調査を続行しています。", 0.52)
-            update_research_progress("企業リサーチレポートを生成しています。", 0.70)
-            step_started = perf_time.perf_counter()
-            st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
-                _build_cockpit_research_report(preview)
-            )
-            trace_rows.append(("企業レポート生成", perf_time.perf_counter() - step_started))
-            update_research_progress("ニュースと開示材料を整理しています。", 0.86)
-            step_started = perf_time.perf_counter()
-            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
-                _build_cockpit_stock_news_report(preview)
-            )
-            trace_rows.append(("ニュース整理", perf_time.perf_counter() - step_started))
-            trace_rows.append(("合計", perf_time.perf_counter() - refresh_started))
+            trace_rows = list(refresh_result.trace_rows)
             st.session_state[RESEARCH_REFRESH_TRACE_STATE_KEY] = trace_rows
             update_research_progress("表示内容を更新しています。", 0.96)
             st.caption(_research_refresh_trace_caption(trace_rows))
@@ -13660,17 +13667,29 @@ def _llm_factor_datetime_display(value: datetime | None) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def _fetch_external_research_for_preview(
+def _fetch_external_research_result_for_preview(
     preview: MarketDataPreview,
 ) -> ExternalResearchFetchResult:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         raise AppError("AI調査の対象銘柄が選択されていません。")
-    result = _fetch_external_research_for_symbol(
+    return _fetch_external_research_for_symbol(
         symbol,
         as_of=_date_from_iso_text(_market_data_as_of(preview)),
     )
+
+
+def _store_cockpit_external_research_fetch_result(result: ExternalResearchFetchResult) -> None:
     st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] = result
+
+
+def _fetch_external_research_for_preview(
+    preview: MarketDataPreview,
+) -> ExternalResearchFetchResult:
+    """Compatibility façade for callers that fetch and immediately store a Cockpit result."""
+
+    result = _fetch_external_research_result_for_preview(preview)
+    _store_cockpit_external_research_fetch_result(result)
     return result
 
 
@@ -17161,6 +17180,10 @@ def _build_cockpit_research_report(preview: MarketDataPreview) -> CompanyResearc
     )
 
 
+def _store_cockpit_research_report(report: CompanyResearchReport | None) -> None:
+    st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = report
+
+
 def _render_stock_news_cards_panel(report: StockNewsReport) -> None:
     st.markdown("##### 関連ニュース")
     st.markdown(
@@ -17191,6 +17214,10 @@ def _build_cockpit_stock_news_report(preview: MarketDataPreview) -> StockNewsRep
         symbol,
         as_of=_date_from_iso_text(_market_data_as_of(preview)),
     )
+
+
+def _store_cockpit_stock_news_report(report: StockNewsReport | None) -> None:
+    st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = report
 
 
 def _build_research_report_for_symbol(

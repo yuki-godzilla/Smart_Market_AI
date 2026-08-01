@@ -4152,7 +4152,7 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     monkeypatch.setattr("ui.app._cockpit_research_report_from_state", lambda _: None)
     monkeypatch.setattr("ui.app._cockpit_stock_news_report_from_state", lambda _: None)
     monkeypatch.setattr(
-        "ui.app._fetch_external_research_for_preview",
+        "ui.app._fetch_external_research_result_for_preview",
         lambda _: external_result,
     )
     monkeypatch.setattr(

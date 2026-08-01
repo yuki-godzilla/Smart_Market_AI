@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 
+import pytest
+
+from backend.core.errors import AppError
 from backend.reporting import build_decision_report_context, build_report_section
+from backend.research import ExternalResearchFetchResult
 from ui.cockpit_application import (
     CockpitDisplayModel,
     CockpitPresentationContext,
@@ -18,6 +22,7 @@ from ui.cockpit_application import (
     clear_cockpit_preview,
     cockpit_preview_state_from_session,
     load_cockpit_preview,
+    run_cockpit_research_refresh,
 )
 
 
@@ -296,3 +301,109 @@ def test_cockpit_research_and_report_contexts_preserve_one_resolved_snapshot():
     assert context.evidence_rows == ({"根拠": "価格トレンド", "読み取り": "横ばい"},)
     assert context.score_row == {"総合スコア": "70"}
     assert context.symbol_row == {"market": "jp"}
+
+
+def test_run_cockpit_research_refresh_preserves_order_and_publishes_each_result():
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fixture",
+        fetched_at=datetime(2026, 8, 2, 9, 0, tzinfo=UTC),
+        entries=[],
+        retention_policy="session",
+    )
+    progress: list[tuple[str, float]] = []
+    events: list[str] = []
+    times = iter([100.0, 101.0, 103.0, 104.0, 107.0, 108.0, 113.0, 114.0])
+
+    result = run_cockpit_research_refresh(
+        fetch_external_research=lambda: events.append("fetch") or external_result,
+        publish_external_research_result=lambda value: events.append(f"external:{value.symbol}"),
+        build_research_report=lambda: events.append("report") or None,
+        build_stock_news_report=lambda: events.append("news") or None,
+        publish_research_report=lambda value: events.append(f"publish_report:{value}"),
+        publish_stock_news_report=lambda value: events.append(f"publish_news:{value}"),
+        report_progress=lambda message, ratio: progress.append((message, ratio)),
+        monotonic_time=lambda: next(times),
+    )
+
+    assert events == [
+        "fetch",
+        "external:7203.T",
+        "report",
+        "publish_report:None",
+        "news",
+        "publish_news:None",
+    ]
+    assert progress == [
+        ("外部参照ソースとニュースを取得しています。", 0.24),
+        ("外部参照ソースをAI調査に反映しています。", 0.52),
+        ("企業リサーチレポートを生成しています。", 0.70),
+        ("ニュースと開示材料を整理しています。", 0.86),
+    ]
+    assert result.external_research_result is external_result
+    assert result.external_fetch_error is None
+    assert result.trace_rows == (
+        ("外部取得", 2.0),
+        ("企業レポート生成", 3.0),
+        ("ニュース整理", 5.0),
+        ("合計", 14.0),
+    )
+
+
+def test_run_cockpit_research_refresh_continues_after_external_fetch_error():
+    progress: list[tuple[str, float]] = []
+    published: list[str] = []
+    times = iter([10.0, 11.0, 13.0, 15.0, 16.0, 20.0, 22.0])
+
+    result = run_cockpit_research_refresh(
+        fetch_external_research=lambda: (_ for _ in ()).throw(AppError("external unavailable")),
+        publish_external_research_result=lambda _value: published.append("external"),
+        build_research_report=lambda: published.append("report") or None,
+        build_stock_news_report=lambda: published.append("news") or None,
+        publish_research_report=lambda _value: published.append("publish_report"),
+        publish_stock_news_report=lambda _value: published.append("publish_news"),
+        report_progress=lambda message, ratio: progress.append((message, ratio)),
+        monotonic_time=lambda: next(times),
+    )
+
+    assert result.external_research_result is None
+    assert result.external_fetch_error is not None
+    assert result.external_fetch_error.message == "external unavailable"
+    assert published == ["report", "publish_report", "news", "publish_news"]
+    assert [message for message, _ratio in progress] == [
+        "外部参照ソースとニュースを取得しています。",
+        "保存済み資料と既存データで調査を続行しています。",
+        "企業リサーチレポートを生成しています。",
+        "ニュースと開示材料を整理しています。",
+    ]
+    assert result.trace_rows == (("企業レポート生成", 2.0), ("ニュース整理", 4.0), ("合計", 12.0))
+
+
+def test_run_cockpit_research_refresh_publishes_external_result_before_report_failure():
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fixture",
+        fetched_at=datetime(2026, 8, 2, 9, 0, tzinfo=UTC),
+        entries=[],
+        retention_policy="session",
+    )
+    events: list[str] = []
+    times = iter([10.0, 11.0, 12.0, 13.0])
+
+    with pytest.raises(RuntimeError, match="report build failed"):
+        run_cockpit_research_refresh(
+            fetch_external_research=lambda: events.append("fetch") or external_result,
+            publish_external_research_result=lambda value: events.append(
+                f"external:{value.symbol}"
+            ),
+            build_research_report=lambda: (_ for _ in ()).throw(
+                RuntimeError("report build failed")
+            ),
+            build_stock_news_report=lambda: events.append("news") or None,
+            publish_research_report=lambda _value: events.append("publish_report"),
+            publish_stock_news_report=lambda _value: events.append("publish_news"),
+            report_progress=lambda _message, _ratio: None,
+            monotonic_time=lambda: next(times),
+        )
+
+    assert events == ["fetch", "external:7203.T"]

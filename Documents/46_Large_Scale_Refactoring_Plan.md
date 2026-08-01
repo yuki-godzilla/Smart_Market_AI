@@ -192,9 +192,16 @@ Decision Reportのoverview、要約、根拠行、score、symbol metadataはStre
 header summaryも同じ方法で入力を固定する。外部取得、更新progress、toast、`st.rerun()`はUI edgeに残し、
 Forecast、Score、Research Score、Decision Report本文、出典順は変更していない。
 
-次のR2-B sliceでは、外部Research取得、企業Research report生成、stock news report生成を、
-UIのbutton / progress表示から分離したuse caseへ移す。現在のcontextは取得済み値を安全に共有する層であり、
+続くR2-B sliceでは、外部Research取得、企業Research report生成、stock news report生成を、
+UIのbutton / progress表示から分離したuse caseへ移す方針とした。contextは取得済み値を安全に共有する層であり、
 Provider呼出しやsession mutationを保持しない。
+
+進捗（2026-08-02、続き）: `run_cockpit_research_refresh`へ外部Research取得、企業Research report生成、
+stock news report生成の実行順、progress event、処理時間trace、外部取得失敗時の継続を移した。成功した外部結果、
+report、news reportは各builder直後に注入したpublisherからUI stateへ採用するため、後段の失敗で既に得た
+session-local根拠を失わない。UIはbutton、loading、通知、技術詳細、trace表示、`st.rerun()`だけを担当する。
+use caseはStreamlit / session state / Provider実装をimportせず、fixture clockとcallbackで成功・外部失敗経路を
+検証する。次のR2-B判断は、Research操作cardと表示panelをpage / controllerへ分けるか、R2-Cへ進むかで行う。
 
 完了条件:
 

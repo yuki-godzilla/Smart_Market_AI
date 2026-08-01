@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Generic, Mapping, Protocol, Sequence, TypeVar
 
+from backend.core.errors import AppError
 from backend.reporting import DecisionReportContext
 from backend.research import (
     CompanyResearchReport,
@@ -136,6 +137,27 @@ class CockpitDecisionReportRenderContext:
     score_row: dict[str, str]
     symbol_row: dict[str, str] | None
     research: CockpitResearchContext
+
+
+CockpitResearchExternalFetcher = Callable[[], ExternalResearchFetchResult]
+CockpitResearchResultPublisher = Callable[[ExternalResearchFetchResult], None]
+CockpitResearchReportBuilder = Callable[[], CompanyResearchReport | None]
+CockpitStockNewsReportBuilder = Callable[[], StockNewsReport | None]
+CockpitResearchReportPublisher = Callable[[CompanyResearchReport | None], None]
+CockpitStockNewsReportPublisher = Callable[[StockNewsReport | None], None]
+CockpitResearchProgressReporter = Callable[[str, float], None]
+CockpitResearchClock = Callable[[], float]
+
+
+@dataclass(frozen=True)
+class CockpitResearchRefreshResult:
+    """Completed refresh data and trace information for one Cockpit Research request."""
+
+    external_research_result: ExternalResearchFetchResult | None
+    external_fetch_error: AppError | None
+    report: CompanyResearchReport | None
+    news_report: StockNewsReport | None
+    trace_rows: tuple[tuple[str, float], ...]
 
 
 async def load_cockpit_preview(
@@ -321,4 +343,60 @@ def build_cockpit_decision_report_render_context(
         score_row=dict(score_row),
         symbol_row=dict(symbol_row) if symbol_row is not None else None,
         research=research,
+    )
+
+
+def run_cockpit_research_refresh(
+    *,
+    fetch_external_research: CockpitResearchExternalFetcher,
+    publish_external_research_result: CockpitResearchResultPublisher,
+    build_research_report: CockpitResearchReportBuilder,
+    build_stock_news_report: CockpitStockNewsReportBuilder,
+    publish_research_report: CockpitResearchReportPublisher,
+    publish_stock_news_report: CockpitStockNewsReportPublisher,
+    report_progress: CockpitResearchProgressReporter,
+    monotonic_time: CockpitResearchClock,
+) -> CockpitResearchRefreshResult:
+    """Run the Cockpit Research refresh without referring to Streamlit or session state.
+
+    A successful external result is published before report generation so a later report-builder
+    failure cannot discard the session-local evidence that was already obtained. External fetch
+    failures retain the existing fail-open behavior: report and news generation still continue.
+    """
+
+    refresh_started = monotonic_time()
+    trace_rows: list[tuple[str, float]] = []
+    external_research_result: ExternalResearchFetchResult | None = None
+    external_fetch_error: AppError | None = None
+
+    try:
+        report_progress("外部参照ソースとニュースを取得しています。", 0.24)
+        step_started = monotonic_time()
+        external_research_result = fetch_external_research()
+        publish_external_research_result(external_research_result)
+        trace_rows.append(("外部取得", monotonic_time() - step_started))
+        report_progress("外部参照ソースをAI調査に反映しています。", 0.52)
+    except AppError as exc:
+        external_fetch_error = exc
+        report_progress("保存済み資料と既存データで調査を続行しています。", 0.52)
+
+    report_progress("企業リサーチレポートを生成しています。", 0.70)
+    step_started = monotonic_time()
+    report = build_research_report()
+    publish_research_report(report)
+    trace_rows.append(("企業レポート生成", monotonic_time() - step_started))
+
+    report_progress("ニュースと開示材料を整理しています。", 0.86)
+    step_started = monotonic_time()
+    news_report = build_stock_news_report()
+    publish_stock_news_report(news_report)
+    trace_rows.append(("ニュース整理", monotonic_time() - step_started))
+    trace_rows.append(("合計", monotonic_time() - refresh_started))
+
+    return CockpitResearchRefreshResult(
+        external_research_result=external_research_result,
+        external_fetch_error=external_fetch_error,
+        report=report,
+        news_report=news_report,
+        trace_rows=tuple(trace_rows),
     )

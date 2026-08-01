@@ -21,6 +21,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_research_operation_card,
     research_evidence_summary_items,
 )
 
@@ -120,7 +121,7 @@ def test_cockpit_details_use_one_expander_with_export_tab():
 
 
 def test_cockpit_research_and_forecast_labels_match_primary_flow():
-    research_source = inspect.getsource(app_module._render_research_operation_card)
+    research_source = inspect.getsource(render_cockpit_research_operation_card)
     summary_source = inspect.getsource(app_module._render_cockpit_research_summary)
     forecast_source = inspect.getsource(app_module._render_price_forecast_hero)
 

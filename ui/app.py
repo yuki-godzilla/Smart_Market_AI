@@ -175,6 +175,7 @@ from ui.cockpit_filter_policy import (
     cockpit_numeric_filter_differs_from_default,
     cockpit_symbol_search_rank,
 )
+from ui.cockpit_research_presenter import build_cockpit_research_operation_card
 from ui.components.assistant import (
     SmaiAssistantContext,
     register_assistant_context,
@@ -232,7 +233,6 @@ from ui.content.research_texts import (
     RESEARCH_DETAIL_EXPANDER_LABEL,
     RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
     RESEARCH_EVIDENCE_CHECK_FALLBACK,
-    RESEARCH_FETCH_BUTTON_LABEL,
     RESEARCH_INSUFFICIENT_REPORT_NOTE,
     RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL,
     RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL,
@@ -510,6 +510,8 @@ from ui.views.cockpit import (
     cockpit_kpi_cards,
     cockpit_summary_items,
     render_cockpit_kpi_cards,
+    render_cockpit_research_operation_card,
+    render_cockpit_research_result,
     render_cockpit_summary_header,
 )
 from ui.views.common import (
@@ -12954,22 +12956,14 @@ def _render_cockpit_research_summary(
     report = research_context.report
     news_report = research_context.news_report
     external_research_result = research_context.external_research_result
-    if report is None:
-        if external_research_result is not None:
-            st.markdown(
-                _external_research_fetch_overview_html(external_research_result),
-                unsafe_allow_html=True,
-            )
-        if news_report is not None and news_report.news:
-            _render_stock_news_cards_panel(news_report)
-    else:
-        _render_research_summary_panel(
-            report,
-            detail_expanded=False,
-            news_report=news_report,
-            external_research_result=external_research_result,
-            display_context="cockpit",
-        )
+    render_cockpit_research_result(
+        report=report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        external_overview_html=_external_research_fetch_overview_html,
+        render_stock_news_panel=_render_stock_news_cards_panel,
+        render_research_panel=_render_research_summary_panel,
+    )
 
 
 def _render_cockpit_llm_factor(
@@ -14353,150 +14347,15 @@ def _render_research_operation_card(
     news_report: StockNewsReport | None,
     external_result: ExternalResearchFetchResult | None = None,
 ) -> bool:
+    """Compatibility façade for the Cockpit Research page component."""
+
     symbol = _market_data_preview_symbol(preview)
-    status_chips = _research_operation_status_chips(report, news_report, external_result)
-    status_chips_html = "".join(
-        f'<span class="research-ai-state-chip">{html.escape(label)}: '
-        f"{html.escape(value)}</span>"
-        for label, value in status_chips
-    )
-    title, summary, materials_html = _research_operation_card_content(
+    card = build_cockpit_research_operation_card(
         report,
         news_report,
         external_result,
     )
-    with st.container(border=True):
-        st.markdown(
-            (
-                '<div class="research-ai-cta research-ai-cta--hero">'
-                f'<div class="research-ai-cta-title">{html.escape(title)}</div>'
-                f'<div class="research-ai-cta-copy">{html.escape(summary)}</div>'
-                f"{materials_html}"
-                '<div class="research-ai-state-row">'
-                f"{status_chips_html}"
-                '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
-                "</div>"
-                "</div>"
-            ),
-            unsafe_allow_html=True,
-        )
-        return st.button(
-            RESEARCH_FETCH_BUTTON_LABEL if report is None else "AI調査を更新",
-            key=f"research_ai_fetch_{symbol}",
-            help="ニュース・IR・開示・外部データをまとめて確認します。",
-            type="primary",
-            use_container_width=True,
-        )
-
-
-def _research_operation_card_content(
-    report: CompanyResearchReport | None,
-    news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None = None,
-) -> tuple[str, str, str]:
-    if report is None:
-        return (
-            "AI調査はまだ未取得です",
-            "ニュース、IR、開示、保存済み資料を確認し、注目材料と注意材料を整理します。",
-            "",
-        )
-
-    brief = ResearchBriefBuilder().build(report, news_report=news_report)
-    status = dict(_research_operation_status_chips(report, news_report, external_result))
-    if external_result is not None:
-        summary = (
-            f"重複なしの根拠候補{status['根拠候補']}（公式{status['公式']} / "
-            f"ニュース{status['ニュース']} / 外部プロファイル{status['外部プロファイル']}）を確認"
-        )
-    else:
-        summary = (
-            f"ニュース{status['ニュース']} / IR・開示{status['IR/開示']} / "
-            f"外部データ{status['外部データ']}を確認"
-        )
-    positive = [
-        _research_brief_ui_text(item.summary, max_chars=88) for item in brief.positive_materials[:3]
-    ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.positive_candidates[:3]]
-    caution = [
-        _research_brief_ui_text(item.summary, max_chars=88) for item in brief.caution_materials[:3]
-    ] or [_research_brief_ui_text(item, max_chars=88) for item in brief.caution_candidates[:3]]
-    materials_html = "".join(
-        _research_operation_material_list_html(label, items)
-        for label, items in (("注目材料", positive), ("注意材料", caution))
-        if items
-    )
-    return "AI調査結果", summary, materials_html
-
-
-def _research_operation_material_list_html(label: str, items: list[str]) -> str:
-    list_html = "".join(f"<li>{html.escape(item)}</li>" for item in items)
-    return (
-        '<div class="research-ai-materials">'
-        f'<div class="research-ai-materials-title">{html.escape(label)}</div>'
-        f"<ul>{list_html}</ul>"
-        "</div>"
-    )
-
-
-def _research_operation_status_chips(
-    report: CompanyResearchReport | None,
-    news_report: StockNewsReport | None,
-    external_result: ExternalResearchFetchResult | None = None,
-) -> list[tuple[str, str]]:
-    if external_result is not None:
-        official_source_types = {
-            "annual_report",
-            "earnings_report",
-            "earnings_presentation",
-            "medium_term_plan",
-            "integrated_report",
-            "company_ir",
-            "tdnet",
-        }
-        official_count = sum(
-            1 for entry in external_result.entries if entry.source_type in official_source_types
-        )
-        news_count = sum(1 for entry in external_result.entries if entry.source_type == "news")
-        profile_count = sum(
-            1 for entry in external_result.entries if entry.source_type == "provider_profile"
-        )
-        return [
-            ("レポート", "作成済み" if report is not None else "未取得"),
-            ("根拠候補", f"{len(external_result.entries)}件"),
-            ("公式", f"{official_count}件"),
-            ("ニュース", f"{news_count}件"),
-            ("外部プロファイル", f"{profile_count}件"),
-            ("最終取得", _datetime_display_text(external_result.fetched_at)),
-        ]
-    source_types = {
-        evidence.source_type.strip().lower()
-        for evidence in (report.evidence if report is not None else [])
-    }
-    ir_source_types = {
-        "annual_report",
-        "earnings_report",
-        "financial_results",
-        "tdnet",
-        "company_ir",
-    }
-    ir_count = sum(
-        1
-        for evidence in (report.evidence if report is not None else [])
-        if evidence.source_type.strip().lower() in ir_source_types
-    )
-    external_data_count = sum(
-        1
-        for evidence in (report.evidence if report is not None else [])
-        if evidence.source_type.strip().lower() == "provider_profile"
-    )
-    return [
-        ("レポート", "作成済み" if report is not None else "未取得"),
-        ("ニュース", f"{len(news_report.news) if news_report is not None else 0}件"),
-        ("IR/開示", f"{ir_count}件" if source_types & ir_source_types else "未確認"),
-        (
-            "外部データ",
-            f"{external_data_count}件" if external_data_count else "未確認",
-        ),
-    ]
+    return render_cockpit_research_operation_card(card, symbol=symbol)
 
 
 def _research_operation_insight(

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
 
-from backend.research import CompanyResearchReport
+from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
+from ui.cockpit_research_presenter import CockpitResearchOperationCard
 from ui.content.cockpit_texts import (
     COCKPIT_CARD_MEANINGS,
     COCKPIT_DECISION_VIEW_EVALUATION_TABLE,
@@ -737,6 +739,85 @@ def render_research_evidence_summary(report: CompanyResearchReport) -> None:
                 caption=item.get("help", ""),
                 badges=(_badge_for_research_item(item),),
             )
+
+
+def render_cockpit_research_operation_card(
+    card: CockpitResearchOperationCard,
+    *,
+    symbol: str,
+) -> bool:
+    """Render the sole Cockpit Research refresh action from a prepared card model."""
+
+    status_chips_html = "".join(
+        f'<span class="research-ai-state-chip">{html.escape(label)}: '
+        f"{html.escape(value)}</span>"
+        for label, value in card.status_chips
+    )
+    materials_html = "".join(
+        _research_operation_material_list_html(group.label, group.items)
+        for group in card.material_groups
+    )
+    with st.container(border=True):
+        st.markdown(
+            (
+                '<div class="research-ai-cta research-ai-cta--hero">'
+                f'<div class="research-ai-cta-title">{html.escape(card.title)}</div>'
+                f'<div class="research-ai-cta-copy">{html.escape(card.summary)}</div>'
+                f"{materials_html}"
+                '<div class="research-ai-state-row">'
+                f"{status_chips_html}"
+                '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
+                "</div>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+        return st.button(
+            card.action_label,
+            key=f"research_ai_fetch_{symbol}",
+            help="ニュース・IR・開示・外部データをまとめて確認します。",
+            type="primary",
+            use_container_width=True,
+        )
+
+
+def render_cockpit_research_result(
+    *,
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+    external_overview_html: Callable[[ExternalResearchFetchResult], str],
+    render_stock_news_panel: Callable[[StockNewsReport], None],
+    render_research_panel: Callable[..., None],
+) -> None:
+    """Render the resolved Research result without reading session state or rebuilding inputs."""
+
+    if report is None:
+        if external_research_result is not None:
+            st.markdown(
+                external_overview_html(external_research_result),
+                unsafe_allow_html=True,
+            )
+        if news_report is not None and news_report.news:
+            render_stock_news_panel(news_report)
+        return
+    render_research_panel(
+        report,
+        detail_expanded=False,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        display_context="cockpit",
+    )
+
+
+def _research_operation_material_list_html(label: str, items: tuple[str, ...]) -> str:
+    list_html = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return (
+        '<div class="research-ai-materials">'
+        f'<div class="research-ai-materials-title">{html.escape(label)}</div>'
+        f"<ul>{list_html}</ul>"
+        "</div>"
+    )
 
 
 def _badge_for_summary_item(item: dict[str, str]) -> str:

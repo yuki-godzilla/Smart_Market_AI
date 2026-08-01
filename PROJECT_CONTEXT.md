@@ -307,6 +307,15 @@ loading, notification, technical-detail, trace display, and rerun behavior. The 
 whether to split the remaining Research operation card / display panel into page-controller-presenter
 parts or close R2 and begin R3 summary-builder decomposition.
 
+R2-C has started with the Cockpit Research operation and result-display boundary. The operation card's
+title, summary, source-state chips, material groups, and action label are now a Streamlit-independent
+model in `ui/cockpit_research_presenter.py`; its HTML, button, and widget key live in
+`ui/views/cockpit.py`. The app-level operation-card name remains a compatibility façade while callers
+migrate. The page component also owns the already-resolved result branch (external/news fallback versus
+the existing detail panel), while the app controller retains context resolution, refresh, notifications,
+rerun, and injected legacy detail rendering. Research content, source order/counts, action behavior,
+Forecast, Score, and Ranking calculations are unchanged.
+
 The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
 in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
 protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.

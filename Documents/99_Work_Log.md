@@ -5120,3 +5120,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `run_cockpit_research_refresh`へ、外部Research取得、企業Research report生成、stock news report生成、progress event、elapsed-time traceを移した。use caseはStreamlitやsession stateを参照せず、UIがfetcher / builder / publisher / progress / clockを注入する。
 - 外部取得の成功結果、企業report、news reportは各step直後にpublisherでsessionへ採用する。後段のbuilderが失敗しても、すでに取得済みのsession-local根拠を失わない。外部`AppError`は記録して保存済み資料・既存データでreport/news生成を続行する既存挙動を維持した。UIはbutton、loading、通知、error詳細、trace、rerunだけを持つ。
 - 成功順序、progress、trace、publisher、外部失敗時の継続をfixture callback / clockで追加検証した。対象pytest 419件、全体pytest 2,474件、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。
+
+## 2026-08-02 Cockpit R2-C Research operation / page境界 初回slice
+
+- `ui/cockpit_research_presenter.py`へResearch操作cardのtyped表示modelを追加した。title、要約、根拠状態chip、注目/注意材料、action labelの組立はStreamlit非依存とし、`ui/views/cockpit.py`がHTML、button、既存widget keyを描画する。
+- Cockpitの未取得時external/news fallbackと通常Research panelへの分岐もpage componentへ移した。`ui.app`はcontext解決、refresh use case、通知、rerun、既存詳細rendererの注入だけを持ち、`_render_research_operation_card`は既存caller向けcompatibility façadeとして残した。
+- Research内容、根拠数・順序、button挙動、Forecast、Score、Ranking数値は変更していない。モデル単体、Cockpit表示、Research表示、refresh use caseの対象pytest 421件、全体pytest 2,476件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。

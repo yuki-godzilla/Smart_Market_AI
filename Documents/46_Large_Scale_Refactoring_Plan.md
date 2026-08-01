@@ -216,6 +216,15 @@ use caseはStreamlit / session state / Provider実装をimportせず、fixture c
 - interactionを伴うcard、button、expander、downloadはpage側に残し、純粋な表示変換だけをpresenterへ移す。
 - 互換importを残す場合は移行先と削除条件を明記する。
 
+進捗（2026-08-02、初回slice）: Research操作cardのtitle、要約、根拠状態chip、注目/注意材料、
+button labelを`ui/cockpit_research_presenter.py`のStreamlit非依存modelへ移した。HTML、button、
+widget keyは`ui/views/cockpit.py`へ集約し、`ui.app._render_research_operation_card`は既存caller向けの
+compatibility façadeとしてmodelとpage componentへ委譲する。Cockpitの取得済みResearch結果についても、
+未取得時のexternal/news fallbackと通常panelへの振り分けをpage componentへ移し、app controllerは
+context解決、refresh use case、通知、rerun、既存panel rendererの注入だけを担当する。Research内容、
+根拠数、出典順、button key、更新操作、Forecast / Score / Ranking数値は変更していない。次sliceでは
+Research詳細panelとDecision Reportの表示modelを同じ境界で縮小する。
+
 R2完了gate:
 
 - Cockpitの主要application flowにStreamlit非依存のcontract / controller / presenter境界がある。

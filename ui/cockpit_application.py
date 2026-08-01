@@ -5,7 +5,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Mapping, Protocol, Sequence, TypeVar
+
+from backend.reporting import DecisionReportContext
+from backend.research import (
+    CompanyResearchReport,
+    ExternalResearchFetchResult,
+    StockNewsReport,
+)
 
 
 class CockpitPreview(Protocol):
@@ -91,6 +98,44 @@ class CockpitPresentationContext:
 
     symbol_label: str
     display: CockpitDisplayModel
+
+
+@dataclass(frozen=True)
+class CockpitSummaryContext:
+    """Stable inputs for the Cockpit header summary."""
+
+    symbol: str
+    name: str
+    provider: str
+    as_of: str
+    reference_period_days: int
+    forecast_horizon_days: int
+    score_row: dict[str, str] | None
+    symbol_metadata: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class CockpitResearchContext:
+    """One symbol-scoped snapshot of the Research inputs used by Cockpit sections."""
+
+    symbol: str
+    as_of: date
+    report: CompanyResearchReport | None
+    news_report: StockNewsReport | None
+    external_research_result: ExternalResearchFetchResult | None
+
+
+@dataclass(frozen=True)
+class CockpitDecisionReportRenderContext:
+    """Prepared Decision Report inputs shared by Cockpit renderers and assistant context."""
+
+    decision_report: DecisionReportContext
+    overview: dict[str, str]
+    summary_lines: tuple[str, ...]
+    evidence_rows: tuple[dict[str, str], ...]
+    score_row: dict[str, str]
+    symbol_row: dict[str, str] | None
+    research: CockpitResearchContext
 
 
 async def load_cockpit_preview(
@@ -209,4 +254,71 @@ def build_cockpit_display_model(
         consensus_rows=consensus_rows_for_bars(preview.bars, forecast_horizon_days),
         metric_rows=metric_rows_for_bars(preview.bars, forecast_horizon_days),
         score_display_rows=score_display_rows_for_preview(preview.investment_score_rows),
+    )
+
+
+def build_cockpit_summary_context(
+    *,
+    symbol: str,
+    name: str,
+    provider: str,
+    as_of: str,
+    reference_period_days: int,
+    forecast_horizon_days: int,
+    score_row: Mapping[str, str] | None,
+    symbol_metadata: Mapping[str, str] | None,
+) -> CockpitSummaryContext:
+    """Collect the header-summary inputs without referring to Streamlit state."""
+
+    return CockpitSummaryContext(
+        symbol=symbol,
+        name=name,
+        provider=provider,
+        as_of=as_of,
+        reference_period_days=reference_period_days,
+        forecast_horizon_days=forecast_horizon_days,
+        score_row=dict(score_row) if score_row is not None else None,
+        symbol_metadata=dict(symbol_metadata) if symbol_metadata is not None else None,
+    )
+
+
+def build_cockpit_research_context(
+    *,
+    symbol: str,
+    as_of: date,
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> CockpitResearchContext:
+    """Collect the already-resolved, symbol-scoped Research inputs for one render pass."""
+
+    return CockpitResearchContext(
+        symbol=symbol,
+        as_of=as_of,
+        report=report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+    )
+
+
+def build_cockpit_decision_report_render_context(
+    *,
+    decision_report: DecisionReportContext,
+    overview: Mapping[str, str],
+    summary_lines: Sequence[str],
+    evidence_rows: Sequence[Mapping[str, str]],
+    score_row: Mapping[str, str],
+    symbol_row: Mapping[str, str] | None,
+    research: CockpitResearchContext,
+) -> CockpitDecisionReportRenderContext:
+    """Freeze report presentation inputs before the Streamlit renderer consumes them."""
+
+    return CockpitDecisionReportRenderContext(
+        decision_report=decision_report,
+        overview=dict(overview),
+        summary_lines=tuple(summary_lines),
+        evidence_rows=tuple(dict(row) for row in evidence_rows),
+        score_row=dict(score_row),
+        symbol_row=dict(symbol_row) if symbol_row is not None else None,
+        research=research,
     )

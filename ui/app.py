@@ -150,11 +150,16 @@ from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
 from ui.cockpit_application import (
+    CockpitDecisionReportRenderContext,
     CockpitPresentationContext,
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
+    CockpitResearchContext,
     adopt_cockpit_preview,
+    build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_research_context,
+    build_cockpit_summary_context,
     clear_cockpit_preview,
     cockpit_preview_state_from_session,
     load_cockpit_preview,
@@ -12584,7 +12589,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol = _market_data_preview_symbol(preview)
     provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
     reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
-    summary_items = cockpit_summary_items(
+    summary_context = build_cockpit_summary_context(
         symbol=symbol,
         name=symbol_name(symbol) or "",
         provider=provider_name,
@@ -12593,6 +12598,16 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         forecast_horizon_days=forecast_horizon_days,
         score_row=score_display_rows[0] if score_display_rows else None,
         symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
+    )
+    summary_items = cockpit_summary_items(
+        symbol=summary_context.symbol,
+        name=summary_context.name,
+        provider=summary_context.provider,
+        as_of=summary_context.as_of,
+        reference_period_days=summary_context.reference_period_days,
+        forecast_horizon_days=summary_context.forecast_horizon_days,
+        score_row=summary_context.score_row,
+        symbol_metadata=summary_context.symbol_metadata,
     )
 
     def render_cockpit_favorite_action() -> None:
@@ -12614,6 +12629,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         header_action=render_cockpit_favorite_action if symbol else None,
     )
     _render_favorite_next_action_hint()
+    research_context = _cockpit_research_context(preview)
     score_row = _render_investment_score_section(
         preview,
         presentation.symbol_label,
@@ -12623,11 +12639,18 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_cockpit_direction_signal_section(score_row, presentation.display.consensus_rows)
     _render_price_forecast_hero(preview, presentation)
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
-    llm_factor_response = _cockpit_llm_factor_result(preview) if symbol else None
-    _render_cockpit_research_summary(preview)
-    _render_cockpit_llm_factor(preview, response=llm_factor_response)
+    llm_factor_response = (
+        _cockpit_llm_factor_result(preview, research_context=research_context) if symbol else None
+    )
+    _render_cockpit_research_summary(preview, research_context=research_context)
+    _render_cockpit_llm_factor(
+        preview,
+        response=llm_factor_response,
+        research_context=research_context,
+    )
     _render_cockpit_interpretation(
         preview,
+        research_context=research_context,
         llm_factor_result=llm_factor_response.result if llm_factor_response else None,
         price_summary=summary_rows,
         forecast_summary=forecast_consensus_display_rows(presentation.display.consensus_rows),
@@ -12647,7 +12670,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             score_row,
             presentation.display.score_display_rows,
         )
-    _render_cockpit_decision_report(preview)
+    _render_cockpit_decision_report(preview, research_context=research_context)
     _render_cockpit_technical_detail_expander(
         preview,
         presentation=presentation,
@@ -12789,15 +12812,34 @@ def _render_cockpit_technical_detail_expander(
                     )
 
 
-def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
+def _cockpit_research_context(preview: MarketDataPreview) -> CockpitResearchContext:
+    """Resolve the symbol-scoped Research snapshot once for a Cockpit render pass."""
+
+    symbol = _market_data_preview_symbol(preview)
+    as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
+    return build_cockpit_research_context(
+        symbol=symbol,
+        as_of=as_of,
+        report=_cockpit_research_report_from_state(preview),
+        news_report=_cockpit_stock_news_report_from_state(preview),
+        external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
+    )
+
+
+def _render_cockpit_research_summary(
+    preview: MarketDataPreview,
+    *,
+    research_context: CockpitResearchContext | None = None,
+) -> None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
+    research_context = research_context or _cockpit_research_context(preview)
     st.subheader(RESEARCH_COCKPIT_SECTION_TITLE)
     st.caption(RESEARCH_COCKPIT_INTRO)
-    report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
+    report = research_context.report
+    news_report = research_context.news_report
+    external_research_result = research_context.external_research_result
     fetch_clicked = _render_research_operation_card(
         preview,
         report=report,
@@ -12902,9 +12944,9 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         if should_rerun_after_refresh:
             st.rerun()
 
-    report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
+    report = research_context.report
+    news_report = research_context.news_report
+    external_research_result = research_context.external_research_result
     if report is None:
         if external_research_result is not None:
             st.markdown(
@@ -12927,11 +12969,15 @@ def _render_cockpit_llm_factor(
     preview: MarketDataPreview,
     *,
     response: LLMFactorServiceResult | None = None,
+    research_context: CockpitResearchContext | None = None,
 ) -> LLMFactorServiceResult | None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return None
-    response = response or _cockpit_llm_factor_result(preview)
+    response = response or _cockpit_llm_factor_result(
+        preview,
+        research_context=research_context,
+    )
     result = response.result
     source_rows = _llm_factor_evidence_display_rows(result)
     st.markdown("#### AI調査から見た材料分析")
@@ -12959,6 +13005,7 @@ def _render_cockpit_llm_factor(
 def _render_cockpit_interpretation(
     preview: MarketDataPreview,
     *,
+    research_context: CockpitResearchContext | None = None,
     llm_factor_result: LLMFactorResult | None,
     price_summary: list[dict[str, str]],
     forecast_summary: list[dict[str, str]],
@@ -12968,13 +13015,11 @@ def _render_cockpit_interpretation(
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
-    report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    research_context = research_context or _cockpit_research_context(preview)
     research_evidence = _cockpit_interpretation_research_evidence_rows(
-        report=report,
-        news_report=news_report,
-        external_result=external_result,
+        report=research_context.report,
+        news_report=research_context.news_report,
+        external_result=research_context.external_research_result,
     )
     st.subheader("04 確認メモ")
     if not research_evidence:
@@ -12985,6 +13030,7 @@ def _render_cockpit_interpretation(
         return
     response = _cockpit_interpretation_result(
         preview,
+        research_context=research_context,
         llm_factor_result=llm_factor_result,
         price_summary=price_summary,
         forecast_summary=forecast_summary,
@@ -13001,6 +13047,7 @@ def _render_cockpit_interpretation(
 def _cockpit_interpretation_result(
     preview: MarketDataPreview,
     *,
+    research_context: CockpitResearchContext | None = None,
     llm_factor_result: LLMFactorResult | None,
     price_summary: list[dict[str, str]],
     forecast_summary: list[dict[str, str]],
@@ -13008,10 +13055,8 @@ def _cockpit_interpretation_result(
     investment_score_summary: list[dict[str, str]],
 ) -> CockpitInterpretationServiceResult:
     symbol = _market_data_preview_symbol(preview)
-    as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
-    report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    research_context = research_context or _cockpit_research_context(preview)
+    as_of = research_context.as_of
     context = build_cockpit_interpretation_context(
         symbol=symbol,
         company_name=symbol_name(symbol) or None,
@@ -13022,9 +13067,9 @@ def _cockpit_interpretation_result(
         ),
         investment_score=_summary_from_rows(investment_score_summary[:1]),
         research_evidence=_cockpit_interpretation_research_evidence_rows(
-            report=report,
-            news_report=news_report,
-            external_result=external_result,
+            report=research_context.report,
+            news_report=research_context.news_report,
+            external_result=research_context.external_research_result,
         ),
         llm_factor=llm_factor_result,
         warnings=_cockpit_interpretation_warnings(preview),
@@ -13032,18 +13077,20 @@ def _cockpit_interpretation_result(
     return build_cockpit_interpretation_from_settings(context)
 
 
-def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorServiceResult:
+def _cockpit_llm_factor_result(
+    preview: MarketDataPreview,
+    *,
+    research_context: CockpitResearchContext | None = None,
+) -> LLMFactorServiceResult:
     symbol = _market_data_preview_symbol(preview)
-    as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
-    report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    research_context = research_context or _cockpit_research_context(preview)
+    as_of = research_context.as_of
     evidence_sources = _llm_factor_evidence_sources(
         symbol=symbol,
         as_of=as_of,
-        report=report,
-        news_report=news_report,
-        external_result=external_result,
+        report=research_context.report,
+        news_report=research_context.news_report,
+        external_result=research_context.external_research_result,
     )
     return build_llm_factor_reference_result_from_settings(
         ticker=symbol,
@@ -19489,6 +19536,8 @@ def _external_research_trace_report_section(
 
 def build_cockpit_decision_report_context(
     preview: MarketDataPreview,
+    *,
+    research_context: CockpitResearchContext | None = None,
 ) -> DecisionReportContext:
     symbol = _market_data_preview_symbol(preview)
     symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
@@ -19549,13 +19598,14 @@ def build_cockpit_decision_report_context(
                 as_of=as_of,
             )
         )
-    research_report = _cockpit_research_report_from_state(preview)
+    research_context = research_context or _cockpit_research_context(preview)
+    research_report = research_context.report
     if research_report is not None and (
         research_report.data_quality.document_count > 0
         or research_report.data_quality.evidence_count > 0
     ):
         sections.append(_research_evidence_report_section(research_report))
-    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
+    external_research_result = research_context.external_research_result
     if external_research_result is not None and external_research_result.entries:
         sections.append(_external_research_trace_report_section(external_research_result))
     if research_report is not None and (
@@ -19864,20 +19914,18 @@ def _decision_summary_list_html(lines: list[str]) -> str:
 def _render_cockpit_decision_report_sections(
     preview: MarketDataPreview,
     *,
-    context: DecisionReportContext,
-    overview: dict[str, str],
-    score_row: dict[str, str],
-    symbol_row: dict[str, str] | None,
-    research_report: CompanyResearchReport | None,
-    news_report: StockNewsReport | None,
+    render_context: CockpitDecisionReportRenderContext,
 ) -> None:
+    context = render_context.decision_report
+    overview = render_context.overview
+    score_row = render_context.score_row
+    symbol_row = render_context.symbol_row
+    research_context = render_context.research
     st.markdown("#### 確認項目の詳細")
     with st.container(border=True):
         st.markdown("##### 1. 要約")
         st.markdown(
-            _decision_summary_list_html(
-                cockpit_decision_report_summary_lines(preview, research_report)
-            ),
+            _decision_summary_list_html(list(render_context.summary_lines)),
             unsafe_allow_html=True,
         )
 
@@ -19928,13 +19976,13 @@ def _render_cockpit_decision_report_sections(
         _render_symbol_detail_table(
             cockpit_decision_report_evidence_rows(
                 preview,
-                research_report=research_report,
-                news_report=news_report,
+                research_report=research_context.report,
+                news_report=research_context.news_report,
             )
         )
         card_rows = _research_evidence_card_rows(
-            research_report,
-            news_report=news_report,
+            research_context.report,
+            news_report=research_context.news_report,
             limit=3,
         )
         if card_rows:
@@ -20048,41 +20096,66 @@ def _decision_report_context_summary_rows(
     ]
 
 
-def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
-    context = build_cockpit_decision_report_context(preview)
+def _build_cockpit_decision_report_render_context(
+    preview: MarketDataPreview,
+    *,
+    research_context: CockpitResearchContext | None = None,
+) -> CockpitDecisionReportRenderContext:
+    """Assemble Decision Report display inputs before Streamlit rendering begins."""
+
+    research_context = research_context or _cockpit_research_context(preview)
     symbol = _market_data_preview_symbol(preview)
     score_rows = investment_score_display_rows(preview.investment_score_rows)
     score_row = score_rows[0] if score_rows else {}
     symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
-    research_report = _cockpit_research_report_from_state(preview)
-    news_report = _cockpit_stock_news_report_from_state(preview)
-    overview = cockpit_decision_report_overview(preview)
+    return build_cockpit_decision_report_render_context(
+        decision_report=build_cockpit_decision_report_context(
+            preview,
+            research_context=research_context,
+        ),
+        overview=cockpit_decision_report_overview(preview),
+        summary_lines=cockpit_decision_report_summary_lines(preview, research_context.report),
+        evidence_rows=cockpit_decision_report_evidence_rows(
+            preview,
+            research_report=research_context.report,
+            news_report=research_context.news_report,
+        ),
+        score_row=score_row,
+        symbol_row=symbol_row,
+        research=research_context,
+    )
+
+
+def _render_cockpit_decision_report(
+    preview: MarketDataPreview,
+    *,
+    research_context: CockpitResearchContext | None = None,
+) -> None:
+    render_context = _build_cockpit_decision_report_render_context(
+        preview,
+        research_context=research_context,
+    )
+    context = render_context.decision_report
 
     st.markdown("### 05 確認レポート")
     st.info(DECISION_REPORT_SUPPORT_MESSAGE)
-    st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
-
-    summary_lines = cockpit_decision_report_summary_lines(preview, research_report)
-    _register_cockpit_report_assistant_context(context, summary_lines)
-    st.markdown("#### AI要約")
-    st.markdown(_decision_summary_list_html(summary_lines), unsafe_allow_html=True)
-
-    evidence_rows = cockpit_decision_report_evidence_rows(
-        preview,
-        research_report=research_report,
-        news_report=news_report,
+    st.markdown(
+        _decision_report_overview_card_html(render_context.overview), unsafe_allow_html=True
     )
+
+    _register_cockpit_report_assistant_context(context, render_context.summary_lines)
+    st.markdown("#### AI要約")
+    st.markdown(
+        _decision_summary_list_html(list(render_context.summary_lines)),
+        unsafe_allow_html=True,
+    )
+
     st.markdown("#### 判断に使った主な根拠")
-    _render_symbol_detail_table(evidence_rows)
+    _render_symbol_detail_table(list(render_context.evidence_rows))
 
     _render_cockpit_decision_report_sections(
         preview,
-        context=context,
-        overview=overview,
-        score_row=score_row,
-        symbol_row=symbol_row,
-        research_report=research_report,
-        news_report=news_report,
+        render_context=render_context,
     )
 
     _render_decision_report_download_buttons(

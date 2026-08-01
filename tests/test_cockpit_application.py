@@ -4,13 +4,17 @@ import asyncio
 from dataclasses import dataclass
 from datetime import date
 
+from backend.reporting import build_decision_report_context, build_report_section
 from ui.cockpit_application import (
     CockpitDisplayModel,
     CockpitPresentationContext,
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
+    build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_research_context,
+    build_cockpit_summary_context,
     clear_cockpit_preview,
     cockpit_preview_state_from_session,
     load_cockpit_preview,
@@ -218,3 +222,77 @@ def test_cockpit_presentation_context_keeps_one_display_model_for_renderers():
 
     assert presentation.symbol_label == "7203.T - Toyota"
     assert presentation.display is display
+
+
+def test_cockpit_summary_context_keeps_header_inputs_together():
+    score_row = {"総合スコア": "70"}
+    metadata = {"market": "jp"}
+
+    context = build_cockpit_summary_context(
+        symbol="7203.T",
+        name="Toyota",
+        provider="yahoo",
+        as_of="2026-08-02",
+        reference_period_days=120,
+        forecast_horizon_days=21,
+        score_row=score_row,
+        symbol_metadata=metadata,
+    )
+
+    assert context.symbol == "7203.T"
+    assert context.name == "Toyota"
+    assert context.provider == "yahoo"
+    assert context.reference_period_days == 120
+    assert context.forecast_horizon_days == 21
+    score_row["総合スコア"] = "0"
+    metadata["market"] = "us"
+    assert context.score_row == {"総合スコア": "70"}
+    assert context.symbol_metadata == {"market": "jp"}
+
+
+def test_cockpit_research_and_report_contexts_preserve_one_resolved_snapshot():
+    research = build_cockpit_research_context(
+        symbol="7203.T",
+        as_of=date(2026, 8, 2),
+        report=None,
+        news_report=None,
+        external_research_result=None,
+    )
+    decision_report = build_decision_report_context(
+        title="確認レポート - 7203.T",
+        sections=[
+            build_report_section(
+                title="データ取得状況と信頼性",
+                source_kind="cockpit",
+                symbol="7203.T",
+                summary={"provider": "yahoo"},
+            )
+        ],
+    )
+    overview = {"symbol": "7203.T", "total_score": "70"}
+    evidence_rows = [{"根拠": "価格トレンド", "読み取り": "横ばい"}]
+    score_row = {"総合スコア": "70"}
+    symbol_row = {"market": "jp"}
+
+    context = build_cockpit_decision_report_render_context(
+        decision_report=decision_report,
+        overview=overview,
+        summary_lines=["7203.Tは確認対象です。"],
+        evidence_rows=evidence_rows,
+        score_row=score_row,
+        symbol_row=symbol_row,
+        research=research,
+    )
+    overview["total_score"] = "0"
+    evidence_rows[0]["読み取り"] = "変更後"
+    score_row["総合スコア"] = "0"
+    symbol_row["market"] = "us"
+
+    assert context.research is research
+    assert context.research.as_of == date(2026, 8, 2)
+    assert context.decision_report is decision_report
+    assert context.overview == {"symbol": "7203.T", "total_score": "70"}
+    assert context.summary_lines == ("7203.Tは確認対象です。",)
+    assert context.evidence_rows == ({"根拠": "価格トレンド", "読み取り": "横ばい"},)
+    assert context.score_row == {"総合スコア": "70"}
+    assert context.symbol_row == {"market": "jp"}

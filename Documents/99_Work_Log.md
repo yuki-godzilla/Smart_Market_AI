@@ -5108,3 +5108,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `ui/ranking_application.py`へ銘柄DB preflight adapter、既存MarketData builder adapter、typed requestをprocess-wide jobへ渡す起動controllerを追加した。ランキング作成ボタンのruntime経路は個別引数とlambdaではなく`RankingBuildRequest`を終端workerまで保持する。
 - `ui.app._execute_market_data_ranking_job`は互換façadeとして維持し、既存callerとbackground job contractを変更していない。ランキング数値、score、並び順、対象銘柄、Provider、cache、session保存の意味は変更していない。
 - adapter引数、preflight条件、job request伝播をnetwork-free testで固定し、対象回帰407件、Ruff、Black、Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。
+
+## 2026-08-02 Cockpit R2-B Research / Decision Report context初回slice
+
+- `CockpitSummaryContext`、`CockpitResearchContext`、`CockpitDecisionReportRenderContext`を追加し、Cockpit header、Research状態、Decision Report表示入力をStreamlit非依存のtyped contextとして組み立てるようにした。symbol一致を確認したResearch / news / external resultは一度だけ解決し、LLM材料、確認メモ、Decision Reportへ同じsnapshotを渡す。
+- 外部取得、企業Research report生成、stock news report生成、progress、toast、`st.rerun()`はUI edgeに残す。Forecast、Score、Research Score、Decision Report本文、citation、表示順、外部接続条件は変更していない。次のR2-B sliceで、Research buttonから取得・生成use caseを分離する。
+- 対象pytest 416件、Ruff、Black、`ui/cockpit_application.py`と対象testのMypyは成功した。PR CIは今回より前のcommitからMypy 27件で停止しpytestへ到達していない。主因はRanking application test adapterと既存`ui/app.py` protocol varianceであり、R2-Bの対象型検査では再現しない。

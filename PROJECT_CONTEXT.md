@@ -288,6 +288,21 @@ scheduling. Pending evidence therefore does not block structural work and cannot
 model adoption. See `Documents/46_Large_Scale_Refactoring_Plan.md` for slice-level entry, exit, and
 stop conditions.
 
+R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
+`CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
+render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external
+results once, then passes that same snapshot to LLM Factor, interpretation, and Decision Report paths.
+External fetch, report/news generation, progress, toast, and rerun remain at the UI edge; Forecast,
+Score, Research Score, Decision Report content, citations, and rendering order are unchanged. The
+remaining R2-B slice is to extract those external fetch and report-generation use cases from the
+Research button controller.
+
+The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
+in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
+protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.
+Targeted Mypy for `ui/cockpit_application.py` and its tests passes. The failure requires a separately
+scoped CI type-cleanup decision and must not be presented as evidence against the R2-B behavior tests.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

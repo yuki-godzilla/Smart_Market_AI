@@ -185,6 +185,17 @@ Research取得、render順は変更しない。
 - widget、progress、toast、download、rerunはUI edgeに残す。
 - 取得失敗と根拠不足を空の正常値へ変換せず、既存のwarning / unavailable表示を維持する。
 
+進捗（2026-08-02）: 初回sliceとして`CockpitSummaryContext`、`CockpitResearchContext`、
+`CockpitDecisionReportRenderContext`を追加した。symbol一致を確認済みのResearch / news /
+external resultを一度だけ解決し、LLM材料、確認メモ、Decision Reportへ同じsnapshotを渡す。
+Decision Reportのoverview、要約、根拠行、score、symbol metadataはStreamlit描画前にcontextへ固定する。
+header summaryも同じ方法で入力を固定する。外部取得、更新progress、toast、`st.rerun()`はUI edgeに残し、
+Forecast、Score、Research Score、Decision Report本文、出典順は変更していない。
+
+次のR2-B sliceでは、外部Research取得、企業Research report生成、stock news report生成を、
+UIのbutton / progress表示から分離したuse caseへ移す。現在のcontextは取得済み値を安全に共有する層であり、
+Provider呼出しやsession mutationを保持しない。
+
 完了条件:
 
 - context builderがStreamlit非依存で、fixtureによる単体testを持つ。

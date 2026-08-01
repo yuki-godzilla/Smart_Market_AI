@@ -304,7 +304,11 @@ from ui.app import (
     symbol_universe_nisa_display,
     symbol_universe_overview_rows,
 )
-from ui.cockpit_application import CockpitDisplayModel, CockpitPresentationContext
+from ui.cockpit_application import (
+    CockpitDisplayModel,
+    CockpitPresentationContext,
+    build_cockpit_research_context,
+)
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_BETA_RISK_STANDARD_OR_LOWER,
@@ -9619,7 +9623,7 @@ def test_cockpit_decision_report_context_adds_external_research_trace(monkeypatc
     )
     monkeypatch.setattr(
         "ui.app._cockpit_external_research_fetch_result_from_state",
-        lambda _preview: fetch_result,
+        lambda _preview: None,
     )
     preview = MarketDataPreview(
         status="ok",
@@ -9647,7 +9651,17 @@ def test_cockpit_decision_report_context_adds_external_research_trace(monkeypatc
         error_rows=[],
     )
 
-    context = build_cockpit_decision_report_context(preview)
+    research_context = build_cockpit_research_context(
+        symbol="6857.T",
+        as_of=date(2026, 5, 22),
+        report=None,
+        news_report=None,
+        external_research_result=fetch_result,
+    )
+    context = build_cockpit_decision_report_context(
+        preview,
+        research_context=research_context,
+    )
     section = next(section for section in context.sections if section.title == "外部参照ソース")
     markdown = decision_report_markdown_download(context)
     payload = decision_report_json_download(context)

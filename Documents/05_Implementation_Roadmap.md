@@ -2642,10 +2642,13 @@ Markdown UTF-8 check:
 ## 8. Open Items
 
 - 大規模リファクタリングR0〜R6を`Documents/46_Large_Scale_Refactoring_Plan.md`に従って段階実施する。
-  構造変更と金融数値変更を分離し、最初にbackend-to-UI境界、次にRanking / Cockpit orchestration、
-  Research、UI view / CSS、package cycleの順で整理する。Rankingはtyped build contractと
-  Streamlit非依存service、preflight / MarketData adapter、typed job起動controllerまで完了した。
-  次は実MarketData build pipelineと完了jobのsession state採用処理を分離する
+  R0境界固定とR1 Ranking application flowは完了した。R2 Cockpitはfilter、preview request / adoption、
+  display model、presentation context、preview-owned session stateまで分離済み。次はR2-Bでsummary、
+  Research、Decision Reportの取得・context組立・描画境界を分け、R2-Cでpresenter / page境界を閉じる。
+  その後はR3 Research、R4 Copilot / News / CSS、R5 package cycle、R6継続gateの順で進める。
+  Phase 35 / 36とsealed Forecast auditの成熟待ちは観測トラックであり、構造改善を止めない一方、
+  採用gate通過前の数値、score、順位、runtime weight変更を許可しない。Notification N6はuser / port境界が
+  固定された機能からmanual / dry-run、opt-in schedulerの順に実データへ接続する。
 
 - `SMAI LLM Factor` の validation report 結果を、実 LLM/Gateway 接続後の再検証や optional integration 判断にどう使うか
 - `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか

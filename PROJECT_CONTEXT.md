@@ -277,6 +277,17 @@ The current presenter slice adds `CockpitPresentationContext`, so the hero and t
 presenters consume the same symbol label and display model rather than independent row arguments.
 Summary, Research, report, and interactive rendering remain at the UI edge.
 
+The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
+The active structural track continues with R2-B Research / Decision Report context separation and
+R2-C presenter / page closeout, then R3 Research use cases, R4 Copilot / News / CSS, R5 package API
+cleanup, and R6 maintenance gates. The evidence track may continue collecting Phase 35 / 36 and
+sealed Forecast results, but it cannot change numerical Forecast, scores, ranking order, or runtime
+weights before its documented maturity and subgroup gates pass. The operations track connects N6
+only through stable user-scoped ports, starting with manual / dry-run behavior before opt-in
+scheduling. Pending evidence therefore does not block structural work and cannot authorize runtime
+model adoption. See `Documents/46_Large_Scale_Refactoring_Plan.md` for slice-level entry, exit, and
+stop conditions.
+
 Strategy references:
 
 - [上向き兆候 戦略](Documents/32_Upward_Signal_Strategy.md)

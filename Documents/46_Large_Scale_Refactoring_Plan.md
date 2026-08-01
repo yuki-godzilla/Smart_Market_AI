@@ -82,7 +82,43 @@ ui/assets/styles/      # base / component / page別CSS
 
 ## 5. 実施順序
 
-### R0: 境界を機械的に固定
+### 5.1 評価結果と改訂方針
+
+2026-08-02時点で、R0とR1は目的どおり依存境界とRanking application flowを固定できている。
+一方、従来計画には次の改善余地があった。
+
+- R1完了後も上位ロードマップにR1途中の作業が残り、現在地が一致していなかった。
+- R2以降は一つの項目が大きく、次のcommitで何を移し、何を残すか判断しにくかった。
+- 構造改善、Forecast / LLMの評価データ成熟待ち、Notification N6実接続が同じ待ち行列に見えた。
+- 各段階の開始条件、完了条件、runtime採用を止める条件が十分に明示されていなかった。
+
+このため、以降は作業を次の3トラックに分ける。
+
+| トラック | 役割 | 現在地 | 実行ルール |
+|---|---|---|---|
+| A: 構造改善 | R2からR6までの責務分離 | R2進行中 | 主実装トラック。評価データの成熟を待たず進めてよい |
+| B: 評価・観測 | Phase 35 / 36、sealed Forecast audit | 成熟待ち | 収集・集計は継続可能。採用gate通過前は数値、順位、runtime weightを変えない |
+| C: 運用接続 | Notification N6、live Provider / Gateway接続 | foundation完了、実接続待ち | user境界とportが固定された機能から小さく接続し、通常testはnetwork-freeに保つ |
+
+トラックBの待機はトラックAを止めない。トラックCも独立して進められるが、分割中の巨大UIや
+aggregate serviceへ新しいProvider処理を直接追加せず、対象domainのcontroller / port境界が
+確定してから接続する。
+
+### 5.2 優先実行順
+
+| 優先 | 作業単位 | 着手条件 | 完了後に可能になること |
+|---:|---|---|---|
+| 1 | R2-B Research / Report context分離 | 現行Cockpit state / presenter testがgreen | Cockpitの取得・組立・描画を独立検証できる |
+| 2 | R2-C presenter / page境界の完了 | R2-B contextと同値testが固定済み | `ui.app`を互換composition rootへ縮小できる |
+| 3 | R3-A〜C Research use case分割 | R2完了、既存Research contract baseline固定済み | ResearchとN6 event接続を安定したportへ接続できる |
+| 4 | R4-A〜C Copilot / News / CSS分割 | R3完了、対象画面のstate / responsive baseline取得済み | 主要画面の責務とresponsive回帰範囲を局所化できる |
+| 5 | R5 package cycle / 公開API整理 | R2〜R4の互換façade一覧が確定 | compatibility façadeの段階削除を始められる |
+| 6 | R6 継続gate | R5 architecture auditがgreen | 新しい肥大化と逆依存をCIで検知できる |
+
+各作業単位は構造変更だけを含む。金融数値、Provider選択、LLM prompt、通知配信条件を変える場合は、
+別の設計判断、commit、回帰確認を用意する。
+
+### R0: 境界を機械的に固定（🟦 完了・継続監視）
 
 - backend-to-UI逆依存をport / adapterへ反転する。
 - `backend`から`ui`へのimport禁止testを追加する。
@@ -90,40 +126,35 @@ ui/assets/styles/      # base / component / page別CSS
 - module数、内部edge、eager cycle、巨大module / function、fan-outを再実行可能なCLIで監査する。
 - 構造変更で予測値、ranking順、scoreが変わらないことを明示する。
 
-### R1: Ranking application flowを`ui.app`から分離
+### R1: Ranking application flowを`ui.app`から分離（🟦 完了）
 
 - 入力条件、job request、進捗、結果、sanitized errorをtyped contract化する。
 - MarketData取得とranking orchestrationをUI非依存use caseへ移す。
 - Streamlit session / job registryはcontroller adapterに限定する。
 - 既存function名はcompatibility façadeとして残し、CLIとテストを新use caseへ移行する。
 
-進捗: 最初に副作用のないpolicy説明、上向き兆候の点数表、条件summary HTMLを
-`ui/ranking_policy_presenter.py`へ移した。`ui.app`は同名functionをimportするため、既存test / callerの
-import contractを維持する。次のsliceでは`RankingBuildRequest` / `RankingBuildResult`と
-`RankingBuildService`をbackend側へ追加し、cache再利用、銘柄DB preflight、MarketData build、結果publishの
-順序をStreamlit非依存serviceへ移した。`ui.app._execute_market_data_ranking_job`は互換façadeとして残す。
-続くsliceで`ui/ranking_application.py`へpreflight / MarketData builder adapterとtyped requestを保持する
-ranking job起動controllerを分離し、runtime経路も新controllerへ移した。完了jobのsession state採用も、
-matching completed jobだけをbrowser sessionごとに一度だけ採用するStreamlit非依存controller adapterへ
-分離した。既存のrows / error rows / source / timestamp / ranking history handoff keyは維持し、描画と
-`st.rerun()`は`ui.app`に残す。次は実際のMarketData取得・特徴量・score build pipelineを`ui.app`から
-段階的に分離する。最初に、live providerのcohort分割、高速build、fixture preview fallback、live失敗時の
-fail-closed error rowを選ぶ外側pipelineをStreamlit非依存adapterへ移した。次は高速build内部のMarketData
-取得、特徴量生成、score row組立をtyped portごとに分離する。最初にOHLCV取得、display symbol復元、FX取得、
-利用可能銘柄・Quote確定、no bar / insufficient bar error row作成を`RankingMarketDataInputs` contractとして
-分離した。Provider/cache実装はUI edgeから注入する。続いて、provider symbolへの変換、fundamental取得の
-non-fatal error row、display symbol復元を`RankingFundamentalInputs` contractとして分離した。次は特徴量生成と
-score row組立を分離する。特徴量生成は`RankingFeatureInputs` contractとして分離し、元のfeature rows、
-`FeatureSnapshot`、provider名をまとめて後続へ渡す。Forecast consensusも`RankingForecastInputs` contractとして
-分離し、horizon、既存評価器・summary、進捗cadenceを維持した。次はScreening / Investment Score row組立を分離する。
-Screening、Investment Score、基本score row組立も`RankingScoreInputs` contractとして分離し、次は表示向けfeature詳細、
-高度予測fieldの付加、最終sortを分離する。これらも`RankingPresentationInputs` contractとして分離し、R1の通常buildは
-入力取得、fundamental、feature、Forecast、score、表示row、session採用の各境界を持つ。残作業はlarge-cohort / advanced
-forecast orchestrationを必要に応じてさらに小さくすることであり、数値ロジック変更とは分離する。large-cohortの上位候補へ
-advanced Forecastを適用するoptional orchestrationも分離した。bounded candidate選定、失敗隔離、cache release、再sortを
-Streamlit非依存に保ち、R1は完了とする。次はR2 Cockpit application flowを分離する。
+完了内容:
 
-### R2: Cockpit application flowを分離
+- 副作用のないpolicy説明、上向き兆候の点数表、条件summary HTMLを
+  `ui/ranking_policy_presenter.py`へ移した。
+- `RankingBuildRequest` / `RankingBuildResult`と`RankingBuildService`をbackend側へ追加し、cache再利用、
+  銘柄DB preflight、MarketData build、結果publishの順序をStreamlit非依存serviceへ移した。
+- `ui/ranking_application.py`にpreflight / MarketData builder adapter、typed job起動controller、matchingした
+  完了jobをbrowser sessionごとに一度だけ採用するcontroller adapterを分離した。
+- live cohort、高速build、fixture preview fallback、live失敗時のfail-closed error rowを選ぶ外側pipelineを
+  Streamlit非依存にした。
+- OHLCV / Quote / FX入力、fundamental、feature、Forecast consensus、Screening / Investment Score、
+  表示enrichment / sortをそれぞれ`RankingMarketDataInputs`、`RankingFundamentalInputs`、
+  `RankingFeatureInputs`、`RankingForecastInputs`、`RankingScoreInputs`、`RankingPresentationInputs`の
+  typed境界へ分離した。
+- large cohortの上位候補だけへadvanced Forecastを適用するoptional orchestrationを分離し、bounded candidate、
+  失敗隔離、cache release、再sortをStreamlit非依存にした。
+
+既存のrows / error rows / source / timestamp / ranking history handoff、provider / cache挙動、進捗cadence、
+数値ロジック、最終順位を維持する。描画と`st.rerun()`はUI edgeに残し、既存function名はcompatibility
+façadeとして新use caseへ委譲する。以上をもってR1は完了し、主実装はR2へ移行した。
+
+### R2: Cockpit application flowを分離（🟨 進行中）
 
 - symbol/date/provider選択、取得、Forecast実行、表示model生成を分ける。
 - `page`、`controller`、`presenter`を分離し、rerun時state contractを固定する。
@@ -144,7 +175,37 @@ statusとhorizonを正とし、Ranking / RadarからCockpitへ遷移する際は
 まとめて破棄する。これにより古いpreviewの補助状態が次の銘柄表示へ残らない。Forecast、Score、
 Research取得、render順は変更しない。
 
-### R3: Research serviceをuse case別に分割
+残りは次の2 sliceに固定する。
+
+#### R2-B: Research / Decision Report contextを分離
+
+- summary、Research、Decision Reportが参照する入力をtyped contextへまとめる。
+- MarketData / Forecast / Researchの取得、表示用組立、Streamlit描画を別のcallableにする。
+- Assistant / Reportへ渡すsymbol、horizon、根拠、warning、data qualityの意味を維持する。
+- widget、progress、toast、download、rerunはUI edgeに残す。
+- 取得失敗と根拠不足を空の正常値へ変換せず、既存のwarning / unavailable表示を維持する。
+
+完了条件:
+
+- context builderがStreamlit非依存で、fixtureによる単体testを持つ。
+- Research / Reportの主要fieldと出典順が移動前後で一致するboundary testがある。
+- Forecast、Score、Research Score、Decision Report本文の計算・意味を変更しない。
+
+#### R2-C: presenter / page境界を閉じる
+
+- hero、Forecast、score、risk、Research、report、technical detailのpresenter入力を明示する。
+- `ui.app`はnavigation、dependency wiring、session controller、page呼出しを担うcomposition rootへ縮小する。
+- interactionを伴うcard、button、expander、downloadはpage側に残し、純粋な表示変換だけをpresenterへ移す。
+- 互換importを残す場合は移行先と削除条件を明記する。
+
+R2完了gate:
+
+- Cockpitの主要application flowにStreamlit非依存のcontract / controller / presenter境界がある。
+- Ranking / Radar handoff、rerun、preview invalidation、user切替で旧stateが混ざらない。
+- Desktop 1366x768、iPhone 375x812、iPad相当viewportで不要なpage横scrollがない。
+- 移動前後のfixtureでForecast chart、score、Research、Reportの主要出力が一致する。
+
+### R3: Research serviceをuse case別に分割（🟨 第一slice完了・R2後に再開）
 
 - company profile、product/service、financial summary、evidence、external fetchを分ける。
 - 正規化、要約、永続化、外部取得の境界を明示する。
@@ -156,25 +217,110 @@ Research取得、render順は変更しない。
 依存しない約1,660行を除去した。次のsliceではsummary builderが依存する会社概要・定量・IR整形を
 contract単位で分ける。
 
-### R4: UI viewとstyleを分割
+#### R3-A: summary builderを分割
+
+- 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。
+- source-backed fact、citation、published / acquired時刻、reliabilityを共通contractで維持する。
+- 分類policy、文言整形、source選択を一つの関数へ再集約しない。
+
+#### R3-B: evidence / external fetch / persistenceをport化
+
+- evidence検索、外部取得、archive、cache / repositoryをProtocolとadapterへ分ける。
+- timeout、schema、sanitization、point-in-time条件をserviceから追跡可能にする。
+- live失敗時は既存archive / cacheを破損させず、staleとunavailableを区別する。
+
+#### R3-C: façadeと公開contractを固定
+
+- 既存`backend.research` importを薄いfaçadeで維持し、新use caseへ委譲する。
+- contract同値、citation順、fallback、重複排除をboundary testで固定する。
+- package eager cycleを増やさず、R5で削除する互換層を一覧化する。
+
+R3完了gateは、主要Research use caseが個別にfixture検証でき、通常testが外部networkを必要とせず、
+Research Score、Ranking順位、Forecast数値を一切変更していないことである。
+
+### R4: UI viewとstyleを分割（⬜ R3後）
 
 - Copilot / Newsをpage-controller-presenterへ分ける。
 - `ui/styles.py`のCSSをbase、component、page assetへ分け、loaderだけをPythonへ残す。
 - PC、iPhone、iPadのviewport回帰を各画面sliceで実行する。
 
-### R5: package cycleと公開APIを整理
+#### R4-A: Copilot
+
+- conversation state、command dispatch、Assistant gateway呼出し、response presenter、widget描画を分ける。
+- typed schema、timeout、fallback、sanitizationをcontroller境界で維持する。
+- LLM失敗時もdeterministicな主要機能と保存済み会話を破損させない。
+
+#### R4-B: News / Radar
+
+- query / filter state、cache / provider取得、card model生成、page描画を分ける。
+- user別Watchlist、news cache、Research sourceを暗黙に共有しない。
+- N6はこのportまたはR3のResearch event portへ接続し、viewから通知を直接配送しない。
+
+#### R4-C: CSS assets
+
+- base token、共通component、page固有CSSの順に移し、読み込み順を固定する。
+- selector衝突とunused ruleをsliceごとに確認し、一括rewriteを避ける。
+- Desktop、iPhone、iPadでnavigation、modal、table / chart内部scroll、touch targetを確認する。
+
+R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test可能で、主要画面のresponsive smokeが
+通り、文言・色・指標単位・ユーザーデータ境界が移動前後で一致することである。
+
+### R5: package cycleと公開APIを整理（⬜ R4後）
 
 - `__init__.py`を薄くし、型だけのimportは`TYPE_CHECKING`へ寄せる。
 - Assistant / News / Researchの循環を実依存と再export由来に分類して解消する。
 - 公開API一覧とdeprecation期間を記録する。
 
-### R6: 継続的な保守gate
+完了gate:
+
+- architecture auditで新しいbackend-to-UI逆依存とeager cycleが0件である。
+- 公開contract、compatibility façade、内部moduleを一覧化し、削除条件が確認できる。
+- import時にProvider接続、LLM起動、filesystem mutationなどの重い副作用を発生させない。
+- façade削除は呼出元移行と回帰testが揃ったものだけを別sliceで行う。
+
+### R6: 継続的な保守gate（⬜ 最終統合・以後継続）
 
 - 新規moduleは原則600行以下、新規functionは原則80行以下を目安とする。
 - 超過が適切な生成物、宣言表、CSS、schemaの場合は理由を文書化する。
 - module dependency、巨大function、境界違反を定期監査し、単純な行数だけでCIを失敗させない。
 
-## 6. 各sliceの完了条件
+完了gate:
+
+- `tools/audit_python_architecture.py`のbaselineと許容例外がversion管理されている。
+- 新しい逆依存、eager cycle、巨大functionの増加を説明付きで検出できる。
+- 通常CIはnetwork-freeかつdeterministicで、live smokeは明示opt-inの別経路にある。
+- 行数警告だけでなく、依存方向、責務数、test境界を保守判断へ使う。
+
+## 6. 評価・運用トラックの採用gate
+
+### 6.1 Forecast / Phase 35 / Phase 36
+
+- sealed auditはhorizonごとに最低100件の成熟結果が揃うまでruntime採用判断へ使わない。
+- range / calibration候補はtarget coverage 60%、最低coverage 55%、proper interval score 1%以上改善、
+  適用率50%以上という既定gateを満たす。結果を見て閾値を下げない。
+- Phase 35は新規symbol / 新規期間のwalk-forward holdoutで評価し、既存監査群を再調整に使わない。
+- aggregate改善だけで採用せず、market、asset type、regime、confidence、disagreement別の大幅劣化を確認する。
+- Phase 36の材料収集・Gateway評価はpoint-in-time条件を維持し、未来の公開・取得情報を混ぜない。
+- Phase 36のbadge評価は完了30件かつ評価日3日以上を最低条件とし、failure率5%超なら不採用とする。
+  条件を満たしても`badge_only_candidate`までとし、rank / score correctionはfalseのまま維持する。
+- LLM材料によるForecast range / confidence変更は、別途100件/horizonの時点整合caseで評価し、
+  方向値と中心値を変更しない。score、順位の補正はさらに独立した設計・監査を必要とする。
+- latency、failure、citation、schema、cache、false positiveを記録し、失敗を「材料なし」と同一視しない。
+- gate未達、結果未成熟、subgroup悪化、data leakage疑いがあれば不採用またはshadow継続とする。
+
+Phase 37の本気分析モードはPhase 36の証拠が揃った後にdefault-offで開始し、通常Rankingを先に確定した
+上位候補へだけ適用する。初期sliceでは説明と確認材料を追加するだけとし、通常score / 順位を変更しない。
+
+### 6.2 Notification N6
+
+- Favorite / news / sector cache adapterはactive `user_id`を必須にし、system userを除外する。
+- 最初はmanual / dry-runでevent payload、dedupe key、quiet hours、severity、CTAを確認する。
+- scheduler接続は明示opt-inのまま維持し、配送失敗を成功扱いしない。
+- Research / Report eventはR3のuse case完了後、その保存成功または完了eventから生成する。
+- view、Provider、Research serviceからNotification Gatewayを直接呼ばず、Producer / port境界へ接続する。
+- live smokeは通常testと分離し、外部障害でfavorites、archive、cache、session stateを破損させない。
+
+## 7. 各sliceの完了条件と検証
 
 - 振る舞いを変えず、既存API / UI / export contractを維持する。
 - 移動した責務に単体testまたはboundary testがある。
@@ -184,13 +330,29 @@ contract単位で分ける。
 - compatibility façadeには移行先と削除条件をdocstringまたは設計書で示す。
 - runtime artifact、cache、secret、偶発差分をcommitしない。
 
-## 7. リスクと停止条件
+最低限の検証は次のように選ぶ。
+
+| 変更 | 必須確認 |
+|---|---|
+| contract / policy / service分離 | 対象pytest、boundary test、Ruff、Black |
+| import / package変更 | architecture audit、対象pytest、import smoke |
+| Streamlit state / UI分離 | state test、対象AppTest、Desktop / iPhone / iPad smoke |
+| Research / external adapter | fixture test、timeout / schema / fallback test、network-free通常test |
+| 金融数値変更 | 構造変更と別commit、temporal regression、subgroup / audit gate |
+| live Provider / Gateway / 通知 | 明示opt-in live smoke。通常testの成功とは別に報告 |
+
+一つのsliceは、原則として「一つの責務移動」「互換層」「証明test」で閉じる。全体testが長時間化する場合も、
+targeted testを省略せず、project checkとCIの最後の確認commitを記録する。
+
+## 8. リスクと停止条件
 
 - import移動でStreamlit起動時だけ発生する循環や重い初期化を作らない。
 - pickle、JSON、CSV、SQLite、Pydantic contractのmodule pathやfieldを暗黙に変更しない。
 - 巨大moduleの分割と数値改善、UI redesign、Provider変更を同時に行わない。
 - 同一sliceで広範な回帰失敗が発生した場合は、互換層を残して分割単位を小さくする。
 - 全体テスト成功だけで視覚・live-provider・長時間jobの未確認を成功扱いしない。
+- 評価用LLM / Forecast結果を、採用gateの記録なしに通常runtimeへ接続しない。
+- R2〜R4の分割中moduleへN6や新Providerの恒久実装を足し、分割対象をさらに肥大化させない。
 
 この計画はfolderを最終目的とせず、変更理由が一つの場所に集まり、依存方向と失敗境界が説明可能になることを
 最終目的とする。

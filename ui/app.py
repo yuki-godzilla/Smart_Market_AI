@@ -167,7 +167,7 @@ from ui.cockpit_application import (
     run_cockpit_research_refresh,
 )
 from ui.cockpit_decision_report_presenter import (
-    cockpit_decision_summary_list_html,
+    build_cockpit_decision_report_detail_model,
 )
 from ui.cockpit_filter_policy import (
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
@@ -512,6 +512,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
     render_cockpit_kpi_cards,
     render_cockpit_research_operation_card,
@@ -19774,82 +19775,52 @@ def _render_cockpit_decision_report_sections(
     *,
     render_context: CockpitDecisionReportRenderContext,
 ) -> None:
-    context = render_context.decision_report
     overview = render_context.overview
     score_row = render_context.score_row
     symbol_row = render_context.symbol_row
     research_context = render_context.research
-    st.markdown("#### 確認項目の詳細")
-    with st.container(border=True):
-        st.markdown("##### 1. 要約")
-        st.markdown(
-            cockpit_decision_summary_list_html(render_context.summary_lines),
-            unsafe_allow_html=True,
-        )
-
-    with st.expander("2. 確認方針", expanded=True):
-        _render_symbol_detail_table(
-            [
-                {"項目": "総合判断", "内容": overview.get("overall_judgement", "")},
-                {"項目": "確認スタンス", "内容": overview.get("investment_stance", "")},
-                {"項目": "注意材料", "内容": overview.get("key_risks", "")},
-            ]
-        )
-
-    with st.expander("3. スコア内訳", expanded=True):
-        _render_symbol_detail_table(score_component_rows(score_row))
-
-    with st.expander("4. 価格・予測", expanded=True):
-        trend = _cockpit_price_trend_summary(preview.bars)
-        _render_symbol_detail_table(
-            [
-                {
-                    "観点": "価格トレンド",
-                    "内容": trend["summary"],
-                    "確認ポイント": trend["check"],
-                },
-                {
-                    "観点": "予測変化率",
-                    "内容": _display_report_value(score_row.get("予測変化率"), "未計算"),
-                    "確認ポイント": "強い上昇シグナルか、横ばい圏の参考予測かを確認します。",
-                },
-                {
-                    "観点": "モデル一致度",
-                    "内容": _display_report_value(score_row.get("モデル一致度"), "未計算"),
-                    "確認ポイント": "モデル方向が分散している場合は短期判断を控えめに見ます。",
-                },
-            ]
-        )
-
-    with st.expander("5. ファンダメンタル", expanded=False):
-        _render_symbol_detail_table(_cockpit_fundamental_report_rows(symbol_row))
-
-    with st.expander("6. バリュエーション", expanded=False):
-        _render_symbol_detail_table(_cockpit_valuation_report_rows(symbol_row))
-
-    with st.expander("7. リスク", expanded=True):
-        _render_symbol_detail_table(_cockpit_risk_report_rows(score_row, symbol_row, preview.bars))
-
-    with st.expander("8. 根拠資料との対応", expanded=False):
-        _render_symbol_detail_table(
-            cockpit_decision_report_evidence_rows(
-                preview,
-                research_report=research_context.report,
-                news_report=research_context.news_report,
-            )
-        )
-        card_rows = _research_evidence_card_rows(
+    trend = _cockpit_price_trend_summary(preview.bars)
+    detail_model = build_cockpit_decision_report_detail_model(
+        render_context,
+        policy_rows=[
+            {"項目": "総合判断", "内容": overview.get("overall_judgement", "")},
+            {"項目": "確認スタンス", "内容": overview.get("investment_stance", "")},
+            {"項目": "注意材料", "内容": overview.get("key_risks", "")},
+        ],
+        score_rows=score_component_rows(score_row),
+        price_forecast_rows=[
+            {
+                "観点": "価格トレンド",
+                "内容": trend["summary"],
+                "確認ポイント": trend["check"],
+            },
+            {
+                "観点": "予測変化率",
+                "内容": _display_report_value(score_row.get("予測変化率"), "未計算"),
+                "確認ポイント": "強い上昇シグナルか、横ばい圏の参考予測かを確認します。",
+            },
+            {
+                "観点": "モデル一致度",
+                "内容": _display_report_value(score_row.get("モデル一致度"), "未計算"),
+                "確認ポイント": "モデル方向が分散している場合は短期判断を控えめに見ます。",
+            },
+        ],
+        fundamental_rows=_cockpit_fundamental_report_rows(symbol_row),
+        valuation_rows=_cockpit_valuation_report_rows(symbol_row),
+        risk_rows=_cockpit_risk_report_rows(score_row, symbol_row, preview.bars),
+        evidence_card_rows=_research_evidence_card_rows(
             research_context.report,
             news_report=research_context.news_report,
             limit=3,
-        )
-        if card_rows:
-            st.markdown(_research_evidence_cards_html(card_rows), unsafe_allow_html=True)
-        else:
-            st.info("根拠資料はまだ取得されていません。AI調査を更新すると確認できます。")
-
-    with st.expander("9. 補足", expanded=False):
-        _render_compact_dataframe(_decision_report_context_summary_rows(context))
+        ),
+        context_summary_rows=_decision_report_context_summary_rows(render_context.decision_report),
+    )
+    render_cockpit_decision_report_detail_sections(
+        detail_model,
+        render_detail_table=_render_symbol_detail_table,
+        research_evidence_cards_html=_research_evidence_cards_html,
+        render_context_summary=_render_compact_dataframe,
+    )
 
 
 def _cockpit_fundamental_report_rows(

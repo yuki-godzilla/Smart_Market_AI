@@ -5131,3 +5131,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - `CockpitDecisionReportRenderContext`を入力に、overview cardとAI要約HTMLを`ui/cockpit_decision_report_presenter.py`へ移した。`ui/views/cockpit.py`は見出し、根拠表、詳細section、download導線を描画し、`ui.app`はcontext組立と既存table/detail/download/assistant-context adapterの注入だけを担当する。
 - Report本文、overview field、AI要約3件上限、根拠行、download file名、assistant context、Forecast / Score / Ranking数値は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 424件、全体pytest 2,479件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。
+
+## 2026-08-02 Cockpit R2-C Decision Report detail model 第三slice
+
+- `CockpitDecisionReportDetailModel`を追加し、確認方針、score、価格・予測、fundamental、valuation、risk、根拠資料、補足の表示行をStreamlit描画前に固定した。詳細の根拠表は上部表示と同じ`CockpitDecisionReportRenderContext.evidence_rows`を再利用し、二重の根拠組立を廃止した。
+- `ui/views/cockpit.py`がexpander、table、根拠card、empty state、補足表を描画し、`ui.app`は既存row builderとrenderer adapterの注入だけを行う。section順、初期展開、根拠card上限、empty message、Forecast / Score / Ranking数値、出典の意味は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 426件、全体pytest 2,481件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。

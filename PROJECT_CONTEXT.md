@@ -323,6 +323,13 @@ context and injects the established table, detail, download, and assistant-conte
 content, overview fields, three-line summary limit, evidence rows, download filenames, assistant context,
 and all numerical calculations remain unchanged.
 
+R2-C now also freezes Decision Report detail rows in `CockpitDecisionReportDetailModel`. The detailed
+evidence table reuses the same `CockpitDecisionReportRenderContext.evidence_rows` already used by the
+primary report rather than rebuilding it. Expanders, tables, evidence cards, the unavailable state, and
+the context-summary table are page responsibilities; the app supplies existing row builders and
+rendering adapters. Section order, expansion defaults, evidence-card limit, wording, source meaning,
+and numerical calculations are unchanged.
+
 The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
 in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
 protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.

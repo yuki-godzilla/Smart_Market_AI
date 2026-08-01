@@ -11,6 +11,7 @@ from backend.reporting import DecisionReportContext
 from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
 from ui.cockpit_application import CockpitDecisionReportRenderContext
 from ui.cockpit_decision_report_presenter import (
+    CockpitDecisionReportDetailModel,
     cockpit_decision_report_overview_card_html,
     cockpit_decision_summary_list_html,
 )
@@ -852,6 +853,48 @@ def render_cockpit_decision_report_page(
         markdown_file_name="decision_report_cockpit.md",
         heading_prefix="06",
     )
+
+
+def render_cockpit_decision_report_detail_sections(
+    detail_model: CockpitDecisionReportDetailModel,
+    *,
+    render_detail_table: Callable[[list[dict[str, str]]], None],
+    research_evidence_cards_html: Callable[[list[dict[str, str]]], str],
+    render_context_summary: Callable[[list[dict[str, str]]], None],
+) -> None:
+    """Render Decision Report expanders from a prepared detail model."""
+
+    st.markdown("#### 確認項目の詳細")
+    with st.container(border=True):
+        st.markdown("##### 1. 要約")
+        st.markdown(
+            cockpit_decision_summary_list_html(detail_model.summary_lines),
+            unsafe_allow_html=True,
+        )
+
+    for label, rows, expanded in (
+        ("2. 確認方針", detail_model.policy_rows, True),
+        ("3. スコア内訳", detail_model.score_rows, True),
+        ("4. 価格・予測", detail_model.price_forecast_rows, True),
+        ("5. ファンダメンタル", detail_model.fundamental_rows, False),
+        ("6. バリュエーション", detail_model.valuation_rows, False),
+        ("7. リスク", detail_model.risk_rows, True),
+    ):
+        with st.expander(label, expanded=expanded):
+            render_detail_table(list(rows))
+
+    with st.expander("8. 根拠資料との対応", expanded=False):
+        render_detail_table(list(detail_model.evidence_rows))
+        if detail_model.evidence_card_rows:
+            st.markdown(
+                research_evidence_cards_html(list(detail_model.evidence_card_rows)),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("根拠資料はまだ取得されていません。AI調査を更新すると確認できます。")
+
+    with st.expander("9. 補足", expanded=False):
+        render_context_summary(list(detail_model.context_summary_rows))
 
 
 def _research_operation_material_list_html(label: str, items: tuple[str, ...]) -> str:

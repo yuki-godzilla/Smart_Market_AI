@@ -232,6 +232,14 @@ detail section、download、assistant contextへのadapter注入だけを持つ�
 summary上限3件、根拠行、download file名、assistant context、数値計算は変更していない。次sliceでは
 Decision Reportのdetail section内部をcontext対応のpresenterへ段階移行する。
 
+進捗（2026-08-02、第三slice）: 確認レポート詳細の確認方針、score、価格・予測、
+fundamental、valuation、risk、根拠資料、補足の行を`CockpitDecisionReportDetailModel`へ固定した。
+modelは上部表示と同じ`CockpitDecisionReportRenderContext.evidence_rows`を再利用し、詳細側で根拠行を
+再計算しない。expander、table、根拠card、empty state、補足表の描画はpage componentへ集約し、app側は
+既存row builderとrenderer adapterを注入する。詳細sectionの順序、初期展開状態、根拠cardの上限、
+empty message、数値と出典の意味は変更していない。次sliceではCockpit Research詳細panelの同様の分離を
+評価する。
+
 R2完了gate:
 
 - Cockpitの主要application flowにStreamlit非依存のcontract / controller / presenter境界がある。

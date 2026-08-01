@@ -21,6 +21,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
     render_cockpit_research_operation_card,
     research_evidence_summary_items,
@@ -143,6 +144,15 @@ def test_cockpit_decision_report_page_keeps_app_as_a_context_and_dependency_cont
     assert 'st.markdown("### 05 確認レポート")' in page_source
     assert "render_cockpit_decision_report_page(" in app_source
     assert "st.markdown" not in app_source
+
+
+def test_cockpit_decision_report_detail_page_keeps_expanders_out_of_the_app_controller():
+    detail_page_source = inspect.getsource(render_cockpit_decision_report_detail_sections)
+    app_source = inspect.getsource(app_module._render_cockpit_decision_report_sections)
+
+    assert 'st.expander("8. 根拠資料との対応", expanded=False)' in detail_page_source
+    assert "build_cockpit_decision_report_detail_model(" in app_source
+    assert "st.expander" not in app_source
 
 
 def test_cockpit_direction_signal_cards_use_existing_direction_values():

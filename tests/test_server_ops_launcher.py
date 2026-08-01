@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from backend.server_ops.launcher import (
     is_smai_healthy,
     optimized_child_environment,
     resilient_restart_delay,
+    run_server,
     server_lock,
     should_leave_resilient_launcher,
     streamlit_command,
@@ -273,3 +275,24 @@ def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:
     )
 
     assert is_smai_healthy() is True
+
+
+def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypatch) -> None:
+    started: list[bool] = []
+
+    @contextmanager
+    def no_lock(*_args, **_kwargs):
+        yield
+
+    monkeypatch.setattr("backend.server_ops.launcher.server_lock", no_lock)
+    monkeypatch.setattr("backend.server_ops.launcher.is_port_listening", lambda **_kwargs: False)
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.start_local_llm_startup_in_background",
+        lambda: started.append(True) or True,
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.supervise_streamlit", lambda *_args, **_kwargs: 0
+    )
+
+    assert run_server("localhost", port=8501) == 0
+    assert started == [True]

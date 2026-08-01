@@ -12,6 +12,7 @@ from typing import Iterator, Mapping, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from backend.server_ops.llm_startup import start_local_llm_startup_in_background
 from backend.server_ops.maintenance import SERVICE_INTENT_PATH, read_service_intent
 from backend.server_ops.network import (
     DEFAULT_MAIN_APPLICATION_PORT,
@@ -305,6 +306,11 @@ def run_server(
                         file=sys.stderr,
                     )
                     return 3
+            if start_local_llm_startup_in_background():
+                print(
+                    "[SMAI] Local LLM Gateway/Ollama startup was requested in the background.",
+                    flush=True,
+                )
             return supervise_streamlit(
                 browser_address,
                 resilient=resilient,

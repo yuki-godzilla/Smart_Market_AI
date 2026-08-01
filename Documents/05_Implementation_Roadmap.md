@@ -41,7 +41,7 @@ Markdown ビューアによって文字色指定の効き方が変わるため�
 | Phase 23 | 🟩 **完了** | Advanced Forecast とRanking / Decision Report接続は実装済み。 |
 | Phase 24〜24A | 🟦 **実装済み / 継続確認** | Assistant / Gateway foundation と LLM Factor deterministic reference は実装済み。live smokeや会話文脈拡張は後続。 |
 | Phase 24B | 🟨 **部分MVP済み / 継続拡張** | 高度ニュース活用。投資レーダー Symbol Extraction v2 は実装済み。Newsだけでスコアや順位は変えない。 |
-| Phase 25 | 🟦 **実装済み / live smoke任意** | Live LLM Gateway初期接続は実装済み。実Gateway / Ollama確認は通常確認から分離。 |
+| Phase 25 | 🟦 **実装済み / live smoke任意** | Live LLM Gateway初期接続は実装済み。SMAI server launcherはlocal Ollama / Gatewayをbackground起動・model warmupするが、実Gateway / Ollama品質確認は通常確認から分離。 |
 | Phase 26〜26A | 🟩 **主要MVP完了** | SMAIアシスタントCommand Center、承認後外部取得MVP、Decision Report下書きarchive UXまで完了。 |
 | Phase 27 | 🟨 **MVP済み / 継続拡張** | Phase 27-A / 27-B LLM Factor live generation と確認導線は実装済み。Gateway応答をschema validationし、Cockpit `AI材料分析` に参考表示する。モデル統合判断は後続。 |
 | Phase 28 | 🟨 **MVP済み / 継続拡張** | Phase 28-A Cockpit `AI解釈メモ` は実装済み。Ranking / Radar / News / Decision Report 展開は後続。 |

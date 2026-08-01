@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-07-20
+Last updated: 2026-08-02
 
 ## Main Application access / MagicDNS
 
@@ -17,6 +17,14 @@ Tailscaleを起動して同じURLを使う。サーバーPCでは、ブラウザ
 `SMAI_MAIN_SCHEME`で共通URL resolverを上書きできる。listenerは引き続き
 `0.0.0.0:8501`だが、bind address、LAN IPv4、Tailscale IPをユーザー向けURLとして
 表示しない。
+
+SMAI server launcher now requests local Ollama and `smai-ai-gateway` startup in a daemon
+thread before Streamlit begins serving. It first checks local-only HTTP endpoints, starts a
+missing local service once, then sends a short model warmup request after both health checks
+pass. It never launches or warms remote endpoints, never blocks the main application startup,
+and preserves deterministic functionality plus the existing fallback on any failure. Operators
+can set `SMAI_ASSISTANT_GATEWAY_AUTOSTART=0` to disable this path or
+`SMAI_ASSISTANT_GATEWAY_WARMUP=0` to retain process startup without the model warmup.
 
 Upward Signal (`上向き兆候`, internal compatibility key: Reversal Expectation) v3 is implemented
 as a chart-shape-first ranking axis. It combines chart shape 30%, forecast upside 25%,

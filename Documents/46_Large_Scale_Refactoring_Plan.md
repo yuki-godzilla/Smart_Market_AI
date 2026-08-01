@@ -225,6 +225,13 @@ context解決、refresh use case、通知、rerun、既存panel rendererの注�
 根拠数、出典順、button key、更新操作、Forecast / Score / Ranking数値は変更していない。次sliceでは
 Research詳細panelとDecision Reportの表示modelを同じ境界で縮小する。
 
+進捗（2026-08-02、第二slice）: `CockpitDecisionReportRenderContext`を入力として、確認レポートの
+overview cardとAI要約HTMLを`ui/cockpit_decision_report_presenter.py`へ、見出し、根拠表、詳細section、
+ダウンロード導線を`ui/views/cockpit.py`のpage componentへ移した。`ui.app`はcontext組立と、既存table、
+detail section、download、assistant contextへのadapter注入だけを持つ。Report本文、overview field、
+summary上限3件、根拠行、download file名、assistant context、数値計算は変更していない。次sliceでは
+Decision Reportのdetail section内部をcontext対応のpresenterへ段階移行する。
+
 R2完了gate:
 
 - Cockpitの主要application flowにStreamlit非依存のcontract / controller / presenter境界がある。

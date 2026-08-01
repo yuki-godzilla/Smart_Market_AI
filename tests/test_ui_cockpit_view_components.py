@@ -21,6 +21,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_decision_report_page,
     render_cockpit_research_operation_card,
     research_evidence_summary_items,
 )
@@ -133,6 +134,15 @@ def test_cockpit_research_and_forecast_labels_match_primary_flow():
     assert "RESEARCH_NOT_FETCHED_MESSAGE" not in summary_source
     assert "取得履歴から自動計算" in forecast_source
     assert '"Forecast days"' not in forecast_source
+
+
+def test_cockpit_decision_report_page_keeps_app_as_a_context_and_dependency_controller():
+    page_source = inspect.getsource(render_cockpit_decision_report_page)
+    app_source = inspect.getsource(app_module._render_cockpit_decision_report)
+
+    assert 'st.markdown("### 05 確認レポート")' in page_source
+    assert "render_cockpit_decision_report_page(" in app_source
+    assert "st.markdown" not in app_source
 
 
 def test_cockpit_direction_signal_cards_use_existing_direction_values():

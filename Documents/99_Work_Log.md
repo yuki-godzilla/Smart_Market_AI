@@ -5126,3 +5126,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - `ui/cockpit_research_presenter.py`へResearch操作cardのtyped表示modelを追加した。title、要約、根拠状態chip、注目/注意材料、action labelの組立はStreamlit非依存とし、`ui/views/cockpit.py`がHTML、button、既存widget keyを描画する。
 - Cockpitの未取得時external/news fallbackと通常Research panelへの分岐もpage componentへ移した。`ui.app`はcontext解決、refresh use case、通知、rerun、既存詳細rendererの注入だけを持ち、`_render_research_operation_card`は既存caller向けcompatibility façadeとして残した。
 - Research内容、根拠数・順序、button挙動、Forecast、Score、Ranking数値は変更していない。モデル単体、Cockpit表示、Research表示、refresh use caseの対象pytest 421件、全体pytest 2,476件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。
+
+## 2026-08-02 Cockpit R2-C Decision Report presenter / page境界 第二slice
+
+- `CockpitDecisionReportRenderContext`を入力に、overview cardとAI要約HTMLを`ui/cockpit_decision_report_presenter.py`へ移した。`ui/views/cockpit.py`は見出し、根拠表、詳細section、download導線を描画し、`ui.app`はcontext組立と既存table/detail/download/assistant-context adapterの注入だけを担当する。
+- Report本文、overview field、AI要約3件上限、根拠行、download file名、assistant context、Forecast / Score / Ranking数値は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 424件、全体pytest 2,479件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。

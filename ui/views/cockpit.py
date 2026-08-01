@@ -7,7 +7,13 @@ from decimal import Decimal, InvalidOperation
 
 import streamlit as st
 
+from backend.reporting import DecisionReportContext
 from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
+from ui.cockpit_application import CockpitDecisionReportRenderContext
+from ui.cockpit_decision_report_presenter import (
+    cockpit_decision_report_overview_card_html,
+    cockpit_decision_summary_list_html,
+)
 from ui.cockpit_research_presenter import CockpitResearchOperationCard
 from ui.content.cockpit_texts import (
     COCKPIT_CARD_MEANINGS,
@@ -15,6 +21,7 @@ from ui.content.cockpit_texts import (
     COCKPIT_FORECAST_RETURN_EVALUATION_TABLE,
     COCKPIT_SCORE_EVALUATION_TABLE,
 )
+from ui.content.common_texts import DECISION_REPORT_SUPPORT_MESSAGE
 from ui.content.score_texts import score_text_key
 from ui.styles import (
     badge_html,
@@ -807,6 +814,43 @@ def render_cockpit_research_result(
         news_report=news_report,
         external_research_result=external_research_result,
         display_context="cockpit",
+    )
+
+
+def render_cockpit_decision_report_page(
+    render_context: CockpitDecisionReportRenderContext,
+    *,
+    register_assistant_context: Callable[[DecisionReportContext, tuple[str, ...]], None],
+    render_evidence_table: Callable[[list[dict[str, str]]], None],
+    render_detail_sections: Callable[[CockpitDecisionReportRenderContext], None],
+    render_download_buttons: Callable[..., None],
+) -> None:
+    """Render the Decision Report page from a prepared context and injected UI-edge actions."""
+
+    context = render_context.decision_report
+    st.markdown("### 05 確認レポート")
+    st.info(DECISION_REPORT_SUPPORT_MESSAGE)
+    st.markdown(
+        cockpit_decision_report_overview_card_html(render_context.overview),
+        unsafe_allow_html=True,
+    )
+
+    register_assistant_context(context, render_context.summary_lines)
+    st.markdown("#### AI要約")
+    st.markdown(
+        cockpit_decision_summary_list_html(render_context.summary_lines),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### 判断に使った主な根拠")
+    render_evidence_table(list(render_context.evidence_rows))
+    render_detail_sections(render_context)
+    render_download_buttons(
+        context,
+        expander_label="確認レポート",
+        json_file_name="decision_report_cockpit.json",
+        markdown_file_name="decision_report_cockpit.md",
+        heading_prefix="06",
     )
 
 

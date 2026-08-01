@@ -8,9 +8,9 @@ This is a deterministic source/static-asset baseline. Runtime render time, rerun
 | Screen | Source bytes | base64 refs | data URI links | dataframe/editor | session_state refs | expanders |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 初期ユーザー選択 | 47,460 | 0 | 0 | 0 | 38 | 2 |
-| ランキング | 1,021,760 | 0 | 0 | 9 | 177 | 36 |
-| 銘柄コックピット | 957,016 | 0 | 0 | 9 | 177 | 36 |
-| Watchlist | 915,494 | 0 | 0 | 9 | 177 | 36 |
+| ランキング | 1,019,911 | 0 | 0 | 9 | 177 | 36 |
+| 銘柄コックピット | 956,900 | 0 | 0 | 9 | 177 | 36 |
+| Watchlist | 913,645 | 0 | 0 | 9 | 177 | 36 |
 | 投資レーダー | 151,098 | 0 | 0 | 0 | 36 | 7 |
 | SMAIアシスタント | 218,598 | 0 | 0 | 0 | 83 | 2 |
 

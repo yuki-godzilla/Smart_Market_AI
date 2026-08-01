@@ -166,6 +166,9 @@ from ui.cockpit_application import (
     load_cockpit_preview,
     run_cockpit_research_refresh,
 )
+from ui.cockpit_decision_report_presenter import (
+    cockpit_decision_summary_list_html,
+)
 from ui.cockpit_filter_policy import (
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
     cockpit_detail_filters_for_category,
@@ -509,6 +512,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_decision_report_page,
     render_cockpit_kpi_cards,
     render_cockpit_research_operation_card,
     render_cockpit_research_result,
@@ -19765,38 +19769,6 @@ def _cockpit_key_risks(
     return " / ".join(dict.fromkeys(risks[:4]))
 
 
-def _decision_report_overview_card_html(overview: dict[str, str]) -> str:
-    fields = [
-        ("総合判断", overview.get("overall_judgement", "未判定")),
-        ("スコア", f"{overview.get('total_score', '未計算')} / 100"),
-        ("信頼度", overview.get("confidence", "低め")),
-        ("確認スタンス", overview.get("investment_stance", "様子見 / 追加根拠確認")),
-        ("注意材料", overview.get("key_risks", "価格トレンド・外部環境")),
-    ]
-    field_html = "".join(
-        '<div class="decision-report-field">'
-        f'<div class="decision-report-field-label">{html.escape(label)}</div>'
-        f'<div class="decision-report-field-value">{html.escape(value)}</div>'
-        "</div>"
-        for label, value in fields
-    )
-    title = f"確認レポート - {overview.get('symbol', '選択銘柄')}"
-    company_name = overview.get("company_name", "")
-    if company_name and company_name != "未取得":
-        title = f"{title} / {company_name}"
-    return (
-        '<section class="decision-report-card">'
-        f'<div class="decision-report-title">{html.escape(title)}</div>'
-        f'<div class="decision-report-grid">{field_html}</div>'
-        "</section>"
-    )
-
-
-def _decision_summary_list_html(lines: list[str]) -> str:
-    items = "".join(f"<li>{html.escape(line)}</li>" for line in lines[:3])
-    return f'<ol class="decision-summary-list">{items}</ol>'
-
-
 def _render_cockpit_decision_report_sections(
     preview: MarketDataPreview,
     *,
@@ -19811,7 +19783,7 @@ def _render_cockpit_decision_report_sections(
     with st.container(border=True):
         st.markdown("##### 1. 要約")
         st.markdown(
-            _decision_summary_list_html(list(render_context.summary_lines)),
+            cockpit_decision_summary_list_html(render_context.summary_lines),
             unsafe_allow_html=True,
         )
 
@@ -20021,35 +19993,15 @@ def _render_cockpit_decision_report(
         preview,
         research_context=research_context,
     )
-    context = render_context.decision_report
-
-    st.markdown("### 05 確認レポート")
-    st.info(DECISION_REPORT_SUPPORT_MESSAGE)
-    st.markdown(
-        _decision_report_overview_card_html(render_context.overview), unsafe_allow_html=True
-    )
-
-    _register_cockpit_report_assistant_context(context, render_context.summary_lines)
-    st.markdown("#### AI要約")
-    st.markdown(
-        _decision_summary_list_html(list(render_context.summary_lines)),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("#### 判断に使った主な根拠")
-    _render_symbol_detail_table(list(render_context.evidence_rows))
-
-    _render_cockpit_decision_report_sections(
-        preview,
-        render_context=render_context,
-    )
-
-    _render_decision_report_download_buttons(
-        context,
-        expander_label="確認レポート",
-        json_file_name="decision_report_cockpit.json",
-        markdown_file_name="decision_report_cockpit.md",
-        heading_prefix="06",
+    render_cockpit_decision_report_page(
+        render_context,
+        register_assistant_context=_register_cockpit_report_assistant_context,
+        render_evidence_table=_render_symbol_detail_table,
+        render_detail_sections=lambda context: _render_cockpit_decision_report_sections(
+            preview,
+            render_context=context,
+        ),
+        render_download_buttons=_render_decision_report_download_buttons,
     )
 
 

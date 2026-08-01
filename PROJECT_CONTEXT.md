@@ -316,6 +316,13 @@ the existing detail panel), while the app controller retains context resolution,
 rerun, and injected legacy detail rendering. Research content, source order/counts, action behavior,
 Forecast, Score, and Ranking calculations are unchanged.
 
+The following R2-C Decision Report slice moves the context-frozen overview card and primary summary
+HTML into `ui/cockpit_decision_report_presenter.py`, while `ui/views/cockpit.py` owns the page heading,
+evidence table, detail-section entrypoint, and download entrypoint. `ui.app` now builds the existing
+context and injects the established table, detail, download, and assistant-context adapters. Report
+content, overview fields, three-line summary limit, evidence rows, download filenames, assistant context,
+and all numerical calculations remain unchanged.
+
 The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
 in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
 protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.

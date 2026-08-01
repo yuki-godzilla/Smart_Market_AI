@@ -268,6 +268,11 @@ calculation behavior are unchanged.
 The following slice assembles the common-horizon Forecast chart, consensus, metrics, advanced-Forecast,
 and score display rows as a `CockpitDisplayModel`. Existing Forecast functions remain injected at
 the UI edge, while Streamlit render order and all interactive controls remain unchanged.
+The next R2 state-boundary slice centralizes the preview, status, forecast horizon, and chart
+currency fields behind `CockpitPreviewState` / `CockpitPreviewSessionKeys`. A valid preview is
+the source of truth for duplicate display fields, and Ranking/Radar Cockpit handoffs clear every
+preview-owned field together. Forecast, Score, Research retrieval, and render ordering remain
+unchanged.
 The current presenter slice adds `CockpitPresentationContext`, so the hero and technical-detail
 presenters consume the same symbol label and display model rather than independent row arguments.
 Summary, Research, report, and interactive rendering remain at the UI edge.

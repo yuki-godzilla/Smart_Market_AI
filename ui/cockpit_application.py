@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 
 class CockpitPreview(Protocol):
@@ -30,6 +30,8 @@ class CockpitDisplayPreview(CockpitPreview, Protocol):
 
 class CockpitSessionState(Protocol):
     """The limited mutable session-state surface owned by this controller."""
+
+    def get(self, key: str, default: object = None) -> object: ...
 
     def __setitem__(self, key: str, value: object) -> None: ...
 
@@ -59,6 +61,15 @@ class CockpitPreviewSessionKeys:
     status: str
     forecast_days: str
     chart_display_currency: str
+
+
+@dataclass(frozen=True)
+class CockpitPreviewState(Generic[PreviewT]):
+    """The preview-derived state a Cockpit renderer may safely consume."""
+
+    preview: PreviewT | None
+    status: str
+    forecast_horizon_days: int | None
 
 
 @dataclass(frozen=True)
@@ -103,7 +114,7 @@ def adopt_cockpit_preview(
     *,
     preview: CockpitPreview,
     keys: CockpitPreviewSessionKeys,
-) -> None:
+) -> CockpitPreviewState[CockpitPreview]:
     """Persist preview-owned state and invalidate a previous chart currency."""
 
     session_state[keys.preview] = preview
@@ -113,6 +124,53 @@ def adopt_cockpit_preview(
         del session_state[keys.chart_display_currency]
     except KeyError:
         pass
+    return CockpitPreviewState(
+        preview=preview,
+        status=preview.status,
+        forecast_horizon_days=preview.forecast_horizon_days,
+    )
+
+
+def cockpit_preview_state_from_session(
+    session_state: CockpitSessionState,
+    *,
+    keys: CockpitPreviewSessionKeys,
+    preview_from_value: Callable[[object], PreviewT | None],
+) -> CockpitPreviewState[PreviewT]:
+    """Read one coherent preview state without trusting stale duplicate fields."""
+
+    preview = preview_from_value(session_state.get(keys.preview))
+    if preview is not None:
+        return CockpitPreviewState(
+            preview=preview,
+            status=preview.status,
+            forecast_horizon_days=preview.forecast_horizon_days,
+        )
+    status = session_state.get(keys.status)
+    return CockpitPreviewState(
+        preview=None,
+        status=status if isinstance(status, str) else "not_started",
+        forecast_horizon_days=None,
+    )
+
+
+def clear_cockpit_preview(
+    session_state: CockpitSessionState,
+    *,
+    keys: CockpitPreviewSessionKeys,
+) -> None:
+    """Clear all preview-owned fields before a Cockpit navigation handoff."""
+
+    for key in (
+        keys.preview,
+        keys.status,
+        keys.forecast_days,
+        keys.chart_display_currency,
+    ):
+        try:
+            del session_state[key]
+        except KeyError:
+            pass
 
 
 def build_cockpit_display_model(

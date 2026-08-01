@@ -138,6 +138,11 @@ Forecast chart、consensus、metrics、高度Forecast、score display rowsを組
 functionはUI edgeから注入し、renderとinteractive stateは`ui.app`に残す。`CockpitPresentationContext`で
 symbol labelとdisplay modelをhero・technical detail presenterへ共通入力として渡し、個別row引数を廃止した。
 summary、Research、Decision Reportとinteractive renderingは引き続き`ui.app`に残す。
+その後、preview、status、forecast horizon、chart display currencyを
+`CockpitPreviewState` / `CockpitPreviewSessionKeys`に集約した。previewが存在する場合はその
+statusとhorizonを正とし、Ranking / RadarからCockpitへ遷移する際は4つのpreview-owned stateを
+まとめて破棄する。これにより古いpreviewの補助状態が次の銘柄表示へ残らない。Forecast、Score、
+Research取得、render順は変更しない。
 
 ### R3: Research serviceをuse case別に分割
 

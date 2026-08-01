@@ -11,6 +11,8 @@ from ui.cockpit_application import (
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
     build_cockpit_display_model,
+    clear_cockpit_preview,
+    cockpit_preview_state_from_session,
     load_cockpit_preview,
 )
 
@@ -78,7 +80,7 @@ def test_adopt_cockpit_preview_updates_owned_state_only():
         chart_display_currency="chart_currency",
     )
 
-    adopt_cockpit_preview(session_state, preview=preview, keys=keys)
+    state = adopt_cockpit_preview(session_state, preview=preview, keys=keys)
 
     assert session_state == {
         "unrelated": "keep",
@@ -86,6 +88,54 @@ def test_adopt_cockpit_preview_updates_owned_state_only():
         "status": "OK",
         "forecast_days": 21,
     }
+    assert state.preview is preview
+    assert state.status == "OK"
+    assert state.forecast_horizon_days == 21
+
+
+def test_preview_state_uses_preview_as_the_source_of_truth_for_duplicate_fields():
+    preview = StubPreview(status="OK", forecast_horizon_days=21)
+    keys = CockpitPreviewSessionKeys(
+        preview="preview",
+        status="status",
+        forecast_days="forecast_days",
+        chart_display_currency="chart_currency",
+    )
+    session_state: dict[str, object] = {
+        "preview": preview,
+        "status": "ERROR",
+        "forecast_days": 5,
+    }
+
+    state = cockpit_preview_state_from_session(
+        session_state,
+        keys=keys,
+        preview_from_value=lambda value: value if isinstance(value, StubPreview) else None,
+    )
+
+    assert state.preview is preview
+    assert state.status == "OK"
+    assert state.forecast_horizon_days == 21
+
+
+def test_clear_preview_removes_all_preview_owned_fields_only():
+    keys = CockpitPreviewSessionKeys(
+        preview="preview",
+        status="status",
+        forecast_days="forecast_days",
+        chart_display_currency="chart_currency",
+    )
+    session_state: dict[str, object] = {
+        "preview": StubPreview(status="OK", forecast_horizon_days=21),
+        "status": "OK",
+        "forecast_days": 21,
+        "chart_currency": "USD",
+        "unrelated": "keep",
+    }
+
+    clear_cockpit_preview(session_state, keys=keys)
+
+    assert session_state == {"unrelated": "keep"}
 
 
 def test_build_cockpit_display_model_preserves_one_common_horizon():

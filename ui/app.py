@@ -155,6 +155,8 @@ from ui.cockpit_application import (
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
     build_cockpit_display_model,
+    clear_cockpit_preview,
+    cockpit_preview_state_from_session,
     load_cockpit_preview,
 )
 from ui.cockpit_filter_policy import (
@@ -8206,12 +8208,7 @@ def _render_market_data_cockpit() -> None:
         adopt_cockpit_preview(
             st.session_state,
             preview=preview,
-            keys=CockpitPreviewSessionKeys(
-                preview=MARKET_DATA_PREVIEW_STATE_KEY,
-                status=MARKET_DATA_STATUS_STATE_KEY,
-                forecast_days=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-                chart_display_currency=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
-            ),
+            keys=_cockpit_preview_session_keys(),
         )
         if preview.status == "OK":
             update_cockpit_progress("表示内容を更新しています。", 0.96)
@@ -8220,7 +8217,8 @@ def _render_market_data_cockpit() -> None:
             update_cockpit_progress("データ取得が完了しました。", 1.0)
         clear_cockpit_progress()
 
-    stored_preview = _market_data_preview_from_state()
+    cockpit_state = _cockpit_preview_state_from_session()
+    stored_preview = cockpit_state.preview
     if stored_preview is None:
         _register_cockpit_setup_assistant_context(symbol)
         render_mascot_panel(
@@ -8235,7 +8233,7 @@ def _render_market_data_cockpit() -> None:
     if toast_message:
         st.toast(str(toast_message), icon="✅")
 
-    if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) != "OK":
+    if cockpit_state.status != "OK":
         st.error("価格データを取得できませんでした。")
         _render_provider_error_summary(stored_preview.error_rows)
         return
@@ -10635,8 +10633,7 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state.pop("market_data_symbol_search", None)
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state["market_data_ranking_handoff_symbol"] = symbol.strip().upper()
-    st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+    clear_cockpit_preview(st.session_state, keys=_cockpit_preview_session_keys())
     _clear_ranking_deep_dive_state()
 
 
@@ -10668,8 +10665,7 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
         "source_label": "投資レーダー",
         "symbol": symbol.strip().upper(),
     }
-    st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+    clear_cockpit_preview(st.session_state, keys=_cockpit_preview_session_keys())
 
 
 def _fetch_news_radar_market_snapshot(
@@ -12478,11 +12474,21 @@ def symbol_candidate_label(symbol: str) -> str:
     return symbol
 
 
-def _market_data_preview_from_state() -> MarketDataPreview | None:
-    preview = st.session_state.get(MARKET_DATA_PREVIEW_STATE_KEY)
-    if isinstance(preview, MarketDataPreview):
-        return preview
-    return None
+def _cockpit_preview_session_keys() -> CockpitPreviewSessionKeys:
+    return CockpitPreviewSessionKeys(
+        preview=MARKET_DATA_PREVIEW_STATE_KEY,
+        status=MARKET_DATA_STATUS_STATE_KEY,
+        forecast_days=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+        chart_display_currency=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
+    )
+
+
+def _cockpit_preview_state_from_session():
+    return cockpit_preview_state_from_session(
+        st.session_state,
+        keys=_cockpit_preview_session_keys(),
+        preview_from_value=lambda value: value if isinstance(value, MarketDataPreview) else None,
+    )
 
 
 def _market_data_preview_advanced_forecast_rows(

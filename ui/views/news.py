@@ -48,6 +48,15 @@ from ui.favorites import (
     load_favorites,
     render_favorite_button,
 )
+from ui.news_display_policy import (
+    MATERIAL_LABELS,
+    MATERIAL_TONES,
+    RADAR_DATA_STATUS_LABELS,
+    RADAR_MATERIAL_TONE_LABELS,
+    RADAR_PROVENANCE_LABELS,
+    freshness_label,
+    material_label,
+)
 from ui.notification_center import START_PROFILE_QUERY_KEY
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
@@ -95,34 +104,19 @@ NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM = 12
 # labels in the group summary; news groups remain one-to-one with their source.
 NEWS_RADAR_MARKET_SPARSE_GROUP_MAXIMUM = 2
 
-_FRESHNESS_LABELS = {
-    "latest": "最新",
-    "recent": "近日",
-    "stale": "古め",
-    "unknown": "未確認",
-}
+# Compatibility names retained while deterministic display policy is independent.
+_MATERIAL_LABELS = MATERIAL_LABELS
+_MATERIAL_TONES = MATERIAL_TONES
+_RADAR_DATA_STATUS_LABELS = RADAR_DATA_STATUS_LABELS
+_RADAR_MATERIAL_TONE_LABELS = RADAR_MATERIAL_TONE_LABELS
+_RADAR_PROVENANCE_LABELS = RADAR_PROVENANCE_LABELS
+_freshness_label = freshness_label
+_material_label = material_label
 
-_RADAR_PROVENANCE_LABELS = {
-    "direct_mention": "本文に出た銘柄",
-    "inferred_candidate": "SMAI推測候補",
-    "macro_proxy": "市場背景の確認",
-}
 _RADAR_PROVENANCE_GUIDANCE = {
     "direct_mention": "記事本文または見出しに明示された銘柄です。まず根拠記事を確認します。",
     "inferred_candidate": "ニュースのテーマからの関連候補です。記事に銘柄名が出たとは限りません。",
     "macro_proxy": "個別銘柄候補ではなく、市場全体の背景を確認するための指標です。",
-}
-_RADAR_MATERIAL_TONE_LABELS = {
-    "positive": "好材料を含む",
-    "caution": "注意材料を含む",
-    "mixed": "材料が混在",
-    "unknown": "材料の方向は未確認",
-}
-_RADAR_DATA_STATUS_LABELS = {
-    "available": "確認可能",
-    "partial": "一部確認",
-    "unavailable": "未取得",
-    "not_checked": "未確認",
 }
 _RADAR_TRIAGE_PRIORITY_LABELS = {
     "first": "先に確認",
@@ -147,29 +141,6 @@ _RADAR_PRIORITY_MATERIAL_POINTS = {
     "shareholder_return": 6,
     "theme": 6,
     "fund_flow": 4,
-}
-
-_MATERIAL_LABELS = {
-    "earnings": "決算・業績",
-    "fund_flow": "資金フロー",
-    "macro": "マクロ",
-    "policy": "政策",
-    "risk": "リスク材料",
-    "shareholder_return": "株主還元",
-    "theme": "テーマ",
-}
-
-_MATERIAL_TONES = {
-    # Material taxonomy is not a validated positive/negative reading of the
-    # headline. Keep the news surface neutral or attention-oriented until a
-    # separate evidence-grounded direction contract exists.
-    "earnings": "news",
-    "fund_flow": "news",
-    "macro": "news",
-    "policy": "news",
-    "risk": "news",
-    "shareholder_return": "news",
-    "theme": "news",
 }
 
 _HEATMAP_GROUP_KIND_LABELS = {
@@ -3844,16 +3815,6 @@ def _news_ticker_item_html(card: NewsHeadlineCard, *, flow_index: int = 0) -> st
         f"<small>{html.escape(source)}</small>"
         f"</{tag}>"
     )
-
-
-def _freshness_label(status: str) -> str:
-    return _FRESHNESS_LABELS.get(status, status or "未確認")
-
-
-def _material_label(material_type: str | None) -> str:
-    if material_type is None:
-        return "未分類"
-    return _MATERIAL_LABELS.get(material_type, material_type)
 
 
 def _source_type_label(source_type: str) -> str:

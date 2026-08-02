@@ -331,6 +331,11 @@ it imports neither Streamlit nor a Gateway. `ui/views/copilot.py` retains model-
 selection, status publication, and widgets, while compatibility façades preserve its existing helper
 imports. Provider probing, timeout/fallback behavior, conversation state, and UI wording are unchanged.
 
+R4-B now isolates News/Radar display-only labels and neutral material tones in
+`ui/news_display_policy.py`. The News view keeps refresh controls, cache/provider operations,
+user-scoped state, candidate construction, and widgets; compatibility names retain existing view
+callers. Freshness/provenance/data-status/material labels and unknown fallbacks are unchanged.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

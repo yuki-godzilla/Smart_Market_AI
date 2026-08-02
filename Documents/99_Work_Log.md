@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-B News/Radar display-policy slice
+
+- `ui/news_display_policy.py`へ、News / Radarの鮮度、候補由来、データ状態、材料分類labelとneutral material toneを移した。空値・未分類のfallbackも同じ表示を返す。
+- `ui/views/news.py`は更新、cache / Provider、user-scoped state、candidate生成、widgetを保持し、既存private名はcompatibility aliasとして残す。ニュース取得、候補、順位、保存、表示文言の意味は変更していない。
+- News view pytest 40件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,492件（16 skipped）、`mypy .` 597ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R4-A Copilot model-policy slice
 
 - `ui/copilot_model_policy.py`へ、固定profile / model catalogue、profile fallback、option matching、label変換を移した。Streamlit、Gateway、session stateをimportしないため、model選択policyを単体で検証できる。

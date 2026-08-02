@@ -10,6 +10,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
 )
+from ui.news_display_policy import freshness_label, material_label
 from ui.views import news as news_module
 from ui.views.news import (
     _news_ticker_html,
@@ -959,3 +960,10 @@ def test_news_symbol_handoff_label_falls_back_when_name_lookup_fails(monkeypatch
     monkeypatch.setattr("ui.views.news.symbol_name", raise_permission_error)
 
     assert news_symbol_handoff_label("7203.T") == "7203.T"
+
+
+def test_news_display_policy_keeps_unknown_and_unclassified_fallbacks():
+    assert freshness_label("") == "未確認"
+    assert freshness_label("latest") == "最新"
+    assert material_label(None) == "未分類"
+    assert material_label("earnings") == "決算・業績"

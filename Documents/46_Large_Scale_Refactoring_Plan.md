@@ -297,6 +297,11 @@ label変換を`ui/copilot_model_policy.py`へ分離した。このmoduleはStrea
 viewはcatalog・session state選択、runtime status、widgetを維持する。既存のview helperは薄い
 compatibility façadeとして残すため、Provider probe、timeout / fallback、conversation state、文言は不変である。
 
+進捗（2026-08-02、R4-B初回slice）: News / Radarの鮮度、候補由来、データ状態、材料分類labelと
+neutral material toneを`ui/news_display_policy.py`へ移した。viewはrefresh、cache / Provider、
+user-scoped state、candidate生成、widgetを維持し、既存private名はcompatibility aliasで残す。
+ニュース取得・候補・順位・保存・表示文言の意味は変更していない。
+
 #### R4-A: Copilot
 
 - conversation state、command dispatch、Assistant gateway呼出し、response presenter、widget描画を分ける。

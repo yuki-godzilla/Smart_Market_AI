@@ -160,6 +160,7 @@ from ui.cockpit_application import (
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_forecast_chart_context,
     build_cockpit_forecast_hero_context,
     build_cockpit_research_context,
     build_cockpit_summary_context,
@@ -514,6 +515,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
+    render_cockpit_forecast_chart_and_details,
     render_cockpit_forecast_hero_header,
     render_cockpit_research_operation_card,
     render_cockpit_research_result,
@@ -17180,7 +17182,6 @@ def _render_price_forecast_hero(
     preview: MarketDataPreview,
     presentation: CockpitPresentationContext,
 ) -> None:
-    display = presentation.display
     hero_context = build_cockpit_forecast_hero_context(
         presentation=presentation,
         horizon_summary=str(getattr(preview, "forecast_horizon_summary", "") or ""),
@@ -17202,30 +17203,46 @@ def _render_price_forecast_hero(
             )
         ),
     )
-    selected_chart_series = _render_forecast_chart_filters(display.forecast_rows)
-    display_forecast_rows = filter_forecast_chart_rows(display.forecast_rows, selected_chart_series)
-    display_currency = _render_market_chart_currency_selector(chart_currency, preview.fx_rows)
-    display_forecast_rows = convert_market_chart_rows_currency(
-        display_forecast_rows,
+    chart_context = build_cockpit_forecast_chart_context(
+        presentation=presentation,
         source_currency=chart_currency,
-        display_currency=display_currency,
-        usd_jpy_rate=chart_fx_rate_from_rows(preview.fx_rows, source_currency=chart_currency),
+        fx_rows=preview.fx_rows,
+        latest_close=preview.bars[-1].close if preview.bars else None,
+        latest_date=preview.bars[-1].ts.date() if preview.bars else None,
     )
-    _render_market_chart(
-        display_forecast_rows,
-        currency=display_currency,
-        title="",
-        color_series_labels=forecast_chart_series_labels(display.forecast_rows),
-        legend_series_labels=forecast_chart_series_labels(display_forecast_rows),
-    )
-    latest_close = preview.bars[-1].close if preview.bars else None
-    latest_date = preview.bars[-1].ts.date() if preview.bars else None
-    _render_forecast_model_detail_expanders(
-        display.metric_rows,
-        display.advanced_forecast_rows,
-        display.advanced_forecast_consensus_rows,
-        latest_close=latest_close,
-        latest_date=latest_date,
+    render_cockpit_forecast_chart_and_details(
+        chart_context,
+        select_chart_series=_render_forecast_chart_filters,
+        filter_chart_rows=filter_forecast_chart_rows,
+        select_display_currency=_render_market_chart_currency_selector,
+        resolve_fx_rate=lambda fx_rows, source_currency: chart_fx_rate_from_rows(
+            fx_rows,
+            source_currency=source_currency,
+        ),
+        convert_chart_rows=lambda rows, source_currency, display_currency, fx_rate: (
+            convert_market_chart_rows_currency(
+                rows,
+                source_currency=source_currency,
+                display_currency=display_currency,
+                usd_jpy_rate=fx_rate,
+            )
+        ),
+        render_chart=lambda rows, currency, original_rows: _render_market_chart(
+            rows,
+            currency=currency,
+            title="",
+            color_series_labels=forecast_chart_series_labels(original_rows),
+            legend_series_labels=forecast_chart_series_labels(rows),
+        ),
+        render_model_details=lambda metric_rows, advanced_rows, consensus_rows, latest_close, latest_date: (
+            _render_forecast_model_detail_expanders(
+                metric_rows,
+                advanced_rows,
+                consensus_rows,
+                latest_close=latest_close,
+                latest_date=latest_date,
+            )
+        ),
     )
 
 

@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 Cockpit R2-C Forecast chart orchestration slice
+
+- `CockpitForecastChartContext`へ既存`CockpitPresentationContext`、source currency、FX rows、latest close / dateを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_chart_and_details`へ移した。page componentがchart series選択、row filter、表示通貨、FX rate解決、通貨換算、chart、個別モデル詳細の既存順を保持して呼び出す。
+- `ui.app`は既存のStreamlit widget、換算関数、chart renderer、detail expanderをtyped adapterとして注入する。Forecast計算、予測値・confidence・warning、Score、Ranking、保存state、表示順、chart renderer自体は変更していない。
+- local Streamlitの実Chromeでmock `AAPL`を確認し、`価格チャート / 予測スコープ`、高度／単純予測model toggle、表示通貨、JPY切替、個別モデルcard / detail expanderを確認した。対象pytest 426件、全体pytest 2,486件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 Cockpit R2-C Forecast hero header slice
 
 - `CockpitForecastHeroContext`に、既存`CockpitPresentationContext`、予測期間の取得履歴要約、horizon warningを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_hero_header`へ移した。page componentは`02 価格・AI予測`見出し、期間caption、warning、高度Forecast状態・AI予測インサイト、同じForecast snapshotのAssistant context登録順を担当する。

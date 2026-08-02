@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any, Generic, Mapping, Protocol, Sequence, TypeVar
 
 from backend.core.errors import AppError
@@ -122,6 +123,17 @@ class CockpitForecastHeroContext:
     presentation: CockpitPresentationContext
     horizon_summary: str
     horizon_warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CockpitForecastChartContext:
+    """Context-frozen inputs for Forecast chart controls and model details."""
+
+    presentation: CockpitPresentationContext
+    source_currency: str
+    fx_rows: tuple[dict[str, str], ...]
+    latest_close: Decimal | None
+    latest_date: date | None
 
 
 @dataclass(frozen=True)
@@ -325,6 +337,25 @@ def build_cockpit_forecast_hero_context(
         presentation=presentation,
         horizon_summary=horizon_summary.strip(),
         horizon_warnings=tuple(str(warning) for warning in horizon_warnings),
+    )
+
+
+def build_cockpit_forecast_chart_context(
+    *,
+    presentation: CockpitPresentationContext,
+    source_currency: str,
+    fx_rows: Sequence[Mapping[str, str]],
+    latest_close: Decimal | None,
+    latest_date: date | None,
+) -> CockpitForecastChartContext:
+    """Freeze chart-display inputs after the existing Forecast rows are derived."""
+
+    return CockpitForecastChartContext(
+        presentation=presentation,
+        source_currency=source_currency.strip().upper(),
+        fx_rows=tuple(dict(row) for row in fx_rows),
+        latest_close=latest_close,
+        latest_date=latest_date,
     )
 
 

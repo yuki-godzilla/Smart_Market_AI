@@ -2645,8 +2645,9 @@ Markdown UTF-8 check:
   R0境界固定とR1 Ranking application flowは完了した。R2 Cockpitはfilter、preview request / adoption、
   display model、presentation context、preview-owned session state、R2-BのResearch / Decision Report
   context・use case、R2-CのResearch / Decision Report presenter・page境界、typed summary page component、
-  Forecast hero headerまで分離済み。次はR2-Cの価格Chart操作・通貨選択・個別モデル詳細expanderの表示境界を
-  分け、Cockpit presenter / page境界を閉じる。
+  Forecast hero header、価格Chart操作・通貨選択・個別モデル詳細expanderの表示orchestrationまで分離済み。
+  既存のchart rendererとForecast表示helperはUI edge adapterとして維持している。次はR2-Cの実chart rendererと
+  残存Forecast表示helperをpage / presenter責務へ切り分け、Cockpit presenter / page境界を閉じる。
   その後はR3 Research、R4 Copilot / News / CSS、R5 package cycle、R6継続gateの順で進める。
   Phase 35 / 36とsealed Forecast auditの成熟待ちは観測トラックであり、構造改善を止めない一方、
   採用gate通過前の数値、score、順位、runtime weight変更を許可しない。Notification N6はuser / port境界が

@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Callable
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
@@ -11,6 +12,7 @@ from backend.reporting import DecisionReportContext
 from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
 from ui.cockpit_application import (
     CockpitDecisionReportRenderContext,
+    CockpitForecastChartContext,
     CockpitForecastHeroContext,
     CockpitSummaryContext,
 )
@@ -769,6 +771,51 @@ def render_cockpit_forecast_hero_header(
         context.presentation.symbol_label,
         display.advanced_forecast_consensus_rows,
         display.forecast_horizon_days,
+    )
+
+
+def render_cockpit_forecast_chart_and_details(
+    context: CockpitForecastChartContext,
+    *,
+    select_chart_series: Callable[[list[dict[str, str]]], set[str]],
+    filter_chart_rows: Callable[[list[dict[str, str]], set[str]], list[dict[str, str]]],
+    select_display_currency: Callable[[str, list[dict[str, str]]], str],
+    resolve_fx_rate: Callable[[list[dict[str, str]], str], Decimal | None],
+    convert_chart_rows: Callable[
+        [list[dict[str, str]], str, str, Decimal | None], list[dict[str, str]]
+    ],
+    render_chart: Callable[[list[dict[str, str]], str, list[dict[str, str]]], None],
+    render_model_details: Callable[
+        [
+            list[dict[str, str]],
+            list[dict[str, str]],
+            list[dict[str, str]],
+            Decimal | None,
+            date | None,
+        ],
+        None,
+    ],
+) -> None:
+    """Render existing Forecast chart controls, conversion, and details in order."""
+
+    display = context.presentation.display
+    selected_chart_series = select_chart_series(display.forecast_rows)
+    display_forecast_rows = filter_chart_rows(display.forecast_rows, selected_chart_series)
+    fx_rows = list(context.fx_rows)
+    display_currency = select_display_currency(context.source_currency, fx_rows)
+    display_forecast_rows = convert_chart_rows(
+        display_forecast_rows,
+        context.source_currency,
+        display_currency,
+        resolve_fx_rate(fx_rows, context.source_currency),
+    )
+    render_chart(display_forecast_rows, display_currency, display.forecast_rows)
+    render_model_details(
+        display.metric_rows,
+        display.advanced_forecast_rows,
+        display.advanced_forecast_consensus_rows,
+        context.latest_close,
+        context.latest_date,
     )
 
 

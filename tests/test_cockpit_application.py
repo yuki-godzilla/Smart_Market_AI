@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -18,6 +19,7 @@ from ui.cockpit_application import (
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_forecast_chart_context,
     build_cockpit_forecast_hero_context,
     build_cockpit_research_context,
     build_cockpit_summary_context,
@@ -281,6 +283,37 @@ def test_cockpit_forecast_hero_context_keeps_existing_display_and_normalizes_mes
     assert context.presentation is presentation
     assert context.horizon_summary == "取得済み価格120点"
     assert context.horizon_warnings == ("coverage warning", "7")
+
+
+def test_cockpit_forecast_chart_context_keeps_one_snapshot_of_chart_inputs():
+    presentation = CockpitPresentationContext(
+        symbol_label="AAPL - Apple Inc.",
+        display=CockpitDisplayModel(
+            forecast_horizon_days=21,
+            advanced_forecast_rows=[],
+            advanced_forecast_consensus_rows=[],
+            forecast_rows=[],
+            consensus_rows=[],
+            metric_rows=[],
+            score_display_rows=[],
+        ),
+    )
+    fx_rows = [{"pair": "USDJPY", "close": "150"}]
+
+    context = build_cockpit_forecast_chart_context(
+        presentation=presentation,
+        source_currency=" usd ",
+        fx_rows=fx_rows,
+        latest_close=Decimal("100.50"),
+        latest_date=date(2026, 8, 2),
+    )
+    fx_rows[0]["close"] = "0"
+
+    assert context.presentation is presentation
+    assert context.source_currency == "USD"
+    assert context.fx_rows == ({"pair": "USDJPY", "close": "150"},)
+    assert context.latest_close == Decimal("100.50")
+    assert context.latest_date == date(2026, 8, 2)
 
 
 def test_cockpit_research_and_report_contexts_preserve_one_resolved_snapshot():

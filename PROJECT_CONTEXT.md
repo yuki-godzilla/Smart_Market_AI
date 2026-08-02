@@ -284,7 +284,12 @@ Score値、Forecast、Ranking、保存state、section順、お気に入り挙動
 mock `AAPL` Cockpitでsummaryと価格・Forecast sectionまでを実画面確認し、SMAIの画面例外がないことを
 確認した。続くR2-C Forecast hero header sliceでは、予測期間、horizon warning、高度Forecast状態・
 AI予測インサイト、Assistant context登録を`CockpitForecastHeroContext`とpage componentへ移した。
-Chart操作、通貨選択、個別モデル詳細expanderは次のR2表示境界候補である。
+続くForecast chart sliceでは、既存の表示対象選択、chart row filter、USD / JPY選択、FX換算、
+chart描画、個別モデル詳細expanderの順を`CockpitForecastChartContext`とpage componentへ移した。
+`ui.app`は既存widget、換算、chart、detail rendererをadapterとして注入するため、Forecast計算、
+数値、Score、Ranking、保存state、表示順は変更していない。local Streamlitのmock `AAPL`で、
+chart scope controls、JPY切替、個別model cards / detail expanderまで実画面確認した。次のR2-C候補は
+実際のchart rendererと残存するForecast表示helperの、ページ責務と再利用presenterへの切り分けである。
 
 The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
 The active structural track continues with R2-B Research / Decision Report context separation and

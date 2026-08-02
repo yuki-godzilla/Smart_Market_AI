@@ -14,6 +14,7 @@ from ui import app as app_module
 from ui.cockpit_application import (
     CockpitDisplayModel,
     CockpitPresentationContext,
+    build_cockpit_forecast_chart_context,
     build_cockpit_forecast_hero_context,
     build_cockpit_summary_context,
 )
@@ -29,6 +30,7 @@ from ui.views.cockpit import (
     cockpit_summary_items,
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
+    render_cockpit_forecast_chart_and_details,
     render_cockpit_forecast_hero_header,
     render_cockpit_research_operation_card,
     render_cockpit_summary,
@@ -174,6 +176,82 @@ def test_render_cockpit_forecast_hero_header_uses_one_frozen_context(monkeypatch
     assert warnings == ["coverage warning"]
     assert [call[0] for call in calls] == ["title", "status", "consensus", "assistant"]
     assert calls[-1] == ("assistant", "AAPL - Apple Inc.", [{"forecast_close": "105"}], 21)
+
+
+def test_render_cockpit_forecast_chart_and_details_preserves_existing_display_order():
+    presentation = CockpitPresentationContext(
+        symbol_label="AAPL - Apple Inc.",
+        display=CockpitDisplayModel(
+            forecast_horizon_days=21,
+            advanced_forecast_rows=[{"adapter": "advanced_linear"}],
+            advanced_forecast_consensus_rows=[{"forecast_close": "105"}],
+            forecast_rows=[{"close": "100", "advanced_consensus_21d": "105"}],
+            consensus_rows=[],
+            metric_rows=[{"metric": "mae"}],
+            score_display_rows=[],
+        ),
+    )
+    context = build_cockpit_forecast_chart_context(
+        presentation=presentation,
+        source_currency="USD",
+        fx_rows=[{"pair": "USDJPY", "close": "150"}],
+        latest_close=Decimal("100"),
+        latest_date=date(2026, 8, 2),
+    )
+    calls: list[tuple[object, ...]] = []
+
+    render_cockpit_forecast_chart_and_details(
+        context,
+        select_chart_series=lambda rows: calls.append(("select", rows))
+        or {"advanced_consensus_21d"},
+        filter_chart_rows=lambda rows, selected: calls.append(("filter", rows, selected))
+        or [{"advanced_consensus_21d": "105"}],
+        select_display_currency=lambda source, fx_rows: calls.append(("currency", source, fx_rows))
+        or "JPY",
+        resolve_fx_rate=lambda fx_rows, source: calls.append(("rate", fx_rows, source))
+        or Decimal("150"),
+        convert_chart_rows=lambda rows, source, currency, rate: calls.append(
+            ("convert", rows, source, currency, rate)
+        )
+        or [{"advanced_consensus_21d": "15750"}],
+        render_chart=lambda rows, currency, original_rows: calls.append(
+            ("chart", rows, currency, original_rows)
+        ),
+        render_model_details=lambda metric_rows, advanced_rows, consensus_rows, latest_close, latest_date: calls.append(
+            (
+                "details",
+                metric_rows,
+                advanced_rows,
+                consensus_rows,
+                latest_close,
+                latest_date,
+            )
+        ),
+    )
+
+    assert [call[0] for call in calls] == [
+        "select",
+        "filter",
+        "currency",
+        "rate",
+        "convert",
+        "chart",
+        "details",
+    ]
+    assert calls[4] == (
+        "convert",
+        [{"advanced_consensus_21d": "105"}],
+        "USD",
+        "JPY",
+        Decimal("150"),
+    )
+    assert calls[5] == (
+        "chart",
+        [{"advanced_consensus_21d": "15750"}],
+        "JPY",
+        [{"close": "100", "advanced_consensus_21d": "105"}],
+    )
+    assert calls[6][-2:] == (Decimal("100"), date(2026, 8, 2))
 
 
 def test_cockpit_result_flow_prioritizes_research_and_consolidates_details():

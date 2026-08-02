@@ -308,6 +308,13 @@ scheduling. Pending evidence therefore does not block structural work and cannot
 model adoption. See `Documents/46_Large_Scale_Refactoring_Plan.md` for slice-level entry, exit, and
 stop conditions.
 
+R3-A summary-builder separation has started with the deterministic quantitative-summary assembly.
+`backend/research/quantitative_summary.py` now owns the already-selected metric values' missing
+state, user-facing summary, item statuses, evidence level, and source-title dedupe. The legacy
+Research service remains responsible only for selecting values and source metadata from existing
+evidence. Research Score, Ranking, Forecast, external retrieval, persistence, and UI behavior are
+unchanged.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

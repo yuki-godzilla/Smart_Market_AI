@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-A quantitative Research summary assembly slice
+
+- `backend/research/quantitative_summary.py`へ、既存Research evidenceから選択済みの定量値を`QuantitativeSummary` contractへ組み立てる純粋処理を移した。欠損項目、found/missing状態、要約、evidence level、source titleの重複除去は同じ入力から同じ出力を返す。
+- `backend/research/service.py`は各指標値とsource metadataの収集だけを担当し、新builderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。直接builder testと既存Research service回帰で契約を固定した。
+- 全体pytest 2,488件（16 skipped）、`mypy .` 593ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 Cockpit R2-C Forecast model-detail page slice
 
 - `render_cockpit_forecast_model_details`へ、高度Forecast model見出し、比較card、model card HTML、3つの既存detail expanderとtableを移した。`ui.app`は既存のmodel card、comparison、display、validation、baseline rowを組み立て、comparison/table rendererだけを注入する。

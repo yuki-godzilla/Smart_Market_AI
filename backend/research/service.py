@@ -136,6 +136,10 @@ from backend.research.ir_classification import (
     classify_ir_document_candidates,
 )
 from backend.research.normalization import normalize_symbol
+from backend.research.quantitative_summary import (
+    QuantitativeFieldValue,
+    build_quantitative_summary,
+)
 
 MIN_TOPIC_EVIDENCE_RELEVANCE = Decimal("0.10")
 
@@ -3846,7 +3850,7 @@ def _company_research_quantitative_summary(
             (r"従業員数", r"employees", r"full time employees", r"fullTimeEmployees"),
         ),
     )
-    values: dict[str, str | None] = {}
+    fields: list[QuantitativeFieldValue] = []
     source_titles: list[str] = []
     source_types: list[str] = []
     for key, _label, metric_key, patterns in field_specs:
@@ -3857,40 +3861,15 @@ def _company_research_quantitative_summary(
             normalized_evidence,
             patterns,
         )
-        values[key] = value
+        fields.append(QuantitativeFieldValue(key=key, label=_label, value=value))
         source_titles.extend(titles)
         source_types.extend(types)
-
-    missing_items = [label for key, label, _metric_key, _patterns in field_specs if not values[key]]
-    found_items = [
-        f"{label} {values[key]}"
-        for key, label, _metric_key, _patterns in field_specs
-        if values[key]
-    ]
-    if found_items:
-        summary = f"確認できた主要指標は{'、'.join(found_items[:5])}です。"
-        if missing_items:
-            summary += f"{'、'.join(missing_items[:5])}は追加確認が必要です。"
-    else:
-        summary = "主要な財務指標が未取得のため、業績トレンドや規模感の把握には追加確認が必要です。"
-    return QuantitativeSummary(
-        revenue=values["revenue"],
-        operating_profit=values["operating_profit"],
-        net_income=values["net_income"],
-        eps=values["eps"],
-        per=values["per"],
-        pbr=values["pbr"],
-        roe=values["roe"],
-        dividend_yield=values["dividend_yield"],
-        market_cap=values["market_cap"],
-        enterprise_value=values["enterprise_value"],
-        employee_count=values["employee_count"],
-        summary=summary,
-        missing_items=missing_items,
-        item_statuses={key: "found" if value else "missing" for key, value in values.items()},
-        information_status="found" if found_items else "missing",
-        evidence_level=_company_research_evidence_level_from_source_types(source_types),
-        source_titles=_unique_text(source_titles)[:5],
+    return build_quantitative_summary(
+        fields,
+        source_titles=source_titles,
+        source_types=source_types,
+        evidence_level_from_source_types=_company_research_evidence_level_from_source_types,
+        unique_text=_unique_text,
     )
 
 

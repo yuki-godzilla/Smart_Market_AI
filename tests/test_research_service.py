@@ -69,6 +69,10 @@ from backend.research import (
     YahooFinanceResearchAdapter,
     research_profile_source_key_for_provider,
 )
+from backend.research.quantitative_summary import (
+    QuantitativeFieldValue,
+    build_quantitative_summary,
+)
 
 FORBIDDEN_RECOMMENDATION_WORDS = [
     "買い推奨",
@@ -5331,3 +5335,34 @@ def test_file_vector_store_rejects_invalid_cache(tmp_path):
 
     with pytest.raises(ResearchSearchError):
         ResearchFileVectorStore(cache_path)
+
+
+def test_quantitative_summary_builder_keeps_missing_status_and_source_order():
+    summary = build_quantitative_summary(
+        [
+            QuantitativeFieldValue("revenue", "売上高", "1,000"),
+            QuantitativeFieldValue("operating_profit", "営業利益", None),
+            QuantitativeFieldValue("net_income", "純利益", "100"),
+            QuantitativeFieldValue("eps", "EPS", None),
+            QuantitativeFieldValue("per", "PER", "15"),
+            QuantitativeFieldValue("pbr", "PBR", None),
+            QuantitativeFieldValue("roe", "ROE", None),
+            QuantitativeFieldValue("dividend_yield", "配当利回り", None),
+            QuantitativeFieldValue("market_cap", "時価総額", None),
+            QuantitativeFieldValue("enterprise_value", "企業価値", None),
+            QuantitativeFieldValue("employee_count", "従業員数", None),
+        ],
+        source_titles=["Profile", "Profile", "IR"],
+        source_types=["provider_profile", "ir"],
+        evidence_level_from_source_types=lambda _types: "medium",
+        unique_text=lambda values: list(dict.fromkeys(values)),
+    )
+
+    assert summary.revenue == "1,000"
+    assert summary.operating_profit is None
+    assert summary.missing_items[:2] == ["営業利益", "EPS"]
+    assert summary.item_statuses["revenue"] == "found"
+    assert summary.item_statuses["pbr"] == "missing"
+    assert summary.information_status == "found"
+    assert summary.evidence_level == "medium"
+    assert summary.source_titles == ["Profile", "IR"]

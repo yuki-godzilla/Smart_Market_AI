@@ -376,6 +376,10 @@ the lightweight vector export does not eagerly load the aggregate service.
 YAML schema validation. Expanded-term normalization/order and existing error contracts remain
 unchanged, while its public package export also avoids the aggregate-service import.
 
+`backend/research/evidence_policy.py` now owns evidence freshness, source priority, chunk-level
+dedupe, and deterministic reranking. Keyword/hybrid retrieval and Research Score share these
+unchanged values and sort rules; the lightweight reranker export avoids the aggregate-service import.
+
 Local document and transient external-text registration plus deterministic Markdown indexing now
 live in `backend/research/ingestion.py`. Its document-directory/UTF-8 validation, stable IDs,
 chunk section/index/metadata construction, empty-document errors, rebuild warnings, and symbol

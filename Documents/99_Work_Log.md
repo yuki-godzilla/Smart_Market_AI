@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-B Research evidence-policy boundary slice
+
+- freshness factor、source type priority、chunk単位dedupe、rerank score、`ResearchEvidenceReranker`を`backend/research/evidence_policy.py`へ移した。keyword / hybrid retrievalとResearch Scoreは同じ決定論的policyを参照する。
+- score、published dateを含むsort order、fallback、既存public exportは不変とし、package import smokeで軽量reranker export時にaggregate serviceを読まないことを固定した。
+- Research service / package pytest 118件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 605ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
 ## 2026-08-02 R3-C Research query-expansion boundary slice
 
 - topic dictionaryによるquery expansionとYAML schema validationを`backend/research/query_expansion.py`へ移し、legacy serviceの公開re-exportと`backend.research`の既存公開名を維持した。

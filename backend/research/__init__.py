@@ -63,6 +63,7 @@ from backend.research.contracts import (
     StockNewsRequest,
 )
 from backend.research.errors import ResearchDocumentError
+from backend.research.evidence_policy import ResearchEvidenceReranker
 from backend.research.external_adapters import (
     CompanyIRSiteResearchAdapter,
     CompositeExternalResearchAdapter,
@@ -111,7 +112,6 @@ _LAZY_SERVICE_EXPORTS = frozenset(
         "HybridResearchRetrievalService",
         "ResearchAnalysisService",
         "ResearchEmbeddingService",
-        "ResearchEvidenceReranker",
         "ResearchGroundedAnswerService",
         "ResearchHybridScorer",
         "ResearchRetrievalService",

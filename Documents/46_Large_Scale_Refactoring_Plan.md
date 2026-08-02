@@ -290,6 +290,10 @@ R3-Cの軽量公開sliceとして、topic dictionaryによるquery expansionとY
 `query_expansion.py`へ移した。expanded termsのnormalization / order、unknown categoryと不正termのerror、
 既存のpublic `ResearchQueryExpansionService`は維持し、package import smokeでaggregate service非読込を固定する。
 
+続くevidence policy sliceでは、freshness factor、source type priority、chunk単位dedupe、rerank scoreと
+`ResearchEvidenceReranker`を`evidence_policy.py`へ移した。keyword / hybrid retrievalとResearch Scoreは
+同一の決定論的規則を参照し、既存のscore・sort order・public exportは変えない。
+
 #### R3-A: summary builderを分割
 
 - 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。

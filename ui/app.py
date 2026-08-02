@@ -169,6 +169,11 @@ from ui.cockpit_application import (
     load_cockpit_preview,
     run_cockpit_research_refresh,
 )
+from ui.cockpit_chart_renderer import (
+    CockpitMarketChartLayerData,
+    CockpitMarketChartRenderContext,
+    render_cockpit_market_chart,
+)
 from ui.cockpit_decision_report_presenter import (
     build_cockpit_decision_report_detail_model,
 )
@@ -21261,7 +21266,6 @@ def _render_market_chart(
             "データ取得後、または期間を広げるとチャートが表示されます。"
         )
         return
-    y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
     if chart_data.empty:
         st.info(
@@ -21274,71 +21278,46 @@ def _render_market_chart(
         if color_series_labels is not None
         else chart_data["series_label"].tolist()
     )
-    color_range = forecast_chart_color_range(color_domain)
-    color_scale = alt.Scale(domain=color_domain, range=color_range)
-    disabled_series = alt.selection_point(
-        fields=["series_label"],
-        on="click",
-        toggle="true",
-        empty=False,
-    )
-    group_visibility_params, group_hidden_expr = _market_chart_group_visibility_controls(rows)
-    chart = _market_chart_layers(
-        rows,
-        y_axis_title=y_axis_title,
-        color_scale=color_scale,
-        disabled_series=disabled_series,
-        group_hidden_expr=group_hidden_expr,
-        height=MARKET_CHART_HEIGHT,
-        width=MARKET_CHART_FULL_WIDTH,
-        title="価格チャート",
-        show_all_points=True,
-        compact_points=True,
-    )
     focus_rows = forecast_focus_chart_rows(rows)
-    focus_chart = _market_chart_layers(
-        focus_rows,
-        y_axis_title=y_axis_title,
-        color_scale=color_scale,
-        disabled_series=disabled_series,
-        group_hidden_expr=group_hidden_expr,
-        height=MARKET_CHART_HEIGHT,
-        width=MARKET_CHART_FOCUS_WIDTH,
-        title=forecast_focus_chart_title(rows),
-        show_all_points=True,
-        compact_points=False,
-    )
-    main_chart = alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
-    legend_chart = _market_chart_interactive_legend(
-        forecast_chart_color_domain(
-            legend_series_labels
-            if legend_series_labels is not None
-            else chart_data["series_label"].tolist()
+
+    def render_chart(chart: Any) -> None:
+        st.altair_chart(chart, use_container_width=False)
+
+    render_cockpit_market_chart(
+        CockpitMarketChartRenderContext(
+            y_axis_title=f"終値 ({currency})" if currency else "終値",
+            title=title,
+            color_domain=tuple(color_domain),
+            color_range=tuple(forecast_chart_color_range(color_domain)),
+            legend_labels=tuple(
+                forecast_chart_color_domain(
+                    legend_series_labels
+                    if legend_series_labels is not None
+                    else chart_data["series_label"].tolist()
+                )
+            ),
+            main=_market_chart_layer_data(rows, chart_data=chart_data),
+            focus=_market_chart_layer_data(focus_rows),
+            focus_title=forecast_focus_chart_title(rows),
+            full_width=MARKET_CHART_FULL_WIDTH,
+            focus_width=MARKET_CHART_FOCUS_WIDTH,
+            height=MARKET_CHART_HEIGHT,
+            combined_spacing=MARKET_CHART_COMBINED_SPACING,
         ),
-        color_scale=color_scale,
-        disabled_series=disabled_series,
-        group_hidden_expr=group_hidden_expr,
+        render_altair_chart=render_chart,
     )
-    combined_chart = (
-        alt.vconcat(main_chart, legend_chart, spacing=4)
-        .add_params(disabled_series, *group_visibility_params)
-        .resolve_scale(color="shared", y="independent", x="independent")
-        .configure(background=THEME_COLORS["bg_surface"])
-        .configure_view(fill=THEME_COLORS["bg_card"], stroke=THEME_COLORS["border_strong"])
-        .configure_axis(
-            domainColor=THEME_COLORS["border_strong"],
-            gridColor="rgba(148, 163, 184, 0.14)",
-            labelColor=THEME_COLORS["text_caption"],
-            titleColor=THEME_COLORS["text_label"],
-            tickColor=THEME_COLORS["border_strong"],
-        )
-        .configure_title(color=THEME_COLORS["text_heading"], fontSize=16, anchor="start", offset=10)
-    )
-    if title:
-        combined_chart = combined_chart.properties(title=title)
-    st.altair_chart(
-        combined_chart,
-        use_container_width=False,
+
+
+def _market_chart_layer_data(
+    rows: list[dict[str, str]],
+    *,
+    chart_data: pd.DataFrame | None = None,
+) -> CockpitMarketChartLayerData:
+    return CockpitMarketChartLayerData(
+        chart_data=chart_data if chart_data is not None else market_chart_long_frame(rows),
+        range_band_data=forecast_range_band_frame(rows),
+        boundary_data=forecast_boundary_frame(rows),
+        latest_actual_data=latest_actual_price_frame(rows),
     )
 
 

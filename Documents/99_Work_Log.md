@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 Cockpit R2-C Forecast Altair chart renderer slice
+
+- `ui/cockpit_chart_renderer.py`を追加し、既存のmain price chart、forecast focus chart、range band、最新実績marker、forecast boundary、fixed palette、interactive legend、series click selectionを`CockpitMarketChartRenderContext`から組み立てるrendererへ移した。
+- `ui.app`は既存のchart row / range / boundary / latest-price frameを整形してcontextへ渡し、Streamlitの`altair_chart`だけをoutput portとして注入する。Forecast計算、予測値、通貨換算、chart row filter、色・幅・legend・tooltip・interaction、Score、Ranking、保存stateは変更していない。
+- controllerがAltair specを直接組み立てないことと、既存chart specの通貨軸、main / focus幅、ポイント、palette、legend、click selectionを回帰で固定した。local Streamlitの実Chromeでmock `AAPL`を再取得し、Forecast scope、表示通貨、Vega chart、個別model detailまで確認した。対象pytest 427件、全体pytest 2,487件（16 skipped）、`mypy .` 592ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 Cockpit R2-C Forecast chart orchestration slice
 
 - `CockpitForecastChartContext`へ既存`CockpitPresentationContext`、source currency、FX rows、latest close / dateを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_chart_and_details`へ移した。page componentがchart series選択、row filter、表示通貨、FX rate解決、通貨換算、chart、個別モデル詳細の既存順を保持して呼び出す。

@@ -309,6 +309,7 @@ from ui.cockpit_application import (
     CockpitPresentationContext,
     build_cockpit_research_context,
 )
+from ui.cockpit_chart_renderer import render_cockpit_market_chart
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_BETA_RISK_STANDARD_OR_LOWER,
@@ -11842,6 +11843,16 @@ def test_render_market_chart_can_shrink_legend_without_changing_palette(monkeypa
         param.get("select", {}).get("fields") == ["series_label"] for param in spec["params"]
     )
     assert any(param.get("select", {}).get("on") == "click" for param in spec["params"])
+
+
+def test_market_chart_controller_delegates_altair_spec_to_cockpit_renderer():
+    controller_source = inspect.getsource(_render_market_chart)
+    renderer_source = inspect.getsource(render_cockpit_market_chart)
+
+    assert "render_cockpit_market_chart(" in controller_source
+    assert "alt." not in controller_source
+    assert "alt.vconcat" in renderer_source
+    assert ".add_params(disabled_series)" in renderer_source
 
 
 def test_forecast_boundary_frame_marks_latest_actual_date():

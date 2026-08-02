@@ -290,6 +290,10 @@ chart描画、個別モデル詳細expanderの順を`CockpitForecastChartContext
 数値、Score、Ranking、保存state、表示順は変更していない。local Streamlitのmock `AAPL`で、
 chart scope controls、JPY切替、個別model cards / detail expanderまで実画面確認した。次のR2-C候補は
 実際のchart rendererと残存するForecast表示helperの、ページ責務と再利用presenterへの切り分けである。
+そのうち実chart rendererは`ui/cockpit_chart_renderer.py`へ移した。`ui.app`は既存rowからmain / focusの
+deterministic display frameを作り、rendererへcontextとStreamlit出力portを渡すだけにした。Altairの
+main / focus layout、range band、現在価格marker、境界線、色、legend、click selectionは同じspecとして
+回帰している。次は残存Forecast表示helperと旧chart data-shaping helperの再利用境界を整理する。
 
 The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
 The active structural track continues with R2-B Research / Decision Report context separation and

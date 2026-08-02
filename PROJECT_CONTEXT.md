@@ -350,6 +350,11 @@ façade. The public names remain available from `backend.research`, but importin
 longer imports the aggregate service until a legacy service export is requested. The import smoke
 fixes both this deferral and public compatibility.
 
+R3-B now also moves the deterministic local `ResearchInMemoryStore` into
+`backend/research/store.py`. Ingestion/index services keep their existing service contracts; the
+store preserves document dedupe, symbol normalization, chunk replacement, and sort order without
+provider or UI dependencies.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-B Research local-store slice
+
+- `ResearchInMemoryStore`をaggregate serviceから`backend/research/store.py`へ移した。document hash dedupe、symbol正規化、chunk置換、document / chunkのsort orderは既存contractのまま維持する。
+- Ingestion / index serviceは同じstore interfaceを使い続け、store moduleはProvider / UIをimportしない。package import smokeも、store公開と重いserviceの遅延読込を固定した。
+- Research package / service pytest 118件、対象Mypy 4ファイル、Ruff、Black、全体pytest 2,495件（16 skipped）、`mypy .` 600ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R5 Research lazy public-façade slice
 
 - `backend.research`のheavy service再exportをlazy façadeへ変更した。既存の公開class名は維持し、package import時にはaggregate `service`を読まず、必要なexportを要求した時点で初めて読み込む。

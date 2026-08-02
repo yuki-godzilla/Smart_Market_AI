@@ -84,6 +84,7 @@ from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
 )
+from backend.research.store import ResearchInMemoryStore
 from backend.research.summary_builders import (
     CompanyResearchSummaryBuilder,
     ETFResearchSummaryBuilder,
@@ -108,7 +109,6 @@ _LAZY_SERVICE_EXPORTS = frozenset(
         "ResearchHybridScorer",
         "ResearchIndexService",
         "ResearchIngestionService",
-        "ResearchInMemoryStore",
         "ResearchInMemoryVectorStore",
         "ResearchQueryExpansionService",
         "ResearchRetrievalService",

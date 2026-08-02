@@ -15,6 +15,9 @@ def test_research_package_defers_legacy_service_import_but_preserves_public_expo
             "assert 'backend.research.service' not in sys.modules; "
             "from backend.research import ResearchInMemoryStore; "
             "assert ResearchInMemoryStore.__name__ == 'ResearchInMemoryStore'; "
+            "assert 'backend.research.service' not in sys.modules; "
+            "from backend.research import ResearchAnalysisService; "
+            "assert ResearchAnalysisService.__name__ == 'ResearchAnalysisService'; "
             "assert 'backend.research.service' in sys.modules",
         ],
         cwd=project_root,

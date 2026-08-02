@@ -265,6 +265,10 @@ source収集はservice側に残し、既存contract値・citation順・fallback�
 分類済み候補から`IRSummaryItem`のmissing / found state、metadata、classification、evidence level、
 表示文言を組み立てる責務を`ir_summary.py`へ移した。
 
+R3-B初回sliceとして、local document / chunk保存を`ResearchInMemoryStore`として`store.py`へ分離した。
+Ingestion / index use caseは同じstore contractを使用し、document hash dedupe、symbol正規化、chunk置換、
+sort orderを維持する。storeはProvider / UIをimportしない。
+
 #### R3-A: summary builderを分割
 
 - 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。

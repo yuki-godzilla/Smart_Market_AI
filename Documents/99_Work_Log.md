@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R5 public API compatibility inventory
+
+- `Documents/47_Public_API_Compatibility.md`へResearch / Assistant / Newsの安定contract、互換façade、package import安全契約、削除条件、検証入口を記録した。
+- Researchの軽量direct exportとaggregate service遅延読込を現行実装として明記し、Assistant / Newsのrootを全面lazy化する判断はscenario・import graph・副作用確認を伴う別sliceへ残した。数値、Provider、UI挙動は変更していない。
+
 ## 2026-08-02 R6 module-size baseline gate slice
 
 - architecture baselineをschema v2へ更新し、backend→UI edge / eager cycleに加え、新規moduleの600行上限と既存超過moduleの現在値上限をCIでfail-closeにした。既存超過moduleも増加すれば同じgateで失敗する。

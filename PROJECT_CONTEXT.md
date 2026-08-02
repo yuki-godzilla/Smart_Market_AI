@@ -350,6 +350,11 @@ oversized modules are explicitly recorded at their current permitted size, so gr
 same deterministic CI check. The function-size detector and regression test are ready; enabling
 the 80-line default requires the remaining named legacy exceptions and their rationale.
 
+R5 public package compatibility is documented in `Documents/47_Public_API_Compatibility.md`.
+Research has lightweight direct exports plus the lazy aggregate-service façade; Assistant and News
+retain their broad compatibility roots until direct callers, scenario coverage, and import-side-effect
+evidence permit a separate migration.
+
 R5 has begun by converting heavyweight `backend.research.service` re-exports into a lazy package
 façade. The public names remain available from `backend.research`, but importing the package no
 longer imports the aggregate service until a legacy service export is requested. The import smoke

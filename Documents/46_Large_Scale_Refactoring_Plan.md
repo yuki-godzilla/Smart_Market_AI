@@ -302,6 +302,11 @@ neutral material toneを`ui/news_display_policy.py`へ移した。viewはrefresh
 user-scoped state、candidate生成、widgetを維持し、既存private名はcompatibility aliasで残す。
 ニュース取得・候補・順位・保存・表示文言の意味は変更していない。
 
+進捗（2026-08-02、R4-C初回slice）: Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、
+`ui/styles.py`は既存global bundleの前に同assetを順序固定で合成するloaderとした。selector順、
+最終CSS、既存`SMAI_GLOBAL_CSS` public valueは不変である。巨大な一括CSS rewriteは避け、以後も
+asset単位で移す。
+
 #### R4-A: Copilot
 
 - conversation state、command dispatch、Assistant gateway呼出し、response presenter、widget描画を分ける。

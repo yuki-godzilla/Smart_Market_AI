@@ -336,6 +336,10 @@ R4-B now isolates News/Radar display-only labels and neutral material tones in
 user-scoped state, candidate construction, and widgets; compatibility names retain existing view
 callers. Freshness/provenance/data-status/material labels and unknown fallbacks are unchanged.
 
+R4-C has begun with an ordered static CSS asset boundary: the Research AI CTA base asset now lives
+in `ui/style_assets.py`, and `ui/styles.py` composes it before the unchanged legacy global bundle.
+Selector order and rendered CSS remain identical; the loader stays at the Streamlit edge.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

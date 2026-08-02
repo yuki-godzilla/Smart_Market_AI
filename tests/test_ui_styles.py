@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ui.style_assets import SMAI_RESEARCH_AI_CTA_CSS
 from ui.styles import (
     CHART_COLORS,
     RANKING_GRID_CUSTOM_CSS,
@@ -44,6 +45,11 @@ def test_metric_card_html_uses_shared_card_classes_and_escapes_text():
     assert 'class="smai-card-help"' in markup
     assert "指標 &lt;説明&gt;" in markup
     assert 'class="smai-badge info"' in markup
+
+
+def test_research_ai_css_asset_precedes_the_legacy_global_bundle():
+    assert SMAI_GLOBAL_CSS.startswith(SMAI_RESEARCH_AI_CTA_CSS)
+    assert ".research-ai-cta--hero" in SMAI_RESEARCH_AI_CTA_CSS
 
 
 def test_global_css_defines_copilot_presence_and_insight_motion():

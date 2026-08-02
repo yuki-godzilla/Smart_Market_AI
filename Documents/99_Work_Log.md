@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-C CSS base-asset slice
+
+- Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、`ui/styles.py`は同assetを既存global bundleの前に順序固定で合成するloaderへ縮小した。selector順、最終CSS、既存`SMAI_GLOBAL_CSS` valueは変わらない。
+- CSS assetの順序と既存style / Watchlist関連のselector回帰を固定した。対象pytest 32件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,493件（16 skipped）、`mypy .` 598ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R4-B News/Radar display-policy slice
 
 - `ui/news_display_policy.py`へ、News / Radarの鮮度、候補由来、データ状態、材料分類labelとneutral material toneを移した。空値・未分類のfallbackも同じ表示を返す。

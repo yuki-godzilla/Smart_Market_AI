@@ -292,6 +292,11 @@ Research Score、Ranking順位、Forecast数値を一切変更していないこ
 - `ui/styles.py`のCSSをbase、component、page assetへ分け、loaderだけをPythonへ残す。
 - PC、iPhone、iPadのviewport回帰を各画面sliceで実行する。
 
+進捗（2026-08-02、R4-A初回slice）: profile / model catalogue、profile fallback、option matching、
+label変換を`ui/copilot_model_policy.py`へ分離した。このmoduleはStreamlit / Gatewayをimportせず、
+viewはcatalog・session state選択、runtime status、widgetを維持する。既存のview helperは薄い
+compatibility façadeとして残すため、Provider probe、timeout / fallback、conversation state、文言は不変である。
+
 #### R4-A: Copilot
 
 - conversation state、command dispatch、Assistant gateway呼出し、response presenter、widget描画を分ける。

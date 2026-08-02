@@ -106,6 +106,16 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
 )
+from ui.copilot_model_policy import (
+    COPILOT_LLM_MODEL_OPTIONS,
+    model_for_profile,
+    model_option_for_profile_model,
+    model_option_from_label,
+    model_option_label,
+    model_option_labels,
+    profile_for_model,
+    profile_model_matches_option,
+)
 from ui.copilot_runtime import (
     COPILOT_RUNTIME_STATUS_STATE_KEY,
     AssistantRuntimeStatus,
@@ -144,14 +154,6 @@ COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
 COPILOT_WARMUP_POLL_SECONDS = 2.0
-
-COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
-    ("notebook_dev", "qwen3:1.7b", "軽量・高速 / 短い相談向け / 低負荷"),
-    ("notebook_standard", "qwen3:4b", "標準 / 普段使い向け / 中低負荷"),
-    ("desktop_fast", "qwen3:8b", "バランス / 要約・確認向け / 中負荷"),
-    ("desktop_analysis", "qwen3:14b", "高精度 / 銘柄分析・RAG向け / 高負荷"),
-    ("desktop_heavy", "qwen3:30b", "最高精度 / 詳細分析・レポート向け / 高負荷"),
-)
 
 CopilotIntent = Literal[
     "app_help",
@@ -437,55 +439,35 @@ def _selected_llm_profile_model(gateway: AssistantGatewayConfig) -> tuple[str, s
 
 
 def _profile_for_model(model: str, *, fallback: str = "notebook_dev") -> str:
-    for profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
-        if option_model == model:
-            return profile
-    return fallback
+    """Compatibility façade; model policy remains Streamlit-independent."""
+
+    return profile_for_model(model, fallback=fallback)
 
 
 def _model_for_profile(profile: str) -> str:
-    for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile:
-            return option_model
-    return "qwen3:1.7b"
+    """Compatibility façade; model policy remains Streamlit-independent."""
+
+    return model_for_profile(profile)
 
 
 def _llm_model_option_label(profile: str, model: str, purpose: str) -> str:
-    return f"{profile} / {model} - {purpose}"
+    return model_option_label(profile, model, purpose)
 
 
 def _llm_model_option_labels() -> list[str]:
-    return [
-        _llm_model_option_label(profile, model, purpose)
-        for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS
-    ]
+    return model_option_labels()
 
 
 def _llm_model_option_from_label(label: str) -> tuple[str, str, str] | None:
-    for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if label == _llm_model_option_label(profile, model, purpose):
-            return profile, model, purpose
-    return None
+    return model_option_from_label(label)
 
 
 def _llm_profile_model_matches_option(profile: str, model: str) -> bool:
-    return any(
-        option_profile == profile and option_model == model
-        for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS
-    )
+    return profile_model_matches_option(profile, model)
 
 
 def _llm_model_option_for_profile_model(profile: str, model: str) -> tuple[str, str, str]:
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile and option_model == model:
-            return option_profile, option_model, purpose
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile:
-            return option_profile, option_model, purpose
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_model == model:
-            return option_profile, option_model, purpose
-    return COPILOT_LLM_MODEL_OPTIONS[0]
+    return model_option_for_profile_model(profile, model)
 
 
 def _render_model_selector(

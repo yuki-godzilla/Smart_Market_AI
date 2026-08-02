@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-A Copilot model-policy slice
+
+- `ui/copilot_model_policy.py`へ、固定profile / model catalogue、profile fallback、option matching、label変換を移した。Streamlit、Gateway、session stateをimportしないため、model選択policyを単体で検証できる。
+- `ui/views/copilot.py`はcatalog取得、session state採用、runtime status、widgetを保ち、既存のprivate helper importは薄いcompatibility façadeで維持する。Provider probe、timeout / fallback、会話state、表示文言は変更していない。
+- Copilot view pytest 69件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 596ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R3-A IR Research summary assembly slice
 
 - `backend/research/ir_summary.py`へ、分類済み候補と既存key pointから`IRSummaryItem`を組み立てる純粋処理を移した。未取得・取得済みのstate、title / source metadata、分類理由・confidence、evidence level、既存の表示文言を固定する。

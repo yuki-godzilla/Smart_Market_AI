@@ -19,6 +19,7 @@ from backend.assistant import (
 )
 from backend.core.config import Settings
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
+from ui.copilot_model_policy import model_option_for_profile_model
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     COPILOT_LLM_MODEL_OPTIONS,
@@ -426,6 +427,16 @@ def test_copilot_llm_model_option_normalizes_mismatched_profile_and_model():
     assert profile == "desktop_analysis"
     assert model == "qwen3:14b"
     assert purpose == "高精度 / 銘柄分析・RAG向け / 高負荷"
+
+
+def test_copilot_model_policy_has_no_gateway_or_streamlit_dependency():
+    profile, model, purpose = model_option_for_profile_model("unknown", "qwen3:30b")
+
+    assert (profile, model, purpose) == (
+        "desktop_heavy",
+        "qwen3:30b",
+        "最高精度 / 詳細分析・レポート向け / 高負荷",
+    )
 
 
 def test_copilot_llm_model_option_label_round_trips():

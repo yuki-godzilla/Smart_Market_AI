@@ -325,6 +325,12 @@ classifies IR candidates, and selects fact-derived key points; the pure builder 
 and found states, title/source metadata, classification reason/confidence, evidence level, and the
 established user-facing wording.
 
+R4-A has started with a Copilot model-policy boundary. `ui/copilot_model_policy.py` owns the static
+profile/model catalogue plus deterministic profile selection, fallback, matching, and label mapping;
+it imports neither Streamlit nor a Gateway. `ui/views/copilot.py` retains model-catalog/session
+selection, status publication, and widgets, while compatibility façades preserve its existing helper
+imports. Provider probing, timeout/fallback behavior, conversation state, and UI wording are unchanged.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

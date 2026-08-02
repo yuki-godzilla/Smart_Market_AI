@@ -269,7 +269,8 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - 通知センターは右上ユーザー入口から開く専用viewとし、sidebar非表示、summary、filter、sort、縦scroll card、Asset、detail、既読/archive、安全なCTAを提供する。
 - `SMAI_NOTIFICATION_DEBUG=1`の場合だけcatalog previewと手動生成を表示する。
 - schedulerは初期OFFのユーザー別設定、固定daily job registry、run claim、sanitized logを持つ。UI描画に依存せず`python -m backend.notifications.scheduler_runner`で常駐できる。
-- 現段階のscheduled dataはdeterministic sample/cache-shaped payloadである。favorite/news/sectorの実cache adapterとResearch/report完了event接続は次のN6 integrationで行う。
+- N6第1 sliceでは、schedulerだけがread-only adapterを通じてuser-scoped favorites / watchlist snapshotsとfresh News dashboard cacheを読む。該当データなし、stale、default user、未知templateはcatalog sampleへfallbackせず、run logを`skipped`として終了する。adapterはprovider refresh、cache write、score/ranking計算を行わない。
+- debug manual generatorはcatalog sampleを維持する。Research/report完了event接続とmeasured market-data adapterは後続N6 sliceで扱う。
 
 ## 10. 受け入れ条件
 

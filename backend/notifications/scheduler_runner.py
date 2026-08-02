@@ -8,6 +8,7 @@ from backend.notifications.gateway_adapter import (
     NotificationGatewayAdapter,
 )
 from backend.notifications.history_repository import NotificationHistoryRepository
+from backend.notifications.live_data import CachedNotificationDataSource
 from backend.notifications.producer import CatalogNotificationProducer
 from backend.notifications.scheduler import NotificationScheduler, NotificationScheduleRepository
 from backend.notifications.settings_repository import NotificationSettingsRepository
@@ -27,6 +28,7 @@ def run_once(database_path: str | None = None) -> int:
         schedules,
         CatalogNotificationProducer(history, settings),
         client_factory=lambda user_id: _client_for_user(settings, user_id),
+        data_source=CachedNotificationDataSource(),
     )
     return scheduler.run_due(users)
 

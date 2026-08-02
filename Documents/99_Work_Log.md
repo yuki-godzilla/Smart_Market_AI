@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification live-data first slice
+
+- scheduler runnerから、user-scoped profileのfavorites / watchlist snapshotsとfresh News dashboard cacheを読むread-only N6 adapterを接続した。Favorite daily/move/news、Investment News、Sector templateは実キャッシュ値を使い、default user・未登録・stale・該当なしはsampleへfallbackせずsanitized run logを`skipped`として残す。
+- adapterは外部取得、cache / profile書込み、score / Ranking変更を行わず、外部ntfy配送も既存の明示opt-in設定を通る場合だけである。Research/report完了eventとmeasured market-data adapterは未実装として残す。
+
 ## 2026-08-02 R4/R5 closeout and full-screen responsive verification
 
 - Cockpit、Ranking、Radar、Watchlist、Assistant、Rebalance、Settingsを実browserで確認し、PC実画面では例外0・横スクロール0、responsive smokeではiPhone / iPad / PCの横幅・主要操作領域・modal / chart / fallbackを確認した。

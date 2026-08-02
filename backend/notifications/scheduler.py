@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Callable
 
 from backend.notifications.catalog import NOTIFICATION_TEMPLATES
+from backend.notifications.live_data import NotificationDataSource
 from backend.notifications.notification_client import NotificationClient
 from backend.notifications.producer import CatalogNotificationProducer
 from backend.notifications.settings_repository import (
@@ -162,10 +163,12 @@ class NotificationScheduler:
         schedules: NotificationScheduleRepository,
         producer: CatalogNotificationProducer,
         client_factory: Callable[[str], NotificationClient | None] | None = None,
+        data_source: NotificationDataSource | None = None,
     ) -> None:
         self.schedules = schedules
         self.producer = producer
         self.client_factory = client_factory
+        self.data_source = data_source
 
     def run_due(self, user_ids: list[str], *, now: datetime | None = None) -> int:
         current = now or datetime.now().astimezone()
@@ -187,10 +190,20 @@ class NotificationScheduler:
                 slot = current.strftime("%Y-%m-%dT%H:%M")
                 if not self.schedules.claim(job.job_id, user_id, slot):
                     continue
+                values: dict[str, str] | None = None
+                if self.data_source is not None:
+                    source_values = self.data_source.values_for(job.template_id, user_id=user_id)
+                    if source_values.values is None:
+                        self.schedules.finish(
+                            job.job_id, user_id, slot, "skipped", source_values.reason
+                        )
+                        continue
+                    values = dict(source_values.values)
                 try:
                     item = self.producer.produce(
                         job.template_id,
                         user_id=user_id,
+                        values=values,
                         dedupe_key=f"{job.template_id}:{user_id}:{slot}",
                         now=current.astimezone(UTC),
                         client=self.client_factory(user_id) if self.client_factory else None,

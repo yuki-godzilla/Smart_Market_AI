@@ -11,6 +11,7 @@ from backend.research import (
     ResearchSummaryPoint,
 )
 from ui import app as app_module
+from ui.cockpit_application import build_cockpit_summary_context
 from ui.content.research_texts import (
     RESEARCH_COCKPIT_SECTION_TITLE,
     RESEARCH_FETCH_BUTTON_LABEL,
@@ -24,6 +25,7 @@ from ui.views.cockpit import (
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
     render_cockpit_research_operation_card,
+    render_cockpit_summary,
     research_evidence_summary_items,
 )
 
@@ -91,6 +93,37 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
     assert "今回: 強め" in cards[1]["caption"]
     assert cards[2]["caption"] == "確認優先"
     assert "今回: 低め" in cards[3]["caption"]
+
+
+def test_render_cockpit_summary_uses_one_typed_context_without_recalculating_scores(monkeypatch):
+    context = build_cockpit_summary_context(
+        symbol="7203.T",
+        name="Toyota Motor",
+        provider="yahoo",
+        as_of="2026-08-02",
+        reference_period_days=90,
+        forecast_horizon_days=21,
+        score_row={"総合スコア": "72", "上昇気配": "76", "データ品質": "95"},
+        symbol_metadata={"asset_type": "stock", "region": "japan"},
+    )
+    calls: list[object] = []
+
+    monkeypatch.setattr(
+        "ui.views.cockpit.render_cockpit_summary_header",
+        lambda items, *, header_action: calls.append(("header", items, header_action)),
+    )
+    monkeypatch.setattr(
+        "ui.views.cockpit.render_cockpit_kpi_cards",
+        lambda cards: calls.append(("kpis", cards)),
+    )
+
+    result = render_cockpit_summary(context)
+
+    assert result == context.score_row
+    assert result is not context.score_row
+    assert [call[0] for call in calls] == ["header", "kpis"]
+    assert calls[0][1][0]["value"] == "7203.T"
+    assert [card["value"] for card in calls[1][1]][:2] == ["72", "76"]
 
 
 def test_cockpit_result_flow_prioritizes_research_and_consolidates_details():

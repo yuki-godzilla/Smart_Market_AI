@@ -511,14 +511,11 @@ from ui.upward_signal import upward_signal_display_label
 from ui.views.cockpit import (
     cockpit_direction_signal_detail_rows,
     cockpit_direction_signal_summary,
-    cockpit_kpi_cards,
-    cockpit_summary_items,
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
-    render_cockpit_kpi_cards,
     render_cockpit_research_operation_card,
     render_cockpit_research_result,
-    render_cockpit_summary_header,
+    render_cockpit_summary,
 )
 from ui.views.common import (
     _optional_decimal_from_text,
@@ -12621,16 +12618,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         score_row=score_display_rows[0] if score_display_rows else None,
         symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
     )
-    summary_items = cockpit_summary_items(
-        symbol=summary_context.symbol,
-        name=summary_context.name,
-        provider=summary_context.provider,
-        as_of=summary_context.as_of,
-        reference_period_days=summary_context.reference_period_days,
-        forecast_horizon_days=summary_context.forecast_horizon_days,
-        score_row=summary_context.score_row,
-        symbol_metadata=summary_context.symbol_metadata,
-    )
 
     def render_cockpit_favorite_action() -> None:
         if symbol:
@@ -12646,17 +12633,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 prominent=True,
             )
 
-    render_cockpit_summary_header(
-        summary_items,
+    score_row = render_cockpit_summary(
+        summary_context,
         header_action=render_cockpit_favorite_action if symbol else None,
     )
     _render_favorite_next_action_hint()
     research_context = _cockpit_research_context(preview)
-    score_row = _render_investment_score_section(
-        preview,
-        presentation.symbol_label,
-        rows=score_display_rows,
-    )
     if score_row is not None:
         _render_cockpit_direction_signal_section(score_row, presentation.display.consensus_rows)
     _render_price_forecast_hero(preview, presentation)
@@ -18169,26 +18151,6 @@ def _forecast_model_logic_help(model: str) -> str:
             "チャートの点線は過去の各時点でも同じ基準を置くため、価格の流れの中では下がって見える区間があります。"
         )
     return "価格データから作った予測モデルです。予測値は投資判断ではなく、比較用の参考材料です。"
-
-
-def _render_investment_score_section(
-    preview: MarketDataPreview,
-    symbol_label: str,
-    *,
-    rows: list[dict[str, str]] | None = None,
-) -> dict[str, str] | None:
-    _ = preview
-    _ = symbol_label
-    rows = (
-        rows if rows is not None else investment_score_display_rows(preview.investment_score_rows)
-    )
-    if not rows:
-        st.info(EMPTY_STATE_MESSAGES["investment_score_rows"])
-        return None
-
-    row = rows[0]
-    render_cockpit_kpi_cards(cockpit_kpi_cards(row))
-    return row
 
 
 def _render_cockpit_direction_signal_section(

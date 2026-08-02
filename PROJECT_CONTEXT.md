@@ -277,6 +277,13 @@ The current presenter slice adds `CockpitPresentationContext`, so the hero and t
 presenters consume the same symbol label and display model rather than independent row arguments.
 Summary, Research, report, and interactive rendering remain at the UI edge.
 
+続くR2-C Summary page sliceでは、`CockpitSummaryContext`を一つのtyped inputとして
+`ui/views/cockpit.py`へ渡すようにした。page componentがheader item組立、header / KPI描画、empty
+state、既存score rowの後続hand-offを担当し、`ui.app`にはcontext解決とお気に入りaction注入だけを残す。
+Score値、Forecast、Ranking、保存state、section順、お気に入り挙動は変更していない。local Streamlitの
+mock `AAPL` Cockpitでsummaryと価格・Forecast sectionまでを実画面確認し、SMAIの画面例外がないことを
+確認した。残るCockpit価格・Forecast heroが次のR2表示境界候補である。
+
 The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
 The active structural track continues with R2-B Research / Decision Report context separation and
 R2-C presenter / page closeout, then R3 Research use cases, R4 Copilot / News / CSS, R5 package API

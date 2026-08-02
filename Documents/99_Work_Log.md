@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 Cockpit R2-C Summary page component slice
+
+- `CockpitSummaryContext`を`ui/views/cockpit.py`へ一つのtyped inputとして渡す`render_cockpit_summary`を追加した。header item組立、header / KPI描画、score未取得時のempty state、既存score rowの後続hand-offをpage componentへ移し、`ui.app`はcontext解決とお気に入りaction注入だけを持つ。
+- Score、Forecast、Ranking、保存state、section順、favorite挙動は変更していない。summary内の数値は既存`score_row`を再計算せず、そのままcopyして後続の判断シグナル・Score Breakdownへ渡す。
+- local Streamlitの実Chromeでmock `AAPL`を取得し、Cockpit header、KPI、判断シグナル、価格・AI予測まで表示し、SMAIの画面例外がないことを確認した。対象pytest 422件、全体pytest 2,482件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 PR CI Mypy contract修復
 
 - GitHub Actionsでpytest開始前に停止していたMypy 27件を修復した。Ranking build serviceのtest double、Ranking pipelineの進捗・Forecast入力、LLM起動testのcallback、Streamlit session stateとRanking builder / provider-error callbackの境界を、実行時の振る舞いを変えずに宣言済みcontractへ整合させた。

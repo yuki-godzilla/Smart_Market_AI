@@ -9,7 +9,7 @@ import streamlit as st
 
 from backend.reporting import DecisionReportContext
 from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
-from ui.cockpit_application import CockpitDecisionReportRenderContext
+from ui.cockpit_application import CockpitDecisionReportRenderContext, CockpitSummaryContext
 from ui.cockpit_decision_report_presenter import (
     CockpitDecisionReportDetailModel,
     cockpit_decision_report_overview_card_html,
@@ -22,7 +22,7 @@ from ui.content.cockpit_texts import (
     COCKPIT_FORECAST_RETURN_EVALUATION_TABLE,
     COCKPIT_SCORE_EVALUATION_TABLE,
 )
-from ui.content.common_texts import DECISION_REPORT_SUPPORT_MESSAGE
+from ui.content.common_texts import DECISION_REPORT_SUPPORT_MESSAGE, EMPTY_STATE_MESSAGES
 from ui.content.score_texts import score_text_key
 from ui.styles import (
     badge_html,
@@ -715,6 +715,31 @@ def render_cockpit_summary_header(
                 unsafe_allow_html=True,
             )
             header_action()
+
+
+def render_cockpit_summary(
+    context: CockpitSummaryContext,
+    *,
+    header_action: Callable[[], None] | None = None,
+) -> dict[str, str] | None:
+    """Render the typed Cockpit summary and return its existing score row unchanged."""
+
+    items = cockpit_summary_items(
+        symbol=context.symbol,
+        name=context.name,
+        provider=context.provider,
+        as_of=context.as_of,
+        reference_period_days=context.reference_period_days,
+        forecast_horizon_days=context.forecast_horizon_days,
+        score_row=context.score_row,
+        symbol_metadata=context.symbol_metadata,
+    )
+    render_cockpit_summary_header(items, header_action=header_action)
+    if context.score_row is None:
+        st.info(EMPTY_STATE_MESSAGES["investment_score_rows"])
+        return None
+    render_cockpit_kpi_cards(cockpit_kpi_cards(context.score_row))
+    return dict(context.score_row)
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:

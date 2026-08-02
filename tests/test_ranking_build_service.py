@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import date
+from typing import cast
 
 import pytest
 
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
-from backend.investment_candidates.service import RankingBuildService
+from backend.investment_candidates.service import (
+    MaintenanceOperationFactory,
+    MarketDataRankingBuilder,
+    RankingBuildPreflight,
+    RankingBuildService,
+)
 
 
 def _request() -> RankingBuildRequest:
@@ -35,9 +41,9 @@ def test_ranking_build_service_reuses_completed_cache_without_market_data() -> N
     service = RankingBuildService(
         read_cache=lambda _key: ([{"symbol": "7203.T"}], [{"symbol": "AAPL"}]),
         write_cache=lambda key, *, rows, error_rows: writes.append((key, rows, error_rows)),
-        preflight=fail_preflight,
-        build_market_data=fail_build,
-        maintenance_operation=fail_maintenance,
+        preflight=cast(RankingBuildPreflight, fail_preflight),
+        build_market_data=cast(MarketDataRankingBuilder, fail_build),
+        maintenance_operation=cast(MaintenanceOperationFactory, fail_maintenance),
     )
 
     result = service.execute(_request(), lambda message, ratio: progress.append((message, ratio)))
@@ -79,9 +85,9 @@ def test_ranking_build_service_runs_preflight_then_market_data_under_guards() ->
     service = RankingBuildService(
         read_cache=lambda _key: None,
         write_cache=lambda key, *, rows, error_rows: writes.append((key, rows, error_rows)),
-        preflight=preflight,
-        build_market_data=build,
-        maintenance_operation=maintenance,
+        preflight=cast(RankingBuildPreflight, preflight),
+        build_market_data=cast(MarketDataRankingBuilder, build),
+        maintenance_operation=cast(MaintenanceOperationFactory, maintenance),
     )
     progress: list[tuple[str, float]] = []
 
@@ -117,8 +123,8 @@ def test_ranking_build_service_does_not_publish_failed_market_data_result() -> N
         read_cache=lambda _key: None,
         write_cache=lambda *args, **kwargs: writes.append((args, kwargs)),
         preflight=lambda _request: None,
-        build_market_data=fail_build,
-        maintenance_operation=maintenance,
+        build_market_data=cast(MarketDataRankingBuilder, fail_build),
+        maintenance_operation=cast(MaintenanceOperationFactory, maintenance),
     )
 
     with pytest.raises(RuntimeError, match="provider response"):

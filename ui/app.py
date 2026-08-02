@@ -156,6 +156,7 @@ from ui.cockpit_application import (
     CockpitPreviewSessionKeys,
     CockpitResearchContext,
     CockpitResearchRefreshResult,
+    CockpitSessionState,
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
@@ -8220,7 +8221,7 @@ def _render_market_data_cockpit() -> None:
             return
 
         adopt_cockpit_preview(
-            st.session_state,
+            cast(CockpitSessionState, st.session_state),
             preview=preview,
             keys=_cockpit_preview_session_keys(),
         )
@@ -8997,7 +8998,7 @@ def _ranking_missing_items(row: DailySnapshot) -> str:
     return ", ".join(feature for feature, is_missing in sorted(row.missing.items()) if is_missing)
 
 
-def _latest_volume_by_symbol(bars_by_symbol: dict[str, list[Bar]]) -> dict[str, str]:
+def _latest_volume_by_symbol(bars_by_symbol: Mapping[str, list[Bar]]) -> dict[str, str]:
     volumes: dict[str, str] = {}
     for symbol, bars in bars_by_symbol.items():
         if not bars:
@@ -9539,9 +9540,11 @@ async def _build_market_data_ranking_rows(
     end: date,
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
+    include_advanced_forecast: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Compatibility façade for the Streamlit-independent build pipeline."""
 
+    del include_advanced_forecast  # Compatibility parameter; this facade always applies its pipeline policy.
     pipeline = MarketDataRankingPipeline(
         is_live_provider=lambda candidate: candidate in LIVE_MARKET_DATA_PROVIDERS,
         live_cohort_size=RANKING_PIPELINE_COHORT_SIZE,
@@ -9568,6 +9571,7 @@ async def _build_large_market_data_ranking_rows(
     end: date,
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
+    include_advanced_forecast: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Build large live rankings in bounded cohorts to cap peak memory."""
 
@@ -9633,6 +9637,8 @@ async def _build_large_market_data_ranking_rows(
         _release_ranking_cohort_cache(provider, sorted(releasable_symbols))
         retained_cache_symbols = next_retained_symbols
     _report_ranking_progress(progress_callback, "ランキングをまとめています。", 0.99)
+    if not include_advanced_forecast:
+        return rank_investment_score_rows(rows), error_rows
     ranked_rows = await enrich_large_ranking_with_advanced_forecast(
         rows,
         candidate_limit=RANKING_ADVANCED_FORECAST_CANDIDATE_LIMIT,
@@ -10195,7 +10201,7 @@ def _render_ranking_background_job(cache_key: str) -> None:
     adopted = adopt_completed_ranking_job(
         job,
         cache_key=cache_key,
-        session_state=st.session_state,
+        session_state=cast(MutableMapping[str, Any], st.session_state),
         session_keys=RankingJobSessionKeys(
             rows=MARKET_DATA_RANKING_STATE_KEY,
             error_rows=MARKET_DATA_RANKING_ERROR_STATE_KEY,
@@ -10562,6 +10568,7 @@ async def _build_market_data_ranking_rows_from_previews(
     end: date,
     provider: str,
     progress_callback: RankingProgressCallback | None = None,
+    include_advanced_forecast: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     rows: list[dict[str, str]] = []
     error_rows: list[dict[str, str]] = []
@@ -10647,7 +10654,10 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state.pop("market_data_symbol_search", None)
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state["market_data_ranking_handoff_symbol"] = symbol.strip().upper()
-    clear_cockpit_preview(st.session_state, keys=_cockpit_preview_session_keys())
+    clear_cockpit_preview(
+        cast(CockpitSessionState, st.session_state),
+        keys=_cockpit_preview_session_keys(),
+    )
     _clear_ranking_deep_dive_state()
 
 
@@ -10679,7 +10689,10 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
         "source_label": "投資レーダー",
         "symbol": symbol.strip().upper(),
     }
-    clear_cockpit_preview(st.session_state, keys=_cockpit_preview_session_keys())
+    clear_cockpit_preview(
+        cast(CockpitSessionState, st.session_state),
+        keys=_cockpit_preview_session_keys(),
+    )
 
 
 def _fetch_news_radar_market_snapshot(

@@ -280,6 +280,10 @@ def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:
 def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypatch) -> None:
     started: list[bool] = []
 
+    def start_local_llm_startup() -> bool:
+        started.append(True)
+        return True
+
     @contextmanager
     def no_lock(*_args, **_kwargs):
         yield
@@ -288,7 +292,7 @@ def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypa
     monkeypatch.setattr("backend.server_ops.launcher.is_port_listening", lambda **_kwargs: False)
     monkeypatch.setattr(
         "backend.server_ops.launcher.start_local_llm_startup_in_background",
-        lambda: started.append(True) or True,
+        start_local_llm_startup,
     )
     monkeypatch.setattr(
         "backend.server_ops.launcher.supervise_streamlit", lambda *_args, **_kwargs: 0

@@ -44,13 +44,21 @@ def test_startup_launches_missing_local_services_then_warms_model(monkeypatch) -
     launched: list[tuple[list[str], object]] = []
     warmed: list[LocalLlmStartupConfig] = []
 
+    def launch(command: list[str], cwd: object, _environment: object) -> bool:
+        launched.append((command, cwd))
+        return True
+
+    def warm_model(received: LocalLlmStartupConfig) -> bool:
+        warmed.append(received)
+        return True
+
     result = run_local_llm_startup(
         config,
         environ={},
         probe=lambda _url: False,
         wait_until_ready=lambda _url: True,
-        launch=lambda command, cwd, _environment: launched.append((command, cwd)) or True,
-        warm_model=lambda received: warmed.append(received) or True,
+        launch=launch,
+        warm_model=warm_model,
     )
 
     assert result.ollama_started is True
@@ -72,10 +80,14 @@ def test_startup_leaves_remote_provider_and_model_warmup_untouched() -> None:
     )
     launched: list[list[str]] = []
 
+    def launch(command: list[str], _cwd: object, _environment: object) -> bool:
+        launched.append(command)
+        return True
+
     result = run_local_llm_startup(
         config,
         probe=lambda _url: (_ for _ in ()).throw(AssertionError("remote probe")),
-        launch=lambda command, _cwd, _environment: launched.append(command) or True,
+        launch=launch,
         warm_model=lambda _config: (_ for _ in ()).throw(AssertionError("remote warmup")),
     )
 

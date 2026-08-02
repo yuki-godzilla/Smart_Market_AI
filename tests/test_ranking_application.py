@@ -264,7 +264,7 @@ def test_market_data_ranking_pipeline_uses_live_cohorts_above_limit() -> None:
         build_previews=unexpected_builder,
         provider_error_rows=lambda _provider, _symbols, _exc: [],
         app_error_type=RuntimeError,
-        report_progress=lambda _message, _ratio: None,
+        report_progress=lambda _callback, _message, _ratio: None,
     )
 
     rows, errors = asyncio.run(

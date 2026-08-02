@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
+from typing import cast
 
+from backend.core.data_contracts import Bar
+from backend.forecast.service import ForecastConsensus
 from ui.ranking_market_data import (
     acquire_ranking_fundamental_inputs,
     acquire_ranking_market_data_inputs,
@@ -130,7 +134,7 @@ def test_feature_input_stage_preserves_builder_rows_provider_and_summaries() -> 
 def test_forecast_input_stage_preserves_consensus_and_progress_cadence() -> None:
     progress: list[tuple[str, float]] = []
     evaluation_calls: list[tuple[list[object], int]] = []
-    bars_by_symbol = {symbol: [object()] for symbol in ["AAA", "BBB", "CCC"]}
+    bars_by_symbol = {symbol: [cast(Bar, object())] for symbol in ["AAA", "BBB", "CCC"]}
     symbols_by_history_id = {id(bars[0]): symbol for symbol, bars in bars_by_symbol.items()}
 
     def build_evaluations(history, *, horizon_days):
@@ -163,7 +167,7 @@ def test_forecast_input_stage_preserves_consensus_and_progress_cadence() -> None
 
 
 def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
-    events: list[object] = []
+    events: list[tuple[object, ...]] = []
     feature_snapshot = build_ranking_feature_inputs(
         [],
         as_of=date(2026, 7, 20),
@@ -177,7 +181,7 @@ def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
         build_missing_summary=lambda _rows: {},
         build_quality_summary=lambda _rows: {},
     ).feature_snapshot
-    consensus = {"AAA": SimpleNamespace(symbol="AAA")}
+    consensus = {"AAA": cast(ForecastConsensus, SimpleNamespace(symbol="AAA"))}
 
     def score_screening(snapshot, *, forecast_consensus_by_symbol):
         events.append(("screening", snapshot, forecast_consensus_by_symbol))
@@ -193,7 +197,7 @@ def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
 
     result = build_ranking_score_inputs(
         feature_snapshot,
-        forecast_consensus_by_symbol=consensus,
+        forecast_consensus_by_symbol=cast(Mapping[str, ForecastConsensus], consensus),
         score_screening=score_screening,
         score_investment=score_investment,
         build_investment_rows=build_rows,
@@ -206,7 +210,7 @@ def test_score_input_stage_preserves_service_order_consensus_and_rows() -> None:
 
 
 def test_presentation_input_stage_enriches_then_sorts_existing_rows() -> None:
-    events: list[object] = []
+    events: list[tuple[object, ...]] = []
 
     def enrich_feature(rows, feature_rows, **kwargs):
         events.append(("feature", rows, feature_rows, kwargs))
@@ -236,7 +240,8 @@ def test_presentation_input_stage_enriches_then_sorts_existing_rows() -> None:
     )
 
     assert [event[0] for event in events] == ["feature", "advanced", "sort"]
-    assert events[0][3]["latest_volume_by_symbol"] == {"AAA": "100"}
+    feature_event = cast(tuple[object, object, object, dict[str, object]], events[0])
+    assert feature_event[3]["latest_volume_by_symbol"] == {"AAA": "100"}
     assert result.ranked_rows == [
         {"symbol": "BBB", "feature": "ready", "advanced": ""},
         {"symbol": "AAA", "feature": "ready", "advanced": "up"},

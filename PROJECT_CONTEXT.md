@@ -330,11 +330,11 @@ the context-summary table are page responsibilities; the app supplies existing r
 rendering adapters. Section order, expansion defaults, evidence-card limit, wording, source meaning,
 and numerical calculations are unchanged.
 
-The current PR CI is failing at Mypy before pytest. The 2026-08-01 runs report 27 existing type errors
-in six files, principally Ranking application test adapters and pre-existing Streamlit session / builder
-protocol variance in `ui/app.py`; the failure is present on commit `1b5aa26` before this R2-B slice.
-Targeted Mypy for `ui/cockpit_application.py` and its tests passes. The failure requires a separately
-scoped CI type-cleanup decision and must not be presented as evidence against the R2-B behavior tests.
+The PR CI type-cleanup is complete. The 27 Mypy errors reported by the 2026-08-01 runs in six files
+were resolved by aligning Ranking test doubles, Streamlit session-state boundaries, and Ranking builder /
+error callback protocols with their declared contracts. Ranking calculations, ordering, provider behavior,
+and saved state semantics are unchanged. The CI-equivalent local verification now passes: 2,481 tests
+(16 skipped), `mypy .` across 591 source files, Ruff, Black, and the architecture audit.
 
 Strategy references:
 

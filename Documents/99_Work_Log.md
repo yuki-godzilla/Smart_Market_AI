@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 PR CI Mypy contract修復
+
+- GitHub Actionsでpytest開始前に停止していたMypy 27件を修復した。Ranking build serviceのtest double、Ranking pipelineの進捗・Forecast入力、LLM起動testのcallback、Streamlit session stateとRanking builder / provider-error callbackの境界を、実行時の振る舞いを変えずに宣言済みcontractへ整合させた。
+- large-cohort Ranking builderは既存の`include_advanced_forecast`契約を受け取り、無効時は高度Forecastの表示補強を省いて従来のInvestment Score順を返す。通常経路の高度Forecast補強、Ranking数値・順位、Provider、保存形式は不変とした。
+- 対象pytest 436件、全体pytest 2,481件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-07-22 Cockpit application flow R2 presenter context
 
 - `CockpitPresentationContext`を追加し、symbol labelと`CockpitDisplayModel`を価格・AI予測heroと

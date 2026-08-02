@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-B News user-state boundary slice
+
+- Radar の user-scoped transient state の採用・消去規則を `ui/news_state.py` へ分離し、view は Streamlit session adapter に限定した。
+- user切替時の Radar / filter / refresh state消去と、同一userでの保持を回帰で固定した。Watchlist、news cache、候補・順位・数値ロジックは変更していない。
+
 ## 2026-08-02 R4-C CSS base-token boundary slice
 
 - global colour、semantic signal、chart、table、button、surface、layout、後方互換CSS variableを`SMAI_BASE_TOKEN_CSS`へ移した。global style loaderはCTA、base token、legacy bundleの既存順で合成する。

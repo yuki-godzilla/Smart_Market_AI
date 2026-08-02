@@ -11,6 +11,7 @@ from backend.news import (
     build_news_dashboard_snapshot,
 )
 from ui.news_display_policy import freshness_label, material_label
+from ui.news_state import ensure_news_radar_user_scope
 from ui.views import news as news_module
 from ui.views.news import (
     _news_ticker_html,
@@ -688,6 +689,24 @@ def test_radar_transient_state_resets_when_active_user_changes(monkeypatch):
         for key in session_state
     )
     assert news_module.NEWS_DASHBOARD_WATCHLIST_STATE_KEY not in session_state
+
+
+def test_news_state_scope_helper_keeps_matching_user_state():
+    session_state: dict[str, object] = {
+        "investment_radar_session_owner_user_id": "local_user",
+        "investment_radar_selected_candidate_id": "radar:direct_mention:NVDA",
+    }
+
+    assert (
+        ensure_news_radar_user_scope(
+            session_state,
+            user_id="local_user",
+            refresh_state_key="refresh",
+            watchlist_state_key="watchlist",
+        )
+        is False
+    )
+    assert session_state["investment_radar_selected_candidate_id"] == "radar:direct_mention:NVDA"
 
 
 def test_rerun_with_radar_candidate_detail_requeues_explicit_dialog_request(monkeypatch):

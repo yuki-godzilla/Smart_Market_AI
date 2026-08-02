@@ -342,6 +342,10 @@ neutral material toneを`ui/news_display_policy.py`へ移した。viewはrefresh
 user-scoped state、candidate生成、widgetを維持し、既存private名はcompatibility aliasで残す。
 ニュース取得・候補・順位・保存・表示文言の意味は変更していない。
 
+進捗（2026-08-02、R4-B user-state slice）: Radar一時stateのuser scope採用・消去規則を
+`ui/news_state.py`へ移した。viewはStreamlit sessionと現在userを渡す薄いadapterを維持し、user切替時だけ
+Radar / filter / refreshの一時値を破棄する。永続Watchlist・news cache・unrelated session値は変更しない。
+
 進捗（2026-08-02、R4-C初回slice）: Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、
 `ui/styles.py`は既存global bundleの前に同assetを順序固定で合成するloaderとした。selector順、
 最終CSS、既存`SMAI_GLOBAL_CSS` public valueは不変である。巨大な一括CSS rewriteは避け、以後も

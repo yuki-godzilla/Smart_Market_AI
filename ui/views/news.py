@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 import os
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import cast
@@ -57,6 +57,13 @@ from ui.news_display_policy import (
     freshness_label,
     material_label,
 )
+from ui.news_state import (
+    NEWS_RADAR_SESSION_OWNER_STATE_KEY as _NEWS_RADAR_SESSION_OWNER_STATE_KEY,
+)
+from ui.news_state import (
+    clear_news_radar_user_transient_state,
+    ensure_news_radar_user_scope,
+)
 from ui.notification_center import START_PROFILE_QUERY_KEY
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
@@ -86,8 +93,8 @@ NEWS_RADAR_CANDIDATE_STATE_KEY = "investment_radar_selected_candidate_id"
 NEWS_RADAR_CANDIDATE_DIALOG_REQUEST_STATE_KEY = "investment_radar_candidate_detail_request_id"
 NEWS_RADAR_EVIDENCE_BUNDLES_STATE_KEY = "investment_radar_evidence_bundles"
 NEWS_RADAR_INTERPRETATIONS_STATE_KEY = "investment_radar_interpretations"
-NEWS_RADAR_SESSION_OWNER_STATE_KEY = "investment_radar_session_owner_user_id"
 NEWS_RADAR_CANDIDATE_INITIAL_LANE_LIMIT = 4
+NEWS_RADAR_SESSION_OWNER_STATE_KEY = _NEWS_RADAR_SESSION_OWNER_STATE_KEY
 NEWS_RADAR_CANDIDATE_QUICK_DIRECT_ONLY_KEY = "investment_radar_candidate_quick_direct_only"
 NEWS_RADAR_CANDIDATE_QUICK_WATCHLIST_ONLY_KEY = "investment_radar_candidate_quick_watchlist_only"
 NEWS_RADAR_CANDIDATE_QUICK_UNCHECKED_ONLY_KEY = "investment_radar_candidate_quick_unchecked_only"
@@ -414,29 +421,22 @@ _HEATMAP_SYMBOL_SHORT_NAMES = {
 def _clear_news_radar_user_transient_state() -> None:
     """Clear page-local transient state when the active local user changes."""
 
-    removable_keys = (
-        NEWS_DASHBOARD_REFRESH_STATE_KEY,
-        NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
-        "investment_news_watchlist_source",
+    clear_news_radar_user_transient_state(
+        cast(MutableMapping[str, object], st.session_state),
+        refresh_state_key=NEWS_DASHBOARD_REFRESH_STATE_KEY,
+        watchlist_state_key=NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
     )
-    for key in tuple(st.session_state):
-        name = str(key)
-        if (
-            name.startswith("investment_radar_")
-            or name.startswith("investment_news_filter_")
-            or name in removable_keys
-        ):
-            st.session_state.pop(key, None)
 
 
 def _ensure_news_radar_user_scope() -> None:
     """Prevent one local profile's transient Radar state from appearing in another."""
 
-    active_user_id = current_user_id() or "default"
-    if st.session_state.get(NEWS_RADAR_SESSION_OWNER_STATE_KEY) == active_user_id:
-        return
-    _clear_news_radar_user_transient_state()
-    st.session_state[NEWS_RADAR_SESSION_OWNER_STATE_KEY] = active_user_id
+    ensure_news_radar_user_scope(
+        cast(MutableMapping[str, object], st.session_state),
+        user_id=current_user_id() or "default",
+        refresh_state_key=NEWS_DASHBOARD_REFRESH_STATE_KEY,
+        watchlist_state_key=NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
+    )
 
 
 def render_news_dashboard_page(

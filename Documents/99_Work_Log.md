@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-A Copilot conversation-content boundary slice
+
+- six entry conversation preset、`CopilotIntent`、immutable preset contractを`ui/copilot_conversation_content.py`へ分離し、viewから同名importを再公開して既存call siteを維持した。
+- preset順、表示文言、初期質問、prompt instruction、fallbackをdirect content importとview façadeの同値回帰で固定した。Gateway呼出し、timeout、session state、LLM設定、数値ロジックは変更していない。
+
 ## 2026-08-02 R6 function-size baseline gate closeout
 
 - `architecture-baseline-v2`へ80行の新規function上限と、既存超過functionごとの名前・現在値上限を追加した。新規超過と許可済みlegacy functionの成長はいずれもCIでfail-closeになり、例外はbaseline差分として明示レビューされる。

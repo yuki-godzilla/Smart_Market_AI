@@ -331,6 +331,11 @@ it imports neither Streamlit nor a Gateway. `ui/views/copilot.py` retains model-
 selection, status publication, and widgets, while compatibility façades preserve its existing helper
 imports. Provider probing, timeout/fallback behavior, conversation state, and UI wording are unchanged.
 
+The six entry conversation presets, their intent type, and immutable preset contract now live in
+`ui/copilot_conversation_content.py`. The view re-exports those names for existing callers and keeps
+context selection, dispatch, Gateway interaction, session state, and widgets at the UI edge. Prompt
+instructions, questions, order, and fallback behavior are regression-tested as unchanged.
+
 R4-B now isolates News/Radar display-only labels and neutral material tones in
 `ui/news_display_policy.py`. The News view keeps refresh controls, cache/provider operations,
 user-scoped state, candidate construction, and widgets; compatibility names retain existing view

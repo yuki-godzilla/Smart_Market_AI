@@ -19,6 +19,7 @@ from backend.assistant import (
 )
 from backend.core.config import Settings
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
+from ui.copilot_conversation_content import copilot_conversation_presets as content_presets
 from ui.copilot_model_policy import model_option_for_profile_model
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
@@ -387,6 +388,8 @@ def test_copilot_routes_concept_and_broad_discovery_without_forcing_stock_analys
 
 def test_copilot_conversation_presets_define_six_entry_intents():
     presets = copilot_conversation_presets()
+
+    assert presets == content_presets()
 
     assert [preset.intent for preset in presets] == [
         "app_help",

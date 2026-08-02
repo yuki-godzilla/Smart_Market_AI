@@ -341,6 +341,10 @@ R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test�
 - import時にProvider接続、LLM起動、filesystem mutationなどの重い副作用を発生させない。
 - façade削除は呼出元移行と回帰testが揃ったものだけを別sliceで行う。
 
+進捗（2026-08-02、初回slice）: `backend.research`のaggregate service再exportをlazy façadeへ変更した。
+既存の公開名は維持し、package import時はcontract / adapter / builderだけを読み、legacy service classを
+要求した時点でserviceをimportする。独立process import smokeで、遅延読込と公開export互換を固定した。
+
 ### R6: 継続的な保守gate（⬜ 最終統合・以後継続）
 
 - 新規moduleは原則600行以下、新規functionは原則80行以下を目安とする。

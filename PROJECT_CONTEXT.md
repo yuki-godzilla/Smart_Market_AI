@@ -345,6 +345,11 @@ can compare actual backend-to-UI edges and eager import cycles against it, and C
 before pytest. Existing module/function size metrics remain an explanatory report rather than a
 blind line-count failure; new reverse dependencies or eager cycles fail deterministically.
 
+R5 has begun by converting heavyweight `backend.research.service` re-exports into a lazy package
+façade. The public names remain available from `backend.research`, but importing the package no
+longer imports the aggregate service until a legacy service export is requested. The import smoke
+fixes both this deferral and public compatibility.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

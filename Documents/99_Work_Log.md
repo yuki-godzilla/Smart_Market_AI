@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R5 Research lazy public-façade slice
+
+- `backend.research`のheavy service再exportをlazy façadeへ変更した。既存の公開class名は維持し、package import時にはaggregate `service`を読まず、必要なexportを要求した時点で初めて読み込む。
+- 独立processのimport smokeで、package import後の未読込状態と`ResearchInMemoryStore` public export要求後のservice読込を固定した。contract、Provider接続、filesystem mutation、数値ロジックは変更していない。
+- Research package / service pytest 118件、対象Mypy 2ファイル、Ruff、Black、全体pytest 2,495件（16 skipped）、`mypy .` 599ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R6 architecture baseline gate slice
 
 - `config/architecture_baseline.json`にbackend-to-UI edgeとeager import cycleの許容baselineをversion管理し、`tools/audit_python_architecture.py --baseline`が差分をdeterministicに失敗として返すようにした。

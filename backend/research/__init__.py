@@ -80,29 +80,6 @@ from backend.research.external_contracts import (
     ExternalResearchSourcePayload,
     ResearchSourceType,
 )
-from backend.research.service import (
-    ExternalResearchStockNewsAdapter,
-    ExternalStockNewsFetchService,
-    HybridResearchRetrievalService,
-    ResearchAnalysisService,
-    ResearchDisabledVectorStore,
-    ResearchEmbeddingService,
-    ResearchEvidenceReranker,
-    ResearchFileVectorStore,
-    ResearchGroundedAnswerService,
-    ResearchHybridScorer,
-    ResearchIndexService,
-    ResearchIngestionService,
-    ResearchInMemoryStore,
-    ResearchInMemoryVectorStore,
-    ResearchQueryExpansionService,
-    ResearchRetrievalService,
-    ResearchScoreService,
-    ResearchVectorIndexService,
-    ResearchVectorStore,
-    ResearchWritableVectorStore,
-    StockNewsAnalysisService,
-)
 from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
@@ -115,6 +92,32 @@ from backend.research.summary_builders import (
     ResearchBriefBuilder,
     ResearchPageViewModelBuilder,
     SecurityResearchTypeDetector,
+)
+
+_LAZY_SERVICE_EXPORTS = frozenset(
+    {
+        "ExternalResearchStockNewsAdapter",
+        "ExternalStockNewsFetchService",
+        "HybridResearchRetrievalService",
+        "ResearchAnalysisService",
+        "ResearchDisabledVectorStore",
+        "ResearchEmbeddingService",
+        "ResearchEvidenceReranker",
+        "ResearchFileVectorStore",
+        "ResearchGroundedAnswerService",
+        "ResearchHybridScorer",
+        "ResearchIndexService",
+        "ResearchIngestionService",
+        "ResearchInMemoryStore",
+        "ResearchInMemoryVectorStore",
+        "ResearchQueryExpansionService",
+        "ResearchRetrievalService",
+        "ResearchScoreService",
+        "ResearchVectorIndexService",
+        "ResearchVectorStore",
+        "ResearchWritableVectorStore",
+        "StockNewsAnalysisService",
+    }
 )
 
 __all__ = [
@@ -229,10 +232,16 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Load the external fetch service lazily to keep package imports acyclic."""
+    """Load heavyweight services lazily while preserving the public package API."""
 
     if name == "ExternalResearchFetchService":
         from backend.research.external_fetch_service import ExternalResearchFetchService
 
         return ExternalResearchFetchService
+    if name in _LAZY_SERVICE_EXPORTS:
+        from backend.research import service
+
+        value = getattr(service, name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

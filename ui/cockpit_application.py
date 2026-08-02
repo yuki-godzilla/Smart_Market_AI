@@ -116,6 +116,15 @@ class CockpitSummaryContext:
 
 
 @dataclass(frozen=True)
+class CockpitForecastHeroContext:
+    """Context-frozen inputs for the Cockpit price and Forecast hero header."""
+
+    presentation: CockpitPresentationContext
+    horizon_summary: str
+    horizon_warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class CockpitResearchContext:
     """One symbol-scoped snapshot of the Research inputs used by Cockpit sections."""
 
@@ -301,6 +310,21 @@ def build_cockpit_summary_context(
         forecast_horizon_days=forecast_horizon_days,
         score_row=dict(score_row) if score_row is not None else None,
         symbol_metadata=dict(symbol_metadata) if symbol_metadata is not None else None,
+    )
+
+
+def build_cockpit_forecast_hero_context(
+    *,
+    presentation: CockpitPresentationContext,
+    horizon_summary: str,
+    horizon_warnings: Sequence[object],
+) -> CockpitForecastHeroContext:
+    """Freeze only the already-derived Forecast header inputs for page rendering."""
+
+    return CockpitForecastHeroContext(
+        presentation=presentation,
+        horizon_summary=horizon_summary.strip(),
+        horizon_warnings=tuple(str(warning) for warning in horizon_warnings),
     )
 
 

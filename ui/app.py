@@ -160,6 +160,7 @@ from ui.cockpit_application import (
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_forecast_hero_context,
     build_cockpit_research_context,
     build_cockpit_summary_context,
     clear_cockpit_preview,
@@ -513,6 +514,7 @@ from ui.views.cockpit import (
     cockpit_direction_signal_summary,
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
+    render_cockpit_forecast_hero_header,
     render_cockpit_research_operation_card,
     render_cockpit_research_result,
     render_cockpit_summary,
@@ -17179,24 +17181,26 @@ def _render_price_forecast_hero(
     presentation: CockpitPresentationContext,
 ) -> None:
     display = presentation.display
-    st.subheader("02 価格・AI予測")
-    horizon_summary = str(getattr(preview, "forecast_horizon_summary", "") or "").strip()
-    st.caption(
-        f"予測期間: {display.forecast_horizon_days}営業日相当（取得履歴から自動計算）"
-        + (f" / {horizon_summary}" if horizon_summary else "")
+    hero_context = build_cockpit_forecast_hero_context(
+        presentation=presentation,
+        horizon_summary=str(getattr(preview, "forecast_horizon_summary", "") or ""),
+        horizon_warnings=getattr(preview, "forecast_horizon_warnings", []),
     )
-    for warning in getattr(preview, "forecast_horizon_warnings", []):
-        st.warning(str(warning))
     chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
-    _render_advanced_forecast_status(
-        display.advanced_forecast_rows,
-        horizon_days=display.forecast_horizon_days,
-    )
-    _render_advanced_forecast_consensus_cards(display.advanced_forecast_consensus_rows)
-    _register_cockpit_forecast_assistant_context(
-        presentation.symbol_label,
-        display.advanced_forecast_consensus_rows,
-        forecast_horizon_days=display.forecast_horizon_days,
+    render_cockpit_forecast_hero_header(
+        hero_context,
+        render_advanced_status=lambda rows, horizon_days: _render_advanced_forecast_status(
+            rows,
+            horizon_days=horizon_days,
+        ),
+        render_advanced_consensus=_render_advanced_forecast_consensus_cards,
+        register_assistant_context=lambda symbol_label, consensus_rows, horizon_days: (
+            _register_cockpit_forecast_assistant_context(
+                symbol_label,
+                consensus_rows,
+                forecast_horizon_days=horizon_days,
+            )
+        ),
     )
     selected_chart_series = _render_forecast_chart_filters(display.forecast_rows)
     display_forecast_rows = filter_forecast_chart_rows(display.forecast_rows, selected_chart_series)

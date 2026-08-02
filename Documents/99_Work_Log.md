@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 Cockpit R2-C Forecast hero header slice
+
+- `CockpitForecastHeroContext`に、既存`CockpitPresentationContext`、予測期間の取得履歴要約、horizon warningを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_hero_header`へ移した。page componentは`02 価格・AI予測`見出し、期間caption、warning、高度Forecast状態・AI予測インサイト、同じForecast snapshotのAssistant context登録順を担当する。
+- `ui.app`は既存の高度Forecast状態／insight／Assistant adapterを注入し、Chart操作、通貨選択、変換、描画、個別モデル詳細expanderは次sliceに残す。Forecast計算、予測値・confidence・warning、Ranking、Score、保存state、表示順は変更していない。
+- local Streamlitの実Chromeでmock `AAPL`を取得し、予測期間、coverage warning 2件、AI予測インサイト、中心／下振れ／上振れ予測、価格・レンジ・confidence、Chart controlsまで描画されることを確認した。対象pytest 424件、全体pytest 2,484件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 Cockpit R2-C Summary page component slice
 
 - `CockpitSummaryContext`を`ui/views/cockpit.py`へ一つのtyped inputとして渡す`render_cockpit_summary`を追加した。header item組立、header / KPI描画、score未取得時のempty state、既存score rowの後続hand-offをpage componentへ移し、`ui.app`はcontext解決とお気に入りaction注入だけを持つ。

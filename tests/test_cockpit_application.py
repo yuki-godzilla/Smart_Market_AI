@@ -11,12 +11,14 @@ from backend.reporting import build_decision_report_context, build_report_sectio
 from backend.research import ExternalResearchFetchResult
 from ui.cockpit_application import (
     CockpitDisplayModel,
+    CockpitForecastHeroContext,
     CockpitPresentationContext,
     CockpitPreviewRequest,
     CockpitPreviewSessionKeys,
     adopt_cockpit_preview,
     build_cockpit_decision_report_render_context,
     build_cockpit_display_model,
+    build_cockpit_forecast_hero_context,
     build_cockpit_research_context,
     build_cockpit_summary_context,
     clear_cockpit_preview,
@@ -253,6 +255,32 @@ def test_cockpit_summary_context_keeps_header_inputs_together():
     metadata["market"] = "us"
     assert context.score_row == {"総合スコア": "70"}
     assert context.symbol_metadata == {"market": "jp"}
+
+
+def test_cockpit_forecast_hero_context_keeps_existing_display_and_normalizes_messages():
+    presentation = CockpitPresentationContext(
+        symbol_label="AAPL - Apple Inc.",
+        display=CockpitDisplayModel(
+            forecast_horizon_days=21,
+            advanced_forecast_rows=[],
+            advanced_forecast_consensus_rows=[],
+            forecast_rows=[],
+            consensus_rows=[],
+            metric_rows=[],
+            score_display_rows=[],
+        ),
+    )
+
+    context = build_cockpit_forecast_hero_context(
+        presentation=presentation,
+        horizon_summary=" 取得済み価格120点 ",
+        horizon_warnings=["coverage warning", 7],
+    )
+
+    assert isinstance(context, CockpitForecastHeroContext)
+    assert context.presentation is presentation
+    assert context.horizon_summary == "取得済み価格120点"
+    assert context.horizon_warnings == ("coverage warning", "7")
 
 
 def test_cockpit_research_and_report_contexts_preserve_one_resolved_snapshot():

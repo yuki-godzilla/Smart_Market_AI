@@ -9,7 +9,11 @@ import streamlit as st
 
 from backend.reporting import DecisionReportContext
 from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
-from ui.cockpit_application import CockpitDecisionReportRenderContext, CockpitSummaryContext
+from ui.cockpit_application import (
+    CockpitDecisionReportRenderContext,
+    CockpitForecastHeroContext,
+    CockpitSummaryContext,
+)
 from ui.cockpit_decision_report_presenter import (
     CockpitDecisionReportDetailModel,
     cockpit_decision_report_overview_card_html,
@@ -740,6 +744,32 @@ def render_cockpit_summary(
         return None
     render_cockpit_kpi_cards(cockpit_kpi_cards(context.score_row))
     return dict(context.score_row)
+
+
+def render_cockpit_forecast_hero_header(
+    context: CockpitForecastHeroContext,
+    *,
+    render_advanced_status: Callable[[list[dict[str, str]], int], None],
+    render_advanced_consensus: Callable[[list[dict[str, str]]], None],
+    register_assistant_context: Callable[[str, list[dict[str, str]], int], None],
+) -> None:
+    """Render the context-frozen price and Forecast hero header before chart controls."""
+
+    display = context.presentation.display
+    st.subheader("02 価格・AI予測")
+    st.caption(
+        f"予測期間: {display.forecast_horizon_days}営業日相当（取得履歴から自動計算）"
+        + (f" / {context.horizon_summary}" if context.horizon_summary else "")
+    )
+    for warning in context.horizon_warnings:
+        st.warning(warning)
+    render_advanced_status(display.advanced_forecast_rows, display.forecast_horizon_days)
+    render_advanced_consensus(display.advanced_forecast_consensus_rows)
+    register_assistant_context(
+        context.presentation.symbol_label,
+        display.advanced_forecast_consensus_rows,
+        display.forecast_horizon_days,
+    )
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:

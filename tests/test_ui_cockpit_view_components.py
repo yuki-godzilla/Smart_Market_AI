@@ -11,7 +11,12 @@ from backend.research import (
     ResearchSummaryPoint,
 )
 from ui import app as app_module
-from ui.cockpit_application import build_cockpit_summary_context
+from ui.cockpit_application import (
+    CockpitDisplayModel,
+    CockpitPresentationContext,
+    build_cockpit_forecast_hero_context,
+    build_cockpit_summary_context,
+)
 from ui.content.research_texts import (
     RESEARCH_COCKPIT_SECTION_TITLE,
     RESEARCH_FETCH_BUTTON_LABEL,
@@ -24,6 +29,7 @@ from ui.views.cockpit import (
     cockpit_summary_items,
     render_cockpit_decision_report_detail_sections,
     render_cockpit_decision_report_page,
+    render_cockpit_forecast_hero_header,
     render_cockpit_research_operation_card,
     render_cockpit_summary,
     research_evidence_summary_items,
@@ -126,6 +132,50 @@ def test_render_cockpit_summary_uses_one_typed_context_without_recalculating_sco
     assert [card["value"] for card in calls[1][1]][:2] == ["72", "76"]
 
 
+def test_render_cockpit_forecast_hero_header_uses_one_frozen_context(monkeypatch):
+    presentation = CockpitPresentationContext(
+        symbol_label="AAPL - Apple Inc.",
+        display=CockpitDisplayModel(
+            forecast_horizon_days=21,
+            advanced_forecast_rows=[{"model": "advanced_linear"}],
+            advanced_forecast_consensus_rows=[{"forecast_close": "105"}],
+            forecast_rows=[],
+            consensus_rows=[],
+            metric_rows=[],
+            score_display_rows=[],
+        ),
+    )
+    context = build_cockpit_forecast_hero_context(
+        presentation=presentation,
+        horizon_summary="取得済み価格120点",
+        horizon_warnings=["coverage warning"],
+    )
+    captions: list[str] = []
+    warnings: list[str] = []
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "ui.views.cockpit.st.subheader", lambda value: calls.append(("title", value))
+    )
+    monkeypatch.setattr("ui.views.cockpit.st.caption", captions.append)
+    monkeypatch.setattr("ui.views.cockpit.st.warning", warnings.append)
+
+    render_cockpit_forecast_hero_header(
+        context,
+        render_advanced_status=lambda rows, horizon_days: calls.append(
+            ("status", rows, horizon_days)
+        ),
+        render_advanced_consensus=lambda rows: calls.append(("consensus", rows)),
+        register_assistant_context=lambda symbol, rows, horizon_days: calls.append(
+            ("assistant", symbol, rows, horizon_days)
+        ),
+    )
+
+    assert captions == ["予測期間: 21営業日相当（取得履歴から自動計算） / 取得済み価格120点"]
+    assert warnings == ["coverage warning"]
+    assert [call[0] for call in calls] == ["title", "status", "consensus", "assistant"]
+    assert calls[-1] == ("assistant", "AAPL - Apple Inc.", [{"forecast_close": "105"}], 21)
+
+
 def test_cockpit_result_flow_prioritizes_research_and_consolidates_details():
     source = inspect.getsource(app_module._render_market_data_preview_result)
 
@@ -158,7 +208,7 @@ def test_cockpit_details_use_one_expander_with_export_tab():
 def test_cockpit_research_and_forecast_labels_match_primary_flow():
     research_source = inspect.getsource(render_cockpit_research_operation_card)
     summary_source = inspect.getsource(app_module._render_cockpit_research_summary)
-    forecast_source = inspect.getsource(app_module._render_price_forecast_hero)
+    forecast_source = inspect.getsource(render_cockpit_forecast_hero_header)
 
     assert RESEARCH_COCKPIT_SECTION_TITLE == "03 AI調査・材料分析"
     assert RESEARCH_FETCH_BUTTON_LABEL == "AIメモを更新"

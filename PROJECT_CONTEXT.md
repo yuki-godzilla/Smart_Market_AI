@@ -282,7 +282,9 @@ Summary, Research, report, and interactive rendering remain at the UI edge.
 state、既存score rowの後続hand-offを担当し、`ui.app`にはcontext解決とお気に入りaction注入だけを残す。
 Score値、Forecast、Ranking、保存state、section順、お気に入り挙動は変更していない。local Streamlitの
 mock `AAPL` Cockpitでsummaryと価格・Forecast sectionまでを実画面確認し、SMAIの画面例外がないことを
-確認した。残るCockpit価格・Forecast heroが次のR2表示境界候補である。
+確認した。続くR2-C Forecast hero header sliceでは、予測期間、horizon warning、高度Forecast状態・
+AI予測インサイト、Assistant context登録を`CockpitForecastHeroContext`とpage componentへ移した。
+Chart操作、通貨選択、個別モデル詳細expanderは次のR2表示境界候補である。
 
 The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
 The active structural track continues with R2-B Research / Decision Report context separation and

@@ -253,7 +253,7 @@ adopt / clearし、preview-owned state以外を保持することを固定して
 固定する。local Streamlit mock `AAPL`はDesktop 1366x768、iPhone 375x812、iPad 768x1024で例外0、
 page横scroll 0を確認した。Forecast、Score、Research Score、Ranking、Report本文の数値・意味は変更していない。
 
-### R3: Research serviceをuse case別に分割（🟨 進行中）
+### R3: Research serviceをuse case別に分割（🟦 完了）
 
 - company profile、product/service、financial summary、evidence、external fetchを分ける。
 - 正規化、要約、永続化、外部取得の境界を明示する。
@@ -315,7 +315,13 @@ R3-Cの軽量公開sliceとして、topic dictionaryによるquery expansionとY
 R3完了gateは、主要Research use caseが個別にfixture検証でき、通常testが外部networkを必要とせず、
 Research Score、Ranking順位、Forecast数値を一切変更していないことである。
 
-### R4: UI viewとstyleを分割（⬜ R3後）
+完了根拠: company profile policy、quantitative / company overview / IR summary builder、local store、
+ingestion/index、vector store、query expansion、evidence policyをそれぞれservice非依存のmoduleへ分離した。
+package façadeの独立process smokeは軽量公開名のservice非読込とlegacy export互換を固定し、
+`tests/test_research_service.py` / package API回帰、全体network-free test、型・静的・architecture監査で
+Research Score、Ranking順位、Forecast数値が不変であることを確認した。R4を次の構造作業対象とする。
+
+### R4: UI viewとstyleを分割（🟨 進行中）
 
 - Copilot / Newsをpage-controller-presenterへ分ける。
 - `ui/styles.py`のCSSをbase、component、page assetへ分け、loaderだけをPythonへ残す。

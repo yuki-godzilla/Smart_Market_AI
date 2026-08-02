@@ -390,7 +390,13 @@ R2 Cockpit application-flow separation is complete. Its controller/presenter bou
 preview state adoption/clearing, frozen Summary/Forecast/Research/Report contexts, and retained
 render order. A local mock-AAPL Chrome smoke found no SMAI exceptions or page-level horizontal
 scroll at 1366×768, 375×812, or 768×1024. Forecast, Score, Research Score, Ranking, and Report
-semantics remain unchanged; R3 is now the active structural target.
+semantics remain unchanged; R3 is complete and R4 is now the active structural target.
+
+R3 Research use-case separation is complete. Summary builders, local persistence, ingestion/index,
+optional vector retrieval, query expansion, and evidence policy are independently testable modules;
+the package façade preserves legacy public imports while deferring the aggregate service. Normal
+checks remain network-free and the completed regression baseline leaves Research Score, Ranking,
+and Forecast semantics unchanged. R4 is the active structural target.
 
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report

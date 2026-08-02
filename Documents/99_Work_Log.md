@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3 Research use-case separation closeout
+
+- company profile policy、quantitative / company overview / IR summary builder、local store、ingestion/index、vector store、query expansion、evidence policyをserviceから個別責務へ分離し、公開package façadeで既存import互換を維持した。
+- Research service / package境界、fallback、citation・sort order、lightweight importを回帰で固定し、通常testが外部networkを使わないことを確認した。Research Score、Ranking順位、Forecast数値・意味は変更していない。
+- R3完了gateを満たしたため、R4 Copilot / News / CSSを主構造作業として継続する。最終の全画面responsive確認はR4/R5/R6完了後に再実行する。
+
 ## 2026-08-02 R3-B Research evidence-policy boundary slice
 
 - freshness factor、source type priority、chunk単位dedupe、rerank score、`ResearchEvidenceReranker`を`backend/research/evidence_policy.py`へ移した。keyword / hybrid retrievalとResearch Scoreは同じ決定論的policyを参照する。

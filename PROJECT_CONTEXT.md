@@ -355,6 +355,12 @@ R3-B now also moves the deterministic local `ResearchInMemoryStore` into
 store preserves document dedupe, symbol normalization, chunk replacement, and sort order without
 provider or UI dependencies.
 
+R2 Cockpit application-flow separation is complete. Its controller/presenter boundary tests cover
+preview state adoption/clearing, frozen Summary/Forecast/Research/Report contexts, and retained
+render order. A local mock-AAPL Chrome smoke found no SMAI exceptions or page-level horizontal
+scroll at 1366×768, 375×812, or 768×1024. Forecast, Score, Research Score, Ranking, and Report
+semantics remain unchanged; R3 is now the active structural target.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

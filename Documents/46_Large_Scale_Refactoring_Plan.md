@@ -154,7 +154,7 @@ aggregate serviceへ新しいProvider処理を直接追加せず、対象domain�
 数値ロジック、最終順位を維持する。描画と`st.rerun()`はUI edgeに残し、既存function名はcompatibility
 façadeとして新use caseへ委譲する。以上をもってR1は完了し、主実装はR2へ移行した。
 
-### R2: Cockpit application flowを分離（🟨 進行中）
+### R2: Cockpit application flowを分離（🟦 完了）
 
 - symbol/date/provider選択、取得、Forecast実行、表示model生成を分ける。
 - `page`、`controller`、`presenter`を分離し、rerun時state contractを固定する。
@@ -247,7 +247,13 @@ R2完了gate:
 - Desktop 1366x768、iPhone 375x812、iPad相当viewportで不要なpage横scrollがない。
 - 移動前後のfixtureでForecast chart、score、Research、Reportの主要出力が一致する。
 
-### R3: Research serviceをuse case別に分割（🟨 第一slice完了・R2後に再開）
+完了確認（2026-08-02）: `test_cockpit_application.py`はpreviewを唯一のsource of truthとして
+adopt / clearし、preview-owned state以外を保持することを固定している。`test_ui_cockpit_view_components.py`
+はSummary、Forecast hero / chart、Research、Decision Reportのtyped context、既存描画順、詳細page境界を
+固定する。local Streamlit mock `AAPL`はDesktop 1366x768、iPhone 375x812、iPad 768x1024で例外0、
+page横scroll 0を確認した。Forecast、Score、Research Score、Ranking、Report本文の数値・意味は変更していない。
+
+### R3: Research serviceをuse case別に分割（🟨 進行中）
 
 - company profile、product/service、financial summary、evidence、external fetchを分ける。
 - 正規化、要約、永続化、外部取得の境界を明示する。

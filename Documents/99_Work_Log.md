@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R2 Cockpit application-flow closeout
+
+- `CockpitPreviewState` / `CockpitPreviewSessionKeys`のadopt・clear回帰、Summary / Forecast hero / chart / Research / Decision Reportのtyped context・page境界回帰を確認し、R2完了gateを満たした。
+- local Streamlit mock `AAPL`をDesktop 1366×768、iPhone 375×812、iPad 768×1024で確認し、SMAI例外0・page横scroll 0、Cockpitの価格・Forecast・材料・確認レポート主要表示を確認した。
+- Forecast、Score、Research Score、Ranking、Report本文の数値・意味を変更していない。R3を次の構造作業対象とする。
+
 ## 2026-08-02 R3-B Research local-store slice
 
 - `ResearchInMemoryStore`をaggregate serviceから`backend/research/store.py`へ移した。document hash dedupe、symbol正規化、chunk置換、document / chunkのsort orderは既存contractのまま維持する。

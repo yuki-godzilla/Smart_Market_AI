@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 Cockpit R2-C Forecast model-detail page slice
+
+- `render_cockpit_forecast_model_details`へ、高度Forecast model見出し、比較card、model card HTML、3つの既存detail expanderとtableを移した。`ui.app`は既存のmodel card、comparison、display、validation、baseline rowを組み立て、comparison/table rendererだけを注入する。
+- Forecast計算、予測値、validation値、Score、Ranking、保存state、表示順、文言、expander初期状態は変更していない。
+- 対象pytest 427件、全体pytest 2,487件（16 skipped）、`mypy .` 592ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 Cockpit R2-C Forecast Altair chart renderer slice
 
 - `ui/cockpit_chart_renderer.py`を追加し、既存のmain price chart、forecast focus chart、range band、最新実績marker、forecast boundary、fixed palette、interactive legend、series click selectionを`CockpitMarketChartRenderContext`から組み立てるrendererへ移した。

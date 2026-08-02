@@ -819,6 +819,53 @@ def render_cockpit_forecast_chart_and_details(
     )
 
 
+def render_cockpit_forecast_model_details(
+    *,
+    advanced_model_cards: list[dict[str, object]],
+    comparison_rows: list[dict[str, str]],
+    advanced_display_rows: list[dict[str, str]],
+    validation_rows: list[dict[str, str]],
+    baseline_rows: list[dict[str, str]],
+    model_cards_html: str,
+    render_comparison_cards: Callable[[list[dict[str, str]]], None],
+    render_table: Callable[[list[dict[str, str]], str], None],
+) -> None:
+    """Render the established individual Forecast model cards and folded details."""
+
+    if advanced_model_cards:
+        st.markdown("##### 高度予測モデル")
+        st.caption(
+            "個別モデルの見方です。AI予測インサイトの内訳として、方向やレンジの割れ方を確認します。"
+        )
+        render_comparison_cards(comparison_rows)
+        st.markdown(model_cards_html, unsafe_allow_html=True)
+    with st.expander("高度予測モデルの詳細を見る", expanded=False):
+        st.caption(
+            "モデル別の予測変化率、検証指標、特徴量メモです。"
+            "カードで気になった点を表で分解して確認します。"
+        )
+        render_table(
+            advanced_display_rows,
+            "高度予測を表示するには、もう少し長い価格データが必要です。",
+        )
+    with st.expander("検証指標を見る", expanded=False):
+        st.caption(
+            "初期表示から外した検証指標です。数値は将来精度の保証ではなく、予測の読み方を補助します。"
+        )
+        render_table(
+            validation_rows,
+            "検証指標を表示できるAI予測インサイトがありません。",
+        )
+    with st.expander("単純予測との比較を見る", expanded=False):
+        st.caption(
+            "単純予測は基準・保険です。高度予測との差が小さい場合は、AI予測を強く読みすぎないよう確認します。"
+        )
+        render_table(
+            baseline_rows,
+            "比較に使える予測検証データがありません。",
+        )
+
+
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
     render_section_heading("01 判断サマリー")
     st.caption("結論・方向感・データ信頼度を先に確認し、その後にチャートとAI調査へ進みます。")

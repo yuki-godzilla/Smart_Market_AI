@@ -522,6 +522,7 @@ from ui.views.cockpit import (
     render_cockpit_decision_report_page,
     render_cockpit_forecast_chart_and_details,
     render_cockpit_forecast_hero_header,
+    render_cockpit_forecast_model_details,
     render_cockpit_research_operation_card,
     render_cockpit_research_result,
     render_cockpit_summary,
@@ -17273,43 +17274,19 @@ def _render_forecast_model_detail_expanders(
         latest_date=latest_date,
         include_standard_models=False,
     )
-    if advanced_model_cards:
-        st.markdown("##### 高度予測モデル")
-        st.caption(
-            "個別モデルの見方です。AI予測インサイトの内訳として、方向やレンジの割れ方を確認します。"
-        )
-        _render_forecast_model_comparison_cards(
-            forecast_model_comparison_rows(advanced_model_cards)
-        )
-        st.markdown(forecast_model_cards_html(advanced_model_cards), unsafe_allow_html=True)
-    with st.expander("高度予測モデルの詳細を見る", expanded=False):
-        st.caption(
-            "モデル別の予測変化率、検証指標、特徴量メモです。"
-            "カードで気になった点を表で分解して確認します。"
-        )
-        _render_table(
-            advanced_forecast_display_rows(advanced_forecast_rows),
-            "高度予測を表示するには、もう少し長い価格データが必要です。",
-        )
-    with st.expander("検証指標を見る", expanded=False):
-        st.caption(
-            "初期表示から外した検証指標です。数値は将来精度の保証ではなく、予測の読み方を補助します。"
-        )
-        _render_table(
-            advanced_forecast_validation_detail_rows(advanced_forecast_consensus_rows),
-            "検証指標を表示できるAI予測インサイトがありません。",
-        )
-    with st.expander("単純予測との比較を見る", expanded=False):
-        st.caption(
-            "単純予測は基準・保険です。高度予測との差が小さい場合は、AI予測を強く読みすぎないよう確認します。"
-        )
-        _render_table(
-            simple_forecast_baseline_comparison_rows(
-                metric_rows,
-                advanced_forecast_consensus_rows,
-            ),
-            "比較に使える予測検証データがありません。",
-        )
+    render_cockpit_forecast_model_details(
+        advanced_model_cards=advanced_model_cards,
+        comparison_rows=forecast_model_comparison_rows(advanced_model_cards),
+        advanced_display_rows=advanced_forecast_display_rows(advanced_forecast_rows),
+        validation_rows=advanced_forecast_validation_detail_rows(advanced_forecast_consensus_rows),
+        baseline_rows=simple_forecast_baseline_comparison_rows(
+            metric_rows,
+            advanced_forecast_consensus_rows,
+        ),
+        model_cards_html=forecast_model_cards_html(advanced_model_cards),
+        render_comparison_cards=_render_forecast_model_comparison_cards,
+        render_table=_render_table,
+    )
 
 
 def simple_forecast_baseline_comparison_rows(

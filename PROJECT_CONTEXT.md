@@ -293,7 +293,9 @@ chart scope controls、JPY切替、個別model cards / detail expanderまで実�
 そのうち実chart rendererは`ui/cockpit_chart_renderer.py`へ移した。`ui.app`は既存rowからmain / focusの
 deterministic display frameを作り、rendererへcontextとStreamlit出力portを渡すだけにした。Altairの
 main / focus layout、range band、現在価格marker、境界線、色、legend、click selectionは同じspecとして
-回帰している。次は残存Forecast表示helperと旧chart data-shaping helperの再利用境界を整理する。
+回帰している。続くsliceでは、Forecast個別modelの見出し、比較card、3つのdetail expanderとtableを
+`ui/views/cockpit.py`へ移した。`ui.app`は既存row / card / HTMLを組み立て、comparison card / table rendererを
+注入するだけである。次は残存chart data-shaping helperの再利用境界を整理し、R2-C完了gateを確認する。
 
 The refactoring roadmap was re-evaluated on 2026-08-02 and is now split into three explicit tracks.
 The active structural track continues with R2-B Research / Decision Report context separation and

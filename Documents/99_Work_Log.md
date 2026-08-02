@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-C CSS base-token boundary slice
+
+- global colour、semantic signal、chart、table、button、surface、layout、後方互換CSS variableを`SMAI_BASE_TOKEN_CSS`へ移した。global style loaderはCTA、base token、legacy bundleの既存順で合成する。
+- style regressionでasset連結順とtoken contractを固定した。CSS値、selector優先順位、Streamlit loader、画面挙動は変更していない。
+
 ## 2026-08-02 R4-A Copilot conversation-content boundary slice
 
 - six entry conversation preset、`CopilotIntent`、immutable preset contractを`ui/copilot_conversation_content.py`へ分離し、viewから同名importを再公開して既存call siteを維持した。

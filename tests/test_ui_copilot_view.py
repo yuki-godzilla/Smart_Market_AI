@@ -21,6 +21,7 @@ from backend.core.config import Settings
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
 from ui.copilot_conversation_content import copilot_conversation_presets as content_presets
 from ui.copilot_model_policy import model_option_for_profile_model
+from ui.style_assets import SMAI_BASE_TOKEN_CSS
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     COPILOT_LLM_MODEL_OPTIONS,
@@ -272,8 +273,8 @@ def test_copilot_layout_uses_shared_wide_lane():
     lane_gutter = "calc(100% - var(--smai-content-gutter))"
     shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
     chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
-    assert "--smai-content-max-width: 1320px;" in css
-    assert "--smai-chat-main-width: 1180px;" in css
+    assert "--smai-content-max-width: 1320px;" in SMAI_BASE_TOKEN_CSS
+    assert "--smai-chat-main-width: 1180px;" in SMAI_BASE_TOKEN_CSS
     assert css.count(shared_lane) >= 5
     assert chat_lane in css
     assert ".smai-copilot-chat-topbar" in css

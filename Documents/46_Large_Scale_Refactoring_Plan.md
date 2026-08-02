@@ -347,6 +347,11 @@ user-scoped state、candidate生成、widgetを維持し、既存private名はco
 最終CSS、既存`SMAI_GLOBAL_CSS` public valueは不変である。巨大な一括CSS rewriteは避け、以後も
 asset単位で移す。
 
+進捗（2026-08-02、R4-C base token slice）: 色、signal、chart、table、button、surface、共通layout tokenと
+後方互換CSS variableを`SMAI_BASE_TOKEN_CSS`として同asset moduleへ移した。`SMAI_GLOBAL_CSS`はResearch CTA、
+base token、legacy bundleの順で合成するため、selectorの優先順位とpublic valueを維持する。style regressionは連結順と
+base tokenの存在を固定した。
+
 #### R4-A: Copilot
 
 - conversation state、command dispatch、Assistant gateway呼出し、response presenter、widget描画を分ける。

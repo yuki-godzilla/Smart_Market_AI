@@ -345,6 +345,11 @@ R4-C has begun with an ordered static CSS asset boundary: the Research AI CTA ba
 in `ui/style_assets.py`, and `ui/styles.py` composes it before the unchanged legacy global bundle.
 Selector order and rendered CSS remain identical; the loader stays at the Streamlit edge.
 
+The global colour, semantic signal, chart, table, button, surface, layout, and compatibility tokens
+now form the ordered `SMAI_BASE_TOKEN_CSS` asset in the same module. The global value composes the
+CTA asset, base-token asset, and remaining legacy bundle in that order; tests fix this composition
+and the token contract without changing rendered values.
+
 R6 now has a versioned architecture baseline at `config/architecture_baseline.json`. The audit tool
 can compare actual backend-to-UI edges and eager import cycles against it, and CI runs that check
 before pytest. Existing module/function size metrics remain an explanatory report rather than a

@@ -115,3 +115,36 @@ def test_architecture_baseline_detects_unapproved_large_modules_and_functions(
 
     assert "module line count exceeds its approved limit" in violations[0]
     assert "function line count exceeds its approved limit" in violations[1]
+
+
+def test_architecture_baseline_allows_only_the_named_legacy_function_size(
+    tmp_path: Path,
+) -> None:
+    _write_module(tmp_path, "backend/__init__.py", "")
+    _write_module(
+        tmp_path,
+        "backend/legacy.py",
+        "\n".join(["def oversized():"] + ["    value = 1"] * 6),
+    )
+    _write_module(tmp_path, "ui/__init__.py", "")
+
+    report = analyze_python_architecture(tmp_path)
+    baseline = ArchitectureBaseline(
+        (),
+        (),
+        new_function_line_limit=5,
+        allowed_function_line_counts=(("backend.legacy.oversized", 7),),
+    )
+
+    assert architecture_baseline_violations(report, baseline) == []
+
+    _write_module(
+        tmp_path,
+        "backend/legacy.py",
+        "\n".join(["def oversized():"] + ["    value = 1"] * 7),
+    )
+    grown_report = analyze_python_architecture(tmp_path)
+
+    assert architecture_baseline_violations(grown_report, baseline) == [
+        "function line count exceeds its approved limit: " "backend.legacy.oversized=8, allowed=7"
+    ]

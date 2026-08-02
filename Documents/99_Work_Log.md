@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R6 function-size baseline gate closeout
+
+- `architecture-baseline-v2`へ80行の新規function上限と、既存超過functionごとの名前・現在値上限を追加した。新規超過と許可済みlegacy functionの成長はいずれもCIでfail-closeになり、例外はbaseline差分として明示レビューされる。
+- architecture audit regressionで、名前付きlegacy functionだけが現行上限まで許され、1行の成長でも検出されることを固定した。数値ロジック、外部接続、UI挙動は変更していない。R6は初期完了とし、gateは以後の通常変更に継続適用する。
+
 ## 2026-08-02 R3 Research use-case separation closeout
 
 - company profile policy、quantitative / company overview / IR summary builder、local store、ingestion/index、vector store、query expansion、evidence policyをserviceから個別責務へ分離し、公開package façadeで既存import互換を維持した。

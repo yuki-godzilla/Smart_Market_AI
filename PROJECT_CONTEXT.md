@@ -347,8 +347,10 @@ blind line-count failure; new reverse dependencies or eager cycles fail determin
 
 The R6 baseline now uses schema v2 and fail-closes unapproved modules beyond 600 lines. Existing
 oversized modules are explicitly recorded at their current permitted size, so growth fails the
-same deterministic CI check. The function-size detector and regression test are ready; enabling
-the 80-line default requires the remaining named legacy exceptions and their rationale.
+same deterministic CI check. The 80-line function default is also active: each current legacy
+exception is named with its present maximum, so a new oversized function or any approved legacy
+function growth fails deterministically. The remaining large functions are tracked refactoring
+targets rather than silent exemptions; their rationale and limit change with the reviewed baseline.
 
 R5 public package compatibility is documented in `Documents/47_Public_API_Compatibility.md`.
 Research has lightweight direct exports plus the lazy aggregate-service façade; Assistant and News

@@ -381,7 +381,7 @@ R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test�
 要求した時点でserviceをimportする。独立process import smokeで、遅延読込と公開export互換を固定した。
 公開contract、compatibility façade、削除条件は`Documents/47_Public_API_Compatibility.md`へ集約する。
 
-### R6: 継続的な保守gate（⬜ 最終統合・以後継続）
+### R6: 継続的な保守gate（🟦 完了・以後継続）
 
 - 新規moduleは原則600行以下、新規functionは原則80行以下を目安とする。
 - 超過が適切な生成物、宣言表、CSS、schemaの場合は理由を文書化する。
@@ -400,8 +400,11 @@ backend-to-UI edgeとeager cycleのbaselineをversion管理し、`audit_python_a
 line-count failureにせず、監査reportで継続確認する。
 
 続くschema v2 sliceでは、新規moduleの600行上限と既存超過moduleの現在値上限をbaselineへ加えた。未登録の
-超過と既存超過moduleの増加はCIをfail-closeにする。function上限も同じaudit contractとunit testで検知できるが、
-80行defaultを有効化する前に既存超過functionの例外名・上限・分離方針をbaselineへ固定する。
+超過と既存超過moduleの増加はCIをfail-closeにする。functionについても80行defaultと、既存超過functionごとの
+名前・現在値上限を同じbaselineへ固定した。したがって新規超過と既存functionの成長はCIでfail-closeになる。例外は
+巨大なlegacy orchestration / renderer / policyに限り、段階的なR4/R5分離で削減し、理由と上限をbaseline差分でレビューする。
+このgateは数値ロジックを評価せず、依存方向・import cycle・構造的な成長だけをdeterministicに検出する。以上をもって
+R6の初期完了gateを満たし、以後は通常の変更ごとに継続運用する。
 
 ## 6. 評価・運用トラックの採用gate
 

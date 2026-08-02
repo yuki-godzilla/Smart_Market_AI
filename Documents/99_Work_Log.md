@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4-B News snapshot-controller boundary slice
+
+- cached snapshot / update status読込とdemo fallbackを`ui/news_controller.py`へ分離し、viewは依存注入と描画に限定した。
+- cache優先・fallback順を直接回帰で固定した。Provider、news cache、候補・順位、表示文言は変更していない。
+
 ## 2026-08-02 R5 package import-safety contract slice
 
 - Assistant / News / Research の package root を独立processでimportし、network socket、background thread、cache writeを禁止した回帰を追加した。

@@ -346,6 +346,11 @@ user-scoped state、candidate生成、widgetを維持し、既存private名はco
 `ui/news_state.py`へ移した。viewはStreamlit sessionと現在userを渡す薄いadapterを維持し、user切替時だけ
 Radar / filter / refreshの一時値を破棄する。永続Watchlist・news cache・unrelated session値は変更しない。
 
+進捗（2026-08-02、R4-B snapshot controller slice）: cached snapshot / update statusの読込と、cache未存在時の
+deterministic demo fallbackを`ui/news_controller.py`へ分離した。viewはprovider/cache実装をcontrollerへ注入し、
+画面描画だけを担う。cache優先順とfallbackは直接回帰で固定した。
+viewのreview済み上限はcontroller importを含む3,855行へ更新し、以後の成長はarchitecture gateでfail-closeとする。
+
 進捗（2026-08-02、R4-C初回slice）: Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、
 `ui/styles.py`は既存global bundleの前に同assetを順序固定で合成するloaderとした。selector順、
 最終CSS、既存`SMAI_GLOBAL_CSS` public valueは不変である。巨大な一括CSS rewriteは避け、以後も

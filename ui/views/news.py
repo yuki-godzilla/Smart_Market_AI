@@ -48,6 +48,7 @@ from ui.favorites import (
     load_favorites,
     render_favorite_button,
 )
+from ui.news_controller import load_news_dashboard_snapshot
 from ui.news_display_policy import (
     MATERIAL_LABELS,
     MATERIAL_TONES,
@@ -1783,11 +1784,11 @@ def news_symbol_handoff_label(
 
 
 def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]:
-    status = load_news_update_status()
-    snapshot = load_cached_news_dashboard_snapshot()
-    if snapshot is not None:
-        return snapshot, status
-    return build_demo_news_dashboard_snapshot(), status
+    return load_news_dashboard_snapshot(
+        load_status=load_news_update_status,
+        load_snapshot=load_cached_news_dashboard_snapshot,
+        build_demo_snapshot=build_demo_news_dashboard_snapshot,
+    )
 
 
 def _render_refresh_controls() -> None:

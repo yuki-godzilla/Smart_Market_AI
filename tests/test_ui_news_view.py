@@ -10,6 +10,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
 )
+from ui.news_controller import load_news_dashboard_snapshot
 from ui.news_display_policy import freshness_label, material_label
 from ui.news_state import ensure_news_radar_user_scope
 from ui.views import news as news_module
@@ -75,6 +76,20 @@ def test_news_dashboard_heatmap_frame_is_user_facing():
     assert set(frame["市場指標"]) == {"ニュース代理"}
     assert set(frame["値動き表示"]) == {"方向未確認"}
     assert set(frame["取引量目安"]) == {"ニュース集計"}
+
+
+def test_news_snapshot_controller_uses_cache_before_demo_snapshot():
+    cached = build_demo_news_dashboard_snapshot(now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC))
+    status = SimpleNamespace(last_error_type=None)
+
+    snapshot, returned_status = load_news_dashboard_snapshot(
+        load_status=lambda: status,
+        load_snapshot=lambda: cached,
+        build_demo_snapshot=lambda: (_ for _ in ()).throw(AssertionError("demo must not run")),
+    )
+
+    assert snapshot is cached
+    assert returned_status is status
 
 
 def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metrics():

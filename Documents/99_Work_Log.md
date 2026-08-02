@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R6 module-size baseline gate slice
+
+- architecture baselineをschema v2へ更新し、backend→UI edge / eager cycleに加え、新規moduleの600行上限と既存超過moduleの現在値上限をCIでfail-closeにした。既存超過moduleも増加すれば同じgateで失敗する。
+- auditはfunction上限も同一contractで検知できる。80行defaultを有効化する前に、既存超過functionの名前・上限・分離方針をbaselineへ固定するため、R6は継続中とする。
+- architecture audit pytest 5件、実baseline監査、対象Mypy、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 603ファイル、Ruff、Blackで成功した。Altairの既存非推奨warning 1件のみ継続している。金融数値、外部接続、UI挙動は変更していない。
+
 ## 2026-08-02 R3-B Research ingestion/index boundary slice
 
 - local file / transient external textのregister、document directory boundary、UTF-8 validation、stable document ID、Markdown chunk化、index rebuildを`backend/research/ingestion.py`へ移した。`ResearchIngestionService` / `ResearchIndexService`の公開名と既存serviceの互換re-exportは維持する。

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -35,6 +35,8 @@ class ArchitectureReport:
     largest_modules: tuple[ModuleMetric, ...]
     largest_functions: tuple[FunctionMetric, ...]
     highest_fan_out: tuple[ModuleMetric, ...]
+    module_metrics: tuple[ModuleMetric, ...]
+    function_metrics: tuple[FunctionMetric, ...]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -46,6 +48,10 @@ class ArchitectureBaseline:
 
     expected_backend_ui_edges: tuple[tuple[str, str], ...]
     expected_eager_cycles: tuple[tuple[str, ...], ...]
+    new_module_line_limit: int | None = None
+    new_function_line_limit: int | None = None
+    allowed_module_line_counts: tuple[tuple[str, int], ...] = ()
+    allowed_function_line_counts: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -110,6 +116,10 @@ def analyze_python_architecture(
         highest_fan_out=tuple(
             sorted(metrics, key=lambda item: (-item.fan_out, item.module))[:limit]
         ),
+        module_metrics=tuple(sorted(metrics, key=lambda item: item.module)),
+        function_metrics=tuple(
+            sorted(functions, key=lambda item: (item.module, item.name, item.line_count))
+        ),
     )
 
 
@@ -117,7 +127,7 @@ def load_architecture_baseline(path: Path) -> ArchitectureBaseline:
     """Load the small checked-in baseline without importing application code."""
 
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("schema_version") != "architecture-baseline-v1":
+    if payload.get("schema_version") != "architecture-baseline-v2":
         raise ValueError("Unsupported architecture baseline schema version.")
     return ArchitectureBaseline(
         expected_backend_ui_edges=tuple(
@@ -125,6 +135,20 @@ def load_architecture_baseline(path: Path) -> ArchitectureBaseline:
         ),
         expected_eager_cycles=tuple(
             sorted(tuple(sorted(cycle)) for cycle in payload.get("expected_eager_cycles", []))
+        ),
+        new_module_line_limit=_optional_positive_int(
+            payload.get("new_module_line_limit"), field="new_module_line_limit"
+        ),
+        new_function_line_limit=_optional_positive_int(
+            payload.get("new_function_line_limit"), field="new_function_line_limit"
+        ),
+        allowed_module_line_counts=_line_count_limits(
+            payload.get("allowed_module_line_counts", {}),
+            field="allowed_module_line_counts",
+        ),
+        allowed_function_line_counts=_line_count_limits(
+            payload.get("allowed_function_line_counts", {}),
+            field="allowed_function_line_counts",
         ),
     )
 
@@ -146,7 +170,69 @@ def architecture_baseline_violations(
             "eager import cycles differ from baseline: "
             f"expected={baseline.expected_eager_cycles}, actual={report.cycles}"
         )
+    _append_size_limit_violations(
+        violations,
+        metrics=report.module_metrics,
+        limit=baseline.new_module_line_limit,
+        allowed_counts=dict(baseline.allowed_module_line_counts),
+        metric_name=lambda metric: metric.module,
+        label="module",
+    )
+    _append_size_limit_violations(
+        violations,
+        metrics=report.function_metrics,
+        limit=baseline.new_function_line_limit,
+        allowed_counts=dict(baseline.allowed_function_line_counts),
+        metric_name=lambda metric: (
+            f"{metric.module}.{metric.name}"
+            if isinstance(metric, FunctionMetric)
+            else metric.module
+        ),
+        label="function",
+    )
     return violations
+
+
+def _optional_positive_int(value: object, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or value < 1:
+        raise ValueError(f"{field} must be a positive integer when provided.")
+    return value
+
+
+def _line_count_limits(value: object, *, field: str) -> tuple[tuple[str, int], ...]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be a mapping of names to positive integers.")
+    limits: list[tuple[str, int]] = []
+    for name, maximum in value.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{field} names must be non-empty strings.")
+        if not isinstance(maximum, int) or maximum < 1:
+            raise ValueError(f"{field} values must be positive integers.")
+        limits.append((name, maximum))
+    return tuple(sorted(limits))
+
+
+def _append_size_limit_violations(
+    violations: list[str],
+    *,
+    metrics: Sequence[ModuleMetric] | Sequence[FunctionMetric],
+    limit: int | None,
+    allowed_counts: dict[str, int],
+    metric_name: Callable[[ModuleMetric | FunctionMetric], str],
+    label: str,
+) -> None:
+    if limit is None:
+        return
+    for metric in metrics:
+        name = metric_name(metric)
+        allowed_count = allowed_counts.get(name, limit)
+        if metric.line_count > allowed_count:
+            violations.append(
+                f"{label} line count exceeds its approved limit: "
+                f"{name}={metric.line_count}, allowed={allowed_count}"
+            )
 
 
 def _parse_modules(

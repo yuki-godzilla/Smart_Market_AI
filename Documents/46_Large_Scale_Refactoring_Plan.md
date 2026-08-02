@@ -384,6 +384,10 @@ backend-to-UI edgeとeager cycleのbaselineをversion管理し、`audit_python_a
 で差分をnon-zero exitにした。CIはpytest前に同gateを実行する。既存の巨大module / functionは単純な
 line-count failureにせず、監査reportで継続確認する。
 
+続くschema v2 sliceでは、新規moduleの600行上限と既存超過moduleの現在値上限をbaselineへ加えた。未登録の
+超過と既存超過moduleの増加はCIをfail-closeにする。function上限も同じaudit contractとunit testで検知できるが、
+80行defaultを有効化する前に既存超過functionの例外名・上限・分離方針をbaselineへ固定する。
+
 ## 6. 評価・運用トラックの採用gate
 
 ### 6.1 Forecast / Phase 35 / Phase 36

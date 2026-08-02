@@ -345,6 +345,11 @@ can compare actual backend-to-UI edges and eager import cycles against it, and C
 before pytest. Existing module/function size metrics remain an explanatory report rather than a
 blind line-count failure; new reverse dependencies or eager cycles fail deterministically.
 
+The R6 baseline now uses schema v2 and fail-closes unapproved modules beyond 600 lines. Existing
+oversized modules are explicitly recorded at their current permitted size, so growth fails the
+same deterministic CI check. The function-size detector and regression test are ready; enabling
+the 80-line default requires the remaining named legacy exceptions and their rationale.
+
 R5 has begun by converting heavyweight `backend.research.service` re-exports into a lazy package
 façade. The public names remain available from `backend.research`, but importing the package no
 longer imports the aggregate service until a legacy service export is requested. The import smoke

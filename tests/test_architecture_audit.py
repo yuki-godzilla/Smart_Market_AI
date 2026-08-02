@@ -77,7 +77,7 @@ def test_architecture_baseline_detects_new_reverse_dependency_and_cycle(tmp_path
     report = analyze_python_architecture(tmp_path)
     baseline_path = tmp_path / "architecture_baseline.json"
     baseline_path.write_text(
-        '{"schema_version":"architecture-baseline-v1",'
+        '{"schema_version":"architecture-baseline-v2",'
         '"expected_backend_ui_edges":[],"expected_eager_cycles":[]}',
         encoding="utf-8",
     )
@@ -90,3 +90,28 @@ def test_architecture_baseline_detects_new_reverse_dependency_and_cycle(tmp_path
         )
         == []
     )
+
+
+def test_architecture_baseline_detects_unapproved_large_modules_and_functions(
+    tmp_path: Path,
+) -> None:
+    _write_module(tmp_path, "backend/__init__.py", "")
+    _write_module(
+        tmp_path,
+        "backend/large.py",
+        "\n".join(["def oversized():"] + ["    value = 1"] * 6),
+    )
+    _write_module(tmp_path, "ui/__init__.py", "")
+
+    report = analyze_python_architecture(tmp_path)
+    baseline = ArchitectureBaseline(
+        (),
+        (),
+        new_module_line_limit=5,
+        new_function_line_limit=5,
+    )
+
+    violations = architecture_baseline_violations(report, baseline)
+
+    assert "module line count exceeds its approved limit" in violations[0]
+    assert "function line count exceeds its approved limit" in violations[1]

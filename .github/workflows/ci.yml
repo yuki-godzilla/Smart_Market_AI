@@ -53,6 +53,9 @@ jobs:
       - name: Mypy (type check)
         run: mypy .
 
+      - name: Architecture baseline
+        run: python tools/audit_python_architecture.py --baseline config/architecture_baseline.json
+
       - name: Pytest (unit tests)
         run: |
           pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml

@@ -1,0 +1,5 @@
+{
+  "schema_version": "architecture-baseline-v1",
+  "expected_backend_ui_edges": [],
+  "expected_eager_cycles": []
+}

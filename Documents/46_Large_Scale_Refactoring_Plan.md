@@ -354,6 +354,11 @@ R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test�
 - 通常CIはnetwork-freeかつdeterministicで、live smokeは明示opt-inの別経路にある。
 - 行数警告だけでなく、依存方向、責務数、test境界を保守判断へ使う。
 
+進捗（2026-08-02、初回slice）: `config/architecture_baseline.json`へ許容しない
+backend-to-UI edgeとeager cycleのbaselineをversion管理し、`audit_python_architecture.py --baseline`
+で差分をnon-zero exitにした。CIはpytest前に同gateを実行する。既存の巨大module / functionは単純な
+line-count failureにせず、監査reportで継続確認する。
+
 ## 6. 評価・運用トラックの採用gate
 
 ### 6.1 Forecast / Phase 35 / Phase 36

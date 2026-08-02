@@ -340,6 +340,11 @@ R4-C has begun with an ordered static CSS asset boundary: the Research AI CTA ba
 in `ui/style_assets.py`, and `ui/styles.py` composes it before the unchanged legacy global bundle.
 Selector order and rendered CSS remain identical; the loader stays at the Streamlit edge.
 
+R6 now has a versioned architecture baseline at `config/architecture_baseline.json`. The audit tool
+can compare actual backend-to-UI edges and eager import cycles against it, and CI runs that check
+before pytest. Existing module/function size metrics remain an explanatory report rather than a
+blind line-count failure; new reverse dependencies or eager cycles fail deterministically.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

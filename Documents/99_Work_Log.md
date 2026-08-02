@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R6 architecture baseline gate slice
+
+- `config/architecture_baseline.json`にbackend-to-UI edgeとeager import cycleの許容baselineをversion管理し、`tools/audit_python_architecture.py --baseline`が差分をdeterministicに失敗として返すようにした。
+- CIはpytest前にbaseline gateを実行する。既存巨大module / functionは単純なline-count failureにせず、依存方向・cycle・責務数の監査reportで継続確認する。
+- architecture audit pytest 4件、実リポジトリbaseline監査、対象Mypy 2ファイル、Ruff、Black、全体pytest 2,494件（16 skipped）、`mypy .` 598ファイル、Ruff、Blackで成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R4-C CSS base-asset slice
 
 - Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、`ui/styles.py`は同assetを既存global bundleの前に順序固定で合成するloaderへ縮小した。selector順、最終CSS、既存`SMAI_GLOBAL_CSS` valueは変わらない。

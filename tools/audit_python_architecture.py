@@ -41,6 +41,14 @@ class ArchitectureReport:
 
 
 @dataclass(frozen=True)
+class ArchitectureBaseline:
+    """Versioned expectations for architecture failures that must not regress."""
+
+    expected_backend_ui_edges: tuple[tuple[str, str], ...]
+    expected_eager_cycles: tuple[tuple[str, ...], ...]
+
+
+@dataclass(frozen=True)
 class _ParsedModule:
     name: str
     path: Path
@@ -103,6 +111,42 @@ def analyze_python_architecture(
             sorted(metrics, key=lambda item: (-item.fan_out, item.module))[:limit]
         ),
     )
+
+
+def load_architecture_baseline(path: Path) -> ArchitectureBaseline:
+    """Load the small checked-in baseline without importing application code."""
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "architecture-baseline-v1":
+        raise ValueError("Unsupported architecture baseline schema version.")
+    return ArchitectureBaseline(
+        expected_backend_ui_edges=tuple(
+            sorted(tuple(edge) for edge in payload.get("expected_backend_ui_edges", []))
+        ),
+        expected_eager_cycles=tuple(
+            sorted(tuple(sorted(cycle)) for cycle in payload.get("expected_eager_cycles", []))
+        ),
+    )
+
+
+def architecture_baseline_violations(
+    report: ArchitectureReport,
+    baseline: ArchitectureBaseline,
+) -> list[str]:
+    """Return deterministic regression messages for baseline-protected invariants."""
+
+    violations: list[str] = []
+    if report.backend_ui_edges != baseline.expected_backend_ui_edges:
+        violations.append(
+            "backend-to-UI edges differ from baseline: "
+            f"expected={baseline.expected_backend_ui_edges}, actual={report.backend_ui_edges}"
+        )
+    if report.cycles != baseline.expected_eager_cycles:
+        violations.append(
+            "eager import cycles differ from baseline: "
+            f"expected={baseline.expected_eager_cycles}, actual={report.cycles}"
+        )
+    return violations
 
 
 def _parse_modules(
@@ -302,6 +346,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--json-output", type=Path)
+    parser.add_argument("--baseline", type=Path)
     parser.add_argument("--limit", type=int, default=15)
     parser.add_argument("--fail-on-backend-ui", action="store_true")
     args = parser.parse_args()
@@ -313,7 +358,17 @@ def main() -> int:
             json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    return 1 if args.fail_on_backend_ui and report.backend_ui_edges else 0
+    violations: list[str] = []
+    if args.baseline:
+        violations = architecture_baseline_violations(
+            report,
+            load_architecture_baseline(args.baseline),
+        )
+        for violation in violations:
+            print(f"baseline violation: {violation}")
+    if violations or (args.fail_on_backend_ui and report.backend_ui_edges):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

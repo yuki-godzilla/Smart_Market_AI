@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from tools.audit_python_architecture import analyze_python_architecture
+from tools.audit_python_architecture import (
+    ArchitectureBaseline,
+    analyze_python_architecture,
+    architecture_baseline_violations,
+    load_architecture_baseline,
+)
 
 
 def _write_module(root: Path, relative_path: str, source: str) -> None:
@@ -62,3 +67,26 @@ def test_architecture_audit_does_not_report_lazy_or_type_only_cycle(tmp_path: Pa
 
     assert report.edge_count == 2
     assert report.cycles == ()
+
+
+def test_architecture_baseline_detects_new_reverse_dependency_and_cycle(tmp_path: Path) -> None:
+    _write_module(tmp_path, "backend/__init__.py", "")
+    _write_module(tmp_path, "backend/service.py", "from ui.view import render\n")
+    _write_module(tmp_path, "ui/__init__.py", "")
+    _write_module(tmp_path, "ui/view.py", "from backend.service import run\n")
+    report = analyze_python_architecture(tmp_path)
+    baseline_path = tmp_path / "architecture_baseline.json"
+    baseline_path.write_text(
+        '{"schema_version":"architecture-baseline-v1",'
+        '"expected_backend_ui_edges":[],"expected_eager_cycles":[]}',
+        encoding="utf-8",
+    )
+
+    assert architecture_baseline_violations(report, load_architecture_baseline(baseline_path))
+    assert (
+        architecture_baseline_violations(
+            report,
+            ArchitectureBaseline(report.backend_ui_edges, report.cycles),
+        )
+        == []
+    )

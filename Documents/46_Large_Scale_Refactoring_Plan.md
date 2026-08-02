@@ -321,7 +321,7 @@ package façadeの独立process smokeは軽量公開名のservice非読込とleg
 `tests/test_research_service.py` / package API回帰、全体network-free test、型・静的・architecture監査で
 Research Score、Ranking順位、Forecast数値が不変であることを確認した。R4を次の構造作業対象とする。
 
-### R4: UI viewとstyleを分割（🟨 進行中）
+### R4: UI viewとstyleを分割（🟦 完了）
 
 - Copilot / Newsをpage-controller-presenterへ分ける。
 - `ui/styles.py`のCSSをbase、component、page assetへ分け、loaderだけをPythonへ残す。
@@ -382,7 +382,13 @@ base tokenの存在を固定した。
 R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test可能で、主要画面のresponsive smokeが
 通り、文言・色・指標単位・ユーザーデータ境界が移動前後で一致することである。
 
-### R5: package cycleと公開APIを整理（⬜ R4後）
+完了内容（2026-08-02）: Copilotはmodel policy、conversation contentを、News / Radarはdisplay policy、
+user-scoped transient state、snapshot controllerをview外へ移した。CSSはCTAとbase tokenをordered asset化し、
+viewはwidget / interaction / gateway adapter / presenterに限定した。Cockpit、Ranking、Radar、Watchlist、
+Assistant、Rebalance、Settingsの実browser responsive smokeをiPhone、iPad、PCで成功させ、更新済み画面画像を
+`docs/responsive/screenshots/`へ保存した。数値、順位、Provider、user persistence、LLM fallbackは不変である。
+
+### R5: package cycleと公開APIを整理（🟦 完了）
 
 - `__init__.py`を薄くし、型だけのimportは`TYPE_CHECKING`へ寄せる。
 - Assistant / News / Researchの循環を実依存と再export由来に分類して解消する。
@@ -403,6 +409,11 @@ R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test�
 進捗（2026-08-02、R5 import-safety slice）: Assistant / News / Researchのpackage rootを独立processで
 importし、network socket接続、background worker thread開始、cache writeを例外化して検証する回帰を追加した。
 広いAssistant / News互換rootはまだcaller移行前のため維持するが、import時副作用を起こさない契約を先にCIで固定した。
+
+完了内容（2026-08-02）: Researchのaggregate serviceはlazy façadeとし、Assistant / Newsは既存callerを壊さない
+明示的なcompatibility façadeとして保持した。全package rootの独立process importでnetwork socket、background
+thread、cache writeを禁止して副作用なしを検証し、公開contract / 削除条件はDocuments/47へ集約した。architecture
+auditのbackend-to-UI edge / eager cycleは0件である。façadeを削除する将来変更は、呼出元移行を伴う別phaseとする。
 
 ### R6: 継続的な保守gate（🟦 完了・以後継続）
 

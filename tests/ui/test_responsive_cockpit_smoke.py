@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from ui.content.research_texts import RESEARCH_FETCH_BUTTON_LABEL
+
 playwright = pytest.importorskip("playwright.sync_api")
 
 VIEWPORTS = (
@@ -83,7 +85,7 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     assert "売買推奨ではありません" not in research_text
     assert "企業理解のための情報整理" not in research_text
     assert research_card.get_by_text("AI調査はまだ未取得です", exact=True).count() == 1
-    research_button = page.get_by_role("button", name="AI調査を開始・更新", exact=True)
+    research_button = page.get_by_role("button", name=RESEARCH_FETCH_BUTTON_LABEL, exact=True)
     research_button.wait_for(state="visible")
     button_box = research_button.bounding_box()
     assert button_box is not None

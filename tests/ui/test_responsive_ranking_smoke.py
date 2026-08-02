@@ -116,8 +116,11 @@ def test_ranking_responsive_viewports() -> None:
                 else:
                     page.get_by_role("button", name="← ランキングへ戻る", exact=True).click()
                     page.wait_for_timeout(1_500)
-                page.get_by_role("button", name="国・市場を選ぶ", exact=True).click()
-                _assert_modal_centered(page, width, height)
+                page.get_by_text(
+                    "詳細条件・キーワードで候補を絞り込む",
+                    exact=True,
+                ).click()
+                page.get_by_text("属性条件", exact=True).wait_for(state="visible", timeout=20_000)
 
                 body_width = page.locator("body").evaluate(
                     "(element) => ({"

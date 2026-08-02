@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R4/R5 closeout and full-screen responsive verification
+
+- Cockpit、Ranking、Radar、Watchlist、Assistant、Rebalance、Settingsを実browserで確認し、PC実画面では例外0・横スクロール0、responsive smokeではiPhone / iPad / PCの横幅・主要操作領域・modal / chart / fallbackを確認した。
+- Ranking、Radar、Cockpit、Watchlistのresponsive smokeに残っていた旧ラベル・旧DOM件数・旧grid前提を現行UI contractへ同期し、更新された画面画像を保存した。R4 / R5の完了gateを満たし、数値、順位、Provider、LLM fallback、user persistenceは変更していない。
+
 ## 2026-08-02 R4-B News snapshot-controller boundary slice
 
 - cached snapshot / update status読込とdemo fallbackを`ui/news_controller.py`へ分離し、viewは依存注入と描画に限定した。

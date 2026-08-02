@@ -372,6 +372,13 @@ façade. The public names remain available from `backend.research`, but importin
 longer imports the aggregate service until a legacy service export is requested. The import smoke
 fixes both this deferral and public compatibility.
 
+R4 is complete: Copilot static policy/content, Radar display policy/user state/snapshot controller,
+and ordered CSS assets are independently testable while views retain interactive adapters and
+presenters. The seven primary screens passed responsive browser smoke at iPhone, iPad, and PC sizes.
+R5 is complete: Research uses a lazy aggregate-service façade; Assistant and News retain documented
+compatibility façades, and isolated package import smoke forbids network, worker, and cache-write
+side effects. Public contracts and later deletion conditions remain in `Documents/47_Public_API_Compatibility.md`.
+
 R3-B now also moves the deterministic local `ResearchInMemoryStore` into
 `backend/research/store.py`. Ingestion/index services keep their existing service contracts; the
 store preserves document dedupe, symbol normalization, chunk replacement, and sort order without

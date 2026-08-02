@@ -372,6 +372,10 @@ belong to the aggregate service. JSONL atomic writes, validation, filters, sort 
 warnings, and all existing `backend.research` public names are unchanged; import smoke fixes that
 the lightweight vector export does not eagerly load the aggregate service.
 
+`backend/research/query_expansion.py` now owns deterministic topic-dictionary expansion and its
+YAML schema validation. Expanded-term normalization/order and existing error contracts remain
+unchanged, while its public package export also avoids the aggregate-service import.
+
 Local document and transient external-text registration plus deterministic Markdown indexing now
 live in `backend/research/ingestion.py`. Its document-directory/UTF-8 validation, stable IDs,
 chunk section/index/metadata construction, empty-document errors, rebuild warnings, and symbol

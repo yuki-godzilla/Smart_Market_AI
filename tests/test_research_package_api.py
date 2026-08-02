@@ -22,6 +22,9 @@ def test_research_package_defers_legacy_service_import_but_preserves_public_expo
             "from backend.research import ResearchIngestionService; "
             "assert ResearchIngestionService.__name__ == 'ResearchIngestionService'; "
             "assert 'backend.research.service' not in sys.modules; "
+            "from backend.research import ResearchQueryExpansionService; "
+            "assert ResearchQueryExpansionService.__name__ == 'ResearchQueryExpansionService'; "
+            "assert 'backend.research.service' not in sys.modules; "
             "from backend.research import ResearchAnalysisService; "
             "assert ResearchAnalysisService.__name__ == 'ResearchAnalysisService'; "
             "assert 'backend.research.service' in sys.modules",

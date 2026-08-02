@@ -286,6 +286,10 @@ hash dedupe用document ID、Markdown chunk化、index rebuildを`ingestion.py`�
 chunk index / char count、metadata、empty document error、index warning / symbol sortは同じcontractであり、
 `ResearchIngestionService`と`ResearchIndexService`も軽量public exportとしてaggregate serviceをeager importしない。
 
+R3-Cの軽量公開sliceとして、topic dictionaryによるquery expansionとYAML schema validationを
+`query_expansion.py`へ移した。expanded termsのnormalization / order、unknown categoryと不正termのerror、
+既存のpublic `ResearchQueryExpansionService`は維持し、package import smokeでaggregate service非読込を固定する。
+
 #### R3-A: summary builderを分割
 
 - 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。

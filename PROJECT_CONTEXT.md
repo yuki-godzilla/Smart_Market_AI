@@ -355,6 +355,13 @@ R3-B now also moves the deterministic local `ResearchInMemoryStore` into
 store preserves document dedupe, symbol normalization, chunk replacement, and sort order without
 provider or UI dependencies.
 
+The optional deterministic vector-retrieval boundary now lives in
+`backend/research/vector_store.py`: its protocols, disabled/in-memory/file-backed stores, query
+term normalization, local embeddings, cosine search, and retrieval-quality assembly no longer
+belong to the aggregate service. JSONL atomic writes, validation, filters, sort order, fallback
+warnings, and all existing `backend.research` public names are unchanged; import smoke fixes that
+the lightweight vector export does not eagerly load the aggregate service.
+
 R2 Cockpit application-flow separation is complete. Its controller/presenter boundary tests cover
 preview state adoption/clearing, frozen Summary/Forecast/Research/Report contexts, and retained
 render order. A local mock-AAPL Chrome smoke found no SMAI exceptions or page-level horizontal

@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-B Research vector-store boundary slice
+
+- optional vector retrievalのProtocol、disabled / in-memory / JSONL-backed store、query term正規化、local embedding、cosine検索、retrieval-quality組立を`backend/research/vector_store.py`へ移した。service側の公開互換名は維持する。
+- JSONL atomic replace、candidate / embedding `chunk_id`検証、symbol・source filter、scoreとpublished dateのsort order、empty-cache fallback warningを既存contractのまま維持した。package / vector module import smokeで、軽量exportがaggregate serviceをeager importしないことも固定した。
+- Research service / package pytest 119件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 602ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
 ## 2026-08-02 R2 Cockpit application-flow closeout
 
 - `CockpitPreviewState` / `CockpitPreviewSessionKeys`のadopt・clear回帰、Summary / Forecast hero / chart / Research / Decision Reportのtyped context・page境界回帰を確認し、R2完了gateを満たした。

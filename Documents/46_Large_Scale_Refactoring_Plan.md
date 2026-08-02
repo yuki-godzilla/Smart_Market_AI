@@ -275,6 +275,12 @@ R3-B初回sliceとして、local document / chunk保存を`ResearchInMemoryStore
 Ingestion / index use caseは同じstore contractを使用し、document hash dedupe、symbol正規化、chunk置換、
 sort orderを維持する。storeはProvider / UIをimportしない。
 
+続くR3-B vector sliceでは、optional vector retrievalのProtocol、disabled / in-memory / JSONL-backed store、
+query term正規化、local embedding、cosine検索、retrieval qualityを`vector_store.py`へ移した。JSONLの
+atomic replace、candidate / embedding `chunk_id`検証、symbol・source filter、scoreと日付のsort order、
+empty-cache warningは既存contractのまま保つ。`backend.research`は同じ公開名を軽量moduleから直接exportし、
+aggregate serviceを読み込まないimport smokeで境界を固定する。
+
 #### R3-A: summary builderを分割
 
 - 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。

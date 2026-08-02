@@ -94,6 +94,13 @@ from backend.research.summary_builders import (
     ResearchPageViewModelBuilder,
     SecurityResearchTypeDetector,
 )
+from backend.research.vector_store import (
+    ResearchDisabledVectorStore,
+    ResearchFileVectorStore,
+    ResearchInMemoryVectorStore,
+    ResearchVectorStore,
+    ResearchWritableVectorStore,
+)
 
 _LAZY_SERVICE_EXPORTS = frozenset(
     {
@@ -101,21 +108,16 @@ _LAZY_SERVICE_EXPORTS = frozenset(
         "ExternalStockNewsFetchService",
         "HybridResearchRetrievalService",
         "ResearchAnalysisService",
-        "ResearchDisabledVectorStore",
         "ResearchEmbeddingService",
         "ResearchEvidenceReranker",
-        "ResearchFileVectorStore",
         "ResearchGroundedAnswerService",
         "ResearchHybridScorer",
         "ResearchIndexService",
         "ResearchIngestionService",
-        "ResearchInMemoryVectorStore",
         "ResearchQueryExpansionService",
         "ResearchRetrievalService",
         "ResearchScoreService",
         "ResearchVectorIndexService",
-        "ResearchVectorStore",
-        "ResearchWritableVectorStore",
         "StockNewsAnalysisService",
     }
 )

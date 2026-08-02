@@ -32,6 +32,7 @@ package importはProvider通信、LLM起動、background worker開始、filesyst
 
 ## 検証
 
+- `tests/test_package_import_safety.py`は独立processでAssistant / News / Research package rootをimportし、network socket接続、background thread開始、cache writeを禁止してimport-safety contractを確認する。
 - `tests/test_research_package_api.py`は、Research package import、store / vector / ingestion public export、legacy service exportの遅延読込を別processで確認する。
 - `tools/audit_python_architecture.py --baseline config/architecture_baseline.json`はbackend-to-UI edgeとeager cycleを検証する。
 - Assistant / NewsのProvider、LLM、background workerを伴う確認は、通常CIではなく明示opt-inのlive smokeとして実行する。

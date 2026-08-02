@@ -395,6 +395,10 @@ R4完了gateは、CopilotとNewsの取得・状態・表示変換が独立test�
 要求した時点でserviceをimportする。独立process import smokeで、遅延読込と公開export互換を固定した。
 公開contract、compatibility façade、削除条件は`Documents/47_Public_API_Compatibility.md`へ集約する。
 
+進捗（2026-08-02、R5 import-safety slice）: Assistant / News / Researchのpackage rootを独立processで
+importし、network socket接続、background worker thread開始、cache writeを例外化して検証する回帰を追加した。
+広いAssistant / News互換rootはまだcaller移行前のため維持するが、import時副作用を起こさない契約を先にCIで固定した。
+
 ### R6: 継続的な保守gate（🟦 完了・以後継続）
 
 - 新規moduleは原則600行以下、新規functionは原則80行以下を目安とする。

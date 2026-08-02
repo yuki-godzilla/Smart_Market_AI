@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-02 R5 package import-safety contract slice
+
+- Assistant / News / Research の package root を独立processでimportし、network socket、background thread、cache writeを禁止した回帰を追加した。
+- Assistant / Newsの広い互換rootはcaller移行まで残すが、root import自体は外部副作用を起こさないことをCIで固定した。Provider、LLM、通知、数値ロジックは変更していない。
+
 ## 2026-08-02 R4-B News user-state boundary slice
 
 - Radar の user-scoped transient state の採用・消去規則を `ui/news_state.py` へ分離し、view は Streamlit session adapter に限定した。

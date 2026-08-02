@@ -257,7 +257,10 @@ R2完了gate:
 決定論的heuristicを`company_business_policy.py`と`company_product_policy.py`へ分離した。
 `company_profile_policy.py`は薄いcompatibility façadeとし、`service.py`からstore、provider、UIに
 依存しない約1,660行を除去した。次のsliceではsummary builderが依存する会社概要・定量・IR整形を
-contract単位で分ける。
+contract単位で分ける。R3-Aの開始後は、選択済み定量値の欠損状態・要約・出典組立を
+`quantitative_summary.py`へ、選択済み会社概要値の`CompanyOverviewSummary`組立を
+`overview_summary.py`へ移した。business profile / fact選択、規模・直近材料の導出、clip policy、
+source収集はservice側に残し、既存contract値・citation順・fallbackをbuilder testで固定している。
 
 #### R3-A: summary builderを分割
 

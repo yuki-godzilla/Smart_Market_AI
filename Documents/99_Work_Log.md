@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-A company-overview Research summary assembly slice
+
+- `backend/research/overview_summary.py`へ、既に選択済みのbusiness profile、概要、segment、region、規模、直近材料、source metadataから`CompanyOverviewSummary`を組み立てる純粋処理を移した。profile field、fallback evidence level、source titleの重複除去・順序、220文字clipは移動前のcontractを保つ。
+- `backend/research/service.py`はbusiness profile / fact、規模・直近材料、source metadataの既存選択を継続し、それらをbuilderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。
+- 対象Research pytest 116件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 594ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R3-A quantitative Research summary assembly slice
 
 - `backend/research/quantitative_summary.py`へ、既存Research evidenceから選択済みの定量値を`QuantitativeSummary` contractへ組み立てる純粋処理を移した。欠損項目、found/missing状態、要約、evidence level、source titleの重複除去は同じ入力から同じ出力を返す。

@@ -69,6 +69,10 @@ from backend.research import (
     YahooFinanceResearchAdapter,
     research_profile_source_key_for_provider,
 )
+from backend.research.overview_summary import (
+    CompanyOverviewSummaryInputs,
+    build_company_overview_summary,
+)
 from backend.research.quantitative_summary import (
     QuantitativeFieldValue,
     build_quantitative_summary,
@@ -5364,5 +5368,47 @@ def test_quantitative_summary_builder_keeps_missing_status_and_source_order():
     assert summary.item_statuses["revenue"] == "found"
     assert summary.item_statuses["pbr"] == "missing"
     assert summary.information_status == "found"
+    assert summary.evidence_level == "medium"
+    assert summary.source_titles == ["Profile", "IR"]
+
+
+def test_company_overview_summary_builder_keeps_profile_contract_and_source_order():
+    profile = CompanyBusinessProfile(
+        company_name="Example Corp.",
+        symbol="EXM",
+        industry="Software",
+        main_businesses=["Platform"],
+        supporting_businesses=["Support"],
+        products_services=["Example Cloud"],
+        products_services_status="found",
+        regions=["Japan"],
+        customer_segments=["Enterprise"],
+        information_status="found",
+        evidence_level="missing",
+        source_titles=["Profile"],
+    )
+
+    summary = build_company_overview_summary(
+        CompanyOverviewSummaryInputs(
+            symbol="EXM",
+            company_name="Example Corp.",
+            business_profile=profile,
+            business_overview="A" * 230,
+            business_segments=["Platform"],
+            regions=["Japan"],
+            scale_summary="時価総額 1,000です。",
+            recent_focus="決算を確認しています。",
+            source_types=["provider_profile"],
+            source_titles=["Profile", "Profile", "IR"],
+        ),
+        clip_text=lambda value: value[:220],
+        evidence_level_from_source_types=lambda _types: "medium",
+        unique_text=lambda values: list(dict.fromkeys(values)),
+    )
+
+    assert summary.company_name == "Example Corp."
+    assert summary.business_overview == "A" * 220
+    assert summary.main_businesses == ["Platform"]
+    assert summary.products_services_status == "found"
     assert summary.evidence_level == "medium"
     assert summary.source_titles == ["Profile", "IR"]

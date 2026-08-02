@@ -136,6 +136,10 @@ from backend.research.ir_classification import (
     classify_ir_document_candidates,
 )
 from backend.research.normalization import normalize_symbol
+from backend.research.overview_summary import (
+    CompanyOverviewSummaryInputs,
+    build_company_overview_summary,
+)
 from backend.research.quantitative_summary import (
     QuantitativeFieldValue,
     build_quantitative_summary,
@@ -3606,35 +3610,26 @@ def _company_research_overview_summary(
     ]
     source_types = [item.source_type for item in source_items]
     source_types.extend(row.source_type for row in report.evidence[:3])
-    return CompanyOverviewSummary(
-        company_name=company_name or "",
-        symbol=report.symbol,
-        business_profile=business_profile,
-        industry=business_profile.industry,
-        sector=business_profile.sector,
-        business_overview=_clip_text(business_overview, max_chars=220),
-        main_businesses=business_segments,
-        business_segments=business_segments,
-        supporting_businesses=business_profile.supporting_businesses,
-        products_services=business_profile.products_services,
-        products_services_status=business_profile.products_services_status,
-        regions=regions,
-        customer_segments=business_profile.customer_segments,
-        scale_summary=scale_summary,
-        recent_focus=recent_focus,
-        information_status=business_profile.information_status,
-        evidence_level=(
-            business_profile.evidence_level
-            if business_profile.evidence_level != "missing"
-            else _company_research_evidence_level_from_source_types(source_types)
-        ),
-        source_titles=_unique_text(
-            [
+    return build_company_overview_summary(
+        CompanyOverviewSummaryInputs(
+            symbol=report.symbol,
+            company_name=company_name or "",
+            business_profile=business_profile,
+            business_overview=business_overview,
+            business_segments=business_segments,
+            regions=regions,
+            scale_summary=scale_summary,
+            recent_focus=recent_focus,
+            source_types=source_types,
+            source_titles=[
                 *business_profile.source_titles,
                 *[item.source_title for item in source_items if item.source_title.strip()],
                 *[row.title for row in report.evidence[:3]],
-            ]
-        )[:5],
+            ],
+        ),
+        clip_text=lambda value: _clip_text(value, max_chars=220),
+        evidence_level_from_source_types=_company_research_evidence_level_from_source_types,
+        unique_text=_unique_text,
     )
 
 

@@ -313,7 +313,11 @@ R3-A summary-builder separation has started with the deterministic quantitative-
 state, user-facing summary, item statuses, evidence level, and source-title dedupe. The legacy
 Research service remains responsible only for selecting values and source metadata from existing
 evidence. Research Score, Ranking, Forecast, external retrieval, persistence, and UI behavior are
-unchanged.
+unchanged. The following overview-summary slice similarly moves only the final
+`CompanyOverviewSummary` contract assembly into `backend/research/overview_summary.py`; business
+profile/fact selection, scale/recent-focus derivation, clipping policy, and source collection remain
+in the legacy service and are injected into the pure builder. Its profile fields, fallback evidence
+level, source-title order, and display values are unchanged.
 
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report

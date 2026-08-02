@@ -80,6 +80,7 @@ from backend.research.external_contracts import (
     ExternalResearchSourcePayload,
     ResearchSourceType,
 )
+from backend.research.ingestion import ResearchIndexService, ResearchIngestionService
 from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
@@ -112,8 +113,6 @@ _LAZY_SERVICE_EXPORTS = frozenset(
         "ResearchEvidenceReranker",
         "ResearchGroundedAnswerService",
         "ResearchHybridScorer",
-        "ResearchIndexService",
-        "ResearchIngestionService",
         "ResearchQueryExpansionService",
         "ResearchRetrievalService",
         "ResearchScoreService",

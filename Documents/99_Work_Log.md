@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-B Research ingestion/index boundary slice
+
+- local file / transient external textのregister、document directory boundary、UTF-8 validation、stable document ID、Markdown chunk化、index rebuildを`backend/research/ingestion.py`へ移した。`ResearchIngestionService` / `ResearchIndexService`の公開名と既存serviceの互換re-exportは維持する。
+- chunk ID、section、chunk index / char count、metadata、empty-document error、index warning、symbol sortを既存contractのまま保持した。package import smokeは、ingestion/index公開要求がaggregate serviceをeager importしないことを固定する。
+- Research service / package pytest 119件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 603ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
 ## 2026-08-02 R3-B Research vector-store boundary slice
 
 - optional vector retrievalのProtocol、disabled / in-memory / JSONL-backed store、query term正規化、local embedding、cosine検索、retrieval-quality組立を`backend/research/vector_store.py`へ移した。service側の公開互換名は維持する。

@@ -281,6 +281,11 @@ atomic replace、candidate / embedding `chunk_id`検証、symbol・source filter
 empty-cache warningは既存contractのまま保つ。`backend.research`は同じ公開名を軽量moduleから直接exportし、
 aggregate serviceを読み込まないimport smokeで境界を固定する。
 
+同じR3-Bで、local file / transient external textのregister、document directory boundary、UTF-8 validation、
+hash dedupe用document ID、Markdown chunk化、index rebuildを`ingestion.py`へ移した。chunk ID、section、
+chunk index / char count、metadata、empty document error、index warning / symbol sortは同じcontractであり、
+`ResearchIngestionService`と`ResearchIndexService`も軽量public exportとしてaggregate serviceをeager importしない。
+
 #### R3-A: summary builderを分割
 
 - 会社概要、定量、IR、最新ニュース・開示のfact selectionと表示用summaryをuse case別に分ける。

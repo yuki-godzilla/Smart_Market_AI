@@ -362,6 +362,12 @@ belong to the aggregate service. JSONL atomic writes, validation, filters, sort 
 warnings, and all existing `backend.research` public names are unchanged; import smoke fixes that
 the lightweight vector export does not eagerly load the aggregate service.
 
+Local document and transient external-text registration plus deterministic Markdown indexing now
+live in `backend/research/ingestion.py`. Its document-directory/UTF-8 validation, stable IDs,
+chunk section/index/metadata construction, empty-document errors, rebuild warnings, and symbol
+sort order are retained. The ingestion/index public exports are likewise available without an
+eager aggregate-service import.
+
 R2 Cockpit application-flow separation is complete. Its controller/presenter boundary tests cover
 preview state adoption/clearing, frozen Summary/Forecast/Research/Report contexts, and retained
 render order. A local mock-AAPL Chrome smoke found no SMAI exceptions or page-level horizontal

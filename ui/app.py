@@ -37,6 +37,7 @@ from st_aggrid import AgGrid, DataReturnMode, JsCode
 from zoneinfo import ZoneInfo
 
 import backend.news.radar_market as _radar_market_module
+import ui.cockpit_research_presenter as cockpit_research_presenter
 import ui.styles as _ui_styles_module
 from backend.core.config import get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
@@ -186,7 +187,6 @@ from ui.cockpit_filter_policy import (
     cockpit_numeric_filter_differs_from_default,
     cockpit_symbol_search_rank,
 )
-from ui.cockpit_research_presenter import build_cockpit_research_operation_card
 from ui.components.assistant import (
     SmaiAssistantContext,
     register_assistant_context,
@@ -12925,7 +12925,6 @@ def _render_cockpit_research_summary(
                 preview,
                 report_progress=update_research_progress,
             )
-            external_result = refresh_result.external_research_result
             if refresh_result.external_fetch_error is not None:
                 exc = refresh_result.external_fetch_error
                 st.warning(
@@ -12936,7 +12935,7 @@ def _render_cockpit_research_summary(
                     st.caption(exc.message)
                     if exc.details:
                         st.json(exc.details)
-            elif external_result is not None:
+            elif (external_result := refresh_result.external_research_result) is not None:
                 if external_result.entries:
                     st.success(
                         f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
@@ -14360,7 +14359,7 @@ def _render_research_operation_card(
     """Compatibility façade for the Cockpit Research page component."""
 
     symbol = _market_data_preview_symbol(preview)
-    card = build_cockpit_research_operation_card(
+    card = cockpit_research_presenter.build_cockpit_research_operation_card(
         report,
         news_report,
         external_result,
@@ -17051,6 +17050,7 @@ def _build_cockpit_research_report(preview: MarketDataPreview) -> CompanyResearc
 
 def _store_cockpit_research_report(report: CompanyResearchReport | None) -> None:
     st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = report
+    cockpit_research_presenter.publish_research_completion(st.session_state, report)
 
 
 def _render_stock_news_cards_panel(report: StockNewsReport) -> None:

@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification Research-completion second slice
+
+- 明示Cockpit `AI調査を更新` の完了後だけ、`CompanyResearchReport`からbounded `ResearchCompletionEvent`を作り、`smai_analysis_complete` catalog通知へ接続した。document/chunk ID由来fingerprintで同一結果をdedupeし、画面rerun、Report表示/download、default userでは通知を作らない。
+- 通知処理はUIから分離し、history保存後に既存opt-in ntfy clientを使う。設定・履歴の障害は安全なreasonとして返し、Cockpit調査の保存・表示を失敗扱いにしない。Report artifact eventとmeasured market-data adapterは未実装として残す。
+
 ## 2026-08-03 N6 notification live-data first slice
 
 - scheduler runnerから、user-scoped profileのfavorites / watchlist snapshotsとfresh News dashboard cacheを読むread-only N6 adapterを接続した。Favorite daily/move/news、Investment News、Sector templateは実キャッシュ値を使い、default user・未登録・stale・該当なしはsampleへfallbackせずsanitized run logを`skipped`として残す。

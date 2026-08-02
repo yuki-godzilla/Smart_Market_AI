@@ -270,7 +270,8 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - `SMAI_NOTIFICATION_DEBUG=1`の場合だけcatalog previewと手動生成を表示する。
 - schedulerは初期OFFのユーザー別設定、固定daily job registry、run claim、sanitized logを持つ。UI描画に依存せず`python -m backend.notifications.scheduler_runner`で常駐できる。
 - N6第1 sliceでは、schedulerだけがread-only adapterを通じてuser-scoped favorites / watchlist snapshotsとfresh News dashboard cacheを読む。該当データなし、stale、default user、未知templateはcatalog sampleへfallbackせず、run logを`skipped`として終了する。adapterはprovider refresh、cache write、score/ranking計算を行わない。
-- debug manual generatorはcatalog sampleを維持する。Research/report完了event接続とmeasured market-data adapterは後続N6 sliceで扱う。
+- N6第2 sliceでは、明示的なCockpit `AI調査を更新` が `CompanyResearchReport` を返した場合だけ、user-scoped `ResearchCompletionEvent` を作る。eventはsymbol、as-of、schema version、資料数、根拠数、document/chunk ID由来のhashだけを使い、raw source本文やLLM出力を持たない。同一fingerprintはdedupeし、default user、画面rerun、Report表示/downloadでは発火しない。通知保存・配送失敗は調査結果を失敗扱いにしない。
+- debug manual generatorはcatalog sampleを維持する。Report artifact完了eventとmeasured market-data adapterは後続N6 sliceで扱う。
 
 ## 10. 受け入れ条件
 

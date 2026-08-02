@@ -13,6 +13,9 @@ from backend.research import (
     StockNewsReport,
 )
 from ui.content.research_texts import RESEARCH_FETCH_BUTTON_LABEL
+from ui.notification_events import (
+    publish_research_completion as _publish_research_completion,
+)
 from ui.styles import truncate_text
 
 
@@ -33,6 +36,15 @@ class CockpitResearchOperationCard:
     status_chips: tuple[tuple[str, str], ...]
     material_groups: tuple[CockpitResearchMaterialGroup, ...]
     action_label: str
+
+
+def publish_research_completion(
+    session_state: object,
+    report: CompanyResearchReport | None,
+) -> None:
+    """Forward an explicit Cockpit Research result to the notification boundary."""
+
+    _publish_research_completion(session_state, report)
 
 
 def build_cockpit_research_operation_card(

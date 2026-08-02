@@ -69,6 +69,8 @@ from backend.research import (
     YahooFinanceResearchAdapter,
     research_profile_source_key_for_provider,
 )
+from backend.research.ir_classification import IRCategoryMatch, IRCategoryRule, IRDocumentCandidate
+from backend.research.ir_summary import build_ir_summary_item
 from backend.research.overview_summary import (
     CompanyOverviewSummaryInputs,
     build_company_overview_summary,
@@ -5412,3 +5414,44 @@ def test_company_overview_summary_builder_keeps_profile_contract_and_source_orde
     assert summary.products_services_status == "found"
     assert summary.evidence_level == "medium"
     assert summary.source_titles == ["Profile", "IR"]
+
+
+def test_ir_summary_item_builder_keeps_missing_and_classified_contracts():
+    rule = IRCategoryRule(
+        document_type="決算短信",
+        ir_document_type="earnings_summary",
+        allowed_source_types=("tdnet",),
+    )
+    missing = build_ir_summary_item(
+        rule=rule,
+        match=None,
+        key_points=[],
+        clip_text=lambda value: value[:120],
+        evidence_level_from_source_type=lambda _source_type: "high",
+    )
+    match = IRCategoryMatch(
+        rule=rule,
+        candidate=IRDocumentCandidate(
+            title="2026年3月期 決算短信",
+            source_type="tdnet",
+            source_title="TDnet",
+        ),
+        matched_keywords=("決算",),
+        classification_confidence=0.9,
+        classification_reason="specific_required_keyword_match",
+    )
+    found = build_ir_summary_item(
+        rule=rule,
+        match=match,
+        key_points=["営業利益は増益"],
+        clip_text=lambda value: value[:120],
+        evidence_level_from_source_type=lambda _source_type: "high",
+    )
+
+    assert missing.availability == "missing"
+    assert missing.title == "未取得"
+    assert missing.classification_confidence == 0.0
+    assert found.availability == "found"
+    assert found.source_title == "TDnet"
+    assert found.key_points == ["営業利益は増益"]
+    assert found.evidence_level == "high"

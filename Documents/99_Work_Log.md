@@ -1,5 +1,11 @@
 # 99_Work_Log
 
+## 2026-08-02 R3-A IR Research summary assembly slice
+
+- `backend/research/ir_summary.py`へ、分類済み候補と既存key pointから`IRSummaryItem`を組み立てる純粋処理を移した。未取得・取得済みのstate、title / source metadata、分類理由・confidence、evidence level、既存の表示文言を固定する。
+- `backend/research/service.py`はsource card / candidate収集、IR分類、fact由来key pointの選択を継続し、builderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。
+- 対象Research pytest 117件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 595ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
 ## 2026-08-02 R3-A company-overview Research summary assembly slice
 
 - `backend/research/overview_summary.py`へ、既に選択済みのbusiness profile、概要、segment、region、規模、直近材料、source metadataから`CompanyOverviewSummary`を組み立てる純粋処理を移した。profile field、fallback evidence level、source titleの重複除去・順序、220文字clipは移動前のcontractを保つ。

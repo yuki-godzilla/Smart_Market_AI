@@ -51,7 +51,6 @@ from backend.research.contracts import (  # noqa: F401 - legacy service re-expor
     InvestmentQuestionSummary,
     InvestmentSignal,
     InvestmentViewStatus,
-    IRDocumentType,
     IRSummaryItem,
     LatestTopicItem,
     LatestTopicType,
@@ -135,6 +134,7 @@ from backend.research.ir_classification import (
     IRDocumentCandidate,
     classify_ir_document_candidates,
 )
+from backend.research.ir_summary import build_ir_summary_item
 from backend.research.normalization import normalize_symbol
 from backend.research.overview_summary import (
     CompanyOverviewSummaryInputs,
@@ -5013,45 +5013,16 @@ def _company_research_ir_item_for_rule(
     match: IRCategoryMatch | None,
     brief: ResearchBrief,
 ) -> IRSummaryItem:
-    ir_document_type = cast(IRDocumentType, rule.ir_document_type)
-    if match is None:
-        return IRSummaryItem(
-            document_type=rule.document_type,
-            ir_document_type=ir_document_type,
-            title="未取得",
-            availability="missing",
-            information_status="missing",
-            summary=f"{rule.document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
-            key_points=[],
-            evidence_level="missing",
-            classification_confidence=0.0,
-        )
-    candidate = match.candidate
-    key_points = _company_research_ir_key_points(rule.document_type, brief)
-    if not key_points and candidate.body and candidate.source_type != "tdnet":
-        key_points = [_clip_text(candidate.body, max_chars=120)]
-    information_status: InformationStatus = "found"
-    return IRSummaryItem(
-        document_type=rule.document_type,
-        ir_document_type=ir_document_type,
-        title=candidate.title,
-        availability="found",
-        information_status=information_status,
-        summary=_company_research_ir_summary(
-            rule.document_type,
-            key_points,
-            information_status,
+    return build_ir_summary_item(
+        rule=rule,
+        match=match,
+        key_points=_company_research_ir_key_points(rule.document_type, brief),
+        clip_text=lambda value: _clip_text(value, max_chars=120),
+        evidence_level_from_source_type=lambda source_type: (
+            _company_research_evidence_level_from_source_types(
+                [cast(ResearchSourceType, source_type)]
+            )
         ),
-        key_points=key_points,
-        source_title=candidate.source_title or candidate.title,
-        source_url=candidate.source_url,
-        evidence_level=_company_research_evidence_level_from_source_types(
-            [cast(ResearchSourceType, candidate.source_type)]
-        ),
-        classification_reason=match.classification_reason,
-        matched_keywords=list(match.matched_keywords),
-        classification_confidence=match.classification_confidence,
-        source_category=candidate.source_type,
     )
 
 
@@ -5080,22 +5051,6 @@ def _company_research_ir_key_points(
             )
         ][:3]
     return []
-
-
-def _company_research_ir_summary(
-    document_type: str,
-    key_points: Sequence[str],
-    information_status: InformationStatus,
-) -> str:
-    if key_points:
-        return (
-            f"{document_type}に関連しそうな資料候補があります。内容はリンク先で確認してください。"
-        )
-    if information_status == "found":
-        return "関連しそうな資料候補があります。内容はリンク先で確認してください。"
-    if information_status == "unparsed":
-        return "資料タイトルは取得済みですが、本文は未解析です。詳細はリンク先で確認してください。"
-    return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"
 
 
 def _company_research_latest_topic_type(

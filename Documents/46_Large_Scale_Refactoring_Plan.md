@@ -261,6 +261,9 @@ contract単位で分ける。R3-Aの開始後は、選択済み定量値の欠�
 `quantitative_summary.py`へ、選択済み会社概要値の`CompanyOverviewSummary`組立を
 `overview_summary.py`へ移した。business profile / fact選択、規模・直近材料の導出、clip policy、
 source収集はservice側に残し、既存contract値・citation順・fallbackをbuilder testで固定している。
+続くIR sliceでは、serviceにsource card / candidate収集、分類、fact由来key point選択を残し、
+分類済み候補から`IRSummaryItem`のmissing / found state、metadata、classification、evidence level、
+表示文言を組み立てる責務を`ir_summary.py`へ移した。
 
 #### R3-A: summary builderを分割
 

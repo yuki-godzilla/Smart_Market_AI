@@ -319,6 +319,12 @@ profile/fact selection, scale/recent-focus derivation, clipping policy, and sour
 in the legacy service and are injected into the pure builder. Its profile fields, fallback evidence
 level, source-title order, and display values are unchanged.
 
+The next R3-A IR slice isolates the final `IRSummaryItem` assembly in
+`backend/research/ir_summary.py`. The legacy service still collects source cards, creates and
+classifies IR candidates, and selects fact-derived key points; the pure builder preserves missing
+and found states, title/source metadata, classification reason/confidence, evidence level, and the
+established user-facing wording.
+
 R2-B initial context slice is implemented. `CockpitSummaryContext`, `CockpitResearchContext`, and
 `CockpitDecisionReportRenderContext` freeze header, symbol-scoped Research, and Decision Report
 render inputs before Streamlit consumes them. The Cockpit resolves matching Research / news / external

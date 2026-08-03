@@ -16,7 +16,10 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 from backend.news.cache import NEWS_CACHE_DIR, load_cached_news_dashboard_snapshot
-from backend.notifications.marketdata_measurements import select_favorite_move_measurements
+from backend.notifications.marketdata_measurements import (
+    select_favorite_daily_measurements,
+    select_favorite_move_measurements,
+)
 
 PROFILE_ROOT = Path("data/user/profiles")
 _SAFE_USER_ID = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -74,12 +77,24 @@ class CachedNotificationDataSource:
 
     def _favorite_daily_values(self, user_id: str) -> NotificationSourceValues:
         favorites = self._favorite_symbols(user_id)
-        if not favorites:
-            return NotificationSourceValues(None, "no_favorites")
+        measurements = select_favorite_daily_measurements(
+            set(favorites),
+            self._watchlist_snapshots(user_id),
+            now=self.now_provider(),
+        )
+        if not measurements.measurements:
+            return NotificationSourceValues(None, measurements.reason)
         displayed = "、".join(favorites[:3])
         suffix = " ほか" if len(favorites) > 3 else ""
         return NotificationSourceValues(
-            {"count": str(len(favorites)), "detail": f"登録済み: {displayed}{suffix}"}
+            {
+                "count": str(measurements.favorite_count),
+                "detail": (
+                    "直近36時間以内に確認できた価格計測: "
+                    f"{measurements.coverage_count}/{measurements.favorite_count}銘柄。"
+                    f"登録済み: {displayed}{suffix}"
+                ),
+            }
         )
 
     def _favorite_move_values(self, user_id: str) -> NotificationSourceValues:

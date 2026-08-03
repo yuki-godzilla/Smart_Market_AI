@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification measured-daily-report fifth slice
+
+- `favorite_daily_report`の入力を、custom userごとの保存済みWatchlist snapshotから読む36時間鮮度の市場計測coverageへ接続した。`status=ok`、timezone付き取得時刻、有限な価格または1日騰落率を満たす計測だけを数え、`有効計測数 / お気に入り総数`として表示する。
+- 有効計測が0件ならsampleへfallbackせずskipする。市場別取引時間、休場日、現在価格は推測せず、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更を行わない。急変通知の90分鮮度、5%閾値、計測hash dedupeは不変である。
+
 ## 2026-08-03 N6 notification measured-market-data fourth slice
 
 - `favorite_move_alert`の入力を、custom userごとの保存済みWatchlist snapshotから読む測定contractへ切り替えた。`status=ok`、有限な1日騰落率、timezone付き取得時刻、90分以内の鮮度を満たすものだけを採用し、失敗・欠損・破損・期限切れはsampleへfallbackせずskipする。

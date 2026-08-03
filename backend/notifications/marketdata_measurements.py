@@ -15,24 +15,35 @@ from typing import Mapping
 
 FAVORITE_MOVE_THRESHOLD_PCT = 5.0
 FAVORITE_MOVE_MAX_AGE = timedelta(minutes=90)
+FAVORITE_DAILY_MAX_AGE = timedelta(hours=36)
 
 
 @dataclass(frozen=True, slots=True)
 class MarketDataMeasurement:
-    """One usable, timestamped price-change observation from a Watchlist snapshot."""
+    """One usable, timestamped price observation from a Watchlist snapshot."""
 
     symbol: str
-    change_1d_pct: float
+    price: float | None
+    change_1d_pct: float | None
     price_observed_at: datetime
     snapshot_recorded_at: datetime | None
     source: str | None
 
 
 @dataclass(frozen=True, slots=True)
+class FavoriteMoveMeasurement:
+    """The price-change fields required by the material-move notification."""
+
+    symbol: str
+    change_1d_pct: float
+    price_observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class FavoriteMoveMeasurements:
     """The bounded measured moves eligible for one notification evaluation."""
 
-    moves: tuple[MarketDataMeasurement, ...]
+    moves: tuple[FavoriteMoveMeasurement, ...]
     eligible_count: int
     reason: str = "ok"
 
@@ -49,6 +60,19 @@ class FavoriteMoveMeasurements:
         return hashlib.sha256("|".join(components).encode("utf-8")).hexdigest()
 
 
+@dataclass(frozen=True, slots=True)
+class FavoriteDailyMeasurements:
+    """Fresh market-data coverage for one user's daily Favorite report."""
+
+    measurements: tuple[MarketDataMeasurement, ...]
+    favorite_count: int
+    reason: str = "ok"
+
+    @property
+    def coverage_count(self) -> int:
+        return len(self.measurements)
+
+
 def select_favorite_move_measurements(
     favorite_symbols: set[str],
     snapshots: Mapping[str, Mapping[str, object]],
@@ -61,7 +85,7 @@ def select_favorite_move_measurements(
     if not favorite_symbols:
         return FavoriteMoveMeasurements((), 0, "no_favorites")
     current = _as_utc(now)
-    measurements: list[MarketDataMeasurement] = []
+    measurements: list[FavoriteMoveMeasurement] = []
     fresh_count = 0
     for symbol in sorted(favorite_symbols):
         snapshot = snapshots.get(symbol)
@@ -71,8 +95,17 @@ def select_favorite_move_measurements(
         if measurement is None or not _is_fresh(measurement.price_observed_at, current, max_age):
             continue
         fresh_count += 1
-        if abs(measurement.change_1d_pct) >= FAVORITE_MOVE_THRESHOLD_PCT:
-            measurements.append(measurement)
+        if (
+            measurement.change_1d_pct is not None
+            and abs(measurement.change_1d_pct) >= FAVORITE_MOVE_THRESHOLD_PCT
+        ):
+            measurements.append(
+                FavoriteMoveMeasurement(
+                    measurement.symbol,
+                    measurement.change_1d_pct,
+                    measurement.price_observed_at,
+                )
+            )
     if not fresh_count:
         return FavoriteMoveMeasurements((), 0, "no_fresh_marketdata_measurement")
     if not measurements:
@@ -81,22 +114,55 @@ def select_favorite_move_measurements(
     return FavoriteMoveMeasurements(tuple(measurements), fresh_count)
 
 
+def select_favorite_daily_measurements(
+    favorite_symbols: set[str],
+    snapshots: Mapping[str, Mapping[str, object]],
+    *,
+    now: datetime,
+    max_age: timedelta = FAVORITE_DAILY_MAX_AGE,
+) -> FavoriteDailyMeasurements:
+    """Return fresh, bounded daily-report coverage without inferring market sessions."""
+
+    if not favorite_symbols:
+        return FavoriteDailyMeasurements((), 0, "no_favorites")
+    current = _as_utc(now)
+    measurements: list[MarketDataMeasurement] = []
+    for symbol in sorted(favorite_symbols):
+        snapshot = snapshots.get(symbol)
+        if snapshot is None:
+            continue
+        measurement = market_data_measurement_from_snapshot(symbol, snapshot)
+        if measurement is not None and _is_fresh(measurement.price_observed_at, current, max_age):
+            measurements.append(measurement)
+    if not measurements:
+        return FavoriteDailyMeasurements(
+            (), len(favorite_symbols), "no_fresh_marketdata_measurement"
+        )
+    return FavoriteDailyMeasurements(tuple(measurements), len(favorite_symbols))
+
+
 def market_data_measurement_from_snapshot(
     symbol: str,
     snapshot: Mapping[str, object],
 ) -> MarketDataMeasurement | None:
-    """Parse only the trusted minimum fields needed for a price-move notification."""
+    """Parse the trusted minimum fields needed for a market-data notification."""
 
     if str(snapshot.get("status") or "").strip().casefold() != "ok":
         return None
     normalized_symbol = _normalized_symbol(symbol)
+    price = _finite_float(snapshot.get("price"))
     change_1d_pct = _finite_float(snapshot.get("price_change_1d"))
     price_observed_at = _parse_timestamp(snapshot.get("last_price_at"))
-    if not normalized_symbol or change_1d_pct is None or price_observed_at is None:
+    if (
+        not normalized_symbol
+        or (price is None and change_1d_pct is None)
+        or price_observed_at is None
+    ):
         return None
     source = str(snapshot.get("source") or "").strip() or None
     return MarketDataMeasurement(
         symbol=normalized_symbol,
+        price=price,
         change_1d_pct=change_1d_pct,
         price_observed_at=price_observed_at,
         snapshot_recorded_at=_parse_timestamp(snapshot.get("last_snapshot_at")),

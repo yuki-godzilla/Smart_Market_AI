@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from backend.news.cache import save_cached_news_dashboard_snapshot
 from backend.news.contracts import (
@@ -203,7 +203,7 @@ def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
 
     assert source.values_for("favorite_daily_report", user_id="yuki").values == {
         "count": "2",
-        "detail": "登録済み: NVDA、7203.T",
+        "detail": "直近36時間以内に確認できた価格計測: 2/2銘柄。登録済み: NVDA、7203.T",
     }
     assert source.values_for("favorite_move_alert", user_id="yuki").values == {
         "count": "1",
@@ -224,6 +224,53 @@ def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
     assert (
         source.values_for("favorite_daily_report", user_id="default").reason == "unsupported_user"
     )
+
+
+def test_daily_report_skips_when_all_marketdata_measurements_are_stale(tmp_path) -> None:
+    now = datetime(2026, 7, 3, 7, 30, tzinfo=UTC)
+    profile_root = tmp_path / "profiles"
+    profile = profile_root / "yuki"
+    profile.mkdir(parents=True)
+    (profile / "favorites.json").write_text(
+        json.dumps({"favorites": [{"symbol": "NVDA"}]}),
+        encoding="utf-8",
+    )
+    (profile / "watchlist_snapshots.json").write_text(
+        json.dumps(
+            {
+                "snapshots": {
+                    "NVDA": {
+                        "status": "ok",
+                        "price": 120.5,
+                        "last_price_at": (now - timedelta(hours=37)).isoformat(),
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    source = CachedNotificationDataSource(profile_root=profile_root, now_provider=lambda: now)
+
+    result = source.values_for("favorite_daily_report", user_id="yuki")
+
+    assert result.values is None
+    assert result.reason == "no_fresh_marketdata_measurement"
+
+    path = tmp_path / "notifications.sqlite"
+    settings = NotificationSettingsRepository(path)
+    history = NotificationHistoryRepository(str(path))
+    schedules = NotificationScheduleRepository(str(path))
+    settings.save(NotificationSetting(user_id="yuki"))
+    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    scheduler = NotificationScheduler(
+        schedules,
+        CatalogNotificationProducer(history, settings),
+        data_source=source,
+    )
+
+    assert scheduler.run_due(["yuki"], now=now) == 0
+    assert history.list("yuki") == []
+    assert schedules.logs("yuki")[0].reason == "no_fresh_marketdata_measurement"
 
 
 def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> None:

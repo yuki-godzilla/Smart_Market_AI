@@ -16,6 +16,8 @@ from datetime import datetime, time
 
 from zoneinfo import ZoneInfo
 
+from backend.notifications.market_calendar import MarketCalendar
+
 
 @dataclass(frozen=True, slots=True)
 class MarketSessionProfile:
@@ -72,6 +74,7 @@ def evaluate_market_session(
     asset_type: str | None,
     *,
     evaluated_at: datetime,
+    calendar: MarketCalendar | None,
 ) -> MarketSessionDecision:
     """Return whether a saved equity measurement is within regular trading hours.
 
@@ -89,10 +92,18 @@ def evaluate_market_session(
         return MarketSessionDecision(None, None, False, "market_session_unknown")
 
     local_time = evaluated_at.astimezone(ZoneInfo(profile.timezone_name))
+    if calendar is None:
+        return MarketSessionDecision(
+            profile.profile_id, local_time, False, "market_calendar_unavailable"
+        )
+    calendar_day = calendar.day_for(profile.profile_id, local_time.date())
+    if calendar_day.reason != "market_calendar_open":
+        return MarketSessionDecision(profile.profile_id, local_time, False, calendar_day.reason)
     if local_time.weekday() >= 5:
         return MarketSessionDecision(profile.profile_id, local_time, False, "market_weekend")
     local_clock = local_time.timetz().replace(tzinfo=None)
-    if any(start <= local_clock < end for start, end in profile.sessions):
+    sessions = calendar_day.sessions or profile.sessions
+    if any(start <= local_clock < end for start, end in sessions):
         return MarketSessionDecision(profile.profile_id, local_time, True, "market_session_open")
     return MarketSessionDecision(profile.profile_id, local_time, False, "outside_market_session")
 

@@ -256,9 +256,15 @@ class NotificationScheduler:
         due: list[tuple[str, ScheduledJob, str]] = []
         for user_id in user_ids:
             setting = self.schedules.load(user_id)
-            if not setting.enabled or (setting.weekdays_only and current.weekday() >= 5):
+            if not setting.enabled:
                 continue
             for job in SCHEDULED_JOBS:
+                if (
+                    setting.weekdays_only
+                    and current.weekday() >= 5
+                    and (job.job_id != "favorite_move" or self.data_source is None)
+                ):
+                    continue
                 schedule_value = getattr(setting, job.schedule_field)
                 if job.schedule_field.endswith("_minutes"):
                     interval = max(1, int(schedule_value))

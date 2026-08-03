@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "revision": "2026.1",
+  "markets": {
+    "jp_equity": {
+      "coverage": {
+        "from": "2026-01-01",
+        "through": "2026-12-31",
+        "source_name": "Japan Exchange Group Market Holidays 2026",
+        "source_url": "https://www.jpx.co.jp/english/corporate/about-jpx/calendar/index.html",
+        "verified_at": "2026-08-03"
+      },
+      "closed_dates": [
+        "2026-01-01", "2026-01-02", "2026-01-12", "2026-02-11", "2026-02-23",
+        "2026-03-20", "2026-04-29", "2026-05-04", "2026-05-05", "2026-05-06",
+        "2026-07-20", "2026-08-11", "2026-09-21", "2026-09-22", "2026-09-23",
+        "2026-10-12", "2026-11-03", "2026-11-23", "2026-12-31"
+      ],
+      "session_overrides": {}
+    },
+    "us_equity": {
+      "coverage": {
+        "from": "2026-01-01",
+        "through": "2026-12-31",
+        "source_name": "NYSE Holidays and Trading Hours 2026",
+        "source_url": "https://www.nyse.com/markets/hours-calendars",
+        "verified_at": "2026-08-03"
+      },
+      "closed_dates": [
+        "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+        "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"
+      ],
+      "session_overrides": {
+        "2026-11-27": {"sessions": [["09:30", "13:00"]]},
+        "2026-12-24": {"sessions": [["09:30", "13:00"]]}
+      }
+    }
+  }
+}

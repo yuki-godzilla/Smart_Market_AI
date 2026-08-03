@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
+from zoneinfo import ZoneInfo
+
 from backend.news.cache import save_cached_news_dashboard_snapshot
 from backend.news.contracts import (
     NewsDashboardSnapshot,
@@ -430,3 +432,53 @@ def test_scheduler_with_live_data_source_skips_instead_of_using_sample_payload(t
     assert len(logs) == 1
     assert logs[0].status == "skipped"
     assert logs[0].reason == "no_favorites"
+
+
+def test_favorite_move_uses_market_calendar_when_server_timezone_is_on_a_weekend(tmp_path) -> None:
+    now = datetime(2026, 6, 27, 4, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
+    profile_root = tmp_path / "profiles"
+    profile = profile_root / "yuki"
+    profile.mkdir(parents=True)
+    (profile / "favorites.json").write_text(
+        json.dumps({"favorites": [{"symbol": "NVDA", "market": "NASDAQ"}]}),
+        encoding="utf-8",
+    )
+    (profile / "watchlist_snapshots.json").write_text(
+        json.dumps(
+            {
+                "snapshots": {
+                    "NVDA": {
+                        "status": "ok",
+                        "price_change_1d": 5.4,
+                        "last_price_at": now.isoformat(),
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    path = tmp_path / "notifications.sqlite"
+    settings = NotificationSettingsRepository(path)
+    history = NotificationHistoryRepository(str(path))
+    schedules = NotificationScheduleRepository(str(path))
+    settings.save(NotificationSetting(user_id="yuki"))
+    schedules.save(
+        NotificationScheduleSetting(
+            user_id="yuki",
+            enabled=True,
+            favorite_move_interval_minutes=15,
+            favorite_news_interval_minutes=17,
+            weekdays_only=True,
+        )
+    )
+    scheduler = NotificationScheduler(
+        schedules,
+        CatalogNotificationProducer(history, settings),
+        data_source=CachedNotificationDataSource(profile_root=profile_root),
+    )
+
+    assert now.weekday() == 5
+    assert scheduler.run_due(["yuki"], now=now) == 1
+    item = history.list("yuki")[0]
+    assert item.metadata is not None
+    assert item.metadata["template_id"] == "favorite_move_alert"

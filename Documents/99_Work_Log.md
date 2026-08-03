@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification market-calendar sixth-B slice
+
+- `config/notification_market_calendar.v1.json`へ、公式JPX / NYSEカレンダーで確認した2026年の休場日と、米国株11月27日・12月24日の13:00 ET短縮取引をreview済みlocal seedとして追加した。calendar loaderはschema、coverage、ISO日付、HTTPS source、休場日とoverrideの競合、時間帯の順序・重複を検証し、破損・欠損・coverage外は通知をfail-closedにする。
+- `favorite_move_alert`はmarket calendarをregular sessionと組み合わせ、休場日、短縮取引終了後、calendar未カバー、calendar読込不能を安全にskipする。`favorite_move`だけはserver timezoneの週末でも市場側が取引中なら評価できる。runtime外部照会、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更は行わない。翌年はreview済みseedを追加するまで通知を安全に止める。
+
 ## 2026-08-03 N6 notification market-session sixth-A slice
 
 - `favorite_move_alert`を、端末の一律9〜15時条件ではなく、保存済みFavorite / Watchlist snapshotの`market` / `asset_type`を用いた銘柄単位のregular-session判定へ接続した。日本株は`Asia/Tokyo`の前場・後場、米国株は`America/New_York`の09:30〜16:00を使い、DSTをIANA timezoneで扱う。市場不明、非対応asset、週末、時間外はsampleへfallbackせず安全にskipする。

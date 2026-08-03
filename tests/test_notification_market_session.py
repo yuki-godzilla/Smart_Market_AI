@@ -4,7 +4,14 @@ from datetime import UTC, datetime
 
 import pytest
 
+from backend.notifications.market_calendar import (
+    DEFAULT_MARKET_CALENDAR_PATH,
+    load_market_calendar,
+)
 from backend.notifications.market_session import evaluate_market_session
+
+CALENDAR = load_market_calendar(DEFAULT_MARKET_CALENDAR_PATH)
+assert CALENDAR is not None
 
 
 @pytest.mark.parametrize(
@@ -23,7 +30,9 @@ def test_market_session_policy_uses_exchange_timezone_and_regular_sessions(
     eligible: bool,
     reason: str,
 ) -> None:
-    decision = evaluate_market_session(market, "stock", evaluated_at=evaluated_at)
+    decision = evaluate_market_session(
+        market, "stock", evaluated_at=evaluated_at, calendar=CALENDAR
+    )
 
     assert decision.eligible is eligible
     assert decision.reason == reason
@@ -33,13 +42,14 @@ def test_market_session_policy_fails_closed_for_unknown_weekend_and_unsupported_
     saturday = datetime(2026, 7, 4, 15, 0, tzinfo=UTC)
 
     assert (
-        evaluate_market_session(None, "stock", evaluated_at=saturday).reason
+        evaluate_market_session(None, "stock", evaluated_at=saturday, calendar=CALENDAR).reason
         == "market_session_unknown"
     )
     assert (
-        evaluate_market_session("NYSE", "stock", evaluated_at=saturday).reason == "market_weekend"
+        evaluate_market_session("NYSE", "stock", evaluated_at=saturday, calendar=CALENDAR).reason
+        == "market_weekend"
     )
     assert (
-        evaluate_market_session("NASDAQ", "crypto", evaluated_at=saturday).reason
+        evaluate_market_session("NASDAQ", "crypto", evaluated_at=saturday, calendar=CALENDAR).reason
         == "market_asset_type_unsupported"
     )

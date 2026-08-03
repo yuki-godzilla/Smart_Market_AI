@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 from backend.news.cache import NEWS_CACHE_DIR, load_cached_news_dashboard_snapshot
+from backend.notifications.market_calendar import (
+    DEFAULT_MARKET_CALENDAR_PATH,
+    MarketCalendar,
+    load_market_calendar,
+)
 from backend.notifications.market_session import evaluate_market_session
 from backend.notifications.marketdata_measurements import (
     select_favorite_daily_measurements,
@@ -61,10 +66,12 @@ class CachedNotificationDataSource:
         *,
         profile_root: Path | str = PROFILE_ROOT,
         news_cache_dir: Path | str = NEWS_CACHE_DIR,
+        market_calendar_path: Path | str = DEFAULT_MARKET_CALENDAR_PATH,
         now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.profile_root = Path(profile_root)
         self.news_cache_dir = Path(news_cache_dir)
+        self.market_calendar: MarketCalendar | None = load_market_calendar(market_calendar_path)
         self.now_provider = now_provider or (lambda: datetime.now(UTC))
 
     def values_for(
@@ -123,7 +130,7 @@ class CachedNotificationDataSource:
             self._snapshots_with_favorite_metadata(user_id, favorite_metadata),
             now=current,
             session_decider=lambda market, asset_type: evaluate_market_session(
-                market, asset_type, evaluated_at=current
+                market, asset_type, evaluated_at=current, calendar=self.market_calendar
             ),
         )
         if not measurements.moves:

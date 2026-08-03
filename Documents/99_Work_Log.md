@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification measured-market-data fourth slice
+
+- `favorite_move_alert`の入力を、custom userごとの保存済みWatchlist snapshotから読む測定contractへ切り替えた。`status=ok`、有限な1日騰落率、timezone付き取得時刻、90分以内の鮮度を満たすものだけを採用し、失敗・欠損・破損・期限切れはsampleへfallbackせずskipする。
+- 同一のsymbol / 騰落率 / 取得時刻集合はhashでdedupeし、計測値が変わるまでinterval schedulerで再通知しない。`scheduler_runner --dry-run`は通知履歴、run claim/log、ntfy配送を行わずdue評価だけをJSON表示する。Provider取得、cache/profile書込み、Ranking / Forecast / Scoreの数値変更は行わない。
+
 ## 2026-08-03 N6 notification Report-artifact third slice
 
 - Assistantの明示`下書きを保存`後だけ、custom userの`data/user/profiles/<user_id>/decision_reports/`へsanitized Markdown / ZIP / manifestを保存し、本文・LLM出力・URL・local pathを持たない`ReportArtifactCompletionEvent`から`smai_report_ready`を生成するようにした。同一sanitized Markdown hashはdedupeし、preview / download / cancel / rerun / archive失敗 / default userでは通知を作らない。

@@ -9,18 +9,18 @@ It never refreshes providers, writes caches, or derives scores/rankings.
 from __future__ import annotations
 
 import json
-import math
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol
 
 from backend.news.cache import NEWS_CACHE_DIR, load_cached_news_dashboard_snapshot
+from backend.notifications.marketdata_measurements import select_favorite_move_measurements
 
 PROFILE_ROOT = Path("data/user/profiles")
 _SAFE_USER_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 _FRESH_NEWS_STATUSES = {"latest", "recent"}
-_FAVORITE_MOVE_THRESHOLD_PCT = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +29,7 @@ class NotificationSourceValues:
 
     values: Mapping[str, str] | None
     reason: str = "ok"
+    dedupe_token: str | None = None
 
 
 class NotificationDataSource(Protocol):
@@ -50,9 +51,11 @@ class CachedNotificationDataSource:
         *,
         profile_root: Path | str = PROFILE_ROOT,
         news_cache_dir: Path | str = NEWS_CACHE_DIR,
+        now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.profile_root = Path(profile_root)
         self.news_cache_dir = Path(news_cache_dir)
+        self.now_provider = now_provider or (lambda: datetime.now(UTC))
 
     def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
         if user_id == "default" or not _SAFE_USER_ID.fullmatch(user_id):
@@ -81,20 +84,20 @@ class CachedNotificationDataSource:
 
     def _favorite_move_values(self, user_id: str) -> NotificationSourceValues:
         favorites = set(self._favorite_symbols(user_id))
-        if not favorites:
-            return NotificationSourceValues(None, "no_favorites")
-        moves: list[tuple[str, float]] = []
-        for symbol, snapshot in self._watchlist_snapshots(user_id).items():
-            if symbol not in favorites:
-                continue
-            change = _finite_float(snapshot.get("price_change_1d"))
-            if change is not None and abs(change) >= _FAVORITE_MOVE_THRESHOLD_PCT:
-                moves.append((symbol, change))
-        if not moves:
-            return NotificationSourceValues(None, "no_material_favorite_move")
-        moves.sort(key=lambda item: (-abs(item[1]), item[0]))
-        detail = "、".join(f"{symbol} {change:+.1f}%" for symbol, change in moves[:3])
-        return NotificationSourceValues({"count": str(len(moves)), "detail": detail})
+        measurements = select_favorite_move_measurements(
+            favorites,
+            self._watchlist_snapshots(user_id),
+            now=self.now_provider(),
+        )
+        if not measurements.moves:
+            return NotificationSourceValues(None, measurements.reason)
+        detail = "、".join(
+            f"{item.symbol} {item.change_1d_pct:+.1f}%" for item in measurements.moves[:3]
+        )
+        return NotificationSourceValues(
+            {"count": str(len(measurements.moves)), "detail": detail},
+            dedupe_token=measurements.dedupe_token,
+        )
 
     def _favorite_news_values(self, user_id: str) -> NotificationSourceValues:
         favorites = set(self._favorite_symbols(user_id))
@@ -187,11 +190,3 @@ class CachedNotificationDataSource:
 def _normalized_symbol(value: object) -> str:
     symbol = str(value or "").strip().upper()
     return symbol[:32] if symbol else ""
-
-
-def _finite_float(value: object) -> float | None:
-    try:
-        numeric = float(str(value))
-    except (TypeError, ValueError):
-        return None
-    return numeric if math.isfinite(numeric) else None

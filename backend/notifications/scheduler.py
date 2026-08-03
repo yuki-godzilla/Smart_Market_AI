@@ -37,6 +37,18 @@ class NotificationRunLog:
     created_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class NotificationSchedulePreview:
+    """Read-only outcome for one due schedule evaluation."""
+
+    job_id: str
+    user_id: str
+    template_id: str
+    scheduled_slot: str
+    status: str
+    reason: str
+
+
 class NotificationScheduleRepository:
     def __init__(self, database_path: str | None = None) -> None:
         settings = NotificationSettingsRepository(database_path)
@@ -173,6 +185,71 @@ class NotificationScheduler:
     def run_due(self, user_ids: list[str], *, now: datetime | None = None) -> int:
         current = now or datetime.now().astimezone()
         produced = 0
+        for user_id, job, slot in self._due_jobs(user_ids, current):
+            if not self.schedules.claim(job.job_id, user_id, slot):
+                continue
+            values: dict[str, str] | None = None
+            dedupe_key = f"{job.template_id}:{user_id}:{slot}"
+            if self.data_source is not None:
+                source_values = self.data_source.values_for(job.template_id, user_id=user_id)
+                if source_values.values is None:
+                    self.schedules.finish(
+                        job.job_id, user_id, slot, "skipped", source_values.reason
+                    )
+                    continue
+                values = dict(source_values.values)
+                if source_values.dedupe_token:
+                    dedupe_key = f"{job.template_id}:{user_id}:{source_values.dedupe_token}"
+            try:
+                item = self.producer.produce(
+                    job.template_id,
+                    user_id=user_id,
+                    values=values,
+                    dedupe_key=dedupe_key,
+                    now=current.astimezone(UTC),
+                    client=self.client_factory(user_id) if self.client_factory else None,
+                )
+            except Exception:
+                self.schedules.finish(job.job_id, user_id, slot, "failed", "job_error")
+                continue
+            status = "created" if item else "skipped"
+            reason = "ok" if item else "disabled_or_duplicate"
+            self.schedules.finish(job.job_id, user_id, slot, status, reason)
+            produced += int(item is not None)
+        return produced
+
+    def preview_due(
+        self, user_ids: list[str], *, now: datetime | None = None
+    ) -> list[NotificationSchedulePreview]:
+        """Evaluate due jobs without claims, history writes, or delivery attempts."""
+
+        current = now or datetime.now().astimezone()
+        previews: list[NotificationSchedulePreview] = []
+        for user_id, job, slot in self._due_jobs(user_ids, current):
+            if self.data_source is None:
+                previews.append(
+                    NotificationSchedulePreview(
+                        job.job_id, user_id, job.template_id, slot, "ready", "ok"
+                    )
+                )
+                continue
+            source_values = self.data_source.values_for(job.template_id, user_id=user_id)
+            previews.append(
+                NotificationSchedulePreview(
+                    job.job_id,
+                    user_id,
+                    job.template_id,
+                    slot,
+                    "ready" if source_values.values is not None else "skipped",
+                    source_values.reason,
+                )
+            )
+        return previews
+
+    def _due_jobs(
+        self, user_ids: list[str], current: datetime
+    ) -> list[tuple[str, ScheduledJob, str]]:
+        due: list[tuple[str, ScheduledJob, str]] = []
         for user_id in user_ids:
             setting = self.schedules.load(user_id)
             if not setting.enabled or (setting.weekdays_only and current.weekday() >= 5):
@@ -187,34 +264,8 @@ class NotificationScheduler:
                         continue
                 elif schedule_value != current.strftime("%H:%M"):
                     continue
-                slot = current.strftime("%Y-%m-%dT%H:%M")
-                if not self.schedules.claim(job.job_id, user_id, slot):
-                    continue
-                values: dict[str, str] | None = None
-                if self.data_source is not None:
-                    source_values = self.data_source.values_for(job.template_id, user_id=user_id)
-                    if source_values.values is None:
-                        self.schedules.finish(
-                            job.job_id, user_id, slot, "skipped", source_values.reason
-                        )
-                        continue
-                    values = dict(source_values.values)
-                try:
-                    item = self.producer.produce(
-                        job.template_id,
-                        user_id=user_id,
-                        values=values,
-                        dedupe_key=f"{job.template_id}:{user_id}:{slot}",
-                        now=current.astimezone(UTC),
-                        client=self.client_factory(user_id) if self.client_factory else None,
-                    )
-                except Exception:
-                    self.schedules.finish(job.job_id, user_id, slot, "failed", "job_error")
-                    continue
-                status = "created" if item else "skipped"
-                self.schedules.finish(job.job_id, user_id, slot, status, "ok")
-                produced += int(item is not None)
-        return produced
+                due.append((user_id, job, current.strftime("%Y-%m-%dT%H:%M")))
+        return due
 
 
 def registered_template_ids() -> tuple[str, ...]:

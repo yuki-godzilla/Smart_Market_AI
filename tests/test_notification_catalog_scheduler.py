@@ -140,6 +140,7 @@ def test_interval_jobs_are_registered_and_respect_slots(tmp_path) -> None:
 def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
     tmp_path,
 ) -> None:
+    observed_at = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
     profile_root = tmp_path / "profiles"
     profile = profile_root / "yuki"
     profile.mkdir(parents=True)
@@ -151,8 +152,16 @@ def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
         json.dumps(
             {
                 "snapshots": {
-                    "NVDA": {"price_change_1d": 5.4},
-                    "7203.T": {"price_change_1d": 1.2},
+                    "NVDA": {
+                        "status": "ok",
+                        "price_change_1d": 5.4,
+                        "last_price_at": observed_at.isoformat(),
+                    },
+                    "7203.T": {
+                        "status": "ok",
+                        "price_change_1d": 1.2,
+                        "last_price_at": observed_at.isoformat(),
+                    },
                 }
             }
         ),
@@ -189,6 +198,7 @@ def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
     source = CachedNotificationDataSource(
         profile_root=profile_root,
         news_cache_dir=cache_dir,
+        now_provider=lambda: observed_at,
     )
 
     assert source.values_for("favorite_daily_report", user_id="yuki").values == {
@@ -214,6 +224,97 @@ def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
     assert (
         source.values_for("favorite_daily_report", user_id="default").reason == "unsupported_user"
     )
+
+
+def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> None:
+    now = datetime(2026, 6, 30, 12, 0, tzinfo=UTC)
+    profile_root = tmp_path / "profiles"
+    profile = profile_root / "yuki"
+    profile.mkdir(parents=True)
+    (profile / "favorites.json").write_text(
+        json.dumps({"favorites": [{"symbol": "NVDA"}]}),
+        encoding="utf-8",
+    )
+    snapshots_path = profile / "watchlist_snapshots.json"
+    snapshots_path.write_text(
+        json.dumps(
+            {
+                "snapshots": {
+                    "NVDA": {
+                        "status": "ok",
+                        "price_change_1d": 5.4,
+                        "last_price_at": now.isoformat(),
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    path = tmp_path / "notifications.sqlite"
+    settings = NotificationSettingsRepository(path)
+    history = NotificationHistoryRepository(str(path))
+    schedules = NotificationScheduleRepository(str(path))
+    settings.save(NotificationSetting(user_id="yuki"))
+    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    source = CachedNotificationDataSource(profile_root=profile_root, now_provider=lambda: now)
+    scheduler = NotificationScheduler(
+        schedules,
+        CatalogNotificationProducer(history, settings),
+        data_source=source,
+    )
+
+    assert scheduler.run_due(["yuki"], now=now) == 1
+    assert scheduler.run_due(["yuki"], now=now.replace(minute=15)) == 0
+    assert len(history.list("yuki")) == 1
+    assert schedules.logs("yuki")[0].reason == "disabled_or_duplicate"
+
+    updated_at = now.replace(minute=30)
+    snapshots_path.write_text(
+        json.dumps(
+            {
+                "snapshots": {
+                    "NVDA": {
+                        "status": "ok",
+                        "price_change_1d": 6.1,
+                        "last_price_at": updated_at.isoformat(),
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    source.now_provider = lambda: updated_at
+
+    assert scheduler.run_due(["yuki"], now=updated_at) == 1
+    assert len(history.list("yuki")) == 2
+
+
+def test_scheduler_preview_due_has_no_notification_or_run_log_side_effects(tmp_path) -> None:
+    class FreshData:
+        def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
+            assert template_id == "favorite_daily_report"
+            assert user_id == "yuki"
+            return NotificationSourceValues({"count": "1", "detail": "登録済み: NVDA"})
+
+    path = tmp_path / "notifications.sqlite"
+    settings = NotificationSettingsRepository(path)
+    history = NotificationHistoryRepository(str(path))
+    schedules = NotificationScheduleRepository(str(path))
+    settings.save(NotificationSetting(user_id="yuki"))
+    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    scheduler = NotificationScheduler(
+        schedules,
+        CatalogNotificationProducer(history, settings),
+        data_source=FreshData(),
+    )
+
+    previews = scheduler.preview_due(["yuki"], now=datetime(2026, 6, 30, 7, 30, tzinfo=UTC))
+
+    assert [(item.template_id, item.status, item.reason) for item in previews] == [
+        ("favorite_daily_report", "ready", "ok")
+    ]
+    assert history.list("yuki") == []
+    assert schedules.logs("yuki") == []
 
 
 def test_scheduler_with_live_data_source_skips_instead_of_using_sample_payload(tmp_path) -> None:

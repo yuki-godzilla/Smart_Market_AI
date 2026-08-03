@@ -78,6 +78,8 @@ Phase N4:
 - 右上ユーザータグの`通知センター`はサイドメニューを隠した専用画面。縦スクロールで通知を確認し、既読、archive、カテゴリ/状態/期間/重要度順を操作する。
 - 定時通知は初期OFF。通知設定の`定時通知を有効にする`を明示選択し、別プロセスで`scripts\run_notification_scheduler.bat`を起動した場合だけdue jobを確認する。
 - 1回だけ確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --once`
+- 送信前にdue jobを確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --dry-run`。これは通知履歴、run claim/log、ntfy配送を作らず、ready / skippedの安全な理由だけをJSON表示する。
+- Favorite急変通知は、custom userの保存済みWatchlist snapshotで`status=ok`、有限な1日騰落率、timezone付き`last_price_at`、90分以内の取得時刻を満たす計測だけを使う。schedulerは価格Providerを呼ばず、snapshotを更新せず、古い・失敗・欠損データは通知しない。同じ計測内容は、次の価格計測が保存されるまで繰り返し送らない。
 - 通知カタログと手動生成は`SMAI_NOTIFICATION_DEBUG=1`で起動した通知センター内だけに表示する。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
 - 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。

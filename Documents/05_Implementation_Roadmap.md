@@ -59,7 +59,7 @@ Markdown ビューアによって文字色指定の効き方が変わるため�
 | Phase 32-F / Watchlist Daily UX | 🟦 **実装済み** | 件数付きfilter chip、価格変化による7状態とカードaccent、1日/5日/1か月の値動き表示、欠損時の更新案内を追加。未取得/失敗/古い銘柄を最大3件・6時間TTL・session 1回で既存symbol DB background queueへ登録する。外部価格/AI調査/News/Decision Reportは自動実行しない。 |
 | Phase 32-G / Watchlist Snapshot Cache | 🟦 **実装済み** | `data/user/watchlist_snapshots.json` に価格・騰落率・既存計算済みscore・trend・取得状態をfavoritesと分離保存。明示更新だけがprovider設定に従ってOHLCVを取得し、失敗時は前回snapshotを維持。My Radar/filter/sort/card/tableはsnapshot優先で表示する。 |
 | Phase 32-H / Watchlist Final UX | 🟦 **実装済み** | Radar理由/更新オプション/未入力メモexpanderを通常画面から削除。6つのchip filter、追加日順default、PC 3列カード、状態背景、控えめな解除を追加。未取得候補は最大3件・6時間TTL・session 1回で既存loadingを表示してauto snapshot更新する。 |
-| Phase N1〜N6 / Notification Platform | 🟦 **N1〜N5-C foundation実装済み / N6第3 slice完了** | schema v5通知履歴、型付きcatalog、設定/dedupe対応Producer、専用通知センター、手動生成、opt-in scheduler/job registry/run log/runnerまで実装。N6第1 sliceは、user-scoped favorites/watchlist snapshotsとfresh News cacheをread-only adapterでschedulerへ接続し、データ不足・stale・対象外はsampleへfallbackせずskip logへ記録する。第2 sliceは明示Cockpit AI調査完了時だけ、report fingerprintによるdedupe済み `smai_analysis_complete` を作成する。第3 sliceはcustom userの明示Assistant Report保存後だけ、sanitized artifact hashでdedupeした `smai_report_ready` を作成する。default user、画面rerun、preview、downloadでは発火しない。measured market adapterは次段階。 |
+| Phase N1〜N6 / Notification Platform | 🟦 **N1〜N5-C foundation実装済み / N6第4 slice完了** | schema v5通知履歴、型付きcatalog、設定/dedupe対応Producer、専用通知センター、手動生成、opt-in scheduler/job registry/run log/runnerまで実装。N6第1 sliceは、user-scoped favorites/watchlist snapshotsとfresh News cacheをread-only adapterでschedulerへ接続し、データ不足・stale・対象外はsampleへfallbackせずskip logへ記録する。第2 sliceは明示Cockpit AI調査完了時だけ、report fingerprintによるdedupe済み `smai_analysis_complete` を作成する。第3 sliceはcustom userの明示Assistant Report保存後だけ、sanitized artifact hashでdedupeした `smai_report_ready` を作成する。第4 sliceはfreshかつ有効なWatchlist市場計測だけを`favorite_move_alert`へ接続し、同一計測をhashで抑制する。default user、画面rerun、preview、downloadでは発火しない。 |
 | Phase U1 / Local User Profiles | 🟦 **実装・検証済み** | ローカルユーザー追加、ユーザー別favorites/snapshot、defaultのsession-onlyお気に入り、default通知のUI/サービス無効化、旧共有JSONの安全な一度限り移行を実装。U1-Verifyで71件の対象test、Ruff、Mypy、Black、Desktop 1366x768 / Smartphone 375x812 smokeを確認。N6実データProducerは確定したユーザーStore境界を必須とする。 |
 | Phase 31 / Execution | 🟥 **保留 / 安全待ち** | 高度exportやbroker execution gate。live order sendingは安全条件が揃うまで保留。 |
 
@@ -118,7 +118,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 🟥 **保留 / 安全待ち**: broker への live order 送信。
 - 🟥 **保留 / 安全待ち**: Execution workflow。
 - ⬜ **後続 / 未着手**: PDF / Excel export。
-- 🟦 **N1〜N5-C foundation実装済み / N6第3 slice完了**: 独立gateway、親client/adapter、versioned SQLite設定/履歴、catalog、Producer、専用通知センター、manual generation、opt-in scheduler基盤を実装。N6第1 sliceは実favorite/news/sector cache adapterをschedulerへ接続済みで、第2 sliceは明示Cockpit AI調査完了event、第3 sliceはcustom userの明示Assistant Report保存eventを接続した。measured market adapterを後続対象とする。詳細は `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md`。
+- 🟦 **N1〜N5-C foundation実装済み / N6第4 slice完了**: 独立gateway、親client/adapter、versioned SQLite設定/履歴、catalog、Producer、専用通知センター、manual generation、opt-in scheduler基盤を実装。N6第1 sliceは実favorite/news/sector cache adapterをschedulerへ接続済みで、第2 sliceは明示Cockpit AI調査完了event、第3 sliceはcustom userの明示Assistant Report保存eventを接続した。第4 sliceは有効・鮮度90分以内のWatchlist市場計測だけをFavorite急変通知へ接続し、同一計測をdedupeする。詳細は `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md`。
 
 ## 3. 実装方針
 

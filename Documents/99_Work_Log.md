@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification market-session sixth-A slice
+
+- `favorite_move_alert`を、端末の一律9〜15時条件ではなく、保存済みFavorite / Watchlist snapshotの`market` / `asset_type`を用いた銘柄単位のregular-session判定へ接続した。日本株は`Asia/Tokyo`の前場・後場、米国株は`America/New_York`の09:30〜16:00を使い、DSTをIANA timezoneで扱う。市場不明、非対応asset、週末、時間外はsampleへfallbackせず安全にskipする。
+- Schedulerは同一のtimezone付き評価時刻をadapterへ渡すため、dry-runと実配送の境界判定が一致する。tickerから市場を推測せず、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更は行わない。exchange holidayと短縮取引のローカルカレンダーはN6第6Bとして未導入であり、regular weekday sessionを休場確認済みとは扱わない。
+
 ## 2026-08-03 N6 notification measured-daily-report fifth slice
 
 - `favorite_daily_report`の入力を、custom userごとの保存済みWatchlist snapshotから読む36時間鮮度の市場計測coverageへ接続した。`status=ok`、timezone付き取得時刻、有限な価格または1日騰落率を満たす計測だけを数え、`有効計測数 / お気に入り総数`として表示する。

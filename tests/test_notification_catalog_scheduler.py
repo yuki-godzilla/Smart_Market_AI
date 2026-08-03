@@ -140,12 +140,19 @@ def test_interval_jobs_are_registered_and_respect_slots(tmp_path) -> None:
 def test_cached_data_source_uses_profile_scoped_favorites_and_fresh_news_cache(
     tmp_path,
 ) -> None:
-    observed_at = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    observed_at = datetime(2026, 7, 1, 16, 0, tzinfo=UTC)
     profile_root = tmp_path / "profiles"
     profile = profile_root / "yuki"
     profile.mkdir(parents=True)
     (profile / "favorites.json").write_text(
-        json.dumps({"favorites": [{"symbol": "NVDA"}, {"symbol": "7203.T"}]}),
+        json.dumps(
+            {
+                "favorites": [
+                    {"symbol": "NVDA", "market": "NASDAQ", "asset_type": "stock"},
+                    {"symbol": "7203.T", "market": "TSE", "asset_type": "stock"},
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     (profile / "watchlist_snapshots.json").write_text(
@@ -261,7 +268,14 @@ def test_daily_report_skips_when_all_marketdata_measurements_are_stale(tmp_path)
     history = NotificationHistoryRepository(str(path))
     schedules = NotificationScheduleRepository(str(path))
     settings.save(NotificationSetting(user_id="yuki"))
-    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    schedules.save(
+        NotificationScheduleSetting(
+            user_id="yuki",
+            enabled=True,
+            favorite_move_interval_minutes=17,
+            favorite_news_interval_minutes=17,
+        )
+    )
     scheduler = NotificationScheduler(
         schedules,
         CatalogNotificationProducer(history, settings),
@@ -274,12 +288,12 @@ def test_daily_report_skips_when_all_marketdata_measurements_are_stale(tmp_path)
 
 
 def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> None:
-    now = datetime(2026, 6, 30, 12, 0, tzinfo=UTC)
+    now = datetime(2026, 6, 30, 16, 0, tzinfo=UTC)
     profile_root = tmp_path / "profiles"
     profile = profile_root / "yuki"
     profile.mkdir(parents=True)
     (profile / "favorites.json").write_text(
-        json.dumps({"favorites": [{"symbol": "NVDA"}]}),
+        json.dumps({"favorites": [{"symbol": "NVDA", "market": "NASDAQ"}]}),
         encoding="utf-8",
     )
     snapshots_path = profile / "watchlist_snapshots.json"
@@ -302,7 +316,14 @@ def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> 
     history = NotificationHistoryRepository(str(path))
     schedules = NotificationScheduleRepository(str(path))
     settings.save(NotificationSetting(user_id="yuki"))
-    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    schedules.save(
+        NotificationScheduleSetting(
+            user_id="yuki",
+            enabled=True,
+            favorite_move_interval_minutes=15,
+            favorite_news_interval_minutes=17,
+        )
+    )
     source = CachedNotificationDataSource(profile_root=profile_root, now_provider=lambda: now)
     scheduler = NotificationScheduler(
         schedules,
@@ -338,9 +359,12 @@ def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> 
 
 def test_scheduler_preview_due_has_no_notification_or_run_log_side_effects(tmp_path) -> None:
     class FreshData:
-        def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
+        def values_for(
+            self, template_id: str, *, user_id: str, evaluated_at: datetime | None = None
+        ) -> NotificationSourceValues:
             assert template_id == "favorite_daily_report"
             assert user_id == "yuki"
+            assert evaluated_at == datetime(2026, 6, 30, 7, 30, tzinfo=UTC)
             return NotificationSourceValues({"count": "1", "detail": "登録済み: NVDA"})
 
     path = tmp_path / "notifications.sqlite"
@@ -348,7 +372,14 @@ def test_scheduler_preview_due_has_no_notification_or_run_log_side_effects(tmp_p
     history = NotificationHistoryRepository(str(path))
     schedules = NotificationScheduleRepository(str(path))
     settings.save(NotificationSetting(user_id="yuki"))
-    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    schedules.save(
+        NotificationScheduleSetting(
+            user_id="yuki",
+            enabled=True,
+            favorite_move_interval_minutes=17,
+            favorite_news_interval_minutes=17,
+        )
+    )
     scheduler = NotificationScheduler(
         schedules,
         CatalogNotificationProducer(history, settings),
@@ -366,9 +397,12 @@ def test_scheduler_preview_due_has_no_notification_or_run_log_side_effects(tmp_p
 
 def test_scheduler_with_live_data_source_skips_instead_of_using_sample_payload(tmp_path) -> None:
     class NoFavoriteData:
-        def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
+        def values_for(
+            self, template_id: str, *, user_id: str, evaluated_at: datetime | None = None
+        ) -> NotificationSourceValues:
             assert template_id == "favorite_daily_report"
             assert user_id == "yuki"
+            assert evaluated_at == datetime(2026, 6, 30, 7, 30, tzinfo=UTC)
             return NotificationSourceValues(None, "no_favorites")
 
     path = tmp_path / "notifications.sqlite"
@@ -376,7 +410,14 @@ def test_scheduler_with_live_data_source_skips_instead_of_using_sample_payload(t
     history = NotificationHistoryRepository(str(path))
     schedules = NotificationScheduleRepository(str(path))
     settings.save(NotificationSetting(user_id="yuki"))
-    schedules.save(NotificationScheduleSetting(user_id="yuki", enabled=True))
+    schedules.save(
+        NotificationScheduleSetting(
+            user_id="yuki",
+            enabled=True,
+            favorite_move_interval_minutes=17,
+            favorite_news_interval_minutes=17,
+        )
+    )
     scheduler = NotificationScheduler(
         schedules,
         CatalogNotificationProducer(history, settings),

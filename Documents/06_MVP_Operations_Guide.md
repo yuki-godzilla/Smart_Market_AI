@@ -79,7 +79,7 @@ Phase N4:
 - 定時通知は初期OFF。通知設定の`定時通知を有効にする`を明示選択し、別プロセスで`scripts\run_notification_scheduler.bat`を起動した場合だけdue jobを確認する。
 - 1回だけ確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --once`
 - 送信前にdue jobを確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --dry-run`。これは通知履歴、run claim/log、ntfy配送を作らず、ready / skippedの安全な理由だけをJSON表示する。
-- Favorite急変通知は、custom userの保存済みWatchlist snapshotで`status=ok`、有限な1日騰落率、timezone付き`last_price_at`、90分以内の取得時刻を満たす計測だけを使う。schedulerは価格Providerを呼ばず、snapshotを更新せず、古い・失敗・欠損データは通知しない。同じ計測内容は、次の価格計測が保存されるまで繰り返し送らない。
+- Favorite急変通知は、custom userの保存済みWatchlist snapshotで`status=ok`、有限な1日騰落率、timezone付き`last_price_at`、90分以内の取得時刻を満たす計測だけを使う。さらに保存済み`market` / `asset_type`から日本株（`Asia/Tokyo`、09:00–11:30 / 12:30–15:30）または米国株（`America/New_York`、09:30–16:00）のregular session内であることを確認する。市場不明・非対応asset・週末・時間外は安全にskipし、tickerから市場を推測しない。休日・短縮取引のカレンダーは未導入のため、regular weekday sessionは休場確認済みを意味しない。schedulerは価格Providerを呼ばず、snapshotを更新せず、古い・失敗・欠損データは通知しない。同じ計測内容は、次の価格計測が保存されるまで繰り返し送らない。
 - Favorite日次レポートは、custom userの保存済みWatchlist snapshotで`status=ok`、finiteな価格または1日騰落率、timezone付き`last_price_at`、36時間以内の取得時刻を満たす計測だけをcoverageへ数える。0件なら日次通知を作らず、一部だけ取得できた場合は`有効計測数 / お気に入り総数`を表示する。市場別の取引時間・休場日・現在価格は推測せず、schedulerはProvider呼び出しやsnapshot更新を行わない。
 - 通知カタログと手動生成は`SMAI_NOTIFICATION_DEBUG=1`で起動した通知センター内だけに表示する。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。

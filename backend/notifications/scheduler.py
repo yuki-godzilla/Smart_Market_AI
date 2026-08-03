@@ -191,7 +191,9 @@ class NotificationScheduler:
             values: dict[str, str] | None = None
             dedupe_key = f"{job.template_id}:{user_id}:{slot}"
             if self.data_source is not None:
-                source_values = self.data_source.values_for(job.template_id, user_id=user_id)
+                source_values = self.data_source.values_for(
+                    job.template_id, user_id=user_id, evaluated_at=current
+                )
                 if source_values.values is None:
                     self.schedules.finish(
                         job.job_id, user_id, slot, "skipped", source_values.reason
@@ -233,7 +235,9 @@ class NotificationScheduler:
                     )
                 )
                 continue
-            source_values = self.data_source.values_for(job.template_id, user_id=user_id)
+            source_values = self.data_source.values_for(
+                job.template_id, user_id=user_id, evaluated_at=current
+            )
             previews.append(
                 NotificationSchedulePreview(
                     job.job_id,
@@ -260,7 +264,14 @@ class NotificationScheduler:
                     interval = max(1, int(schedule_value))
                     if current.minute % interval != 0:
                         continue
-                    if job.job_id == "favorite_move" and not (9 <= current.hour <= 15):
+                    # Catalog-only/manual scheduler use keeps its historical
+                    # sample-safe window.  Real N6 data sources evaluate the
+                    # market for each favorite instead of using server time.
+                    if (
+                        job.job_id == "favorite_move"
+                        and self.data_source is None
+                        and not (9 <= current.hour <= 15)
+                    ):
                         continue
                 elif schedule_value != current.strftime("%H:%M"):
                     continue

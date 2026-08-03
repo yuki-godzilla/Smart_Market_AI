@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 from backend.news.cache import NEWS_CACHE_DIR, load_cached_news_dashboard_snapshot
+from backend.notifications.market_session import evaluate_market_session
 from backend.notifications.marketdata_measurements import (
     select_favorite_daily_measurements,
     select_favorite_move_measurements,
@@ -38,7 +39,13 @@ class NotificationSourceValues:
 class NotificationDataSource(Protocol):
     """Stable N6 port used by the scheduler before it creates a notification."""
 
-    def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
+    def values_for(
+        self,
+        template_id: str,
+        *,
+        user_id: str,
+        evaluated_at: datetime | None = None,
+    ) -> NotificationSourceValues:
         """Return bounded display values without performing network access."""
 
 
@@ -60,13 +67,19 @@ class CachedNotificationDataSource:
         self.news_cache_dir = Path(news_cache_dir)
         self.now_provider = now_provider or (lambda: datetime.now(UTC))
 
-    def values_for(self, template_id: str, *, user_id: str) -> NotificationSourceValues:
+    def values_for(
+        self,
+        template_id: str,
+        *,
+        user_id: str,
+        evaluated_at: datetime | None = None,
+    ) -> NotificationSourceValues:
         if user_id == "default" or not _SAFE_USER_ID.fullmatch(user_id):
             return NotificationSourceValues(None, "unsupported_user")
         if template_id == "favorite_daily_report":
-            return self._favorite_daily_values(user_id)
+            return self._favorite_daily_values(user_id, evaluated_at=evaluated_at)
         if template_id == "favorite_move_alert":
-            return self._favorite_move_values(user_id)
+            return self._favorite_move_values(user_id, evaluated_at=evaluated_at)
         if template_id == "favorite_news_digest":
             return self._favorite_news_values(user_id)
         if template_id == "investment_news_digest":
@@ -75,12 +88,14 @@ class CachedNotificationDataSource:
             return self._sector_momentum_values()
         return NotificationSourceValues(None, "unsupported_template")
 
-    def _favorite_daily_values(self, user_id: str) -> NotificationSourceValues:
+    def _favorite_daily_values(
+        self, user_id: str, *, evaluated_at: datetime | None = None
+    ) -> NotificationSourceValues:
         favorites = self._favorite_symbols(user_id)
         measurements = select_favorite_daily_measurements(
             set(favorites),
             self._watchlist_snapshots(user_id),
-            now=self.now_provider(),
+            now=evaluated_at or self.now_provider(),
         )
         if not measurements.measurements:
             return NotificationSourceValues(None, measurements.reason)
@@ -97,12 +112,19 @@ class CachedNotificationDataSource:
             }
         )
 
-    def _favorite_move_values(self, user_id: str) -> NotificationSourceValues:
-        favorites = set(self._favorite_symbols(user_id))
+    def _favorite_move_values(
+        self, user_id: str, *, evaluated_at: datetime | None = None
+    ) -> NotificationSourceValues:
+        favorite_metadata = self._favorite_metadata(user_id)
+        favorites = set(favorite_metadata)
+        current = evaluated_at or self.now_provider()
         measurements = select_favorite_move_measurements(
             favorites,
-            self._watchlist_snapshots(user_id),
-            now=self.now_provider(),
+            self._snapshots_with_favorite_metadata(user_id, favorite_metadata),
+            now=current,
+            session_decider=lambda market, asset_type: evaluate_market_session(
+                market, asset_type, evaluated_at=current
+            ),
         )
         if not measurements.moves:
             return NotificationSourceValues(None, measurements.reason)
@@ -164,18 +186,37 @@ class CachedNotificationDataSource:
         return NotificationSourceValues({"count": str(len(cells)), "detail": detail})
 
     def _favorite_symbols(self, user_id: str) -> list[str]:
+        return list(self._favorite_metadata(user_id))
+
+    def _favorite_metadata(self, user_id: str) -> dict[str, Mapping[str, object]]:
         payload = self._read_json(self.profile_root / user_id / "favorites.json")
         raw_favorites = payload.get("favorites") if isinstance(payload, dict) else None
         if not isinstance(raw_favorites, list):
-            return []
-        symbols: list[str] = []
-        seen: set[str] = set()
+            return {}
+        metadata: dict[str, Mapping[str, object]] = {}
         for item in raw_favorites:
             symbol = _normalized_symbol(item.get("symbol") if isinstance(item, dict) else None)
-            if symbol and symbol not in seen:
-                symbols.append(symbol)
-                seen.add(symbol)
-        return symbols
+            if symbol and symbol not in metadata:
+                metadata[symbol] = item if isinstance(item, dict) else {}
+        return metadata
+
+    def _snapshots_with_favorite_metadata(
+        self,
+        user_id: str,
+        favorite_metadata: Mapping[str, Mapping[str, object]],
+    ) -> dict[str, Mapping[str, object]]:
+        """Merge only saved market metadata into an in-memory snapshot copy."""
+
+        snapshots = self._watchlist_snapshots(user_id)
+        merged: dict[str, Mapping[str, object]] = {}
+        for symbol, snapshot in snapshots.items():
+            favorite = favorite_metadata.get(symbol, {})
+            merged_snapshot = dict(snapshot)
+            for field in ("market", "asset_type"):
+                if not str(merged_snapshot.get(field) or "").strip() and favorite.get(field):
+                    merged_snapshot[field] = favorite[field]
+            merged[symbol] = merged_snapshot
+        return merged
 
     def _watchlist_snapshots(self, user_id: str) -> dict[str, Mapping[str, object]]:
         payload = self._read_json(self.profile_root / user_id / "watchlist_snapshots.json")

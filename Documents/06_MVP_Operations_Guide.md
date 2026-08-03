@@ -24,6 +24,7 @@ Phase N1〜N5-Cで、アプリ内通知、ntfy Push、通知カタログ、専�
 - カスタムユーザーのお気に入りとsnapshotは`data/user/profiles/<user_id>/`へ分離保存する
 - `SMAIデフォルト`のお気に入りとsnapshotはStreamlit session内だけに保持し、ファイル保存しない
 - `SMAIデフォルト`では通知UI、履歴生成、設定保存、外部送信を利用できない
+- Assistantの明示`下書きを保存`は、custom userごとに`data/user/profiles/<user_id>/decision_reports/`へsanitized Markdown、ZIP、manifestを保存する。`SMAIデフォルト`では永続保存せず、ダウンロードだけを利用できる
 - プロフィール選択は認証ではないため、信頼できるLAN内でのみ運用する
 
 Phase U1検証用smoke:
@@ -89,6 +90,8 @@ Phase N4:
 - `silent`、severity threshold 未満、quiet hours 中は ntfy へ送信しない。
 - ntfy 送信失敗は通知履歴と delivery result に残すが、SMAI 本体処理を止めない。
 - テスト通知は明示ボタンからのみ送信し、画面表示や Streamlit rerun では送信しない。
+- Cockpit `AI調査を更新` の完了と、custom userがAssistant Reportを明示保存した成功結果だけがイベント通知候補となる。preview、download、cancel、rerun、保存失敗、default userでは通知を生成しない。
+- Report保存通知は本文、LLM出力、外部URL、local pathを含めず、同一sanitized artifact hashを重複通知しない。通知失敗は保存済みartifactを失敗扱いにしない。
 - topic は実質的な秘密情報であるため、推測困難な値を使い、ログやスクリーンショットへ平文で残さない。
 - 通常の自動テストと CI は fake transport を使い、ntfy.sh へ接続しない。
 

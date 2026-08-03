@@ -1,5 +1,10 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification Report-artifact third slice
+
+- Assistantの明示`下書きを保存`後だけ、custom userの`data/user/profiles/<user_id>/decision_reports/`へsanitized Markdown / ZIP / manifestを保存し、本文・LLM出力・URL・local pathを持たない`ReportArtifactCompletionEvent`から`smai_report_ready`を生成するようにした。同一sanitized Markdown hashはdedupeし、preview / download / cancel / rerun / archive失敗 / default userでは通知を作らない。
+- `SMAIデフォルト`はsession-only方針に合わせてartifactを永続保存しない。保存・通知の失敗境界は分離し、通知の設定・履歴・配送障害は保存済みartifactを失敗扱いにしない。measured market-data adapterは未実装として残す。
+
 ## 2026-08-03 N6 notification Research-completion second slice
 
 - 明示Cockpit `AI調査を更新` の完了後だけ、`CompanyResearchReport`からbounded `ResearchCompletionEvent`を作り、`smai_analysis_complete` catalog通知へ接続した。document/chunk ID由来fingerprintで同一結果をdedupeし、画面rerun、Report表示/download、default userでは通知を作らない。

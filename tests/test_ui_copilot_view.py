@@ -18,6 +18,7 @@ from backend.assistant import (
     execute_assistant_tool_plan,
 )
 from backend.core.config import Settings
+from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
 from ui.copilot_conversation_content import copilot_conversation_presets as content_presets
 from ui.copilot_model_policy import model_option_for_profile_model
@@ -1521,6 +1522,11 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch, tm
         "ui.views.copilot._assistant_decision_report_archive_dir",
         lambda: tmp_path,
     )
+    published_archives: list[object] = []
+    monkeypatch.setattr(
+        "ui.views.copilot.publish_assistant_report_artifact_completion",
+        lambda _state, _context, archive: published_archives.append(archive),
+    )
     fetch_calls: list[dict[str, object]] = []
 
     def fake_fetch(symbol: str, **kwargs: object) -> ExternalResearchFetchResult:
@@ -1605,6 +1611,7 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch, tm
     assert manifest["reports"][0]["tool_status"]["news_fetch"] == "success"
     updated_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert updated_history[-1]["report_draft_status"] == "archived"
+    assert len(published_archives) == 1
 
 
 def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch, tmp_path):
@@ -1612,6 +1619,10 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     monkeypatch.setattr(
         "ui.views.copilot._assistant_decision_report_archive_dir",
         lambda: tmp_path,
+    )
+    monkeypatch.setattr(
+        "ui.views.copilot.publish_assistant_report_artifact_completion",
+        lambda *_args: None,
     )
 
     def fail_if_called(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
@@ -1655,6 +1666,38 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert manifest["reports"][0]["cached_only"] is True
     assert manifest["reports"][0]["tool_status"]["news_fetch"] == "skipped"
     assert manifest["reports"][0]["tool_status"]["research_fetch"] == "skipped"
+
+
+def test_copilot_default_user_disables_persistent_report_save(monkeypatch, tmp_path):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    context = build_decision_report_context(
+        title="Decision Report: NVDA",
+        sections=[
+            build_report_section(
+                title="確認材料",
+                source_kind="research",
+                symbol="NVDA",
+                summary={"summary": "確認済み資料を整理しました。"},
+            )
+        ],
+        created_at=datetime(2026, 8, 3, 10, 0, tzinfo=UTC),
+    )
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    app.session_state["smai_current_user_id"] = "default"
+    app.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = {
+        "turn_id": "turn-default",
+        "markdown": "# NVDA\n\n確認材料を整理しました。\n",
+        "context": context.model_dump_json(),
+        "status": "draft_ready",
+    }
+
+    app.run()
+
+    save_buttons = [button for button in app.button if button.label == "下書きを保存"]
+    assert len(save_buttons) == 1
+    assert save_buttons[0].disabled is True
+    assert not (tmp_path / "decision_reports").exists()
 
 
 def test_approved_external_fetch_failure_becomes_failed_tool_results(monkeypatch):

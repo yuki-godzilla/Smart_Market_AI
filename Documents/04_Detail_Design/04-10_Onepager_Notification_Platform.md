@@ -271,7 +271,8 @@ AI_SCORE 通知はスコア計算ロジックを gateway に持たせない。SM
 - schedulerは初期OFFのユーザー別設定、固定daily job registry、run claim、sanitized logを持つ。UI描画に依存せず`python -m backend.notifications.scheduler_runner`で常駐できる。
 - N6第1 sliceでは、schedulerだけがread-only adapterを通じてuser-scoped favorites / watchlist snapshotsとfresh News dashboard cacheを読む。該当データなし、stale、default user、未知templateはcatalog sampleへfallbackせず、run logを`skipped`として終了する。adapterはprovider refresh、cache write、score/ranking計算を行わない。
 - N6第2 sliceでは、明示的なCockpit `AI調査を更新` が `CompanyResearchReport` を返した場合だけ、user-scoped `ResearchCompletionEvent` を作る。eventはsymbol、as-of、schema version、資料数、根拠数、document/chunk ID由来のhashだけを使い、raw source本文やLLM出力を持たない。同一fingerprintはdedupeし、default user、画面rerun、Report表示/downloadでは発火しない。通知保存・配送失敗は調査結果を失敗扱いにしない。
-- debug manual generatorはcatalog sampleを維持する。Report artifact完了eventとmeasured market-data adapterは後続N6 sliceで扱う。
+- N6第3 sliceでは、Assistantの明示`下書きを保存`がsanitized Markdown / ZIPを保存できた場合だけ、user-scoped `ReportArtifactCompletionEvent` を作る。custom userのartifactは`data/user/profiles/<user_id>/decision_reports/`に分離し、default userはsession-onlyのため永続保存・eventの対象外とする。eventはdraft ID、schema、section/source件数、sanitized Markdown hashだけを使い、本文、LLM出力、URL、local pathを含めない。同一content fingerprintはdedupeし、preview、download、rerun、cancel、archive失敗では発火しない。manifest更新だけの失敗はartifact保存を失敗扱いにせず、通知処理の失敗も保存結果を変えない。
+- debug manual generatorはcatalog sampleを維持する。measured market-data adapterは後続N6 sliceで扱う。
 
 ## 10. 受け入れ条件
 

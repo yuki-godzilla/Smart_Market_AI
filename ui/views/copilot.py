@@ -82,6 +82,7 @@ from backend.reporting import (
     build_assistant_decision_report_archive_entry,
     render_decision_report_markdown,
 )
+from backend.reporting.archive_paths import assistant_report_archive_dir
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
@@ -132,6 +133,7 @@ from ui.copilot_runtime import (
     update_assistant_runtime_status,
 )
 from ui.copilot_streaming import stream_chunks as _stream_chunks
+from ui.notification_events import publish_assistant_report_artifact_completion
 from ui.research_state import fetch_external_research_for_symbol
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
@@ -2479,28 +2481,21 @@ def _render_pending_decision_report_draft_preview() -> None:
         return
     status = str(draft.get("status", "draft_ready"))
     context = _decision_report_context_from_draft(draft)
-    if status == "archived":
-        saved_path = _display_path(str(draft.get("archive_markdown_path", "")))
-        st.success(f"Decision Report下書きを保存しました。保存先: {saved_path}")
-        if str(draft.get("manifest_status", "")) == "partial":
-            st.warning("下書きファイルは保存されましたが、manifestの更新に失敗しました。")
-    elif status == "archive_failed":
-        st.error(
-            "Decision Report下書きを保存できませんでした。ファイル権限または保存先を確認してください。"
-        )
-    else:
-        st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
+    archive_dir = _assistant_decision_report_archive_dir()
+    _render_assistant_report_archive_status(status, draft)
     with st.expander("Decision Report下書きプレビュー", expanded=True):
         st.markdown(markdown)
         save_col, markdown_col, zip_col, cancel_col = st.columns(4, gap="small")
         with save_col:
-            if st.button(
-                "下書きを保存",
-                key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
-                use_container_width=True,
-            ):
-                _archive_pending_decision_report_draft(draft, context=context)
-                st.rerun()
+            save_requested = _render_assistant_report_archive_action(
+                draft,
+                context=context,
+                archive_dir=archive_dir,
+            )
+        if archive_dir is None:
+            st.caption("SMAIデフォルトでは永続保存しません。必要な場合はダウンロードしてください。")
+        if save_requested:
+            st.rerun()
         with markdown_col:
             render_markdown_download(
                 label="レポートMarkdownをダウンロード",
@@ -2554,6 +2549,51 @@ def _render_pending_decision_report_draft_preview() -> None:
                 st.rerun()
 
 
+def _render_assistant_report_archive_action(
+    draft: dict[str, object],
+    *,
+    context: DecisionReportContext | None,
+    archive_dir: Path | None,
+) -> bool:
+    """Render the explicit, custom-user-only archive action for one draft."""
+
+    if archive_dir is None:
+        st.button(
+            "下書きを保存",
+            key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
+            use_container_width=True,
+            disabled=True,
+            help="SMAIデフォルトでは永続保存できません。ダウンロードは利用できます。",
+        )
+        return False
+    if not st.button(
+        "下書きを保存",
+        key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
+        use_container_width=True,
+    ):
+        return False
+    _archive_pending_decision_report_draft(draft, context=context)
+    return True
+
+
+def _render_assistant_report_archive_status(status: str, draft: Mapping[str, object]) -> None:
+    """Render the persisted-draft state without mixing it into the preview layout."""
+
+    if status == "archived":
+        saved_path = _display_path(str(draft.get("archive_markdown_path", "")))
+        st.success(f"Decision Report下書きを保存しました。保存先: {saved_path}")
+        if str(draft.get("manifest_status", "")) == "partial":
+            st.warning("下書きファイルは保存されましたが、manifestの更新に失敗しました。")
+    elif status == "archive_failed":
+        st.error(
+            "Decision Report下書きを保存できませんでした。ファイル権限または保存先を確認してください。"
+        )
+    elif status == "archive_skipped_default":
+        st.info("SMAIデフォルトではDecision Report下書きを永続保存しません。")
+    else:
+        st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
+
+
 def _archive_pending_decision_report_draft(
     draft: dict[str, object],
     *,
@@ -2564,10 +2604,15 @@ def _archive_pending_decision_report_draft(
         updated["status"] = "archive_failed"
         st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
         return
+    archive_dir = _assistant_decision_report_archive_dir()
+    if archive_dir is None:
+        updated["status"] = "archive_skipped_default"
+        st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+        return
     try:
         result = archive_assistant_decision_report_draft(
             context,
-            _assistant_decision_report_archive_dir(),
+            archive_dir,
             markdown=str(draft.get("markdown", "")),
             include_zip=True,
         )
@@ -2588,6 +2633,7 @@ def _archive_pending_decision_report_draft(
     )
     st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
     _mark_turn_report_draft_status(str(draft.get("turn_id", "")), "archived")
+    publish_assistant_report_artifact_completion(st.session_state, context, result)
 
 
 def _decision_report_context_from_draft(
@@ -2602,8 +2648,9 @@ def _decision_report_context_from_draft(
         return None
 
 
-def _assistant_decision_report_archive_dir() -> Path:
-    return Path("exports") / "decision_reports"
+def _assistant_decision_report_archive_dir() -> Path | None:
+    user_id = str(st.session_state.get("smai_current_user_id") or "default")
+    return assistant_report_archive_dir(user_id)
 
 
 def _display_path(path: str) -> str:

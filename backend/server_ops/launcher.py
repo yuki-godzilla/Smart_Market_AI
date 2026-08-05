@@ -12,6 +12,7 @@ from typing import Iterator, Mapping, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from backend.news.background import start_news_background_refresh_scheduler
 from backend.server_ops.llm_startup import start_local_llm_startup_in_background
 from backend.server_ops.maintenance import SERVICE_INTENT_PATH, read_service_intent
 from backend.server_ops.network import (
@@ -311,6 +312,12 @@ def run_server(
                     "[SMAI] Local LLM Gateway/Ollama startup was requested in the background.",
                     flush=True,
                 )
+            # The Radar cache must not depend on an interactive user having
+            # already selected a profile.  Start the bounded, daemon refresh
+            # alongside the server so its status remains meaningful after a
+            # Windows reboot; errors stay in the refresh status/log contract
+            # and never prevent the local Streamlit service from starting.
+            start_news_background_refresh_scheduler()
             return supervise_streamlit(
                 browser_address,
                 resilient=resilient,

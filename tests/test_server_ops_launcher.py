@@ -279,6 +279,7 @@ def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:
 
 def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypatch) -> None:
     started: list[bool] = []
+    news_refresh_started: list[bool] = []
 
     def start_local_llm_startup() -> bool:
         started.append(True)
@@ -295,8 +296,13 @@ def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypa
         start_local_llm_startup,
     )
     monkeypatch.setattr(
+        "backend.server_ops.launcher.start_news_background_refresh_scheduler",
+        lambda: news_refresh_started.append(True),
+    )
+    monkeypatch.setattr(
         "backend.server_ops.launcher.supervise_streamlit", lambda *_args, **_kwargs: 0
     )
 
     assert run_server("localhost", port=8501) == 0
     assert started == [True]
+    assert news_refresh_started == [True]

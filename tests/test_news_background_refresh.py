@@ -1,6 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from backend.news.background import NEWS_BACKGROUND_REFRESH_INTERVAL_SECONDS, run_news_background_refresh_once
+from backend.news.background import (
+    NEWS_BACKGROUND_REFRESH_INTERVAL_SECONDS,
+    run_news_background_refresh_once,
+)
 from backend.news.cache import save_cached_news_dashboard_snapshot, save_news_update_status
 from backend.news.contracts import NewsUpdateStatus
 from backend.news.dashboard import build_demo_news_dashboard_snapshot

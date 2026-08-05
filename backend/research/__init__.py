@@ -1,23 +1,4 @@
-from backend.research.errors import ResearchDocumentError
-from backend.research.external_adapters import (
-    CompanyIRSiteResearchAdapter,
-    CompositeExternalResearchAdapter,
-    DefaultExternalResearchAdapter,
-    EDINETResearchAdapter,
-    GoogleNewsRSSResearchAdapter,
-    TDnetResearchAdapter,
-    YahooFinanceResearchAdapter,
-)
-from backend.research.external_contracts import (
-    ExternalResearchFetchManifestEntry,
-    ExternalResearchFetchRequest,
-    ExternalResearchFetchResult,
-    ExternalResearchSourceAdapter,
-    ExternalResearchSourcePayload,
-    ResearchSourceType,
-)
-from backend.research.external_fetch_service import ExternalResearchFetchService
-from backend.research.service import (
+from backend.research.contracts import (
     CompanyBusinessProfile,
     CompanyOverviewSummary,
     CompanyResearchEvidence,
@@ -25,10 +6,7 @@ from backend.research.service import (
     CompanyResearchRequest,
     CompanyResearchSummary,
     ETFResearchSummary,
-    ExternalResearchStockNewsAdapter,
     ExternalStockNewsAdapter,
-    ExternalStockNewsFetchService,
-    HybridResearchRetrievalService,
     InformationStatus,
     InvestmentActionHint,
     InvestmentInsight,
@@ -46,35 +24,24 @@ from backend.research.service import (
     NewsImpactHint,
     NewsSummaryItem,
     QuantitativeSummary,
-    ResearchAnalysisService,
     ResearchBrief,
     ResearchBriefMaterial,
     ResearchBriefSourceCard,
     ResearchChunk,
     ResearchDataQuality,
-    ResearchDisabledVectorStore,
     ResearchDocument,
     ResearchDocumentRegisterRequest,
     ResearchEmbedding,
-    ResearchEmbeddingService,
     ResearchEvidence,
     ResearchEvidenceKind,
     ResearchEvidenceLevel,
     ResearchEvidenceReliability,
-    ResearchEvidenceReranker,
     ResearchExtractedClaim,
     ResearchFactItem,
     ResearchFactSummary,
-    ResearchFileVectorStore,
     ResearchGroundedAnswer,
-    ResearchGroundedAnswerService,
-    ResearchHybridScorer,
     ResearchHybridScoreWeights,
-    ResearchIndexService,
     ResearchIndexSummary,
-    ResearchIngestionService,
-    ResearchInMemoryStore,
-    ResearchInMemoryVectorStore,
     ResearchMetric,
     ResearchMetricKey,
     ResearchMissingItem,
@@ -82,30 +49,45 @@ from backend.research.service import (
     ResearchPageViewModel,
     ResearchParseError,
     ResearchQueryExpansionResult,
-    ResearchQueryExpansionService,
     ResearchRetrievalCandidate,
     ResearchRetrievalQuality,
-    ResearchRetrievalService,
     ResearchScore,
-    ResearchScoreService,
     ResearchSearchError,
     ResearchSearchRequest,
     ResearchSourceConfidence,
     ResearchSummaryPoint,
-    ResearchVectorIndexService,
     ResearchVectorIndexSummary,
-    ResearchVectorStore,
-    ResearchWritableVectorStore,
     SecurityResearchType,
-    StockNewsAnalysisService,
     StockNewsEvidence,
     StockNewsReport,
     StockNewsRequest,
 )
+from backend.research.errors import ResearchDocumentError
+from backend.research.evidence_policy import ResearchEvidenceReranker
+from backend.research.external_adapters import (
+    CompanyIRSiteResearchAdapter,
+    CompositeExternalResearchAdapter,
+    DefaultExternalResearchAdapter,
+    EDINETResearchAdapter,
+    GoogleNewsRSSResearchAdapter,
+    TDnetResearchAdapter,
+    YahooFinanceResearchAdapter,
+)
+from backend.research.external_contracts import (
+    ExternalResearchFetchManifestEntry,
+    ExternalResearchFetchRequest,
+    ExternalResearchFetchResult,
+    ExternalResearchSourceAdapter,
+    ExternalResearchSourcePayload,
+    ResearchSourceType,
+)
+from backend.research.ingestion import ResearchIndexService, ResearchIngestionService
+from backend.research.query_expansion import ResearchQueryExpansionService
 from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
 )
+from backend.research.store import ResearchInMemoryStore
 from backend.research.summary_builders import (
     CompanyResearchSummaryBuilder,
     ETFResearchSummaryBuilder,
@@ -114,6 +96,29 @@ from backend.research.summary_builders import (
     ResearchBriefBuilder,
     ResearchPageViewModelBuilder,
     SecurityResearchTypeDetector,
+)
+from backend.research.vector_store import (
+    ResearchDisabledVectorStore,
+    ResearchFileVectorStore,
+    ResearchInMemoryVectorStore,
+    ResearchVectorStore,
+    ResearchWritableVectorStore,
+)
+
+_LAZY_SERVICE_EXPORTS = frozenset(
+    {
+        "ExternalResearchStockNewsAdapter",
+        "ExternalStockNewsFetchService",
+        "HybridResearchRetrievalService",
+        "ResearchAnalysisService",
+        "ResearchEmbeddingService",
+        "ResearchGroundedAnswerService",
+        "ResearchHybridScorer",
+        "ResearchRetrievalService",
+        "ResearchScoreService",
+        "ResearchVectorIndexService",
+        "StockNewsAnalysisService",
+    }
 )
 
 __all__ = [
@@ -225,3 +230,19 @@ __all__ = [
     "YahooFinanceResearchAdapter",
     "research_profile_source_key_for_provider",
 ]
+
+
+def __getattr__(name: str):
+    """Load heavyweight services lazily while preserving the public package API."""
+
+    if name == "ExternalResearchFetchService":
+        from backend.research.external_fetch_service import ExternalResearchFetchService
+
+        return ExternalResearchFetchService
+    if name in _LAZY_SERVICE_EXPORTS:
+        from backend.research import service
+
+        value = getattr(service, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

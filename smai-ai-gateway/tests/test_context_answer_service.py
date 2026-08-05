@@ -401,6 +401,56 @@ def test_context_answer_service_capability_timeout_uses_capability_fallback():
     assert "SMAIで確認する観点" not in response.answer
 
 
+def test_context_answer_service_returns_evidence_bound_radar_payload():
+    client = FakeLlmClient(
+        answer=(
+            '{"schema_version":"radar_interpretation.v1",'
+            '"candidate_id":"radar:direct_mention:7203.T",'
+            '"summary":{"text":"公開資料を確認する材料です。",'
+            '"cited_evidence_ids":["radar-rag-1"]},'
+            '"positive_materials":[{"text":"公式資料があります。",'
+            '"cited_evidence_ids":["radar-rag-1"]}],'
+            '"cautions":[{"text":"需要は未確認です。",'
+            '"cited_evidence_ids":["radar-news-1"]}],'
+            '"unknowns":[],"next_checkpoints":[{"text":"次回資料を確認します。",'
+            '"cited_evidence_ids":["radar-rag-1"]}]}'
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _radar_request()
+
+    response = service.answer(request)
+
+    assert response.gateway_status == "ok"
+    assert response.radar_interpretation is not None
+    assert response.radar_interpretation.candidate_id == "radar:direct_mention:7203.T"
+    assert [item.section_id for item in response.referenced_sections] == [
+        "radar-rag-1",
+        "radar-news-1",
+    ]
+    prompt = "\n".join(message.content for message in client.messages)
+    assert "radar_interpretation.v1" in prompt
+    assert "Allowed cited_evidence_ids only" in prompt
+
+
+def test_context_answer_service_rejects_radar_payload_with_unknown_evidence_id():
+    client = FakeLlmClient(
+        answer=(
+            '{"schema_version":"radar_interpretation.v1",'
+            '"candidate_id":"radar:direct_mention:7203.T",'
+            '"summary":{"text":"根拠を確認します。",'
+            '"cited_evidence_ids":["unknown"]},'
+            '"positive_materials":[],"cautions":[],"unknowns":[],"next_checkpoints":[]}'
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+
+    response = service.answer(_radar_request())
+
+    assert response.gateway_status == "fallback"
+    assert response.radar_interpretation is None
+
+
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
     return ContextAnswerRequest.model_validate(
         {
@@ -437,6 +487,49 @@ def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
                 ],
                 "privacy_notes": [
                     "Provider raw fields, debug logs, and full external source bodies are excluded."
+                ],
+            },
+        }
+    )
+
+
+def _radar_request() -> ContextAnswerRequest:
+    return ContextAnswerRequest.model_validate(
+        {
+            "task": "explain",
+            "language": "ja",
+            "user_question": "intent: radar_interpretation",
+            "active_context_id": "radar_interpretation",
+            "response_schema": "radar_interpretation.v1",
+            "task_type": "news_materials",
+            "referenced_context_ids": ["radar-news-1", "radar-rag-1"],
+            "context": {
+                "bundle_id": "radar-7203-2026-07-13",
+                "title": "Radar Interpretation - 7203.T",
+                "source": "streamlit_context",
+                "active_context_id": "radar_interpretation",
+                "sections": [
+                    {
+                        "section_id": "radar_candidate",
+                        "title": "Radar candidate",
+                        "source_kind": "radar_candidate",
+                        "summary": {
+                            "candidate_id": "radar:direct_mention:7203.T",
+                            "symbol": "7203.T",
+                        },
+                    },
+                    {
+                        "section_id": "radar-news-1",
+                        "title": "Toyota headline",
+                        "source_kind": "radar_news_evidence",
+                        "summary": {"published_at": "2026-07-12"},
+                    },
+                    {
+                        "section_id": "radar-rag-1",
+                        "title": "Toyota IR",
+                        "source_kind": "radar_rag_evidence",
+                        "summary": {"published_at": "2026-07-10"},
+                    },
                 ],
             },
         }

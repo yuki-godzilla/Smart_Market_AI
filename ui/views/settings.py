@@ -29,6 +29,7 @@ RESEARCH_SOURCE_TYPE_LABELS = {
     "tdnet": "TDnet",
     "news": "ニュース",
 }
+SYMBOL_TABLE_PREVIEW_LIMIT = 100
 
 
 def render_settings_page() -> None:
@@ -76,8 +77,14 @@ def render_settings_page() -> None:
                 )
 
     with st.expander("サンプル銘柄", expanded=True):
+        all_sample_rows = symbol_reference_rows()
+        sample_rows = _symbol_table_preview_rows(all_sample_rows)
+        st.caption(
+            f"全{len(all_sample_rows):,}件のうち先頭{len(sample_rows):,}件を表示しています。"
+            "銘柄の検索・選択はコックピットまたはランキング画面で行えます。"
+        )
         st.table(
-            user_facing_table_rows(symbol_reference_rows()),
+            user_facing_table_rows(sample_rows),
         )
 
     with st.expander("ランキング銘柄候補", expanded=False):
@@ -102,17 +109,23 @@ def render_settings_page() -> None:
             )
         else:
             st.caption("銘柄候補CSVの形式確認: OK")
-        st.dataframe(
-            user_facing_table_rows(symbol_universe_csv_rows()),
-            hide_index=True,
-            use_container_width=True,
-        )
+        if st.checkbox(
+            f"候補テーブルを表示（最大{SYMBOL_TABLE_PREVIEW_LIMIT:,}件）",
+            key="settings_show_symbol_universe_preview",
+        ):
+            preview_rows = _symbol_table_preview_rows(symbol_universe_csv_rows())
+            st.caption(
+                f"候補CSV 全{metadata_summary['total_rows']:,}件のうち先頭{len(preview_rows):,}件を表示しています。"
+                "全件の確認・検索はCSVまたは銘柄検索画面を利用してください。"
+            )
+            st.dataframe(
+                user_facing_table_rows(preview_rows),
+                hide_index=True,
+                use_container_width=True,
+            )
 
     with st.expander("AI調査 / 根拠資料", expanded=False):
-        st.caption(
-            "ローカル資料を登録し、銘柄コックピットと投資判断レポートで根拠表示に使います。"
-            "Phase 20ではUTF-8のMarkdown/Text/CSVを対象にします。"
-        )
+        st.caption("ローカル資料を登録すると、銘柄コックピットと確認レポートの根拠として使えます。")
         symbol = st.text_input("銘柄コード", key="research_upload_symbol", placeholder="7203.T")
         title = st.text_input("資料タイトル", key="research_upload_title")
         source_type = st.selectbox(
@@ -172,6 +185,14 @@ def _external_fetch_summary_caption(summary: dict[str, object]) -> str:
         f"no_result={summary.get('no_result_count', 0)} / "
         f"cache_hit={summary.get('cache_hit_count', 0)}"
     )
+
+
+def _symbol_table_preview_rows(
+    rows: list[dict[str, str]], *, limit: int = SYMBOL_TABLE_PREVIEW_LIMIT
+) -> list[dict[str, str]]:
+    """Bound settings-page table rendering so large universes stay responsive."""
+
+    return [dict(row) for row in rows[: max(0, limit)]]
 
 
 def _summary_int(value: object) -> int:

@@ -42,7 +42,7 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 )
                 page.get_by_text("Yuki", exact=True).wait_for(state="visible", timeout=30_000)
                 profile_names = page.locator(".smai-profile-name").all_text_contents()
-                assert profile_names[:3] == ["Yuki", "SMAIデフォルト", "ユーザー追加"]
+                assert {"Yuki", "SMAIデフォルト", "ユーザー追加"}.issubset(profile_names)
                 dimensions = page.locator("body").evaluate(
                     "(element) => ({scrollWidth: element.scrollWidth, "
                     "clientWidth: element.clientWidth})"
@@ -87,7 +87,11 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                     assert page.locator(".smai-user-name").is_hidden()
                 initial_box = user_area.bounding_box()
                 assert initial_box is not None
-                assert 60 <= initial_box["y"] <= 120
+                if width <= 1024:
+                    assert 0 <= initial_box["y"] <= 12
+                    assert initial_box["y"] + initial_box["height"] <= 58
+                else:
+                    assert 60 <= initial_box["y"] <= 120
                 assert initial_box["x"] + initial_box["width"] <= width
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(250)

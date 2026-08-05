@@ -324,7 +324,7 @@ class ResearchRetrievalQuality(BaseModel):
 
 Current implementation note: `ResearchExtractedClaim` is available as the first structured extraction contract, and `CompanyResearchReport.extracted_claims` carries generated claims. Claims for regular categories are created only when supporting evidence exists; missing topic evidence is represented as `confirmation_gap` so unsupported claims are not mixed into generated summaries.
 
-Current implementation note: `ResearchRetrievalQuality` is available as the first retrieval transparency contract, and `CompanyResearchReport.retrieval_quality` carries the keyword backend, category query set, expanded terms, retrieved candidate count, deduped evidence count, and warnings. Vector / hybrid backend values remain future optional paths.
+Current implementation note: `ResearchRetrievalQuality` is available as the retrieval transparency contract. `CompanyResearchReport.retrieval_quality` carries the active backend, category query set, expanded terms, retrieved/deduped evidence count, keyword/vector candidate counts, document count, measured local latency, and warnings. Cockpit/Ranking can therefore distinguish a hybrid result from a keyword fallback without exposing raw provider data.
 
 ### Query Expansion
 
@@ -340,8 +340,8 @@ Current implementation note: `ResearchQueryExpansionService` and `ResearchQueryE
 
 ### Optional Embedding / Vector / Hybrid Search
 
-- Default は Phase 20 相当の keyword search とする。
-- Embedding は config で明示的に有効化した場合のみ使う。local provider と cache を優先し、外部 embedding API は explicit opt-in にする。
+- `ResearchRetrievalService` の単体利用は Phase 20 相当の keyword search を維持する。通常のCockpit/Ranking `AI調査` は、ローカルhash embeddingとfile cacheを使う hybrid search を標準とし、vector候補が無い場合はkeyword根拠へ安全にfallbackする。
+- Embeddingはlocal providerとcacheを優先し、外部 embedding API は使わない。外部APIを追加する場合は explicit opt-in とする。
 - `ResearchEmbeddingService` は `chunk_id` / `text_hash` / `embedding_model` 単位で cache し、同じ chunk text の再embeddingを避ける。
 - `ResearchVectorStore` は file-based cache または sqlite-based store を MVP 候補とする。FAISS / Chroma / sqlite-vss / cloud vector DB は必須にしない。
 - `HybridResearchRetrievalService` は keyword_score、vector_score、freshness_score、reliability_score、source_type priority、evidence diversity を使う。
@@ -349,17 +349,17 @@ Current implementation note: `ResearchQueryExpansionService` and `ResearchQueryE
 
 Current implementation note: `ResearchEvidenceReranker` is available as the first deterministic evidence reranker. It preserves `ResearchEvidence` output, suppresses duplicate chunks, and orders evidence by relevance, reliability, freshness, and source-type priority. It is wired into keyword retrieval and company-level evidence ordering without changing scoring or ranking behavior.
 
-Current implementation note: `ResearchEmbedding` and `ResearchRetrievalCandidate` are available as optional vector / hybrid intermediate contracts. `ResearchDisabledVectorStore` is the default disabled vector-store fallback and reports a retrieval-quality warning instead of performing vector search. `ResearchHybridScorer` deterministically combines keyword, vector, freshness, reliability, and source-type priority scores, but it is not wired into the default keyword retrieval path yet.
+Current implementation note: `ResearchEmbedding` and `ResearchRetrievalCandidate` are local vector / hybrid intermediate contracts. `ResearchDisabledVectorStore` remains the explicit disabled fallback. `ResearchHybridScorer` deterministically combines keyword, vector, freshness, reliability, and source-type priority scores; the hybrid wrapper merges both candidate sets instead of allowing a vector hit to hide an exact keyword/official-source hit. Per-document diversity limits adjacent chunks from taking all result slots.
 
 Current implementation note: `ResearchEmbeddingService` is available as the first local embedding generator. It creates deterministic hash-based vectors for chunk text and query text, keeps `chunk_id` / `text_hash` / `embedding_model` cache-key fields, and can explicitly upsert generated embeddings into writable vector stores. It has no external embedding API, LLM, vector DB, or network dependency.
 
-Current implementation note: `ResearchVectorIndexService` and `ResearchVectorIndexSummary` are available as the first optional vector-index build workflow. They rebuild a writable vector store from already chunked local Research documents, report chunk / embedded counts and missing text-index warnings, and keep vector indexing explicit rather than part of the default keyword path.
+Current implementation note: `ResearchVectorIndexService` and `ResearchVectorIndexSummary` rebuild a writable vector store from already chunked local Research documents and report chunk / embedded counts and missing text-index warnings. The Streamlit Research state synchronizes local document load, upload, and external-source registration to the local file cache. A complete rebuild replaces stale transient-session entries; a symbol rebuild replaces only that symbol. File-backed rebuilds persist one atomic JSONL update rather than rewriting once per chunk.
 
-Current implementation note: `HybridResearchRetrievalService` is available as an optional wrapper. It uses vector candidates when a vector store provides them, converts hybrid-scored candidates back to `ResearchEvidence`, and falls back to the existing keyword retrieval with retrieval-quality warnings when vector search is disabled or empty. The default `ResearchRetrievalService` keyword path remains unchanged.
+Current implementation note: `HybridResearchRetrievalService` is the standard UI wrapper around the unchanged `ResearchRetrievalService` keyword core. It builds a deterministic local query vector from the expanded query when needed, merges keyword/vector candidates, converts hybrid-scored candidates back to `ResearchEvidence`, and falls back to keyword retrieval with a warning when vector search is disabled or empty. In category analysis, candidates below a conservative relevance floor are not turned into claims; they become explicit `confirmation_gap` items rather than weak cross-topic matches.
 
 Current implementation note: `ResearchInMemoryVectorStore` is available as the first local vector store. It stores `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs in memory, uses optional `ResearchSearchRequest.query_vector`, calculates deterministic cosine similarity, filters by symbol and source type, and reports vector retrieval quality. It has no external embedding, vector DB, or network dependency.
 
-Current implementation note: `ResearchFileVectorStore` is available as the first file-backed vector cache. It persists the same candidate / embedding pairs as UTF-8 JSONL, reloads them across service instances, reports empty cache state in retrieval quality, raises `ResearchSearchError` for invalid cache content, and keeps keyword retrieval as the default path.
+Current implementation note: `ResearchFileVectorStore` is the local file-backed vector cache. It persists the same candidate / embedding pairs as UTF-8 JSONL, reloads them across service instances, reports empty cache state in retrieval quality, and raises `ResearchSearchError` for invalid cache content. The UI safely falls back to an in-memory vector store (and therefore keyword fallback remains available) if a previous interrupted cache cannot be read.
 
 ### Grounded Answer Generation
 
@@ -379,7 +379,7 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
 
-Current implementation note: cockpit and ranking Research Summary panels now build a local `CompanyResearchSummary` as the primary company-understanding report, then show `ResearchBrief`, AI reading notes, confirmation-point cards, Research Score summary/component/warning rows, and detailed `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and `ResearchExtractedClaim` rows behind secondary sections. Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch optional EDINET securities-report metadata links, TDnet timely disclosures, and Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch should be transient by default; ranking order and default Investment Score behavior remain unchanged.
+Current implementation note: cockpit and ranking Research Summary panels build a local `CompanyResearchSummary` as the primary company-understanding report, then show `ResearchBrief`, AI reading notes, confirmation-point cards, Research Score summary/component/warning rows, and detailed `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and `ResearchExtractedClaim` rows behind secondary sections. The active search mode, evidence count, and document count are also shown as a compact normal-screen caption; the detailed table adds candidate counts and local latency. Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch optional EDINET securities-report metadata links, TDnet timely disclosures, and Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch is transient by default; ranking order and default Investment Score behavior remain unchanged.
 
 ### Phase 21 Test Plan
 
@@ -607,6 +607,7 @@ Current implementation note: Investment Score accepts optional `research_scores_
 * `build_chunks`: Phase 20 の UTF-8 text chunking は通常 UI 操作を妨げない範囲に収める。PDF の P95 は後続対応時に設定する。
 * `search`: keyword search P95 < 500ms、vector search P95 < 1s
 * `analyze_company`: cached evidence 利用時 P95 < 3s
+* file-backed vector reindex: one atomic write per complete/symbol rebuild; chunk countに比例した全JSONL再書込みを行わない。
 * AI調査の通常UI操作は外部 source adapter を使う前提にする。通常 tests / CI は fake adapter / fixture で代替し、外部API/LLMに依存しない。
 
 ## 8) Observability

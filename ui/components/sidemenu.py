@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from ui.components.mascot import render_mascot_panel
 
@@ -28,6 +29,40 @@ SIDEMENU_PAGE_LABELS: dict[SideMenuPage, str] = {
     SIDEMENU_PAGE_SETTINGS: "設定 / データ情報",
 }
 SIDEMENU_STATE_KEY = "sidemenu_page"
+SIDEMENU_RENDERED_PAGE_STATE_KEY = "_smai_sidemenu_rendered_page"
+
+
+def sidemenu_scroll_to_top_html() -> str:
+    """Return the small bridge used to reset Streamlit's main scroll container."""
+
+    return """
+<script>
+(() => {
+  const resetMainScroll = () => {
+    const main = window.parent.document.querySelector("section.stAppViewMain");
+    if (main) {
+      main.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  };
+  window.parent.requestAnimationFrame(() => {
+    resetMainScroll();
+    window.parent.requestAnimationFrame(resetMainScroll);
+  });
+  window.parent.setTimeout(resetMainScroll, 120);
+  window.parent.setTimeout(resetMainScroll, 320);
+})();
+</script>
+""".strip()
+
+
+def render_sidemenu_scroll_reset(selected_page: SideMenuPage) -> None:
+    """Reset the main viewport after the newly selected page finishes rendering."""
+
+    previous_page = st.session_state.get(SIDEMENU_RENDERED_PAGE_STATE_KEY)
+    st.session_state[SIDEMENU_RENDERED_PAGE_STATE_KEY] = selected_page
+    if previous_page is None or previous_page == selected_page:
+        return
+    components.html(sidemenu_scroll_to_top_html(), height=0, width=0)
 
 
 def _current_sidemenu_page() -> SideMenuPage:
@@ -74,19 +109,19 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
             if runtime_settings["provider"] == "csv":
                 st.write(f"CSVデータ: `{runtime_settings['csv_data_dir']}`")
 
-        st.caption("分析結果は投資判断の補助であり、売買推奨ではありません。")
+        st.caption("個人用の分析ツール。データ更新日時と根拠も見比べます。")
 
     return _current_sidemenu_page()
 
 
 def _sidebar_mascot_message(page: SideMenuPage) -> str:
     messages = {
-        SIDEMENU_PAGE_WATCHLIST: "気になる銘柄をまとめて、次に確認する候補を整理します。",
-        SIDEMENU_PAGE_COCKPIT: "1銘柄の確認ポイントを一緒に整理します。",
-        SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとリスク確認で見比べます。",
-        SIDEMENU_PAGE_NEWS: "市場ニュースから確認すべきテーマと関連銘柄を整理します。",
-        SIDEMENU_PAGE_COPILOT: "画面横断で、確認材料と次に見る点を整理します。",
-        SIDEMENU_PAGE_REBALANCE: "配分のズレと見直し候補を確認します。",
-        SIDEMENU_PAGE_SETTINGS: "データ設定と取得元を確認します。",
+        SIDEMENU_PAGE_WATCHLIST: "気になる銘柄をまとめます。",
+        SIDEMENU_PAGE_COCKPIT: "1銘柄を深掘りします。",
+        SIDEMENU_PAGE_RANKING: "注目候補を見比べます。",
+        SIDEMENU_PAGE_NEWS: "市場テーマと関連銘柄を追います。",
+        SIDEMENU_PAGE_COPILOT: "気になる点をすぐ聞けます。",
+        SIDEMENU_PAGE_REBALANCE: "配分のズレを見ます。",
+        SIDEMENU_PAGE_SETTINGS: "データ取得の設定です。",
     }
     return messages[page]

@@ -34,6 +34,7 @@ class CountingFakeLLMFactorService(FakeLLMFactorService):
         ticker: str,
         as_of: date,
         evidence_sources: Iterable[EvidenceSource] = (),
+        company_name: str | None = None,
         generated_at: datetime | None = None,
     ) -> LLMFactorResult:
         self.calls.append(ticker)
@@ -43,6 +44,7 @@ class CountingFakeLLMFactorService(FakeLLMFactorService):
             ticker=ticker,
             as_of=as_of,
             evidence_sources=evidence_sources,
+            company_name=company_name,
             generated_at=generated_at,
         )
 

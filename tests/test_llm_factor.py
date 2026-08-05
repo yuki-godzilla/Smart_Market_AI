@@ -71,6 +71,97 @@ def test_fake_llm_factor_service_uses_low_confidence_fallback_without_sources() 
     assert any("出典付き" in warning for warning in result.warnings)
 
 
+def test_fake_llm_factor_service_excludes_unrelated_and_duplicate_evidence() -> None:
+    sources = [
+        EvidenceSource(
+            title="Toyota Boshoku、増配と設備投資を発表",
+            source_type="company_ir",
+            source_url="https://example.com/ir/3116",
+            source_date=date(2026, 6, 12),
+            summary="Toyota Boshokuの増配と設備投資を説明しています。",
+            reliability_score=Decimal("82"),
+        ),
+        EvidenceSource(
+            title="Toyota Boshoku、増配と設備投資を発表",
+            source_type="news",
+            source_url="https://news.example.com/article/toyota-boshoku",
+            source_date=date(2026, 6, 12),
+            summary="Toyota Boshokuの増配と設備投資を説明しています。",
+            reliability_score=Decimal("62"),
+        ),
+        EvidenceSource(
+            title="TencentのAI投資と動画サービスの成長",
+            source_type="news",
+            source_url="https://news.example.com/article/tencent-ai",
+            source_date=date(2026, 6, 12),
+            summary="TencentのAI投資と動画サービスを説明しています。",
+            reliability_score=Decimal("62"),
+        ),
+    ]
+
+    result = FakeLLMFactorService().build_reference_result(
+        ticker="3116.T",
+        company_name="Toyota Boshoku Corporation",
+        as_of=date(2026, 6, 12),
+        evidence_sources=sources,
+        generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+
+    assert [source.title for source in result.evidence_sources] == [
+        "Toyota Boshoku、増配と設備投資を発表"
+    ]
+    assert result.evidence_selection.input_count == 3
+    assert result.evidence_selection.retained_count == 1
+    assert result.evidence_selection.duplicate_count == 1
+    assert result.evidence_selection.unrelated_count == 1
+    assert result.llm_confidence_score <= Decimal("70")
+    assert any("対象銘柄との関連" in warning for warning in result.warnings)
+    assert any("重複と判定" in warning for warning in result.warnings)
+
+
+def test_fake_llm_factor_service_does_not_treat_internal_locator_as_entity_evidence() -> None:
+    unrelated_research_chunk = EvidenceSource(
+        title="TencentのAI投資と動画サービスの成長",
+        source_type="news",
+        source_url="smai://research-evidence/3116.T/research-doc/example-chunk",
+        source_date=date(2026, 6, 12),
+        provider="research",
+        summary="TencentのAI投資と動画サービスを説明しています。",
+        reliability_score=Decimal("62"),
+    )
+
+    result = FakeLLMFactorService().build_reference_result(
+        ticker="3116.T",
+        company_name="Toyota Boshoku Corporation",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[unrelated_research_chunk],
+        generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+
+    assert result.evidence_selection.input_count == 1
+    assert result.evidence_selection.retained_count == 0
+    assert result.evidence_selection.unrelated_count == 1
+    assert not result.bullish_factors
+
+
+def test_deterministic_confidence_is_capped_with_limited_primary_disclosure() -> None:
+    tdnet_source = _evidence_source(
+        title="7203.T 決算と増配を発表",
+        source_url="https://example.com/tdnet/7203",
+        summary="7203.Tの好決算と増配を発表しています。",
+    ).model_copy(update={"source_type": "tdnet"})
+    result = FakeLLMFactorService().build_reference_result(
+        ticker="7203.T",
+        company_name="Toyota Motor",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[tdnet_source, _evidence_source()],
+        generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+
+    assert result.evidence_selection.primary_disclosure_count == 1
+    assert result.llm_confidence_score <= Decimal("75")
+
+
 def test_llm_factor_contract_rejects_missing_url_and_out_of_range_scores() -> None:
     with pytest.raises(ValidationError):
         EvidenceSource(

@@ -11,10 +11,12 @@ from pydantic import Field, ValidationError
 from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
+    RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     ContextAnswerConfidence,
     ContextAnswerGatewayStatus,
     ContextAnswerRequest,
     ContextAnswerResponse,
+    ContextRadarInterpretation,
     ContextReferencedSection,
     ContextSection,
 )
@@ -213,13 +215,25 @@ class ContextAnswerService:
                     else _EN_DECISION_SUPPORT_NOTE
                 ),
             )
-        llm_payload = _parse_llm_context_answer(result.answer)
-        usable_payload = _usable_llm_payload(
-            structured_payload=llm_payload,
-            plain_answer=_strip_thinking_blocks(result.answer).strip(),
-            request=request,
+        radar_payload = (
+            _parse_llm_radar_interpretation(result.answer)
+            if _is_radar_interpretation_request(request)
+            else None
         )
-        if usable_payload is None:
+        if _is_radar_interpretation_request(request):
+            usable_payload = (
+                _llm_payload_from_radar(radar_payload)
+                if radar_payload is not None and _radar_payload_matches_request(radar_payload, request)
+                else None
+            )
+        else:
+            llm_payload = _parse_llm_context_answer(result.answer)
+            usable_payload = _usable_llm_payload(
+                structured_payload=llm_payload,
+                plain_answer=_strip_thinking_blocks(result.answer).strip(),
+                request=request,
+            )
+        if usable_payload is None and not _is_radar_interpretation_request(request):
             try:
                 repair_messages = _quality_repair_messages(messages)
                 repair_result = self.client.chat(
@@ -281,14 +295,21 @@ class ContextAnswerService:
                 fallback=_next_checkpoints_from_sections(sections, language=request.language),
                 limit=6,
             ),
-            referenced_sections=[
-                ContextReferencedSection(
-                    section_id=section.section_id,
-                    title=section.title,
-                    source_kind=section.source_kind,
-                )
-                for section in sections
-            ],
+            referenced_sections=(
+                _radar_referenced_sections(radar_payload, sections)
+                if radar_payload is not None and usable_payload is not None
+                else [
+                    ContextReferencedSection(
+                        section_id=section.section_id,
+                        title=section.title,
+                        source_kind=section.source_kind,
+                    )
+                    for section in sections
+                ]
+            ),
+            radar_interpretation=(
+                radar_payload if radar_payload is not None and usable_payload is not None else None
+            ),
             confidence=(
                 usable_payload.confidence
                 if usable_payload is not None
@@ -357,6 +378,90 @@ def _parse_llm_context_answer(answer: str) -> LlmContextAnswerPayload | None:
         return LlmContextAnswerPayload.model_validate(data)
     except ValidationError:
         return _coerce_llm_context_answer_payload(data)
+
+
+def _parse_llm_radar_interpretation(answer: str) -> ContextRadarInterpretation | None:
+    raw_json = _extract_json_object(_strip_thinking_blocks(answer))
+    if raw_json is None:
+        return None
+    try:
+        return ContextRadarInterpretation.model_validate_json(raw_json)
+    except ValidationError:
+        return None
+
+
+def _is_radar_interpretation_request(request: ContextAnswerRequest) -> bool:
+    return request.response_schema == RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION
+
+
+def _radar_payload_matches_request(
+    payload: ContextRadarInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    if payload.schema_version != RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return False
+    candidate_id = _radar_candidate_id(request)
+    if not candidate_id or payload.candidate_id != candidate_id:
+        return False
+    allowed_ids = set(request.referenced_context_ids)
+    cited_ids = _radar_cited_evidence_ids(payload)
+    return bool(cited_ids) and set(cited_ids).issubset(allowed_ids)
+
+
+def _radar_candidate_id(request: ContextAnswerRequest) -> str:
+    for section in request.context.sections:
+        if section.section_id != "radar_candidate":
+            continue
+        return str(section.summary.get("candidate_id") or "").strip()
+    return ""
+
+
+def _radar_cited_evidence_ids(payload: ContextRadarInterpretation) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    points = [
+        payload.summary,
+        *payload.positive_materials,
+        *payload.cautions,
+        *payload.unknowns,
+        *payload.next_checkpoints,
+    ]
+    for point in points:
+        for evidence_id in point.cited_evidence_ids:
+            normalized = evidence_id.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            result.append(normalized)
+    return result
+
+
+def _radar_referenced_sections(
+    payload: ContextRadarInterpretation,
+    sections: Sequence[ContextSection],
+) -> list[ContextReferencedSection]:
+    by_id = {section.section_id: section for section in sections}
+    return [
+        ContextReferencedSection(
+            section_id=evidence_id,
+            title=by_id[evidence_id].title,
+            source_kind=by_id[evidence_id].source_kind,
+        )
+        for evidence_id in _radar_cited_evidence_ids(payload)
+        if evidence_id in by_id
+    ]
+
+
+def _llm_payload_from_radar(
+    payload: ContextRadarInterpretation,
+) -> LlmContextAnswerPayload:
+    return LlmContextAnswerPayload(
+        answer=payload.summary.text,
+        materials=[point.text for point in payload.positive_materials],
+        cautions=[*(point.text for point in payload.cautions), *(point.text for point in payload.unknowns)],
+        next_checkpoints=[point.text for point in payload.next_checkpoints],
+        confidence="low",
+    )
 
 
 def _coerce_llm_context_answer_payload(data: object) -> LlmContextAnswerPayload | None:

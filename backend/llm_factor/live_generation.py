@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -23,6 +24,7 @@ from backend.llm_factor.contracts import (
     EvidenceSource,
     LLMFactorCacheMetadata,
     LLMFactorCacheStatus,
+    LLMFactorEvidenceSelection,
     LLMFactorResult,
     LLMFactorServiceResult,
 )
@@ -31,7 +33,11 @@ from backend.llm_factor.gateway_adapter import (
     LLMFactorGatewayClient,
     LLMFactorGatewayError,
 )
-from backend.llm_factor.service import CachedLLMFactorService
+from backend.llm_factor.service import (
+    CachedLLMFactorService,
+    evidence_confidence_cap,
+    select_evidence_sources_for_factor,
+)
 from backend.llm_factor.validation import (
     LLMFactorLiveValidationError,
     llm_factor_result_from_gateway_response,
@@ -52,6 +58,7 @@ _FALLBACK_REASON_MESSAGES = {
     "cache_miss": "LLM Factor cacheが見つかりませんでした。",
     "cache_corrupt": "LLM Factor cacheを読み取れませんでした。",
     "provider_error": "LLM provider側でエラーが発生しました。",
+    "insufficient_evidence": "対象銘柄に紐づく根拠が不足しています。",
 }
 
 
@@ -86,10 +93,25 @@ class LiveLLMFactorGenerationService:
         now: datetime | None = None,
     ) -> LLMFactorServiceResult:
         now_utc = _ensure_utc(now or datetime.now(UTC))
+        selection = select_evidence_sources_for_factor(
+            ticker=ticker,
+            evidence_sources=evidence_sources,
+            company_name=company_name,
+        )
+        selected_sources = selection.sources
+        if not selected_sources:
+            return self._fallback_result(
+                ticker=ticker,
+                as_of=as_of,
+                evidence_sources=evidence_sources,
+                company_name=company_name,
+                now=now_utc,
+                reason="insufficient_evidence",
+            )
         request = build_llm_factor_generation_request(
             ticker=ticker,
             as_of=as_of,
-            evidence_sources=evidence_sources,
+            evidence_sources=selected_sources,
             company_name=company_name,
             prompt_version=self.config.prompt_version,
             response_schema_version=self.config.response_schema_version,
@@ -132,13 +154,30 @@ class LiveLLMFactorGenerationService:
                 response,
                 request=request,
                 context_hash=context_hash,
-                fallback_sources=evidence_sources,
+                fallback_sources=selected_sources,
+            )
+            confidence_cap = evidence_confidence_cap(selected_sources)
+            calibration_warnings = _evidence_selection_warnings(selection.summary)
+            result = result.model_copy(
+                update={
+                    "evidence_selection": selection.summary,
+                    "llm_confidence_score": min(
+                        result.llm_confidence_score,
+                        confidence_cap,
+                    ),
+                    "llm_catalyst_score": min(
+                        result.llm_catalyst_score,
+                        min(Decimal("85"), confidence_cap + Decimal("10")),
+                    ),
+                    "warnings": _dedupe([*result.warnings, *calibration_warnings]),
+                }
             )
         except (LLMFactorGatewayError, LLMFactorLiveValidationError) as exc:
             return self._fallback_result(
                 ticker=ticker,
                 as_of=as_of,
                 evidence_sources=evidence_sources,
+                company_name=company_name,
                 now=now_utc,
                 reason=_fallback_reason(exc),
             )
@@ -172,6 +211,7 @@ class LiveLLMFactorGenerationService:
         ticker: str,
         as_of: date,
         evidence_sources: list[EvidenceSource],
+        company_name: str | None,
         now: datetime,
         reason: str,
     ) -> LLMFactorServiceResult:
@@ -179,6 +219,7 @@ class LiveLLMFactorGenerationService:
             ticker=ticker,
             as_of=as_of,
             evidence_sources=evidence_sources,
+            company_name=company_name,
             now=now,
         )
         result = fallback.result.model_copy(
@@ -218,6 +259,7 @@ def build_llm_factor_reference_result_from_settings(
             ticker=ticker,
             as_of=as_of,
             evidence_sources=evidence_sources,
+            company_name=company_name,
             now=now,
         )
         result = fallback.result.model_copy(
@@ -278,6 +320,8 @@ def _normalize_fallback_reason(reason: str | None) -> str:
         return "unknown_evidence"
     if normalized.startswith("provider_") or normalized in {"model_not_found", "ollama_error"}:
         return "provider_error"
+    if normalized in {"insufficient_evidence", "no_relevant_evidence"}:
+        return "insufficient_evidence"
     return "validation_error"
 
 
@@ -315,6 +359,21 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(normalized)
         result.append(normalized)
     return result
+
+
+def _evidence_selection_warnings(summary: LLMFactorEvidenceSelection) -> list[str]:
+    warnings: list[str] = []
+    if summary.unrelated_count:
+        warnings.append(
+            f"対象銘柄との関連を確認できない根拠 {summary.unrelated_count}件を除外しました。"
+        )
+    if summary.duplicate_count:
+        warnings.append(f"重複と判定した根拠 {summary.duplicate_count}件を除外しました。")
+    if summary.retained_count and summary.official_count == 0:
+        warnings.append("公式開示を根拠として確認できないため、確信度を控えめにしています。")
+    elif summary.retained_count and summary.primary_disclosure_count == 0:
+        warnings.append("TDnet・EDINETなどの一次開示が少ないため、補助情報として確認してください。")
+    return warnings
 
 
 def _ensure_utc(value: datetime) -> datetime:

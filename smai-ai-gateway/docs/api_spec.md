@@ -100,6 +100,7 @@ SMAI 親側では `assistant.gateway.enabled=true` のときだけこの endpoin
 - `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance`: 軽量会話。
 - `stock_summary` / `forecast_risk_compare` / `news_materials` / `decision_report_draft`: SMAIアシスタントの材料整理。
 - `cockpit_interpretation`: Cockpit `AI解釈メモ`。価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextを読み解く。SMAI側は別途 validation / cache / fallback を持ち、Gateway はスコア、順位、予測値、Decision Report本文を変更しない。
+- `response_schema=radar_interpretation.v1`: Investment Radarの明示opt-in根拠整理。`radar_candidate.summary.candidate_id`と`referenced_context_ids`を使い、summary / positive_materials / cautions / unknowns / next_checkpointsの各objectへ`cited_evidence_ids`を返す。候補外のsymbol、根拠外の数値・日付、未知citation、売買助言は返さない。親SMAIが最終検証し、不整合なら採用しない。
 
 Request:
 

@@ -689,7 +689,8 @@ def render_ranking_history_empty_state() -> None:
 
 def render_ranking_history_default_user_notice() -> None:
     st.info(
-        "ランキング履歴を保存・表示するには、ローカルプロフィールを選択または作成してください。"
+        "SMAIデフォルトではランキング履歴を保存しません。履歴を使う場合は、"
+        "ローカルプロフィールを選択または作成してください。"
     )
 
 

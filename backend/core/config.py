@@ -27,6 +27,22 @@ class AppConfig(StrictConfigModel):
     log_json: bool = True
 
 
+class MainApplicationNetworkConfig(StrictConfigModel):
+    """Network settings for the user-facing Streamlit application."""
+
+    scheme: Literal["http"] = "http"
+    port: int = Field(default=8501, ge=1, le=65535)
+
+
+class NetworkConfig(StrictConfigModel):
+    """Stable names and ports used to reach SMAI from another device."""
+
+    tailscale_hostname: str | None = Field(default=None, min_length=1)
+    main_application: MainApplicationNetworkConfig = Field(
+        default_factory=MainApplicationNetworkConfig
+    )
+
+
 class CacheConfig(StrictConfigModel):
     """Cache backend and TTL settings for data-heavy services."""
 
@@ -40,6 +56,7 @@ class TimeoutConfig(StrictConfigModel):
 
     connect: int = Field(default=1000, gt=0)
     read: int = Field(default=5000, gt=0)
+    operation: int = Field(default=45000, gt=0)
 
 
 class ExternalFetchPerformanceConfig(StrictConfigModel):
@@ -332,10 +349,42 @@ class CockpitInterpretationConfig(StrictConfigModel):
     max_context_text_chars: int = Field(default=260, gt=40, le=800)
 
 
+class RadarInterpretationConfig(StrictConfigModel):
+    """Optional Gateway settings for evidence-bound Radar interpretation."""
+
+    enabled: bool = False
+    base_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
+    context_answer_path: str = Field(default="/api/v1/context-answer", min_length=1)
+    timeout_seconds: float = Field(default=30.0, gt=0)
+    model: str | None = Field(default=None, min_length=1)
+    execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
+    environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
+    preferred_profile: (
+        Literal[
+            "notebook_dev",
+            "notebook_standard",
+            "desktop_fast",
+            "desktop_analysis",
+            "desktop_heavy",
+            "assistant_fast",
+            "assistant_standard",
+            "assistant_quality",
+            "report_quality",
+            "fallback",
+        ]
+        | None
+    ) = "desktop_fast"
+    prompt_version: str = Field(default="radar_interpretation_mvp.v1", min_length=1)
+    schema_version: str = Field(default="radar_interpretation.v1", min_length=1)
+    max_citations: int = Field(default=5, gt=0, le=8)
+    max_context_text_chars: int = Field(default=320, gt=40, le=800)
+
+
 class LLMInterpretationConfig(StrictConfigModel):
     """LLM interpretation runtime settings."""
 
     cockpit: CockpitInterpretationConfig = Field(default_factory=CockpitInterpretationConfig)
+    radar: RadarInterpretationConfig = Field(default_factory=RadarInterpretationConfig)
 
 
 def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
@@ -397,6 +446,7 @@ class Settings(StrictConfigModel):
     """Root settings object for Smart Market AI."""
 
     app: AppConfig = Field(default_factory=AppConfig)
+    network: NetworkConfig = Field(default_factory=NetworkConfig)
     dataaccess: DataAccessConfig = Field(default_factory=DataAccessConfig)
     feature_builder: FeatureBuilderConfig = Field(default_factory=FeatureBuilderConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)

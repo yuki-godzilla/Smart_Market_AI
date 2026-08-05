@@ -20,7 +20,11 @@ from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.logging_utils import configure_symbol_refresh_logger
 from backend.symbols.metrics_repository import SYMBOL_METRICS_DIR
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN
-from backend.symbols.startup import SYMBOL_UNIVERSE_CSV, run_symbol_database_startup_refresh
+from backend.symbols.startup import (
+    SYMBOL_UNIVERSE_CSV,
+    run_symbol_database_startup_refresh,
+    run_symbol_database_target_refresh,
+)
 
 
 @dataclass(frozen=True)
@@ -30,15 +34,16 @@ class SymbolBackgroundRefreshStep:
 
 
 BACKGROUND_REFRESH_STEPS: Final[tuple[SymbolBackgroundRefreshStep, ...]] = (
-    SymbolBackgroundRefreshStep(delay_minutes=3, max_items=75),
-    SymbolBackgroundRefreshStep(delay_minutes=8, max_items=75),
+    SymbolBackgroundRefreshStep(delay_minutes=3, max_items=25),
+    SymbolBackgroundRefreshStep(delay_minutes=8, max_items=25),
 )
-STARTUP_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = MAX_SYMBOL_REFRESH_PER_RUN
-BACKGROUND_REFRESH_INTERVAL_MINUTES: Final[int] = 5
-BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 50
-MAX_SYMBOL_REFRESH_PER_SESSION: Final[int] = 1000
-TARGET_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 50
-MAX_SYMBOL_REFRESH_TARGET_HINTS: Final[int] = 500
+STARTUP_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = min(MAX_SYMBOL_REFRESH_PER_RUN, 50)
+BACKGROUND_REFRESH_INTERVAL_MINUTES: Final[int] = 20
+BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 25
+BACKGROUND_REFRESH_MIN_INTERVAL_HOURS: Final[int] = 12
+MAX_SYMBOL_REFRESH_PER_SESSION: Final[int] = 300
+TARGET_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 30
+MAX_SYMBOL_REFRESH_TARGET_HINTS: Final[int] = 300
 
 _WORKER_LOCK = threading.Lock()
 _WORKER_THREAD: threading.Thread | None = None
@@ -129,12 +134,13 @@ def run_symbol_background_target_refresh_once(
 
     logger = logger or configure_symbol_refresh_logger()
     currently_visible_symbols, ranking_candidates = _target_symbol_snapshot()
-    summary = run_symbol_database_startup_refresh(
+    target_symbols = [*currently_visible_symbols, *ranking_candidates]
+    summary = run_symbol_database_target_refresh(
+        target_symbols,
         cache_dir=cache_dir,
         symbol_universe_csv=symbol_universe_csv,
         now=now_provider(),
         max_items=max(0, max_items),
-        min_interval_hours=0,
         currently_visible_symbols=currently_visible_symbols,
         ranking_candidates=ranking_candidates,
     )
@@ -218,6 +224,7 @@ def _run_symbol_background_refresh_cycle(
             symbol_universe_csv=symbol_universe_csv,
             now=now_provider(),
             max_items=startup_limit,
+            respect_global_interval=True,
             logger=logger,
         )
         summaries.append(summary)
@@ -236,6 +243,7 @@ def _run_symbol_background_refresh_cycle(
             symbol_universe_csv=symbol_universe_csv,
             now=now_provider(),
             max_items=step_limit,
+            respect_global_interval=False,
             logger=logger,
         )
         summaries.append(summary)
@@ -252,6 +260,7 @@ def _run_symbol_background_refresh_cycle(
             symbol_universe_csv=symbol_universe_csv,
             now=now_provider(),
             max_items=batch_limit,
+            respect_global_interval=False,
             logger=logger,
         )
         summaries.append(summary)
@@ -268,6 +277,7 @@ def _run_background_batch(
     symbol_universe_csv: Path | str,
     now: datetime,
     max_items: int,
+    respect_global_interval: bool,
     logger: logging.Logger,
 ) -> SymbolStartupRefreshSummary:
     currently_visible_symbols, ranking_candidates = _target_symbol_snapshot()
@@ -277,8 +287,9 @@ def _run_background_batch(
             symbol_universe_csv=symbol_universe_csv,
             now=now,
             max_items=0,
-            min_interval_hours=0,
-            force=True,
+            min_interval_hours=(
+                BACKGROUND_REFRESH_MIN_INTERVAL_HOURS if respect_global_interval else 0
+            ),
             currently_visible_symbols=currently_visible_symbols,
             ranking_candidates=ranking_candidates,
         )
@@ -287,8 +298,9 @@ def _run_background_batch(
         symbol_universe_csv=symbol_universe_csv,
         now=now,
         max_items=max_items,
-        min_interval_hours=0,
-        force=True,
+        min_interval_hours=(
+            BACKGROUND_REFRESH_MIN_INTERVAL_HOURS if respect_global_interval else 0
+        ),
         currently_visible_symbols=currently_visible_symbols,
         ranking_candidates=ranking_candidates,
     )

@@ -5,7 +5,6 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -367,23 +366,50 @@ def _assert_static_component_states(page: Page) -> None:
 
 
 def _assert_streamlit_app_states(page: Page, base_url: str) -> None:
-    for page_key, expected_text in {
-        "copilot": "SMAIアシスタント",
-        "ranking": "銘柄ランキング",
-        "cockpit": "銘柄コックピット",
-        "news": "投資レーダー",
-    }.items():
-        page.goto(_with_smai_page(base_url, page_key), wait_until="domcontentloaded", timeout=60000)
+    page.goto(base_url, wait_until="domcontentloaded", timeout=60000)
+    profile_picker = page.get_by_text("どのユーザーで使いますか？", exact=True)
+    try:
+        profile_picker.wait_for(state="visible", timeout=10_000)
+    except Exception:
+        pass
+    else:
+        page.locator('a.smai-profile-link[aria-label="SMAIデフォルトを選択"]:visible').first.click()
+        page.locator('.smai-profile-card[data-selected="true"]').first.wait_for(
+            state="visible", timeout=30_000
+        )
+        page.locator("a#smai-profile-start:visible").click()
+        page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
+            state="visible", timeout=60_000
+        )
+
+    for label, expected_text in (
+        ("SMAIアシスタント", "SMAIアシスタント"),
+        ("銘柄ランキング", "銘柄ランキング"),
+        ("銘柄コックピット", "銘柄コックピット"),
+        ("投資レーダー", "投資レーダー"),
+    ):
+        _open_streamlit_sidebar_target(page, label)
         page.get_by_text(expected_text).first.wait_for(timeout=60000)
-        if page_key == "cockpit":
+        if label == "銘柄コックピット":
             page.get_by_text("まずデータ取得").first.wait_for(timeout=60000)
             page.get_by_text("銘柄と期間を選ぶと、価格・予測材料を確認します。").first.wait_for(
                 timeout=60000
             )
             assert "銘柄、取得期間、データ取得元" not in page.locator("body").inner_text()
-    page.goto(_with_smai_page(base_url, "copilot"), wait_until="domcontentloaded", timeout=60000)
+    _open_streamlit_sidebar_target(page, "SMAIアシスタント")
     page.get_by_text("新しい会話").first.wait_for(timeout=60000)
     page.get_by_role("button", name="送信").wait_for(timeout=60000)
+
+
+def _open_streamlit_sidebar_target(page: Page, label: str) -> None:
+    collapsed = page.locator('[data-testid="stSidebarCollapsedControl"] button')
+    if collapsed.count() and collapsed.is_visible():
+        collapsed.click()
+        page.wait_for_timeout(300)
+    page.locator('section[data-testid="stSidebar"]').get_by_role(
+        "button", name=label, exact=True
+    ).click()
+    page.wait_for_timeout(800)
 
 
 def _capture_browser_errors(page: Page) -> list[str]:
@@ -404,12 +430,6 @@ def _capture_browser_errors(page: Page) -> list[str]:
 def _assert_no_browser_errors(errors: list[str]) -> None:
     if errors:
         raise AssertionError("\n".join(errors))
-
-
-def _with_smai_page(base_url: str, page_key: str) -> str:
-    parts = urlsplit(base_url)
-    path = parts.path or "/"
-    return urlunsplit((parts.scheme, parts.netloc, path, f"smai_page={page_key}", ""))
 
 
 def _action(action_id: str):

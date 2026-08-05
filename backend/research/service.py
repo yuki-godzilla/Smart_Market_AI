@@ -1,21 +1,113 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import re
 from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
-from typing import Any, Callable, Literal, Protocol, Sequence, cast
+from time import perf_counter
+from typing import Any, Callable, Protocol, Sequence, cast
 
-import yaml  # type: ignore[import-untyped]
-from pydantic import Field, ValidationError
-
-from backend.core.data_contracts import DataQuality, StrictBaseModel
-from backend.core.errors import AppError, ValidationAppError
+from backend.core.data_contracts import DataQuality
+from backend.core.errors import AppError
+from backend.research.company_profile_policy import (
+    _company_research_business_terms,
+    _company_research_customer_segments,
+    _company_research_filter_main_businesses,
+    _company_research_filter_supporting_businesses,
+    _company_research_inferred_products_services,
+    _company_research_products_services,
+    _company_research_regions_from_text,
+    _company_research_supporting_business_terms,
+)
+from backend.research.contracts import (  # noqa: F401 - legacy service re-exports
+    DEFAULT_MAX_CHARS,
+    DEFAULT_OVERLAP_CHARS,
+    DEFAULT_RESEARCH_EMBEDDING_DIMENSIONS,
+    DEFAULT_RESEARCH_EMBEDDING_MODEL,
+    DEFAULT_RESEARCH_QUERY_TERMS,
+    RESEARCH_SCHEMA_VERSION,
+    CompanyBusinessProfile,
+    CompanyOverviewSummary,
+    CompanyResearchEvidence,
+    CompanyResearchReport,
+    CompanyResearchRequest,
+    CompanyResearchSummary,
+    ETFResearchSummary,
+    ExternalStockNewsAdapter,
+    InformationStatus,
+    InvestmentActionHint,
+    InvestmentInsight,
+    InvestmentInsightItem,
+    InvestmentQuestionAnswer,
+    InvestmentQuestionCategory,
+    InvestmentQuestionEvidenceLevel,
+    InvestmentQuestionSummary,
+    InvestmentSignal,
+    InvestmentViewStatus,
+    IRSummaryItem,
+    LatestTopicItem,
+    LatestTopicType,
+    NewsImpactHint,
+    NewsSummaryItem,
+    QuantitativeSummary,
+    ResearchBrief,
+    ResearchBriefMaterial,
+    ResearchBriefSourceCard,
+    ResearchChunk,
+    ResearchDataQuality,
+    ResearchDocument,
+    ResearchDocumentRegisterRequest,
+    ResearchEmbedding,
+    ResearchEvidence,
+    ResearchEvidenceKind,
+    ResearchEvidenceLevel,
+    ResearchEvidenceReliability,
+    ResearchExtractedClaim,
+    ResearchFactItem,
+    ResearchFactSummary,
+    ResearchGroundedAnswer,
+    ResearchHybridScoreWeights,
+    ResearchIndexSummary,
+    ResearchLanguage,
+    ResearchMetric,
+    ResearchMetricKey,
+    ResearchMissingItem,
+    ResearchMissingItemCategory,
+    ResearchPageViewModel,
+    ResearchParseError,
+    ResearchQueryExpansionResult,
+    ResearchRetrievalBackend,
+    ResearchRetrievalCandidate,
+    ResearchRetrievalQuality,
+    ResearchScore,
+    ResearchSearchError,
+    ResearchSearchRequest,
+    ResearchSourceConfidence,
+    ResearchSummaryPoint,
+    ResearchTopicCategory,
+    ResearchVectorIndexSummary,
+    SecurityResearchType,
+    StockNewsEvidence,
+    StockNewsInvestmentViewpoint,
+    StockNewsReport,
+    StockNewsRequest,
+    StockNewsSentiment,
+)
 from backend.research.errors import ResearchDocumentError
+from backend.research.evidence_policy import (
+    ResearchEvidenceReranker,
+)
+from backend.research.evidence_policy import (
+    dedupe_evidence as _dedupe_evidence,
+)
+from backend.research.evidence_policy import (
+    freshness_factor as _freshness_factor,
+)
+from backend.research.evidence_policy import (
+    source_type_priority as _source_type_priority,
+)
 from backend.research.external_adapters import (  # noqa: F401
     CompanyIRSiteResearchAdapter,
     CompositeExternalResearchAdapter,
@@ -32,7 +124,6 @@ from backend.research.external_contracts import (
     ExternalResearchSourceAdapter,
     ExternalResearchSourcePayload,
     ResearchSourceType,
-    StockNewsFreshnessStatus,
 )
 from backend.research.external_registration import (
     external_source_freshness as _stock_news_freshness,
@@ -40,8 +131,9 @@ from backend.research.external_registration import (
 from backend.research.external_registration import (
     external_source_freshness_rank as _stock_news_freshness_rank,
 )
-from backend.research.external_registration import (
-    safe_cache_fragment as _safe_cache_fragment,
+from backend.research.ingestion import (  # noqa: F401 - legacy service re-exports
+    ResearchIndexService,
+    ResearchIngestionService,
 )
 from backend.research.ir_classification import (
     DEFAULT_IR_CATEGORY_RULES,
@@ -50,1163 +142,38 @@ from backend.research.ir_classification import (
     IRDocumentCandidate,
     classify_ir_document_candidates,
 )
-
-ResearchLanguage = Literal["ja", "en", "unknown"]
-ResearchTopicCategory = Literal[
-    "growth",
-    "shareholder_return",
-    "financial_safety",
-    "business_risk",
-    "confirmation_gap",
-]
-ResearchRetrievalBackend = Literal["keyword", "vector", "hybrid"]
-StockNewsInvestmentViewpoint = Literal[
-    "earnings",
-    "growth",
-    "shareholder_return",
-    "risk",
-    "macro",
-    "other",
-]
-StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
-ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
-ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
-SecurityResearchType = Literal[
-    "domestic_stock",
-    "foreign_stock",
-    "etf",
-    "fund",
-    "unknown",
-]
-ResearchEvidenceKind = Literal[
-    "company_profile",
-    "business_description",
-    "financial_metric",
-    "ir_document",
-    "tdnet_disclosure",
-    "news",
-    "market_data",
-    "unknown",
-]
-ResearchEvidenceReliability = Literal[
-    "official",
-    "semi_official",
-    "market_provider",
-    "news",
-    "unknown",
-]
-InformationStatus = Literal[
-    "found",
-    "missing",
-    "unparsed",
-    "unverified",
-    "not_applicable",
-]
-IRDocumentType = Literal[
-    "earnings_summary",
-    "earnings_presentation",
-    "annual_report",
-    "timely_disclosure",
-    "medium_term_plan",
-    "shareholder_return",
-    "forecast_revision",
-    "other",
-]
-NewsImpactHint = Literal[
-    "business",
-    "financial",
-    "market",
-    "governance",
-    "product",
-    "ir",
-    "unknown",
-]
-LatestTopicType = Literal[
-    "news",
-    "tdnet",
-    "ir_disclosure",
-    "earnings",
-    "forecast_revision",
-    "shareholder_return",
-    "business_reorganization",
-    "product",
-    "governance",
-    "unknown",
-]
-InvestmentSignal = Literal[
-    "positive",
-    "negative",
-    "neutral",
-    "mixed",
-    "unknown",
-]
-InvestmentActionHint = Literal[
-    "watch",
-    "review",
-    "wait_for_confirmation",
-    "check_official_materials",
-    "insufficient_evidence",
-]
-InvestmentViewStatus = Literal[
-    "追加確認が必要",
-    "監視向き",
-    "材料混在",
-    "判断材料不足",
-    "公式資料確認待ち",
-    "ニュース先行",
-    "定量指標不足",
-]
-InvestmentQuestionCategory = Literal[
-    "business_model",
-    "financial_trend",
-    "profitability",
-    "forecast",
-    "growth_driver",
-    "risk",
-    "shareholder_return",
-    "valuation",
-    "recent_news_impact",
-    "key_takeaway",
-]
-InvestmentQuestionEvidenceLevel = ResearchEvidenceLevel
-ResearchMissingItemCategory = Literal[
-    "official_source",
-    "financial_metric",
-    "source_freshness",
-    "news",
-    "other",
-]
-ResearchMetricKey = Literal[
-    "revenue",
-    "operating_income",
-    "net_income",
-    "eps",
-    "dividend",
-    "per",
-    "pbr",
-    "roe",
-    "market_cap",
-]
-
-RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
-DEFAULT_MAX_CHARS = 1200
-DEFAULT_OVERLAP_CHARS = 180
-DEFAULT_RESEARCH_EMBEDDING_DIMENSIONS = 32
-DEFAULT_RESEARCH_EMBEDDING_MODEL = "local-hash-v1"
-DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
-    "growth": (
-        "growth strategy",
-        "market expansion",
-        "overseas expansion",
-        "new business",
-        "medium-term plan",
-        "investment plan",
-        "revenue expansion",
-        "成長戦略",
-        "海外展開",
-        "新規事業",
-        "中期経営計画",
-        "投資計画",
-        "収益拡大",
-        "事業拡大",
-    ),
-    "shareholder_return": (
-        "shareholder return",
-        "dividend",
-        "dividend policy",
-        "payout ratio",
-        "buyback",
-        "DOE",
-        "株主還元",
-        "配当",
-        "増配",
-        "自社株買い",
-        "配当性向",
-        "利益還元",
-    ),
-    "financial_safety": (
-        "financial safety",
-        "equity ratio",
-        "cash",
-        "cash equivalents",
-        "interest-bearing debt",
-        "credit rating",
-        "liquidity",
-        "財務安全性",
-        "自己資本比率",
-        "キャッシュ",
-        "現金同等物",
-        "有利子負債",
-        "格付け",
-        "財務余力",
-    ),
-    "business_risk": (
-        "business risk",
-        "foreign exchange",
-        "raw material",
-        "regulation",
-        "lawsuit",
-        "geopolitical",
-        "supply chain",
-        "dependency",
-        "事業リスク",
-        "為替",
-        "原材料",
-        "規制",
-        "訴訟",
-        "地政学",
-        "サプライチェーン",
-        "依存度",
-    ),
-    "confirmation_gap": (
-        "missing evidence",
-        "confirmation gap",
-        "stale document",
-        "official IR not confirmed",
-        "additional confirmation",
-        "根拠不足",
-        "確認不足",
-        "資料不足",
-        "古い資料",
-        "公式IR未確認",
-        "追加確認",
-    ),
-}
-
-
-class ResearchParseError(AppError):
-    """Local research document text could not be parsed into chunks."""
-
-    code = "RESEARCH-1002"
-
-
-class ResearchSearchError(AppError):
-    """Research retrieval could not be executed."""
-
-    code = "RESEARCH-1003"
-
-
-class ResearchDocumentRegisterRequest(StrictBaseModel):
-    """Metadata required to register a local research document."""
-
-    symbol: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    local_path: str = Field(min_length=1)
-    source_type: ResearchSourceType = "user_note"
-    company_name: str | None = None
-    published_at: date | None = None
-    language: ResearchLanguage = "unknown"
-    reliability: Decimal = Field(default=Decimal("0.70"), ge=0, le=1)
-
-
-class ResearchDocument(StrictBaseModel):
-    """Registered local document metadata."""
-
-    schema_version: str = RESEARCH_SCHEMA_VERSION
-    document_id: str = Field(min_length=1)
-    symbol: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    company_name: str | None = None
-    published_at: date | None = None
-    collected_at: datetime
-    local_path: str
-    language: ResearchLanguage = "unknown"
-    provider: str = "local"
-    reliability: Decimal = Field(ge=0, le=1)
-    document_hash: str = Field(min_length=1)
-
-
-class ResearchChunk(StrictBaseModel):
-    """Searchable text chunk derived from a registered research document."""
-
-    schema_version: str = RESEARCH_SCHEMA_VERSION
-    chunk_id: str = Field(min_length=1)
-    document_id: str = Field(min_length=1)
-    symbol: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    published_at: date | None = None
-    section_title: str | None = None
-    text: str = Field(min_length=1)
-    chunk_index: int = Field(ge=0)
-    char_count: int = Field(ge=1)
-    metadata: dict[str, str] = Field(default_factory=dict)
-
-
-class ResearchIndexSummary(StrictBaseModel):
-    """Result of rebuilding local research chunks."""
-
-    document_count: int = Field(ge=0)
-    chunk_count: int = Field(ge=0)
-    symbols: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ResearchVectorIndexSummary(StrictBaseModel):
-    """Result of rebuilding an optional local research vector index."""
-
-    schema_version: str = "research-vector-index-v1"
-    embedding_model: str = Field(min_length=1)
-    dimensions: int = Field(ge=2)
-    chunk_count: int = Field(ge=0)
-    embedded_count: int = Field(ge=0)
-    symbols: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ResearchSearchRequest(StrictBaseModel):
-    """Keyword research search request."""
-
-    symbol: str = Field(min_length=1)
-    query: str = ""
-    top_k: int = Field(default=8, ge=1, le=50)
-    source_types: list[ResearchSourceType] = Field(default_factory=list)
-    as_of: date | None = None
-    query_category: ResearchTopicCategory | None = None
-    expanded_terms: list[str] = Field(default_factory=list)
-    query_vector: list[float] = Field(default_factory=list)
-
-
-class ResearchQueryExpansionResult(StrictBaseModel):
-    """Deterministic expanded query terms for a research topic."""
-
-    query: str
-    category: ResearchTopicCategory | None = None
-    expanded_terms: list[str] = Field(default_factory=list)
-
-
-class ResearchEvidence(StrictBaseModel):
-    """One retrieved evidence chunk with traceable source metadata."""
-
-    symbol: str = Field(min_length=1)
-    document_id: str = Field(min_length=1)
-    chunk_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    published_at: date | None = None
-    section_title: str | None = None
-    excerpt: str = Field(min_length=1)
-    relevance_score: Decimal = Field(ge=0, le=1)
-    reliability: Decimal = Field(ge=0, le=1)
-
-
-class ResearchSummaryPoint(StrictBaseModel):
-    """Human-facing summary row backed by retrieved evidence."""
-
-    category: ResearchTopicCategory
-    label: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    evidence: list[ResearchEvidence] = Field(default_factory=list)
-
-
-class ResearchExtractedClaim(StrictBaseModel):
-    """Structured Phase 21 research claim that stays tied to source evidence."""
-
-    schema_version: str = "research-extraction-v1"
-    symbol: str = Field(min_length=1)
-    category: ResearchTopicCategory
-    claim: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    supporting_evidence: list[ResearchEvidence] = Field(default_factory=list)
-    confidence: Decimal = Field(ge=0, le=1)
-    missing_information: list[str] = Field(default_factory=list)
-    caution_note: str | None = None
-
-
-class ResearchGroundedAnswer(StrictBaseModel):
-    """Template-generated answer built only from extracted claims and evidence."""
-
-    schema_version: str = "research-grounded-answer-v1"
-    symbol: str = Field(min_length=1)
-    provider: Literal["template"] = "template"
-    answer: str = Field(min_length=1)
-    referenced_evidence: list[ResearchEvidence] = Field(default_factory=list)
-    claim_count: int = Field(ge=0)
-    evidence_count: int = Field(ge=0)
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ResearchRetrievalQuality(StrictBaseModel):
-    """Phase 21 retrieval transparency for UI and Decision Report display."""
-
-    schema_version: str = "research-retrieval-quality-v1"
-    backend: ResearchRetrievalBackend = "keyword"
-    query: str = Field(min_length=1)
-    expanded_terms: list[str] = Field(default_factory=list)
-    candidate_count: int = Field(ge=0)
-    evidence_count: int = Field(ge=0)
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ResearchEmbedding(StrictBaseModel):
-    """Optional embedding payload for future local vector retrieval."""
-
-    schema_version: str = "research-embedding-v1"
-    chunk_id: str = Field(min_length=1)
-    symbol: str = Field(min_length=1)
-    embedding_model: str = Field(min_length=1)
-    vector: list[float] = Field(default_factory=list)
-    created_at: datetime
-    text_hash: str = Field(min_length=1)
-
-
-class ResearchRetrievalCandidate(StrictBaseModel):
-    """Intermediate row carrying keyword, vector, and hybrid retrieval scores."""
-
-    symbol: str = Field(min_length=1)
-    document_id: str = Field(min_length=1)
-    chunk_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    published_at: date | None = None
-    section_title: str | None = None
-    excerpt: str = Field(min_length=1)
-    keyword_score: Decimal | None = Field(default=None, ge=0, le=1)
-    vector_score: Decimal | None = Field(default=None, ge=0, le=1)
-    freshness_score: Decimal | None = Field(default=None, ge=0, le=1)
-    reliability: Decimal = Field(ge=0, le=1)
-    final_relevance_score: Decimal = Field(default=Decimal("0"), ge=0, le=1)
-    retrieval_backend: ResearchRetrievalBackend = "keyword"
-
-
-class ResearchHybridScoreWeights(StrictBaseModel):
-    """Deterministic score weights for optional hybrid retrieval."""
-
-    keyword_weight: Decimal = Field(default=Decimal("0.40"), ge=0, le=1)
-    vector_weight: Decimal = Field(default=Decimal("0.35"), ge=0, le=1)
-    freshness_weight: Decimal = Field(default=Decimal("0.10"), ge=0, le=1)
-    reliability_weight: Decimal = Field(default=Decimal("0.10"), ge=0, le=1)
-    source_type_weight: Decimal = Field(default=Decimal("0.05"), ge=0, le=1)
-
-
-class ResearchDataQuality(StrictBaseModel):
-    """Availability and freshness of local research evidence."""
-
-    status: DataQuality
-    latest_document_date: date | None = None
-    document_count: int = Field(ge=0)
-    evidence_count: int = Field(ge=0)
-    warnings: list[str] = Field(default_factory=list)
-
-
-class CompanyResearchRequest(StrictBaseModel):
-    """Build a deterministic company research report for one symbol."""
-
-    symbol: str = Field(min_length=1)
-    as_of: date | None = None
-    top_k_per_topic: int = Field(default=3, ge=1, le=10)
-
-
-class CompanyResearchReport(StrictBaseModel):
-    """Deterministic Phase 20 company research summary."""
-
-    schema_version: str = RESEARCH_SCHEMA_VERSION
-    symbol: str = Field(min_length=1)
-    as_of: date
-    summary: str = Field(min_length=1)
-    points: list[ResearchSummaryPoint]
-    extracted_claims: list[ResearchExtractedClaim] = Field(default_factory=list)
-    grounded_answer: ResearchGroundedAnswer | None = None
-    evidence: list[ResearchEvidence]
-    data_quality: ResearchDataQuality
-    retrieval_quality: ResearchRetrievalQuality | None = None
-    decision_support_note: str = "Research evidence is decision support only; not advice."
-
-
-class ResearchScore(StrictBaseModel):
-    """Optional evidence-backed Research Score for Phase 22 preparation."""
-
-    schema_version: str = "research-score-v1"
-    symbol: str = Field(min_length=1)
-    as_of: date
-    total_score: Decimal = Field(ge=0, le=100)
-    growth_score: Decimal = Field(ge=0, le=100)
-    profitability_score: Decimal = Field(ge=0, le=100)
-    shareholder_return_score: Decimal = Field(ge=0, le=100)
-    financial_safety_score: Decimal = Field(ge=0, le=100)
-    business_risk_score: Decimal = Field(ge=0, le=100)
-    disclosure_quality_score: Decimal = Field(ge=0, le=100)
-    freshness_score: Decimal = Field(ge=0, le=100)
-    evidence_count: int = Field(ge=0)
-    confidence: Decimal = Field(ge=0, le=1)
-    supporting_evidence: list[ResearchEvidence] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    summary: str = Field(min_length=1)
-    decision_support_note: str = (
-        "Research Score is an evidence-coverage signal for decision support; not advice."
-    )
-
-
-class StockNewsEvidence(StrictBaseModel):
-    """Traceable news evidence for one selected symbol."""
-
-    schema_version: str = "stock-news-evidence-v1"
-    symbol: str = Field(min_length=1)
-    company_name: str | None = None
-    title: str = Field(min_length=1)
-    url: str = Field(min_length=1)
-    source: str | None = None
-    published_at: date | None = None
-    summary: str = Field(min_length=1)
-    investment_viewpoint: StockNewsInvestmentViewpoint = "other"
-    sentiment_for_investment: StockNewsSentiment = "unknown"
-    freshness_status: StockNewsFreshnessStatus = "unknown"
-
-
-class StockNewsRequest(StrictBaseModel):
-    """Build a deterministic news evidence view for one selected symbol."""
-
-    symbol: str = Field(min_length=1)
-    company_name: str | None = None
-    related_keywords: list[str] = Field(default_factory=list)
-    as_of: date | None = None
-    top_k: int = Field(default=5, ge=1, le=20)
-
-
-class StockNewsReport(StrictBaseModel):
-    """Deterministic Phase 21.5 selected-symbol news summary."""
-
-    schema_version: str = "stock-news-report-v1"
-    symbol: str = Field(min_length=1)
-    company_name: str | None = None
-    as_of: date
-    news: list[StockNewsEvidence] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    decision_support_note: str = (
-        "News evidence is decision support only; not advice and not a score input."
-    )
-
-
-class ResearchMetric(StrictBaseModel):
-    """Display-only metric extracted from research evidence by local rules."""
-
-    schema_version: str = "research-metric-v1"
-    key: ResearchMetricKey
-    label: str = Field(min_length=1)
-    value: str = Field(min_length=1)
-    source_title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    source_confidence: ResearchSourceConfidence = "unknown"
-
-
-class ResearchBriefSourceCard(StrictBaseModel):
-    """Readable source card for the local ResearchBrief UI layer."""
-
-    title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    provider: str | None = None
-    source_url: str | None = None
-    published_at: date | None = None
-    fetched_at: datetime | None = None
-    freshness_status: StockNewsFreshnessStatus = "unknown"
-    source_confidence: ResearchSourceConfidence = "unknown"
-    note: str = ""
-
-
-class ResearchBriefMaterial(StrictBaseModel):
-    """Readable material candidate with source quality for the ResearchBrief UI."""
-
-    schema_version: str = "research-brief-material-v1"
-    label: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    source_title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    source_confidence: ResearchSourceConfidence = "unknown"
-    source_count: int = Field(ge=1)
-    published_at: date | None = None
-
-
-class ResearchFactItem(StrictBaseModel):
-    """Source-backed fact extracted for the user-facing Research Summary."""
-
-    schema_version: str = "research-fact-item-v1"
-    label: str = Field(min_length=1)
-    value: str = Field(min_length=1)
-    source_title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    source_confidence: ResearchSourceConfidence = "unknown"
-    published_at: date | None = None
-    note: str = ""
-
-
-class ResearchMissingItem(StrictBaseModel):
-    """Missing fact that should be checked in official sources."""
-
-    schema_version: str = "research-missing-item-v1"
-    category: ResearchMissingItemCategory = "other"
-    label: str = Field(min_length=1)
-    reason: str = Field(min_length=1)
-    next_source_hint: str = Field(min_length=1)
-
-
-class ResearchFactSummary(StrictBaseModel):
-    """Structured user-facing facts that feed ResearchBrief/UI wording."""
-
-    schema_version: str = "research-fact-summary-v1"
-    symbol: str = Field(min_length=1)
-    as_of: date
-    business_overview: list[ResearchFactItem] = Field(default_factory=list)
-    business_segments: list[ResearchFactItem] = Field(default_factory=list)
-    business_regions: list[ResearchFactItem] = Field(default_factory=list)
-    revenue_drivers: list[ResearchFactItem] = Field(default_factory=list)
-    financial_snapshot: list[ResearchFactItem] = Field(default_factory=list)
-    earnings_outlook: list[ResearchFactItem] = Field(default_factory=list)
-    shareholder_return_policy: list[ResearchFactItem] = Field(default_factory=list)
-    recent_events: list[ResearchFactItem] = Field(default_factory=list)
-    positive_materials: list[ResearchFactItem] = Field(default_factory=list)
-    caution_materials: list[ResearchFactItem] = Field(default_factory=list)
-    missing_items: list[ResearchMissingItem] = Field(default_factory=list)
-    decision_support_note: str = (
-        "ResearchFactSummary contains source-backed facts for decision support; not advice."
-    )
-
-
-class ResearchBrief(StrictBaseModel):
-    """Local rule-based research memo for display; it does not change scores."""
-
-    schema_version: str = "research-brief-v1"
-    symbol: str = Field(min_length=1)
-    as_of: date
-    memo: str = Field(min_length=1)
-    metrics: list[ResearchMetric] = Field(default_factory=list)
-    missing_metrics: list[str] = Field(default_factory=list)
-    business_overview: str = Field(min_length=1)
-    positive_candidates: list[str] = Field(default_factory=list)
-    caution_candidates: list[str] = Field(default_factory=list)
-    positive_materials: list[ResearchBriefMaterial] = Field(default_factory=list)
-    caution_materials: list[ResearchBriefMaterial] = Field(default_factory=list)
-    confirmation_gaps: list[str] = Field(default_factory=list)
-    next_actions: list[str] = Field(default_factory=list)
-    source_cards: list[ResearchBriefSourceCard] = Field(default_factory=list)
-    fact_summary: ResearchFactSummary | None = None
-    decision_support_note: str = (
-        "ResearchBrief is a local evidence memo for decision support; not advice."
-    )
-
-
-class CompanyResearchEvidence(StrictBaseModel):
-    """Normalized source row before company-understanding summary mapping."""
-
-    kind: ResearchEvidenceKind
-    title: str = Field(min_length=1)
-    body: str = ""
-    source_type: str = ""
-    source_title: str = ""
-    source_url: str | None = None
-    reliability: ResearchEvidenceReliability = "unknown"
-    information_status: InformationStatus = "found"
-    published_at: date | None = None
-    extracted_keywords: list[str] = Field(default_factory=list)
-
-
-class CompanyBusinessProfile(StrictBaseModel):
-    """Structured business profile extracted mainly from profile / official sources."""
-
-    company_name: str = ""
-    symbol: str = ""
-    industry: str | None = None
-    sector: str | None = None
-    business_summary: str = ""
-    main_businesses: list[str] = Field(default_factory=list)
-    supporting_businesses: list[str] = Field(default_factory=list)
-    products_services: list[str] = Field(default_factory=list)
-    products_services_status: InformationStatus = "missing"
-    regions: list[str] = Field(default_factory=list)
-    customer_segments: list[str] = Field(default_factory=list)
-    information_status: InformationStatus = "missing"
-    evidence_level: ResearchEvidenceLevel = "missing"
-    source_titles: list[str] = Field(default_factory=list)
-
-
-class CompanyOverviewSummary(StrictBaseModel):
-    """Company-understanding overview for the Research report UI."""
-
-    company_name: str = ""
-    symbol: str = Field(min_length=1)
-    business_profile: CompanyBusinessProfile | None = None
-    industry: str | None = None
-    sector: str | None = None
-    business_overview: str = ""
-    main_businesses: list[str] = Field(default_factory=list)
-    business_segments: list[str] = Field(default_factory=list)
-    supporting_businesses: list[str] = Field(default_factory=list)
-    products_services: list[str] = Field(default_factory=list)
-    products_services_status: InformationStatus = "missing"
-    regions: list[str] = Field(default_factory=list)
-    customer_segments: list[str] = Field(default_factory=list)
-    scale_summary: str = ""
-    recent_focus: str = ""
-    information_status: InformationStatus = "missing"
-    evidence_level: ResearchEvidenceLevel = "missing"
-    source_titles: list[str] = Field(default_factory=list)
-
-
-class QuantitativeSummary(StrictBaseModel):
-    """Major quantitative fields available from Research evidence."""
-
-    revenue: str | None = None
-    operating_profit: str | None = None
-    net_income: str | None = None
-    eps: str | None = None
-    per: str | None = None
-    pbr: str | None = None
-    roe: str | None = None
-    dividend_yield: str | None = None
-    market_cap: str | None = None
-    enterprise_value: str | None = None
-    employee_count: str | None = None
-    summary: str = ""
-    missing_items: list[str] = Field(default_factory=list)
-    item_statuses: dict[str, InformationStatus] = Field(default_factory=dict)
-    information_status: InformationStatus = "missing"
-    evidence_level: ResearchEvidenceLevel = "missing"
-    source_titles: list[str] = Field(default_factory=list)
-
-
-class IRSummaryItem(StrictBaseModel):
-    """Availability and short summary for one IR / disclosure document type."""
-
-    document_type: str = Field(min_length=1)
-    ir_document_type: IRDocumentType = "other"
-    title: str = Field(min_length=1)
-    availability: Literal["found", "missing", "unknown"]
-    information_status: InformationStatus = "missing"
-    summary: str = ""
-    key_points: list[str] = Field(default_factory=list)
-    source_title: str | None = None
-    source_url: str | None = None
-    evidence_level: ResearchEvidenceLevel = "missing"
-    classification_reason: str | None = None
-    matched_keywords: list[str] = Field(default_factory=list)
-    classification_confidence: float | None = Field(default=None, ge=0, le=1)
-    source_category: str | None = None
-
-    @property
-    def status(self) -> InformationStatus:
-        return self.information_status
-
-
-class LatestTopicItem(StrictBaseModel):
-    """Readable recent topic / disclosure row for the company research report."""
-
-    topic_type: LatestTopicType = "news"
-    title: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    published_at: date | None = None
-    source_title: str = ""
-    source_url: str | None = None
-    impact_hint: NewsImpactHint = "unknown"
-    official_confirmation_required: bool = True
-    information_status: InformationStatus = "unverified"
-    evidence_level: ResearchEvidenceLevel = "low"
-
-    @property
-    def status(self) -> InformationStatus:
-        return self.information_status
-
-
-class NewsSummaryItem(LatestTopicItem):
-    """Backward-compatible name for latest news / disclosure rows."""
-
-
-class ETFResearchSummary(StrictBaseModel):
-    """ETF / fund-understanding report assembled from Research RAG outputs."""
-
-    schema_version: str = "etf-research-summary-v1"
-    symbol: str = Field(min_length=1)
-    fund_name: str = ""
-    provider_name: str | None = None
-    fund_overview: str = ""
-    investment_target: str = ""
-    asset_class: str | None = None
-    region_focus: str | None = None
-    sector_focus: str | None = None
-    expense_ratio: str | None = None
-    dividend_yield: str | None = None
-    aum: str | None = None
-    nav: str | None = None
-    per: str | None = None
-    pbr: str | None = None
-    top_holdings: list[str] = Field(default_factory=list)
-    benchmark_index: str | None = None
-    risk_notes: list[str] = Field(default_factory=list)
-    news_items: list[NewsSummaryItem] = Field(default_factory=list)
-    source_titles: list[str] = Field(default_factory=list)
-    missing_items: list[str] = Field(default_factory=list)
-    evidence_level: ResearchEvidenceLevel = "missing"
-
-
-class CompanyResearchSummary(StrictBaseModel):
-    """Company-understanding report assembled from Research RAG outputs."""
-
-    schema_version: str = "company-research-summary-v1"
-    symbol: str = Field(min_length=1)
-    overview: CompanyOverviewSummary
-    quantitative: QuantitativeSummary
-    ir_items: list[IRSummaryItem] = Field(default_factory=list)
-    news_items: list[NewsSummaryItem] = Field(default_factory=list)
-    ai_reading_notes: list[str] = Field(default_factory=list)
-    missing_critical_items: list[str] = Field(default_factory=list)
-    normalized_evidence: list[CompanyResearchEvidence] = Field(default_factory=list)
-
-
-class InvestmentInsightItem(StrictBaseModel):
-    """Source-backed point for the UI-only InvestmentInsight layer."""
-
-    label: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    signal: InvestmentSignal
-    source_title: str = Field(min_length=1)
-    source_type: ResearchSourceType
-    source_confidence: ResearchSourceConfidence = "unknown"
-    published_at: date | None = None
-    reason: str = ""
-
-
-class InvestmentInsight(StrictBaseModel):
-    """UI-only investment review memo; it never changes scores or ranking order."""
-
-    schema_version: str = "investment-insight-v1"
-    symbol: str = Field(min_length=1)
-    as_of: date
-    headline: str = Field(min_length=1)
-    short_summary: str = Field(min_length=1)
-    status_label: InvestmentViewStatus = "判断材料不足"
-    confidence_label: str = "低"
-    primary_action_label: str = "資料追加が必要"
-    positive_points: list[InvestmentInsightItem] = Field(default_factory=list)
-    negative_points: list[InvestmentInsightItem] = Field(default_factory=list)
-    neutral_points: list[InvestmentInsightItem] = Field(default_factory=list)
-    confirmation_gaps: list[str] = Field(default_factory=list)
-    action_hints: list[InvestmentActionHint] = Field(default_factory=list)
-    confidence: ResearchSourceConfidence = "unknown"
-    decision_support_note: str = (
-        "InvestmentInsight is for decision support only; not a buy/sell recommendation."
-    )
-
-
-class InvestmentQuestionAnswer(StrictBaseModel):
-    """Answer to a fixed investment-review question, backed by available sources."""
-
-    category: InvestmentQuestionCategory
-    question: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-    evidence_level: InvestmentQuestionEvidenceLevel = "missing"
-    source_titles: list[str] = Field(default_factory=list)
-    missing_reason: str = ""
-
-
-class InvestmentQuestionSummary(StrictBaseModel):
-    """Fixed question set that turns RAG facts into investor-facing review points."""
-
-    schema_version: str = "investment-question-summary-v1"
-    symbol: str = Field(min_length=1)
-    answers: list[InvestmentQuestionAnswer] = Field(default_factory=list)
-    top_takeaway: str = ""
-    missing_critical_items: list[str] = Field(default_factory=list)
-
-
-class ResearchPageViewModel(StrictBaseModel):
-    """Display-oriented summary bundle selected by security type."""
-
-    schema_version: str = "research-page-view-model-v1"
-    symbol: str = Field(min_length=1)
-    security_type: SecurityResearchType = "unknown"
-    company_summary: CompanyResearchSummary | None = None
-    etf_summary: ETFResearchSummary | None = None
-    question_summary: InvestmentQuestionSummary | None = None
-
-
-class ExternalStockNewsAdapter(Protocol):
-    """Adapter protocol for selected-symbol external news fetches."""
-
-    provider: str
-    requires_network: bool
-
-    def fetch_news(self, request: StockNewsRequest) -> list[StockNewsEvidence]: ...
-
-
-class ResearchInMemoryStore:
-    """Simple local store used by Phase 20 services and tests."""
-
-    def __init__(self) -> None:
-        self.documents: dict[str, ResearchDocument] = {}
-        self.raw_text_by_document_id: dict[str, str] = {}
-        self.chunks_by_document_id: dict[str, list[ResearchChunk]] = {}
-
-    def upsert_document(self, document: ResearchDocument, text: str) -> ResearchDocument:
-        existing = self.document_by_hash(document.document_hash)
-        if existing is not None:
-            self.raw_text_by_document_id[existing.document_id] = text
-            return existing
-        self.documents[document.document_id] = document
-        self.raw_text_by_document_id[document.document_id] = text
-        return document
-
-    def document_by_hash(self, document_hash: str) -> ResearchDocument | None:
-        return next(
-            (
-                document
-                for document in self.documents.values()
-                if document.document_hash == document_hash
-            ),
-            None,
-        )
-
-    def list_documents(self, symbol: str | None = None) -> list[ResearchDocument]:
-        documents = list(self.documents.values())
-        if symbol:
-            normalized = _normalize_symbol(symbol)
-            documents = [doc for doc in documents if _normalize_symbol(doc.symbol) == normalized]
-        return sorted(
-            documents,
-            key=lambda doc: (doc.symbol, doc.published_at or date.min, doc.title),
-        )
-
-    def replace_chunks(self, document_id: str, chunks: list[ResearchChunk]) -> None:
-        self.chunks_by_document_id[document_id] = chunks
-
-    def all_chunks(self, symbol: str | None = None) -> list[ResearchChunk]:
-        chunks = [chunk for group in self.chunks_by_document_id.values() for chunk in group]
-        if symbol:
-            normalized = _normalize_symbol(symbol)
-            chunks = [chunk for chunk in chunks if _normalize_symbol(chunk.symbol) == normalized]
-        return sorted(
-            chunks,
-            key=lambda chunk: (chunk.symbol, chunk.document_id, chunk.chunk_index),
-        )
-
-
-class ResearchIngestionService:
-    """Register local research documents without network access."""
-
-    def __init__(
-        self,
-        store: ResearchInMemoryStore,
-        *,
-        document_dirs: Sequence[Path] | None = None,
-    ) -> None:
-        self.store = store
-        self.document_dirs = [directory.resolve() for directory in document_dirs or []]
-
-    def register_document(self, request: ResearchDocumentRegisterRequest) -> ResearchDocument:
-        path = Path(request.local_path).expanduser().resolve()
-        if self.document_dirs and not _is_allowed_path(path, self.document_dirs):
-            raise ResearchDocumentError(
-                "Research document path is outside configured document directories.",
-                details={
-                    "local_path": str(path),
-                    "document_dirs": [str(p) for p in self.document_dirs],
-                },
-            )
-        if not path.exists() or not path.is_file():
-            raise ResearchDocumentError(
-                "Research document file does not exist.",
-                details={"local_path": str(path)},
-            )
-
-        try:
-            content = path.read_bytes()
-            text = content.decode("utf-8-sig")
-        except UnicodeDecodeError as exc:
-            raise ResearchDocumentError(
-                "Research document must be UTF-8 text for the Phase 20 MVP.",
-                details={"local_path": str(path)},
-            ) from exc
-
-        stripped_text = text.strip()
-        if not stripped_text:
-            raise ResearchDocumentError(
-                "Research document text is empty.",
-                details={"local_path": str(path)},
-            )
-
-        document_hash = hashlib.sha256(content).hexdigest()
-        document_id = _stable_id("research-doc", request.symbol, document_hash[:16])
-        document = ResearchDocument(
-            document_id=document_id,
-            symbol=_normalize_symbol(request.symbol),
-            title=request.title.strip(),
-            source_type=request.source_type,
-            company_name=request.company_name.strip() if request.company_name else None,
-            published_at=request.published_at,
-            collected_at=datetime.now(UTC),
-            local_path=str(path),
-            language=request.language,
-            reliability=request.reliability,
-            document_hash=document_hash,
-        )
-        return self.store.upsert_document(document, stripped_text)
-
-    def register_text_document(
-        self,
-        *,
-        symbol: str,
-        title: str,
-        text: str,
-        source_type: ResearchSourceType,
-        source_url: str,
-        provider: str,
-        company_name: str | None = None,
-        published_at: date | None = None,
-        language: ResearchLanguage = "unknown",
-        reliability: Decimal = Decimal("0.70"),
-    ) -> ResearchDocument:
-        """Register fetched text in memory without creating a local source file."""
-
-        stripped_text = text.strip()
-        if not stripped_text:
-            raise ResearchDocumentError(
-                "Research document text is empty.",
-                details={"symbol": symbol, "title": title, "provider": provider},
-            )
-        document_hash = hashlib.sha256(stripped_text.encode("utf-8")).hexdigest()
-        document_id = _stable_id("research-doc", symbol, provider, source_url, document_hash[:16])
-        document = ResearchDocument(
-            document_id=document_id,
-            symbol=_normalize_symbol(symbol),
-            title=title.strip(),
-            source_type=source_type,
-            company_name=company_name.strip() if company_name else None,
-            published_at=published_at,
-            collected_at=datetime.now(UTC),
-            local_path=(
-                f"external://{_safe_cache_fragment(provider)}/"
-                f"{_safe_cache_fragment(_normalize_symbol(symbol))}/"
-                f"{document_hash[:16]}"
-            ),
-            language=language,
-            provider=provider.strip() or "external",
-            reliability=reliability,
-            document_hash=document_hash,
-        )
-        return self.store.upsert_document(document, stripped_text)
-
-    def list_documents(self, symbol: str | None = None) -> list[ResearchDocument]:
-        return self.store.list_documents(symbol)
-
-
-class ResearchIndexService:
-    """Build deterministic text chunks from registered local documents."""
-
-    def __init__(
-        self,
-        store: ResearchInMemoryStore,
-        *,
-        max_chars: int = DEFAULT_MAX_CHARS,
-        overlap_chars: int = DEFAULT_OVERLAP_CHARS,
-    ) -> None:
-        if overlap_chars >= max_chars:
-            raise ValidationAppError("Research chunk overlap must be smaller than max chars.")
-        self.store = store
-        self.max_chars = max_chars
-        self.overlap_chars = overlap_chars
-
-    def build_chunks(self, document_id: str) -> list[ResearchChunk]:
-        document = self.store.documents.get(document_id)
-        text = self.store.raw_text_by_document_id.get(document_id)
-        if document is None or text is None:
-            raise ResearchParseError(
-                "Research document is not registered.",
-                details={"document_id": document_id},
-            )
-        chunks = _chunk_document_text(document, text, max_chars=self.max_chars)
-        self.store.replace_chunks(document_id, chunks)
-        return chunks
-
-    def rebuild_index(self, symbol: str | None = None) -> ResearchIndexSummary:
-        documents = self.store.list_documents(symbol)
-        warnings: list[str] = []
-        chunk_count = 0
-        for document in documents:
-            try:
-                chunk_count += len(self.build_chunks(document.document_id))
-            except AppError as exc:
-                warnings.append(f"{document.document_id}: {exc.message}")
-        return ResearchIndexSummary(
-            document_count=len(documents),
-            chunk_count=chunk_count,
-            symbols=sorted({_normalize_symbol(document.symbol) for document in documents}),
-            warnings=warnings,
-        )
-
-
-class ResearchQueryExpansionService:
-    """Expand research queries with deterministic topic dictionaries."""
-
-    def __init__(
-        self,
-        terms_by_category: Mapping[ResearchTopicCategory, Sequence[str]] | None = None,
-    ) -> None:
-        configured = terms_by_category or DEFAULT_RESEARCH_QUERY_TERMS
-        self.terms_by_category = {
-            category: tuple(_normalize_query_terms(terms)) for category, terms in configured.items()
-        }
-
-    @classmethod
-    def from_yaml(cls, path: Path) -> ResearchQueryExpansionService:
-        with path.open("r", encoding="utf-8") as file:
-            data = yaml.safe_load(file) or {}
-        if not isinstance(data, dict):
-            raise ResearchSearchError(
-                "Research query expansion config must be a mapping.",
-                details={"path": str(path)},
-            )
-        terms_by_category: dict[ResearchTopicCategory, list[str]] = {}
-        for key, value in data.items():
-            if key not in DEFAULT_RESEARCH_QUERY_TERMS:
-                raise ResearchSearchError(
-                    "Research query expansion config has unknown category.",
-                    details={"path": str(path), "category": str(key)},
-                )
-            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-                raise ResearchSearchError(
-                    "Research query expansion terms must be a list of strings.",
-                    details={"path": str(path), "category": str(key)},
-                )
-            terms_by_category[cast(ResearchTopicCategory, key)] = value
-        return cls(terms_by_category)
-
-    def expand_query(
-        self,
-        query: str,
-        *,
-        category: ResearchTopicCategory | None = None,
-    ) -> ResearchQueryExpansionResult:
-        terms = list(_query_terms(query))
-        if category is not None:
-            terms.extend(self.terms_by_category.get(category, ()))
-        return ResearchQueryExpansionResult(
-            query=query,
-            category=category,
-            expanded_terms=_normalize_query_terms(terms),
-        )
-
-
-class ResearchEvidenceReranker:
-    """Deterministically rerank evidence while preserving ResearchEvidence output."""
-
-    def rerank(
-        self,
-        evidence: list[ResearchEvidence],
-        *,
-        as_of: date | None = None,
-    ) -> list[ResearchEvidence]:
-        effective_as_of = as_of or date.today()
-        deduped = _dedupe_evidence(evidence)
-        return sorted(
-            deduped,
-            key=lambda row: (
-                -_evidence_rerank_score(row, as_of=effective_as_of),
-                -row.relevance_score,
-                -row.reliability,
-                -_source_type_priority(row.source_type),
-                -(row.published_at or date.min).toordinal(),
-                row.document_id,
-                row.chunk_id,
-            ),
-        )
+from backend.research.ir_summary import build_ir_summary_item
+from backend.research.normalization import normalize_symbol
+from backend.research.overview_summary import (
+    CompanyOverviewSummaryInputs,
+    build_company_overview_summary,
+)
+from backend.research.quantitative_summary import (
+    QuantitativeFieldValue,
+    build_quantitative_summary,
+)
+from backend.research.query_expansion import (  # noqa: F401 - legacy service re-export
+    ResearchQueryExpansionService,
+)
+from backend.research.store import ResearchInMemoryStore
+from backend.research.vector_store import (  # noqa: F401 - legacy service re-exports
+    ResearchDisabledVectorStore,
+    ResearchFileVectorStore,
+    ResearchInMemoryVectorStore,
+    ResearchVectorStore,
+    ResearchWritableVectorStore,
+)
+from backend.research.vector_store import (
+    local_embedding_vector as _local_embedding_vector,
+)
+from backend.research.vector_store import (
+    normalize_query_terms as _normalize_query_terms,
+)
+from backend.research.vector_store import (
+    query_terms as _query_terms,
+)
+
+MIN_TOPIC_EVIDENCE_RELEVANCE = Decimal("0.10")
 
 
 class ResearchHybridScorer:
@@ -1241,196 +208,6 @@ class ResearchHybridScorer:
                 "retrieval_backend": "hybrid",
             }
         )
-
-
-class ResearchDisabledVectorStore:
-    """Explicit disabled vector store used as the default optional-vector fallback."""
-
-    disabled_warning = (
-        "Vector retrieval is disabled; keyword retrieval remains the deterministic default."
-    )
-
-    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
-        return []
-
-    def retrieval_quality(
-        self,
-        request: ResearchSearchRequest,
-        *,
-        expanded_terms: Sequence[str] | None = None,
-    ) -> ResearchRetrievalQuality:
-        query = request.query or request.query_category or "vector search"
-        return ResearchRetrievalQuality(
-            backend="vector",
-            query=query,
-            expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
-            candidate_count=0,
-            evidence_count=0,
-            warnings=[self.disabled_warning],
-        )
-
-
-class ResearchInMemoryVectorStore:
-    """Small deterministic local vector store for optional hybrid retrieval tests."""
-
-    def __init__(self) -> None:
-        self._entries: dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = {}
-
-    def upsert(
-        self,
-        candidate: ResearchRetrievalCandidate,
-        embedding: ResearchEmbedding,
-    ) -> None:
-        if candidate.chunk_id != embedding.chunk_id:
-            raise ResearchSearchError(
-                message="Research vector candidate and embedding chunk_id do not match.",
-                details={
-                    "candidate_chunk_id": candidate.chunk_id,
-                    "embedding_chunk_id": embedding.chunk_id,
-                },
-            )
-        self._entries[candidate.chunk_id] = (candidate, embedding)
-
-    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
-        return _search_vector_entries(self._entries, request)
-
-    def retrieval_quality(
-        self,
-        request: ResearchSearchRequest,
-        *,
-        expanded_terms: Sequence[str] | None = None,
-    ) -> ResearchRetrievalQuality:
-        candidates = self.search(request)
-        return _build_vector_retrieval_quality(
-            request,
-            candidate_count=len(candidates),
-            entry_count=len(self._entries),
-            expanded_terms=expanded_terms,
-        )
-
-
-class ResearchFileVectorStore:
-    """JSONL-backed local vector cache for optional deterministic vector retrieval."""
-
-    def __init__(self, cache_path: str | Path) -> None:
-        self.cache_path = Path(cache_path)
-        self._entries = self._load_entries()
-
-    def upsert(
-        self,
-        candidate: ResearchRetrievalCandidate,
-        embedding: ResearchEmbedding,
-    ) -> None:
-        if candidate.chunk_id != embedding.chunk_id:
-            raise ResearchSearchError(
-                message="Research vector candidate and embedding chunk_id do not match.",
-                details={
-                    "candidate_chunk_id": candidate.chunk_id,
-                    "embedding_chunk_id": embedding.chunk_id,
-                    "cache_path": str(self.cache_path),
-                },
-            )
-        self._entries[candidate.chunk_id] = (candidate, embedding)
-        self._write_entries()
-
-    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
-        return _search_vector_entries(self._entries, request)
-
-    def retrieval_quality(
-        self,
-        request: ResearchSearchRequest,
-        *,
-        expanded_terms: Sequence[str] | None = None,
-    ) -> ResearchRetrievalQuality:
-        candidates = self.search(request)
-        return _build_vector_retrieval_quality(
-            request,
-            candidate_count=len(candidates),
-            entry_count=len(self._entries),
-            expanded_terms=expanded_terms,
-            empty_cache_warning="Vector cache is empty; no file-backed candidates are available.",
-        )
-
-    def _load_entries(
-        self,
-    ) -> dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]]:
-        if not self.cache_path.exists():
-            return {}
-        entries: dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = {}
-        try:
-            for line_number, line in enumerate(
-                self.cache_path.read_text(encoding="utf-8").splitlines(),
-                start=1,
-            ):
-                if not line.strip():
-                    continue
-                payload: Any = json.loads(line)
-                if not isinstance(payload, Mapping):
-                    raise ValueError(f"cache line {line_number} is not a JSON object")
-                candidate = ResearchRetrievalCandidate.model_validate(payload.get("candidate"))
-                embedding = ResearchEmbedding.model_validate(payload.get("embedding"))
-                if candidate.chunk_id != embedding.chunk_id:
-                    raise ValueError(
-                        "candidate and embedding chunk_id mismatch "
-                        f"on line {line_number}: "
-                        f"{candidate.chunk_id} != {embedding.chunk_id}"
-                    )
-                entries[candidate.chunk_id] = (candidate, embedding)
-        except (OSError, TypeError, ValueError, ValidationError) as exc:
-            raise ResearchSearchError(
-                message="Research vector cache could not be loaded.",
-                details={"cache_path": str(self.cache_path), "error": str(exc)},
-            ) from exc
-        return entries
-
-    def _write_entries(self) -> None:
-        rows = [
-            json.dumps(
-                {
-                    "candidate": candidate.model_dump(mode="json"),
-                    "embedding": embedding.model_dump(mode="json"),
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            )
-            for _, (candidate, embedding) in sorted(self._entries.items())
-        ]
-        try:
-            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = self.cache_path.with_name(f".{self.cache_path.name}.tmp")
-            tmp_path.write_text(
-                "\n".join(rows) + ("\n" if rows else ""),
-                encoding="utf-8",
-            )
-            tmp_path.replace(self.cache_path)
-        except OSError as exc:
-            raise ResearchSearchError(
-                message="Research vector cache could not be written.",
-                details={"cache_path": str(self.cache_path), "error": str(exc)},
-            ) from exc
-
-
-class ResearchVectorStore(Protocol):
-    """Protocol for optional local vector stores."""
-
-    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]: ...
-
-    def retrieval_quality(
-        self,
-        request: ResearchSearchRequest,
-        *,
-        expanded_terms: Sequence[str] | None = None,
-    ) -> ResearchRetrievalQuality: ...
-
-
-class ResearchWritableVectorStore(ResearchVectorStore, Protocol):
-    """Protocol for optional vector stores that accept locally generated embeddings."""
-
-    def upsert(
-        self,
-        candidate: ResearchRetrievalCandidate,
-        embedding: ResearchEmbedding,
-    ) -> None: ...
 
 
 class ResearchEmbeddingService:
@@ -1511,6 +288,17 @@ class ResearchEmbeddingService:
     ) -> list[ResearchEmbedding]:
         return [self.upsert_chunk(chunk, vector_store) for chunk in chunks]
 
+    def embedding_candidate_pair(
+        self,
+        chunk: ResearchChunk,
+        *,
+        keyword_score: Decimal | None = None,
+    ) -> tuple[ResearchRetrievalCandidate, ResearchEmbedding]:
+        return (
+            self.candidate_from_chunk(chunk, keyword_score=keyword_score),
+            self.embed_chunk(chunk),
+        )
+
 
 class ResearchVectorIndexService:
     """Build an optional local vector index from already chunked research documents."""
@@ -1528,27 +316,40 @@ class ResearchVectorIndexService:
     def rebuild_index(self, symbol: str | None = None) -> ResearchVectorIndexSummary:
         chunks = self.store.all_chunks(symbol)
         warnings: list[str] = []
-        embedded_count = 0
+        entries: list[tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = []
         for chunk in chunks:
             try:
-                self.embedding_service.upsert_chunk(chunk, self.vector_store)
-                embedded_count += 1
+                entries.append(self.embedding_service.embedding_candidate_pair(chunk))
             except AppError as exc:
                 warnings.append(f"{chunk.chunk_id}: {exc.message}")
+        try:
+            # An empty symbol rebuild is still meaningful: it must remove
+            # vectors for transient documents that no longer exist in the
+            # session store.  Otherwise a file-backed cache could surface
+            # stale evidence after an external-source refresh returns no
+            # usable material for that symbol.
+            self.vector_store.upsert_many(
+                entries,
+                replace_symbol=symbol,
+                replace_all=symbol is None,
+            )
+        except AppError as exc:
+            warnings.append(f"vector index: {exc.message}")
+            entries = []
         if not chunks:
             warnings.append("No research chunks available; rebuild the text index first.")
         return ResearchVectorIndexSummary(
             embedding_model=self.embedding_service.embedding_model,
             dimensions=self.embedding_service.dimensions,
             chunk_count=len(chunks),
-            embedded_count=embedded_count,
+            embedded_count=len(entries),
             symbols=sorted({_normalize_symbol(chunk.symbol) for chunk in chunks}),
             warnings=warnings,
         )
 
 
 class HybridResearchRetrievalService:
-    """Optional hybrid retrieval wrapper with deterministic keyword fallback."""
+    """Merge deterministic keyword and local-vector evidence with safe fallback."""
 
     def __init__(
         self,
@@ -1556,27 +357,114 @@ class HybridResearchRetrievalService:
         vector_store: ResearchVectorStore | None = None,
         scorer: ResearchHybridScorer | None = None,
         reranker: ResearchEvidenceReranker | None = None,
+        embedding_service: ResearchEmbeddingService | None = None,
     ) -> None:
         self.keyword_retrieval = keyword_retrieval
         self.vector_store = vector_store or ResearchDisabledVectorStore()
         self.scorer = scorer or ResearchHybridScorer()
         self.reranker = reranker or ResearchEvidenceReranker()
+        self.embedding_service = embedding_service or ResearchEmbeddingService()
+        self.backend: ResearchRetrievalBackend = "hybrid"
+        self.last_search_quality: ResearchRetrievalQuality | None = None
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
-        vector_candidates = self.vector_store.search(request)
+        """Fuse rather than replace lexical evidence with semantic candidates.
+
+        The previous implementation chose vector results whenever any existed.
+        That could hide an exact official-IR match behind a loosely similar local
+        hash-vector result.  Both candidate sets are now scored together, while a
+        capped per-document selection keeps the result list useful when a long
+        document is split into adjacent chunks.
+        """
+
+        started_at = perf_counter()
+        candidate_limit = min(50, max(request.top_k * 4, request.top_k))
+        expanded_request = request.model_copy(update={"top_k": candidate_limit})
+        keyword_evidence = self.keyword_retrieval.search(expanded_request)
+        vector_request = self._vector_request(expanded_request)
+        vector_candidates = self.vector_store.search(vector_request)
         if not vector_candidates:
-            return self.keyword_retrieval.search(request)
+            evidence = keyword_evidence[: request.top_k]
+            self.last_search_quality = ResearchRetrievalQuality(
+                backend="hybrid",
+                query=request.query or request.query_category or "hybrid search",
+                expanded_terms=_expanded_query_terms(request),
+                candidate_count=len(keyword_evidence),
+                evidence_count=len(evidence),
+                keyword_candidate_count=len(keyword_evidence),
+                vector_candidate_count=0,
+                document_count=len({row.document_id for row in evidence}),
+                latency_ms=_elapsed_milliseconds(started_at),
+                warnings=["Hybrid retrieval fell back to keyword retrieval."],
+            )
+            return evidence
 
         as_of = request.as_of or date.today()
-        scored = [self.scorer.score(candidate, as_of=as_of) for candidate in vector_candidates]
-        evidence = [_evidence_from_candidate(candidate) for candidate in scored]
-        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        keyword_candidates = {
+            evidence.chunk_id: _candidate_from_evidence(evidence) for evidence in keyword_evidence
+        }
+        vector_by_chunk = {candidate.chunk_id: candidate for candidate in vector_candidates}
+        merged: list[ResearchRetrievalCandidate] = []
+        for chunk_id in sorted(set(keyword_candidates) | set(vector_by_chunk)):
+            keyword_candidate = keyword_candidates.get(chunk_id)
+            vector_candidate = vector_by_chunk.get(chunk_id)
+            base = vector_candidate or keyword_candidate
+            if base is None:  # defensive guard for static type narrowing
+                continue
+            merged.append(
+                base.model_copy(
+                    update={
+                        "keyword_score": (
+                            keyword_candidate.keyword_score
+                            if keyword_candidate is not None
+                            else (
+                                vector_candidate.keyword_score
+                                if vector_candidate is not None
+                                else None
+                            )
+                        ),
+                        "vector_score": (
+                            vector_candidate.vector_score if vector_candidate is not None else None
+                        ),
+                    }
+                )
+            )
+
+        scored = [self.scorer.score(candidate, as_of=as_of) for candidate in merged]
+        diversified = _diversify_retrieval_candidates(scored, limit=request.top_k)
+        evidence = [_evidence_from_candidate(candidate) for candidate in diversified]
+        result = self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        self.last_search_quality = ResearchRetrievalQuality(
+            backend="hybrid",
+            query=request.query or request.query_category or "hybrid search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(merged),
+            evidence_count=len(result),
+            keyword_candidate_count=len(keyword_evidence),
+            vector_candidate_count=len(vector_candidates),
+            document_count=len({row.document_id for row in result}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+        return result
 
     def retrieval_quality(self, request: ResearchSearchRequest) -> ResearchRetrievalQuality:
-        vector_quality = self.vector_store.retrieval_quality(request)
-        if vector_quality.candidate_count > 0:
-            return vector_quality.model_copy(update={"backend": "hybrid"})
+        started_at = perf_counter()
+        vector_request = self._vector_request(request)
+        vector_quality = self.vector_store.retrieval_quality(
+            vector_request,
+            expanded_terms=_expanded_query_terms(request),
+        )
         keyword_evidence = self.keyword_retrieval.search(request)
+        if vector_quality.candidate_count > 0:
+            return vector_quality.model_copy(
+                update={
+                    "backend": "hybrid",
+                    "keyword_candidate_count": len(keyword_evidence),
+                    "vector_candidate_count": vector_quality.candidate_count,
+                    "document_count": len({row.document_id for row in keyword_evidence}),
+                    "latency_ms": _elapsed_milliseconds(started_at),
+                }
+            )
         warnings = list(vector_quality.warnings)
         warnings.append("Hybrid retrieval fell back to keyword retrieval.")
         return ResearchRetrievalQuality(
@@ -1585,7 +473,24 @@ class HybridResearchRetrievalService:
             expanded_terms=vector_quality.expanded_terms,
             candidate_count=len(keyword_evidence),
             evidence_count=len(keyword_evidence),
+            keyword_candidate_count=len(keyword_evidence),
+            vector_candidate_count=0,
+            document_count=len({row.document_id for row in keyword_evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
             warnings=warnings,
+        )
+
+    def _vector_request(self, request: ResearchSearchRequest) -> ResearchSearchRequest:
+        if request.query_vector:
+            return request
+        expanded_terms = _expanded_query_terms(request)
+        return request.model_copy(
+            update={
+                "query_vector": self.embedding_service.build_query_vector(
+                    request.query,
+                    expanded_terms=expanded_terms,
+                )
+            }
         )
 
 
@@ -1599,13 +504,25 @@ class ResearchRetrievalService:
     ) -> None:
         self.store = store
         self.reranker = reranker or ResearchEvidenceReranker()
+        self.backend: ResearchRetrievalBackend = "keyword"
+        self.last_search_quality: ResearchRetrievalQuality | None = None
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
+        started_at = perf_counter()
         chunks = self.store.all_chunks(request.symbol)
         if request.source_types:
             source_types = set(request.source_types)
             chunks = [chunk for chunk in chunks if chunk.source_type in source_types]
         if not chunks:
+            self.last_search_quality = ResearchRetrievalQuality(
+                backend="keyword",
+                query=request.query or request.query_category or "keyword search",
+                expanded_terms=_expanded_query_terms(request),
+                candidate_count=0,
+                evidence_count=0,
+                latency_ms=_elapsed_milliseconds(started_at),
+                warnings=["No local research chunks are available for this symbol."],
+            )
             return []
 
         query_terms = _expanded_query_terms(request)
@@ -1616,7 +533,41 @@ class ResearchRetrievalService:
             if score > Decimal("0"):
                 scored.append((score, chunk))
         evidence = [_evidence_from_chunk(chunk, relevance_score=score) for score, chunk in scored]
-        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        result = self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+        self.last_search_quality = ResearchRetrievalQuality(
+            backend="keyword",
+            query=request.query or request.query_category or "keyword search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(scored),
+            evidence_count=len(result),
+            keyword_candidate_count=len(scored),
+            document_count=len({row.document_id for row in result}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+        return result
+
+    def retrieval_quality(self, request: ResearchSearchRequest) -> ResearchRetrievalQuality:
+        started_at = perf_counter()
+        evidence = self.search(request)
+        return ResearchRetrievalQuality(
+            backend="keyword",
+            query=request.query or request.query_category or "keyword search",
+            expanded_terms=_expanded_query_terms(request),
+            candidate_count=len(evidence),
+            evidence_count=len(evidence),
+            keyword_candidate_count=len(evidence),
+            document_count=len({row.document_id for row in evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
+        )
+
+
+class ResearchEvidenceRetriever(Protocol):
+    """Small shared contract for keyword and hybrid evidence retrieval."""
+
+    backend: ResearchRetrievalBackend
+    last_search_quality: ResearchRetrievalQuality | None
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]: ...
 
 
 class ResearchGroundedAnswerService:
@@ -1689,7 +640,7 @@ class ResearchAnalysisService:
     def __init__(
         self,
         ingestion: ResearchIngestionService,
-        retrieval: ResearchRetrievalService,
+        retrieval: ResearchEvidenceRetriever,
         query_expansion: ResearchQueryExpansionService | None = None,
         grounded_answer: ResearchGroundedAnswerService | None = None,
         reranker: ResearchEvidenceReranker | None = None,
@@ -1701,6 +652,7 @@ class ResearchAnalysisService:
         self.reranker = reranker or ResearchEvidenceReranker()
 
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
+        started_at = perf_counter()
         as_of = request.as_of or date.today()
         topics = [
             (
@@ -1729,12 +681,14 @@ class ResearchAnalysisService:
         all_evidence: list[ResearchEvidence] = []
         expanded_terms_by_topic: list[str] = []
         topic_queries: list[str] = []
+        query_qualities: list[ResearchRetrievalQuality] = []
+        relevance_filter_warnings: list[str] = []
         for category, label, query in topics:
             topic_category = cast(ResearchTopicCategory, category)
             expanded = self.query_expansion.expand_query(query, category=topic_category)
             expanded_terms_by_topic.extend(expanded.expanded_terms)
             topic_queries.append(f"{topic_category}:{query}")
-            evidence = self.retrieval.search(
+            retrieved_evidence = self.retrieval.search(
                 ResearchSearchRequest(
                     symbol=request.symbol,
                     query=query,
@@ -1744,6 +698,18 @@ class ResearchAnalysisService:
                     expanded_terms=expanded.expanded_terms,
                 )
             )
+            evidence = [
+                row
+                for row in retrieved_evidence
+                if row.relevance_score >= MIN_TOPIC_EVIDENCE_RELEVANCE
+            ]
+            if len(evidence) < len(retrieved_evidence):
+                relevance_filter_warnings.append(
+                    f"{label}は関連性が低い候補を根拠として採用していません。"
+                )
+            search_quality = self.retrieval.last_search_quality
+            if isinstance(search_quality, ResearchRetrievalQuality):
+                query_qualities.append(search_quality)
             all_evidence.extend(evidence)
             extracted_claims.append(
                 _extracted_claim(
@@ -1771,6 +737,19 @@ class ResearchAnalysisService:
             candidate_count=len(all_evidence),
             evidence_count=len(unique_evidence),
             data_quality=data_quality,
+            backend=self.retrieval.backend,
+            document_count=len({row.document_id for row in unique_evidence}),
+            latency_ms=_elapsed_milliseconds(started_at),
+            keyword_candidate_count=sum(
+                quality.keyword_candidate_count for quality in query_qualities
+            ),
+            vector_candidate_count=sum(
+                quality.vector_candidate_count for quality in query_qualities
+            ),
+            retrieval_warnings=[
+                warning for quality in query_qualities for warning in quality.warnings
+            ]
+            + relevance_filter_warnings,
         )
         if data_quality.status != "OK":
             extracted_claims.append(
@@ -2014,18 +993,10 @@ class ExternalResearchStockNewsAdapter:
         )
 
 
-def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
-    return any(path == directory or directory in path.parents for directory in allowed_dirs)
-
-
 def _normalize_symbol(symbol: str) -> str:
-    return symbol.strip().upper()
+    """Backward-compatible private alias for the shared Research normalizer."""
 
-
-def _stable_id(prefix: str, *parts: str) -> str:
-    normalized = "|".join(part.strip().lower() for part in parts)
-    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
-    return f"{prefix}-{digest}"
+    return normalize_symbol(symbol)
 
 
 def _external_text_value(value: object) -> str:
@@ -2176,115 +1147,12 @@ def _format_external_per_share(value: Decimal, *, currency: str) -> str:
     return f"{formatted} {cleaned_currency}".strip()
 
 
-def _chunk_document_text(
-    document: ResearchDocument,
-    text: str,
-    *,
-    max_chars: int,
-) -> list[ResearchChunk]:
-    sections = _markdown_sections(text)
-    chunks: list[ResearchChunk] = []
-    for section_title, section_text in sections:
-        for piece in _split_text(section_text, max_chars=max_chars):
-            chunk_index = len(chunks)
-            chunk_id = _stable_id(
-                "research-chunk", document.document_id, str(chunk_index), piece[:80]
-            )
-            chunks.append(
-                ResearchChunk(
-                    chunk_id=chunk_id,
-                    document_id=document.document_id,
-                    symbol=document.symbol,
-                    title=document.title,
-                    source_type=document.source_type,
-                    published_at=document.published_at,
-                    section_title=section_title,
-                    text=piece,
-                    chunk_index=chunk_index,
-                    char_count=len(piece),
-                    metadata={
-                        "document_hash": document.document_hash,
-                        "reliability": str(document.reliability),
-                    },
-                )
-            )
-    if not chunks:
-        raise ResearchParseError(
-            "Research document did not produce any searchable chunks.",
-            details={"document_id": document.document_id},
-        )
-    return chunks
-
-
-def _markdown_sections(text: str) -> list[tuple[str | None, str]]:
-    sections: list[tuple[str | None, list[str]]] = [(None, [])]
-    current_title: str | None = None
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            title = stripped.lstrip("#").strip()
-            if title:
-                if sections[-1][1]:
-                    sections.append((title, []))
-                else:
-                    sections[-1] = (title, [])
-                current_title = title
-                continue
-        sections[-1][1].append(line)
-    return [
-        (title if title is not None else current_title, "\n".join(lines).strip())
-        for title, lines in sections
-        if "\n".join(lines).strip()
-    ]
-
-
-def _split_text(text: str, *, max_chars: int) -> list[str]:
-    paragraphs = [
-        paragraph.strip() for paragraph in re.split(r"\n\s*\n", text) if paragraph.strip()
-    ]
-    pieces: list[str] = []
-    current = ""
-    for paragraph in paragraphs:
-        if len(paragraph) > max_chars:
-            if current:
-                pieces.append(current.strip())
-                current = ""
-            pieces.extend(_split_long_text(paragraph, max_chars=max_chars))
-            continue
-        candidate = f"{current}\n\n{paragraph}".strip() if current else paragraph
-        if len(candidate) <= max_chars:
-            current = candidate
-        else:
-            pieces.append(current.strip())
-            current = paragraph
-    if current:
-        pieces.append(current.strip())
-    return pieces
-
-
-def _split_long_text(text: str, *, max_chars: int) -> list[str]:
-    return [text[index : index + max_chars].strip() for index in range(0, len(text), max_chars)]
-
-
-def _query_terms(query: str) -> list[str]:
-    normalized = query.lower()
-    terms = re.findall(r"[a-z0-9_]+|[一-龥ぁ-んァ-ンー]{2,}", normalized)
-    return sorted(set(terms))
-
-
 def _expanded_query_terms(request: ResearchSearchRequest) -> list[str]:
     terms = list(_query_terms(request.query))
     if request.query_category is not None:
         terms.extend(DEFAULT_RESEARCH_QUERY_TERMS.get(request.query_category, ()))
     terms.extend(request.expanded_terms)
     return _normalize_query_terms(terms)
-
-
-def _normalize_query_terms(terms: Sequence[str]) -> list[str]:
-    normalized: set[str] = set()
-    for term in terms:
-        normalized.update(_query_terms(term))
-    return sorted(normalized)
 
 
 def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str], *, as_of: date) -> Decimal:
@@ -2298,21 +1166,6 @@ def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str], *, as_o
     freshness_bonus = Decimal("0.03") if chunk.published_at else Decimal("0")
     score = min(Decimal("1"), raw + freshness_bonus)
     return (score * _freshness_factor(chunk.published_at, as_of=as_of)).quantize(Decimal("0.0001"))
-
-
-def _freshness_factor(published_at: date | None, *, as_of: date) -> Decimal:
-    if published_at is None:
-        return Decimal("0.85")
-    age_days = (as_of - published_at).days
-    if age_days < 0:
-        return Decimal("1")
-    if age_days <= 365:
-        return Decimal("1")
-    if age_days <= 730:
-        return Decimal("0.90")
-    if age_days <= 1095:
-        return Decimal("0.75")
-    return Decimal("0.60")
 
 
 def _score_text(text: str, query_terms: list[str]) -> Decimal:
@@ -2363,6 +1216,58 @@ def _evidence_from_candidate(candidate: ResearchRetrievalCandidate) -> ResearchE
     )
 
 
+def _candidate_from_evidence(evidence: ResearchEvidence) -> ResearchRetrievalCandidate:
+    """Retain keyword evidence as a hybrid-scoring candidate without raw text."""
+
+    return ResearchRetrievalCandidate(
+        symbol=evidence.symbol,
+        document_id=evidence.document_id,
+        chunk_id=evidence.chunk_id,
+        title=evidence.title,
+        source_type=evidence.source_type,
+        published_at=evidence.published_at,
+        section_title=evidence.section_title,
+        excerpt=evidence.excerpt,
+        keyword_score=evidence.relevance_score,
+        reliability=evidence.reliability,
+        final_relevance_score=evidence.relevance_score,
+        retrieval_backend="keyword",
+    )
+
+
+def _diversify_retrieval_candidates(
+    candidates: Sequence[ResearchRetrievalCandidate],
+    *,
+    limit: int,
+    max_per_document: int = 2,
+) -> list[ResearchRetrievalCandidate]:
+    """Prevent neighbouring chunks from consuming all evidence slots."""
+
+    selected: list[ResearchRetrievalCandidate] = []
+    document_counts: dict[str, int] = {}
+    for candidate in sorted(
+        candidates,
+        key=lambda row: (
+            -row.final_relevance_score,
+            -row.reliability,
+            -(row.published_at or date.min).toordinal(),
+            row.document_id,
+            row.chunk_id,
+        ),
+    ):
+        if document_counts.get(candidate.document_id, 0) >= max_per_document:
+            continue
+        selected.append(candidate)
+        document_counts[candidate.document_id] = document_counts.get(candidate.document_id, 0) + 1
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+def _elapsed_milliseconds(started_at: float) -> int:
+    return max(0, int(round((perf_counter() - started_at) * 1000)))
+
+
 def _excerpt(text: str, *, max_chars: int = 220) -> str:
     single_line = re.sub(r"\s+", " ", text).strip()
     if len(single_line) <= max_chars:
@@ -2370,141 +1275,8 @@ def _excerpt(text: str, *, max_chars: int = 220) -> str:
     return f"{single_line[: max_chars - 3].rstrip()}..."
 
 
-def _dedupe_evidence(evidence: list[ResearchEvidence]) -> list[ResearchEvidence]:
-    deduped: dict[str, ResearchEvidence] = {}
-    for row in evidence:
-        existing = deduped.get(row.chunk_id)
-        if existing is None or row.relevance_score > existing.relevance_score:
-            deduped[row.chunk_id] = row
-    return sorted(
-        deduped.values(),
-        key=lambda row: (
-            -row.relevance_score,
-            -(row.published_at or date.min).toordinal(),
-            row.document_id,
-            row.chunk_id,
-        ),
-    )
-
-
 def _text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _evidence_rerank_score(row: ResearchEvidence, *, as_of: date) -> Decimal:
-    score = (
-        (row.relevance_score * Decimal("0.55"))
-        + (row.reliability * Decimal("0.25"))
-        + (_freshness_factor(row.published_at, as_of=as_of) * Decimal("0.10"))
-        + (Decimal(str(_source_type_priority(row.source_type))) * Decimal("0.10"))
-    )
-    return score.quantize(Decimal("0.0001"))
-
-
-def _search_vector_entries(
-    entries: Mapping[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]],
-    request: ResearchSearchRequest,
-) -> list[ResearchRetrievalCandidate]:
-    if not request.query_vector:
-        return []
-    source_types = set(request.source_types)
-    scored: list[ResearchRetrievalCandidate] = []
-    for candidate, embedding in entries.values():
-        if candidate.symbol != _normalize_symbol(request.symbol):
-            continue
-        if source_types and candidate.source_type not in source_types:
-            continue
-        vector_score = _cosine_similarity(request.query_vector, embedding.vector)
-        if vector_score <= Decimal("0"):
-            continue
-        scored.append(
-            candidate.model_copy(
-                update={
-                    "vector_score": vector_score,
-                    "final_relevance_score": vector_score,
-                    "retrieval_backend": "vector",
-                }
-            )
-        )
-    return sorted(
-        scored,
-        key=lambda row: (
-            -(row.vector_score or Decimal("0")),
-            -(row.published_at or date.min).toordinal(),
-            row.document_id,
-            row.chunk_id,
-        ),
-    )[: request.top_k]
-
-
-def _build_vector_retrieval_quality(
-    request: ResearchSearchRequest,
-    *,
-    candidate_count: int,
-    entry_count: int,
-    expanded_terms: Sequence[str] | None,
-    empty_cache_warning: str | None = None,
-) -> ResearchRetrievalQuality:
-    warnings: list[str] = []
-    if not request.query_vector:
-        warnings.append("Vector query is empty; vector retrieval was skipped.")
-    elif candidate_count == 0:
-        if entry_count == 0 and empty_cache_warning:
-            warnings.append(empty_cache_warning)
-        warnings.append("Vector retrieval found no matching candidates.")
-    query = request.query or request.query_category or "vector search"
-    return ResearchRetrievalQuality(
-        backend="vector",
-        query=query,
-        expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
-        candidate_count=candidate_count,
-        evidence_count=candidate_count,
-        warnings=warnings,
-    )
-
-
-def _local_embedding_vector(text: str, *, dimensions: int) -> list[float]:
-    terms = _query_terms(text)
-    if not terms:
-        return []
-    buckets = [0.0] * dimensions
-    for term in terms:
-        digest = hashlib.sha256(term.encode("utf-8")).digest()
-        index = int.from_bytes(digest[:4], byteorder="big") % dimensions
-        sign = 1.0 if digest[4] % 2 == 0 else -1.0
-        buckets[index] += sign
-    norm = math.sqrt(sum(value * value for value in buckets))
-    if norm == 0:
-        return []
-    return [round(value / norm, 6) for value in buckets]
-
-
-def _cosine_similarity(query_vector: Sequence[float], candidate_vector: Sequence[float]) -> Decimal:
-    if not query_vector or not candidate_vector or len(query_vector) != len(candidate_vector):
-        return Decimal("0")
-    query_norm = math.sqrt(sum(value * value for value in query_vector))
-    candidate_norm = math.sqrt(sum(value * value for value in candidate_vector))
-    if query_norm == 0 or candidate_norm == 0:
-        return Decimal("0")
-    dot = sum(left * right for left, right in zip(query_vector, candidate_vector, strict=True))
-    score = max(0.0, min(1.0, dot / (query_norm * candidate_norm)))
-    return Decimal(str(score)).quantize(Decimal("0.0001"))
-
-
-def _source_type_priority(source_type: ResearchSourceType) -> float:
-    priorities: dict[ResearchSourceType, float] = {
-        "annual_report": 1.0,
-        "earnings_report": 0.95,
-        "earnings_presentation": 0.95,
-        "medium_term_plan": 0.95,
-        "integrated_report": 0.95,
-        "company_ir": 0.88,
-        "tdnet": 0.90,
-        "provider_profile": 0.65,
-        "user_note": 0.70,
-        "news": 0.60,
-    }
-    return priorities[source_type]
 
 
 def _category_labels(categories: Sequence[ResearchTopicCategory]) -> str:
@@ -2538,16 +1310,26 @@ def _retrieval_quality(
     candidate_count: int,
     evidence_count: int,
     data_quality: ResearchDataQuality,
+    backend: ResearchRetrievalBackend = "keyword",
+    document_count: int = 0,
+    latency_ms: int = 0,
+    keyword_candidate_count: int = 0,
+    vector_candidate_count: int = 0,
+    retrieval_warnings: Sequence[str] = (),
 ) -> ResearchRetrievalQuality:
-    warnings = list(data_quality.warnings)
+    warnings = list(dict.fromkeys([*data_quality.warnings, *retrieval_warnings]))
     if evidence_count == 0 and "検索で根拠候補が見つかりませんでした。" not in warnings:
         warnings.append("検索で根拠候補が見つかりませんでした。")
     return ResearchRetrievalQuality(
-        backend="keyword",
+        backend=backend,
         query=" | ".join(queries),
         expanded_terms=_normalize_query_terms(expanded_terms),
         candidate_count=candidate_count,
         evidence_count=evidence_count,
+        keyword_candidate_count=keyword_candidate_count,
+        vector_candidate_count=vector_candidate_count,
+        document_count=document_count,
+        latency_ms=latency_ms,
         warnings=warnings,
     )
 
@@ -4057,35 +2839,26 @@ def _company_research_overview_summary(
     ]
     source_types = [item.source_type for item in source_items]
     source_types.extend(row.source_type for row in report.evidence[:3])
-    return CompanyOverviewSummary(
-        company_name=company_name or "",
-        symbol=report.symbol,
-        business_profile=business_profile,
-        industry=business_profile.industry,
-        sector=business_profile.sector,
-        business_overview=_clip_text(business_overview, max_chars=220),
-        main_businesses=business_segments,
-        business_segments=business_segments,
-        supporting_businesses=business_profile.supporting_businesses,
-        products_services=business_profile.products_services,
-        products_services_status=business_profile.products_services_status,
-        regions=regions,
-        customer_segments=business_profile.customer_segments,
-        scale_summary=scale_summary,
-        recent_focus=recent_focus,
-        information_status=business_profile.information_status,
-        evidence_level=(
-            business_profile.evidence_level
-            if business_profile.evidence_level != "missing"
-            else _company_research_evidence_level_from_source_types(source_types)
-        ),
-        source_titles=_unique_text(
-            [
+    return build_company_overview_summary(
+        CompanyOverviewSummaryInputs(
+            symbol=report.symbol,
+            company_name=company_name or "",
+            business_profile=business_profile,
+            business_overview=business_overview,
+            business_segments=business_segments,
+            regions=regions,
+            scale_summary=scale_summary,
+            recent_focus=recent_focus,
+            source_types=source_types,
+            source_titles=[
                 *business_profile.source_titles,
                 *[item.source_title for item in source_items if item.source_title.strip()],
                 *[row.title for row in report.evidence[:3]],
-            ]
-        )[:5],
+            ],
+        ),
+        clip_text=lambda value: _clip_text(value, max_chars=220),
+        evidence_level_from_source_types=_company_research_evidence_level_from_source_types,
+        unique_text=_unique_text,
     )
 
 
@@ -4301,7 +3074,7 @@ def _company_research_quantitative_summary(
             (r"従業員数", r"employees", r"full time employees", r"fullTimeEmployees"),
         ),
     )
-    values: dict[str, str | None] = {}
+    fields: list[QuantitativeFieldValue] = []
     source_titles: list[str] = []
     source_types: list[str] = []
     for key, _label, metric_key, patterns in field_specs:
@@ -4312,40 +3085,15 @@ def _company_research_quantitative_summary(
             normalized_evidence,
             patterns,
         )
-        values[key] = value
+        fields.append(QuantitativeFieldValue(key=key, label=_label, value=value))
         source_titles.extend(titles)
         source_types.extend(types)
-
-    missing_items = [label for key, label, _metric_key, _patterns in field_specs if not values[key]]
-    found_items = [
-        f"{label} {values[key]}"
-        for key, label, _metric_key, _patterns in field_specs
-        if values[key]
-    ]
-    if found_items:
-        summary = f"確認できた主要指標は{'、'.join(found_items[:5])}です。"
-        if missing_items:
-            summary += f"{'、'.join(missing_items[:5])}は追加確認が必要です。"
-    else:
-        summary = "主要な財務指標が未取得のため、業績トレンドや規模感の把握には追加確認が必要です。"
-    return QuantitativeSummary(
-        revenue=values["revenue"],
-        operating_profit=values["operating_profit"],
-        net_income=values["net_income"],
-        eps=values["eps"],
-        per=values["per"],
-        pbr=values["pbr"],
-        roe=values["roe"],
-        dividend_yield=values["dividend_yield"],
-        market_cap=values["market_cap"],
-        enterprise_value=values["enterprise_value"],
-        employee_count=values["employee_count"],
-        summary=summary,
-        missing_items=missing_items,
-        item_statuses={key: "found" if value else "missing" for key, value in values.items()},
-        information_status="found" if found_items else "missing",
-        evidence_level=_company_research_evidence_level_from_source_types(source_types),
-        source_titles=_unique_text(source_titles)[:5],
+    return build_quantitative_summary(
+        fields,
+        source_titles=source_titles,
+        source_types=source_types,
+        evidence_level_from_source_types=_company_research_evidence_level_from_source_types,
+        unique_text=_unique_text,
     )
 
 
@@ -5415,1668 +4163,6 @@ def _company_research_natural_business_summary(
     return _clip_text(cleaned, max_chars=280)
 
 
-def _company_research_business_terms(text: str) -> list[str]:
-    lowered = text.lower()
-    specs = (
-        (
-            "自動車事業",
-            (
-                "自動車",
-                "車両",
-                "vehicle",
-                "vehicles",
-                "automotive",
-                "auto manufacturers",
-                "motor",
-            ),
-        ),
-        (
-            "半導体・GPU",
-            (
-                "semiconductor",
-                "semiconductors",
-                "gpu",
-                "graphics processing unit",
-                "accelerated computing",
-                "半導体",
-            ),
-        ),
-        (
-            "AI・データセンター",
-            (
-                "artificial intelligence",
-                "ai infrastructure",
-                "data center",
-                "datacenter",
-                "データセンター",
-            ),
-        ),
-        (
-            "半導体製造装置",
-            ("semiconductor equipment", "半導体製造装置", "wafer", "lithography"),
-        ),
-        (
-            "FAセンサー・制御機器",
-            ("fa sensor", "factory automation", "control equipment", "制御機器"),
-        ),
-        (
-            "科学・計測機器",
-            (
-                "scientific instrument",
-                "measurement",
-                "measuring",
-                "sensor",
-                "測定器",
-                "計測",
-            ),
-        ),
-        (
-            "産業インフラ・デジタル",
-            (
-                "industry: conglomerates",
-                "industrial conglomerate",
-                "digital systems and services",
-                "green energy and mobility",
-                "connective industries",
-                "industrial systems",
-                "power grids",
-                "産業インフラ",
-            ),
-        ),
-        (
-            "産業機械・建設機械",
-            (
-                "farm & heavy construction machinery",
-                "construction machinery",
-                "heavy machinery",
-                "heavy equipment",
-                "earthmoving",
-                "industrial machinery",
-                "建設機械",
-                "産業機械",
-            ),
-        ),
-        (
-            "鉄道・交通インフラ",
-            (
-                "industry: railroads",
-                "railroad",
-                "railway",
-                "rail transport",
-                "passenger railway",
-                "鉄道",
-                "交通インフラ",
-            ),
-        ),
-        ("モビリティ事業", ("モビリティ", "mobility")),
-        (
-            "エレクトロニクス",
-            ("electronics", "consumer electronics", "家電", "映像機器", "音響機器"),
-        ),
-        (
-            "ゲーム・エンタメ",
-            (
-                "game",
-                "gaming",
-                "music",
-                "movie",
-                "entertainment",
-                "ゲーム",
-                "音楽",
-                "映画",
-            ),
-        ),
-        (
-            "ソフトウェア・クラウド",
-            (
-                "software",
-                "cloud",
-                "cloud computing",
-                "cloud services",
-                "saas",
-                "platform",
-                "aws",
-                "amazon web services",
-                "azure",
-                "enterprise services",
-                "ソフトウェア",
-                "クラウド",
-            ),
-        ),
-        (
-            "広告・マーケティング",
-            ("advertising", "advertisement", "ads", "marketing services", "広告"),
-        ),
-        (
-            "決済ネットワーク",
-            (
-                "payment",
-                "payments",
-                "card network",
-                "transaction",
-                "merchant",
-                "fintech",
-                "digital payment",
-                "settlement",
-            ),
-        ),
-        (
-            "銀行・金融サービス",
-            (
-                "sector: financial services",
-                "banks -",
-                "banking",
-                "commercial banking",
-                "investment banking",
-                "asset management",
-                "credit",
-                "loan",
-                "securities",
-                "銀行",
-                "証券",
-            ),
-        ),
-        (
-            "医薬品・ヘルスケア",
-            (
-                "sector: healthcare",
-                "pharmaceutical",
-                "healthcare",
-                "medical device",
-                "medicine",
-                "biotech",
-                "drug",
-                "therapy",
-                "diagnostics",
-                "医薬品",
-                "医療機器",
-            ),
-        ),
-        (
-            "エネルギー",
-            (
-                "sector: energy",
-                "oil & gas",
-                "oil and gas",
-                "refining",
-                "exploration",
-                "production",
-                "renewable",
-                "石油",
-                "ガス",
-                "エネルギー",
-            ),
-        ),
-        (
-            "ガス・エネルギーインフラ",
-            (
-                "sector: utilities",
-                "industry: utilities",
-                "utilities - regulated gas",
-                "gas utilities",
-                "natural gas distribution",
-                "city gas",
-                "town gas",
-                "gas distribution",
-                "gas supply",
-                "gas pipeline",
-                "都市ガス",
-                "ガス供給",
-                "エネルギー供給",
-                "公益",
-                "インフラ",
-            ),
-        ),
-        (
-            "電力・エネルギー供給",
-            (
-                "electric power",
-                "electricity",
-                "power generation",
-                "power supply",
-                "domestic energy",
-                "international energy",
-                "電力",
-                "発電",
-                "エネルギー供給",
-            ),
-        ),
-        (
-            "通信サービス",
-            (
-                "telecom services",
-                "telecommunications",
-                "wireless",
-                "broadband",
-                "通信",
-            ),
-        ),
-        (
-            "人材・HRサービス",
-            (
-                "human resources",
-                "staffing",
-                "recruitment",
-                "recruiting",
-                "employment",
-                "job matching",
-                "hr technology",
-                "人材",
-                "採用",
-                "求人",
-            ),
-        ),
-        (
-            "総合商社・事業投資",
-            (
-                "trading company",
-                "general trading",
-                "sogo shosha",
-                "industrial finance",
-                "事業投資",
-                "総合商社",
-            ),
-        ),
-        (
-            "アパレル小売",
-            (
-                "apparel",
-                "fashion",
-                "clothing",
-                "brand",
-                "private label",
-                "SPA",
-                "衣料",
-                "アパレル",
-            ),
-        ),
-        (
-            "小売・EC",
-            ("retail", "e-commerce", "marketplace", "store", "apparel", "小売", "EC"),
-        ),
-    )
-    labels = [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
-    finance_main_context = (
-        "sector: financial" in lowered
-        or "financial sector" in lowered
-        or "banking" in lowered
-        or "asset management" in lowered
-        or "銀行" in lowered
-        or "証券" in lowered
-    )
-    if finance_main_context and "金融サービス" not in labels and "銀行・金融サービス" not in labels:
-        labels.append("金融サービス")
-    return labels
-
-
-def _company_research_filter_main_businesses(
-    text: str,
-    businesses: Sequence[str],
-) -> list[str]:
-    lowered = text.lower()
-    finance_main_context = (
-        "sector: financial" in lowered
-        or "financial sector" in lowered
-        or "banking" in lowered
-        or "asset management" in lowered
-        or "銀行" in lowered
-        or "証券" in lowered
-    )
-    auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
-    software_cloud_context = _company_research_is_software_cloud_context(lowered)
-    retail_main_context = _company_research_is_retail_main_context(lowered)
-    payment_context = _company_research_is_payment_context(lowered)
-    hr_context = _company_research_is_hr_services_context(lowered)
-    trading_context = _company_research_is_trading_company_context(lowered)
-    cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
-    bank_context = any(
-        keyword in lowered
-        for keyword in (
-            "bank",
-            "banking",
-            "banks -",
-            "commercial banking",
-            "investment banking",
-        )
-    )
-    healthcare_context = _company_research_is_healthcare_context(lowered)
-    energy_context = _company_research_is_energy_context(lowered)
-    utility_energy_context = _company_research_is_utility_energy_context(lowered)
-    telecom_context = _company_research_is_telecom_context(lowered)
-    consumer_electronics_context = _company_research_is_consumer_electronics_context(lowered)
-    industrial_conglomerate_context = _company_research_is_industrial_conglomerate_context(lowered)
-    heavy_machinery_context = _company_research_is_heavy_machinery_context(lowered)
-    railroad_context = _company_research_is_railroad_context(lowered)
-    auto_related_main = {"自動車事業", "モビリティ事業", "自動車・モビリティ"}
-    software_related_main = {"ソフトウェア・クラウド", "ソフトウェア・サービス"}
-    finance_related_main = {"金融サービス", "銀行・金融サービス"}
-    utility_related_main = {"ガス・エネルギーインフラ", "電力・エネルギー供給"}
-    industrial_related_main = {
-        "産業インフラ・デジタル",
-        "産業機械・建設機械",
-        "鉄道・交通インフラ",
-    }
-    filtered = [
-        item
-        for item in businesses
-        if not (item == "金融サービス" and not finance_main_context)
-        and not (payment_context and not bank_context and item == "金融サービス")
-        and not (item == "銀行・金融サービス" and not finance_main_context)
-        and not (payment_context and not bank_context and item == "銀行・金融サービス")
-        and not (not auto_manufacturer_context and item in auto_related_main)
-        and not (auto_manufacturer_context and item in {"小売・EC", "アパレル小売"})
-        and not (auto_manufacturer_context and item == "決済ネットワーク")
-        and not (item == "小売・EC" and software_cloud_context and not retail_main_context)
-        and not (item == "アパレル小売" and not retail_main_context)
-        and not (retail_main_context and item in software_related_main and not cloud_infra_context)
-        and not (retail_main_context and item == "通信サービス")
-        and not (finance_main_context and item == "小売・EC")
-        and not (bank_context and item == "決済ネットワーク")
-        and not (payment_context and not bank_context and item == "銀行・金融サービス")
-        and not (payment_context and item == "広告・マーケティング")
-        and not (hr_context and item == "通信サービス")
-        and not (
-            trading_context
-            and item
-            in (
-                software_related_main
-                | industrial_related_main
-                | utility_related_main
-                | {"小売・EC", "アパレル小売", "決済ネットワーク", "エネルギー"}
-            )
-        )
-        and not (not healthcare_context and item == "医薬品・ヘルスケア")
-        and not (not energy_context and item == "エネルギー")
-        and not (not telecom_context and item == "通信サービス")
-        and not (not industrial_conglomerate_context and item == "産業インフラ・デジタル")
-        and not (not heavy_machinery_context and item == "産業機械・建設機械")
-        and not (not railroad_context and item == "鉄道・交通インフラ")
-        and not (finance_main_context and item in software_related_main)
-        and not (healthcare_context and item in finance_related_main | software_related_main)
-        and not (healthcare_context and item in {"小売・EC", "アパレル小売"})
-        and not (
-            energy_context
-            and item in finance_related_main | software_related_main | {"AI・データセンター"}
-        )
-        and not (
-            utility_energy_context
-            and item
-            in (
-                finance_related_main
-                | software_related_main
-                | {
-                    "自動車事業",
-                    "モビリティ事業",
-                    "小売・EC",
-                    "通信サービス",
-                    "AI・データセンター",
-                }
-            )
-        )
-        and not (telecom_context and item in finance_related_main | software_related_main)
-        and not (consumer_electronics_context and item in finance_related_main)
-        and not (
-            industrial_conglomerate_context
-            and item
-            in (
-                auto_related_main
-                | finance_related_main
-                | software_related_main
-                | {
-                    "医薬品・ヘルスケア",
-                    "広告・マーケティング",
-                    "小売・EC",
-                    "アパレル小売",
-                    "部品・保守",
-                }
-            )
-        )
-        and not (
-            heavy_machinery_context
-            and item
-            in (
-                finance_related_main
-                | software_related_main
-                | {"エレクトロニクス", "医薬品・ヘルスケア", "広告・マーケティング"}
-            )
-        )
-        and not (
-            railroad_context
-            and item
-            in (
-                auto_related_main
-                | finance_related_main
-                | software_related_main
-                | utility_related_main
-                | {
-                    "医薬品・ヘルスケア",
-                    "広告・マーケティング",
-                    "エレクトロニクス",
-                    "小売・EC",
-                    "エネルギー",
-                    "部品・保守",
-                }
-            )
-        )
-        and not (
-            item == "総合商社・事業投資" and industrial_conglomerate_context and not trading_context
-        )
-        and item not in {"部品・アフターサービス", "部品・保守", "リース", "ソフトウェア"}
-    ]
-    if trading_context:
-        filtered = ["総合商社・事業投資"] + [
-            item
-            for item in filtered
-            if item
-            not in (
-                industrial_related_main | utility_related_main | {"エネルギー", "決済ネットワーク"}
-            )
-        ]
-    if railroad_context and "鉄道・交通インフラ" in filtered:
-        priority = ["鉄道・交通インフラ"]
-        filtered = [item for item in priority if item in filtered] + [
-            item for item in filtered if item not in priority
-        ]
-    if heavy_machinery_context and "産業機械・建設機械" in filtered:
-        priority = ["産業機械・建設機械"]
-        filtered = [item for item in priority if item in filtered] + [
-            item for item in filtered if item not in priority
-        ]
-    if industrial_conglomerate_context and "産業インフラ・デジタル" in filtered:
-        priority = ["産業インフラ・デジタル", "エネルギー"]
-        filtered = [item for item in priority if item in filtered] + [
-            item for item in filtered if item not in priority
-        ]
-    if utility_energy_context and any(item in filtered for item in utility_related_main):
-        priority = ["ガス・エネルギーインフラ", "電力・エネルギー供給", "エネルギー"]
-        filtered = [item for item in priority if item in filtered] + [
-            item for item in filtered if item not in priority
-        ]
-        if "ガス・エネルギーインフラ" in filtered:
-            filtered = [item for item in filtered if item != "エネルギー"]
-    if "銀行・金融サービス" in filtered:
-        filtered = [item for item in filtered if item != "金融サービス"]
-    elif bank_context and finance_main_context and not consumer_electronics_context:
-        filtered.insert(0, "銀行・金融サービス")
-    if "ソフトウェア・クラウド" in filtered:
-        filtered = [item for item in filtered if item != "ソフトウェア・サービス"]
-    if retail_main_context and cloud_infra_context:
-        priority = [
-            "小売・EC",
-            "ソフトウェア・クラウド",
-            "広告・マーケティング",
-            "AI・データセンター",
-            "ゲーム・エンタメ",
-        ]
-        filtered = [item for item in priority if item in filtered] + [
-            item for item in filtered if item not in priority
-        ]
-    return _unique_text(filtered)[:5]
-
-
-def _company_research_is_semiconductor_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: semiconductors",
-            "semiconductor",
-            "semiconductors",
-            "gpu",
-            "accelerated computing",
-            "ai infrastructure",
-            "data center",
-            "datacenter",
-        )
-    )
-
-
-def _company_research_is_auto_manufacturer_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: auto manufacturers",
-            "auto manufacturers",
-            "automobile manufacturer",
-            "motor corporation",
-        )
-    )
-
-
-def _company_research_is_software_cloud_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "software",
-            "cloud",
-            "saas",
-            "platform",
-            "azure",
-            "enterprise services",
-        )
-    )
-
-
-def _company_research_is_cloud_infrastructure_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "cloud computing",
-            "cloud infrastructure",
-            "cloud services",
-            "aws",
-            "amazon web services",
-            "azure",
-            "google cloud",
-        )
-    )
-
-
-def _company_research_is_payment_context(lowered_text: str) -> bool:
-    strong_keywords = (
-        "industry: credit services",
-        "card network",
-        "payment network",
-        "payments network",
-        "transaction processing",
-        "merchant services",
-        "digital payment",
-        "settlement network",
-    )
-    if any(keyword in lowered_text for keyword in strong_keywords):
-        return True
-    return "sector: financial" in lowered_text and any(
-        keyword in lowered_text for keyword in ("payment", "payments", "transaction", "merchant")
-    )
-
-
-def _company_research_is_hr_services_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "human resources",
-            "staffing",
-            "recruitment",
-            "recruiting",
-            "employment",
-            "job matching",
-            "hr technology",
-            "人材",
-            "採用",
-            "求人",
-        )
-    )
-
-
-def _company_research_is_trading_company_context(lowered_text: str) -> bool:
-    if any(
-        keyword in lowered_text
-        for keyword in (
-            "trading company",
-            "general trading",
-            "sogo shosha",
-            "事業投資",
-            "総合商社",
-        )
-    ):
-        return True
-    if "sector: industrials" not in lowered_text or "industry: conglomerates" not in lowered_text:
-        return False
-    diversified_trading_terms = (
-        "natural gas",
-        "industrial materials",
-        "petroleum",
-        "chemicals solution",
-        "mineral resources",
-        "industrial infrastructure",
-        "automotive & mobility",
-        "food industry",
-        "consumer industry",
-        "power solution",
-        "urban development",
-    )
-    return sum(term in lowered_text for term in diversified_trading_terms) >= 4
-
-
-def _company_research_is_industrial_conglomerate_context(lowered_text: str) -> bool:
-    if _company_research_is_trading_company_context(lowered_text):
-        return False
-    return (
-        "sector: industrials" in lowered_text
-        and ("industry: conglomerates" in lowered_text or "industrial conglomerate" in lowered_text)
-    ) or any(
-        keyword in lowered_text
-        for keyword in (
-            "digital systems and services",
-            "green energy and mobility",
-            "connective industries",
-            "industrial systems",
-            "power grids",
-        )
-    )
-
-
-def _company_research_is_heavy_machinery_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: farm & heavy construction machinery",
-            "construction machinery",
-            "heavy construction machinery",
-            "heavy machinery",
-            "heavy equipment",
-            "earthmoving",
-            "industrial machinery",
-        )
-    )
-
-
-def _company_research_is_consumer_electronics_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: consumer electronics",
-            "consumer electronics",
-            "electronic gaming & multimedia",
-        )
-    )
-
-
-def _company_research_is_railroad_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: railroads",
-            "railroad",
-            "railway",
-            "rail transport",
-            "passenger railway",
-            "rail station",
-        )
-    )
-
-
-def _company_research_is_materials_chemical_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: chemicals",
-            "specialty chemicals",
-            "chemical manufacturing",
-            "chemical products",
-            "fine materials",
-            "carbon material",
-            "materials segment",
-            "materials business",
-            "material products",
-            "材料事業",
-            "材料製品",
-            "化学",
-        )
-    )
-
-
-def _company_research_is_apparel_retail_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "apparel",
-            "fashion",
-            "clothing",
-            "private label",
-            "specialty retail",
-            "衣料",
-            "アパレル",
-        )
-    )
-
-
-def _company_research_is_retail_main_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "industry: internet retail",
-            "industry: apparel retail",
-            "industry: specialty retail",
-            "sector: consumer cyclical",
-            "retail trade",
-            "retailer",
-            "e-commerce company",
-        )
-    )
-
-
-def _company_research_is_healthcare_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "sector: healthcare",
-            "industry: healthcare",
-            "industry: pharmaceutical",
-            "medical device",
-            "drug manufacturers",
-            "biotech",
-        )
-    )
-
-
-def _company_research_is_energy_context(lowered_text: str) -> bool:
-    return _company_research_is_utility_energy_context(lowered_text) or any(
-        keyword in lowered_text
-        for keyword in (
-            "sector: energy",
-            "oil & gas",
-            "oil and gas",
-            "refining",
-            "exploration",
-            "production",
-        )
-    )
-
-
-def _company_research_is_utility_energy_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "sector: utilities",
-            "industry: utilities",
-            "utilities - regulated gas",
-            "gas utilities",
-            "natural gas distribution",
-            "city gas",
-            "town gas",
-            "gas distribution",
-            "gas supply",
-            "gas pipeline",
-            "electric power",
-            "electricity",
-            "power generation",
-            "domestic energy",
-            "international energy",
-            "都市ガス",
-            "ガス供給",
-            "電力",
-            "発電",
-            "エネルギー供給",
-            "公益",
-            "インフラ",
-        )
-    )
-
-
-def _company_research_is_telecom_context(lowered_text: str) -> bool:
-    return any(
-        keyword in lowered_text
-        for keyword in (
-            "telecom services",
-            "telecommunications",
-            "wireless",
-            "broadband",
-            "mobile network",
-            "fixed-line",
-            "fiber optic",
-        )
-    )
-
-
-def _company_research_supporting_business_terms(
-    text: str,
-    *,
-    main_businesses: Sequence[str],
-) -> list[str]:
-    lowered = text.lower()
-    specs = (
-        ("金融サービス", ("financial services", "金融")),
-        ("リース", ("lease", "leasing", "リース")),
-        (
-            "部品・アフターサービス",
-            ("parts", "components", "maintenance", "repair", "部品", "保守", "整備"),
-        ),
-        ("ソフトウェア", ("software", "ソフトウェア")),
-        ("保険", ("insurance", "保険")),
-        ("資産運用", ("asset management", "資産運用")),
-        (
-            "海外エネルギー",
-            ("international energy", "overseas energy", "海外エネルギー"),
-        ),
-        (
-            "ライフサービス",
-            (
-                "life & business solutions",
-                "life services",
-                "lifestyle",
-                "生活",
-                "ライフサービス",
-            ),
-        ),
-        ("不動産", ("real estate", "property", "不動産")),
-        (
-            "情報ソリューション",
-            (
-                "information solutions",
-                "information service",
-                "it services",
-                "情報ソリューション",
-            ),
-        ),
-        (
-            "材料・化学",
-            (
-                "fine materials",
-                "carbon material",
-                "chemical products",
-                "chemicals",
-                "materials segment",
-                "materials business",
-                "material products",
-                "材料事業",
-                "材料製品",
-                "化学",
-            ),
-        ),
-    )
-    main_set = set(main_businesses)
-    return [
-        label
-        for label, keywords in specs
-        if label not in main_set and any(keyword in lowered for keyword in keywords)
-    ]
-
-
-def _company_research_filter_supporting_businesses(
-    text: str,
-    businesses: Sequence[str],
-    *,
-    main_businesses: Sequence[str],
-) -> list[str]:
-    lowered = text.lower()
-    main_set = set(main_businesses)
-    finance_main_context = (
-        "sector: financial" in lowered
-        or "financial sector" in lowered
-        or "banking" in lowered
-        or "asset management" in lowered
-        or "銀行" in lowered
-        or "証券" in lowered
-    )
-    auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
-    retail_main_context = _company_research_is_retail_main_context(lowered)
-    cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
-    filtered = list(businesses)
-    if not (
-        _company_research_is_materials_chemical_context(lowered)
-        or _company_research_is_trading_company_context(lowered)
-        or _company_research_is_energy_context(lowered)
-        or _company_research_is_utility_energy_context(lowered)
-    ):
-        filtered = [item for item in filtered if item != "材料・化学"]
-    if auto_manufacturer_context:
-        filtered = [item for item in filtered if item != "資産運用"]
-    if _company_research_is_industrial_conglomerate_context(lowered):
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
-        ]
-    if _company_research_is_railroad_context(lowered):
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
-        ]
-    if _company_research_is_heavy_machinery_context(lowered):
-        filtered = [item for item in filtered if item not in {"ソフトウェア", "資産運用"}]
-    if _company_research_is_consumer_electronics_context(lowered):
-        filtered = [item for item in filtered if item not in {"リース", "保険", "資産運用"}]
-    if retail_main_context and not cloud_infra_context and not auto_manufacturer_context:
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
-        ]
-    if _company_research_is_healthcare_context(lowered):
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
-        ]
-    if _company_research_is_energy_context(lowered):
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "保険", "資産運用", "ソフトウェア"}
-        ]
-    if _company_research_is_utility_energy_context(lowered):
-        filtered = [
-            item
-            for item in filtered
-            if item
-            not in {
-                "金融サービス",
-                "リース",
-                "部品・アフターサービス",
-                "ソフトウェア",
-                "保険",
-                "資産運用",
-            }
-        ]
-    if _company_research_is_telecom_context(lowered):
-        filtered = [item for item in filtered if item not in {"金融サービス", "保険", "資産運用"}]
-    if (
-        _company_research_is_software_cloud_context(lowered)
-        and not finance_main_context
-        and not auto_manufacturer_context
-    ):
-        filtered = [
-            item
-            for item in filtered
-            if item not in {"金融サービス", "保険", "資産運用", "リース", "ソフトウェア"}
-        ]
-    if "決済ネットワーク" in main_set:
-        filtered = [
-            item for item in filtered if item not in {"金融サービス", "資産運用", "ソフトウェア"}
-        ]
-    if "銀行・金融サービス" in main_set or "金融サービス" in main_set:
-        filtered = [item for item in filtered if item != "ソフトウェア"]
-    return _unique_text(filtered)[:5]
-
-
-def _company_research_products_services(text: str) -> list[str]:
-    lowered = text.lower()
-    specs = (
-        (
-            "電気自動車",
-            ("electric vehicle", "electric vehicles", "evs", "EV", "電気自動車"),
-        ),
-        ("自動車", ("automobile", "automotive", "自動車")),
-        ("商用車", ("commercial vehicle", "commercial vehicles", "商用車")),
-        ("車両", ("vehicle", "vehicles", "車両")),
-        (
-            "蓄電池",
-            ("battery", "batteries", "energy storage", "storage systems", "蓄電池"),
-        ),
-        ("充電サービス", ("charging", "supercharger", "充電")),
-        (
-            "車載ソフトウェア",
-            ("autopilot", "full self-driving", "vehicle software", "車載ソフトウェア"),
-        ),
-        ("部品", ("parts", "components", "部品")),
-        (
-            "保守・整備",
-            ("maintenance", "repair", "after-sales", "aftersales", "保守", "整備"),
-        ),
-        (
-            "建設機械",
-            (
-                "construction machinery",
-                "heavy construction machinery",
-                "construction equipment",
-                "建設機械",
-            ),
-        ),
-        (
-            "産業機械",
-            ("industrial machinery", "heavy machinery", "heavy equipment", "産業機械"),
-        ),
-        ("エンジン", ("engine", "engines", "turbine", "turbines", "エンジン")),
-        (
-            "鉄道サービス",
-            ("railroad", "railway", "rail transport", "passenger railway", "鉄道"),
-        ),
-        (
-            "交通インフラ",
-            (
-                "transportation infrastructure",
-                "rail station",
-                "station",
-                "交通インフラ",
-            ),
-        ),
-        (
-            "デジタルシステム",
-            (
-                "digital systems",
-                "it services",
-                "information technology",
-                "デジタルシステム",
-            ),
-        ),
-        (
-            "産業インフラ",
-            (
-                "industrial systems",
-                "power grids",
-                "connective industries",
-                "産業インフラ",
-            ),
-        ),
-        ("金融サービス", ("financial services", "金融")),
-        ("リース", ("lease", "leasing", "リース")),
-        (
-            "モビリティサービス",
-            ("mobility service", "mobility services", "モビリティサービス"),
-        ),
-        ("ソフトウェアサービス", ("software", "ソフトウェア")),
-        (
-            "クラウドサービス",
-            ("cloud service", "cloud services", "cloud computing", "aws", "azure"),
-        ),
-        (
-            "求人・採用サービス",
-            ("recruitment", "recruiting", "employment", "job matching", "求人", "採用"),
-        ),
-        (
-            "HRプラットフォーム",
-            ("human resources", "hr technology", "staffing", "HR", "人材"),
-        ),
-        ("衣料品", ("apparel", "fashion", "clothing", "garment", "衣料", "アパレル")),
-        ("店舗販売", ("store", "stores", "retail store", "店舗")),
-        ("オンライン販売", ("e-commerce", "online sales", "online store", "EC")),
-        ("ブランド運営", ("brand", "brands", "private label", "ブランド")),
-        ("マーケットプレイスサービス", ("marketplace", "マーケットプレイス")),
-        ("金融商品", ("financial products", "金融商品")),
-        ("決済", ("payment", "payments", "決済")),
-        ("カード決済", ("card payment", "card payments", "card network")),
-        ("デジタル決済", ("digital payment", "digital payments")),
-        ("決済ネットワーク", ("card network", "transaction", "merchant", "settlement")),
-        ("加盟店サービス", ("merchant services", "加盟店")),
-        ("不正検知", ("fraud", "fraud detection", "不正検知")),
-        (
-            "広告サービス",
-            ("advertising", "advertisement", "ads", "marketing services", "広告"),
-        ),
-        ("保険", ("insurance", "保険")),
-        ("資産運用", ("asset management", "資産運用")),
-        ("銀行サービス", ("banking", "commercial bank", "銀行")),
-        ("融資・クレジット", ("loan", "credit", "lending", "融資", "ローン")),
-        ("センサー", ("sensor", "sensors", "センサー")),
-        ("GPU", ("gpu", "graphics processing unit")),
-        (
-            "AIインフラ",
-            ("artificial intelligence", "ai infrastructure", "accelerated computing"),
-        ),
-        ("データセンター向け製品", ("data center", "datacenter")),
-        ("半導体", ("semiconductor", "semiconductors", "半導体")),
-        (
-            "医薬品",
-            ("pharmaceutical", "medicine", "drug", "therapy", "医薬品", "治療薬"),
-        ),
-        ("医療機器", ("medical device", "medical devices", "医療機器")),
-        ("診断・検査", ("diagnostics", "diagnostic", "診断", "検査")),
-        ("石油・ガス", ("oil & gas", "oil and gas", "natural gas", "石油", "ガス")),
-        (
-            "都市ガス",
-            ("city gas", "town gas", "都市ガス", "gas supply", "gas distribution"),
-        ),
-        (
-            "電力",
-            (
-                "electric power",
-                "electricity",
-                "power generation",
-                "power supply",
-                "電力",
-                "発電",
-            ),
-        ),
-        ("LNG", ("lng", "liquefied natural gas")),
-        ("LPG", ("lpg", "liquefied petroleum gas")),
-        (
-            "エネルギーサービス",
-            (
-                "energy services",
-                "energy service",
-                "energy solution",
-                "エネルギーサービス",
-            ),
-        ),
-        ("ガス機器", ("gas appliances", "gas equipment", "ガス機器")),
-        (
-            "エネルギーインフラ",
-            ("gas pipeline", "energy infrastructure", "パイプライン"),
-        ),
-        (
-            "生活関連サービス",
-            ("life services", "life & business solutions", "生活", "ライフサービス"),
-        ),
-        (
-            "情報ソリューション",
-            (
-                "information solutions",
-                "information service",
-                "it services",
-                "情報ソリューション",
-            ),
-        ),
-        ("不動産サービス", ("real estate", "property", "不動産")),
-        (
-            "材料・化学製品",
-            (
-                "fine materials",
-                "carbon material",
-                "chemical products",
-                "chemicals",
-                "materials segment",
-                "materials business",
-                "material products",
-                "材料事業",
-                "材料製品",
-                "化学",
-            ),
-        ),
-        ("精製・販売", ("refining", "refinery", "販売")),
-        ("エネルギー開発", ("exploration", "production", "renewable", "エネルギー")),
-        ("通信サービス", ("telecom", "telecommunications", "wireless", "通信")),
-        ("ブロードバンド", ("broadband", "fiber optic", "optical fiber", "光回線")),
-        ("測定器", ("measuring instruments", "measurement", "測定器", "計測器")),
-        ("制御機器", ("control equipment", "制御機器")),
-        ("検査装置", ("inspection equipment", "検査装置")),
-        ("ゲーム", ("game", "gaming", "ゲーム")),
-        ("音楽", ("music", "音楽")),
-        ("映画", ("movie", "film", "映画")),
-    )
-    products = [
-        label for label, keywords in specs if any(keyword in lowered for keyword in keywords)
-    ]
-    if _company_research_is_semiconductor_context(
-        lowered
-    ) and not _company_research_is_auto_manufacturer_context(lowered):
-        products = [
-            item for item in products if item not in {"電気自動車", "自動車", "商用車", "車両"}
-        ]
-    if _company_research_is_auto_manufacturer_context(lowered) and any(
-        keyword in lowered for keyword in ("electric vehicle", "electric vehicles", "evs")
-    ):
-        products = [
-            item
-            for item in products
-            if item not in {"金融サービス", "金融商品", "リース", "保険", "融資・クレジット"}
-        ]
-    if (
-        _company_research_is_retail_main_context(lowered)
-        and not _company_research_is_cloud_infrastructure_context(lowered)
-        and not _company_research_is_auto_manufacturer_context(lowered)
-    ):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "リース",
-                "保険",
-                "資産運用",
-                "通信サービス",
-                "ブロードバンド",
-            }
-        ]
-    if _company_research_is_payment_context(lowered) and not any(
-        keyword in lowered for keyword in ("bank", "banking", "banks -")
-    ):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "オンライン販売",
-                "融資・クレジット",
-                "資産運用",
-                "広告サービス",
-            }
-        ]
-    if _company_research_is_trading_company_context(lowered):
-        products = [item for item in products if item not in {"決済", "決済ネットワーク"}]
-    if (
-        not _company_research_is_auto_manufacturer_context(lowered)
-        and "sector: financial" not in lowered
-        and "banking" not in lowered
-    ):
-        products = [item for item in products if item != "リース"]
-    if any(
-        keyword in lowered
-        for keyword in (
-            "scientific & technical instruments",
-            "measurement",
-            "measuring",
-            "sensor",
-            "測定器",
-            "計測",
-        )
-    ) and not _company_research_is_telecom_context(lowered):
-        products = [item for item in products if item not in {"通信サービス", "ブロードバンド"}]
-    if _company_research_is_healthcare_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "決済",
-                "リース",
-                "保険",
-                "資産運用",
-                "石油・ガス",
-                "精製・販売",
-                "エネルギー開発",
-                "通信サービス",
-                "ブロードバンド",
-                "店舗販売",
-                "オンライン販売",
-                "ブランド運営",
-                "不動産サービス",
-            }
-        ]
-    if _company_research_is_industrial_conglomerate_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "自動車",
-                "商用車",
-                "車両",
-                "金融サービス",
-                "金融商品",
-                "決済",
-                "リース",
-                "保険",
-                "資産運用",
-                "医薬品",
-                "医療機器",
-                "診断・検査",
-                "広告サービス",
-                "ブランド運営",
-                "通信サービス",
-                "ブロードバンド",
-                "エンジン",
-            }
-        ]
-    if _company_research_is_railroad_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "自動車",
-                "商用車",
-                "車両",
-                "蓄電池",
-                "金融サービス",
-                "金融商品",
-                "決済",
-                "リース",
-                "保険",
-                "資産運用",
-                "医薬品",
-                "医療機器",
-                "診断・検査",
-                "広告サービス",
-                "通信サービス",
-                "ブロードバンド",
-                "材料・化学製品",
-                "電力",
-                "エンジン",
-            }
-        ]
-    if _company_research_is_heavy_machinery_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "ソフトウェアサービス",
-                "クラウドサービス",
-                "広告サービス",
-                "ブランド運営",
-                "医薬品",
-                "医療機器",
-                "診断・検査",
-                "通信サービス",
-                "ブロードバンド",
-            }
-        ]
-    if _company_research_is_consumer_electronics_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "リース",
-                "保険",
-                "資産運用",
-                "銀行サービス",
-                "融資・クレジット",
-            }
-        ]
-    if _company_research_is_software_cloud_context(lowered) and not (
-        _company_research_is_retail_main_context(lowered)
-        or _company_research_is_auto_manufacturer_context(lowered)
-    ):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "店舗販売",
-                "オンライン販売",
-                "ブランド運営",
-                "衣料品",
-                "エネルギーインフラ",
-                "不動産サービス",
-            }
-        ]
-    if _company_research_is_energy_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "決済",
-                "リース",
-                "保険",
-                "資産運用",
-                "AIインフラ",
-                "データセンター向け製品",
-            }
-        ]
-    if _company_research_is_trading_company_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "都市ガス",
-                "電力",
-                "LNG",
-                "LPG",
-                "エネルギーサービス",
-                "ガス機器",
-                "エネルギーインフラ",
-                "決済",
-                "決済ネットワーク",
-            }
-        ]
-    if _company_research_is_utility_energy_context(lowered):
-        products = [
-            item
-            for item in products
-            if item
-            not in {
-                "金融サービス",
-                "金融商品",
-                "決済",
-                "リース",
-                "保険",
-                "資産運用",
-                "保守・整備",
-                "ソフトウェアサービス",
-                "AIインフラ",
-                "データセンター向け製品",
-                "通信サービス",
-                "ブロードバンド",
-                "精製・販売",
-            }
-        ]
-    if _company_research_is_telecom_context(lowered):
-        products = [
-            item
-            for item in products
-            if item not in {"金融サービス", "金融商品", "決済", "保険", "資産運用"}
-        ]
-    if not (
-        _company_research_is_materials_chemical_context(lowered)
-        or _company_research_is_trading_company_context(lowered)
-        or _company_research_is_energy_context(lowered)
-        or _company_research_is_utility_energy_context(lowered)
-    ):
-        products = [item for item in products if item != "材料・化学製品"]
-    if _company_research_is_utility_energy_context(lowered):
-        priority = [
-            "都市ガス",
-            "電力",
-            "LNG",
-            "LPG",
-            "エネルギーサービス",
-            "ガス機器",
-            "エネルギーインフラ",
-            "生活関連サービス",
-            "情報ソリューション",
-            "不動産サービス",
-            "材料・化学製品",
-            "石油・ガス",
-            "エネルギー開発",
-        ]
-        products = [item for item in priority if item in products] + [
-            item for item in products if item not in priority
-        ]
-    return products
-
-
-def _company_research_inferred_products_services(
-    text: str,
-    *,
-    main_businesses: Sequence[str],
-    supporting_businesses: Sequence[str],
-) -> list[str]:
-    lowered = text.lower()
-    context = " ".join([lowered, *main_businesses, *supporting_businesses])
-    inference_specs = (
-        (
-            (
-                "railroad",
-                "railway",
-                "rail transport",
-                "鉄道・交通インフラ",
-            ),
-            ("鉄道サービス", "交通インフラ", "不動産サービス"),
-        ),
-        (
-            (
-                "construction machinery",
-                "heavy machinery",
-                "heavy equipment",
-                "産業機械・建設機械",
-            ),
-            ("建設機械", "産業機械", "エンジン", "部品", "保守・整備"),
-        ),
-        (
-            (
-                "digital systems and services",
-                "green energy and mobility",
-                "connective industries",
-                "産業インフラ・デジタル",
-            ),
-            ("デジタルシステム", "産業インフラ", "エネルギー開発"),
-        ),
-        (
-            (
-                "自動車",
-                "automotive",
-                "vehicle",
-                "mobility",
-                "自動車事業",
-                "モビリティ事業",
-            ),
-            ("自動車", "商用車", "部品", "金融サービス", "モビリティ関連サービス"),
-        ),
-        (
-            ("electric vehicle", "energy storage", "charging", "auto manufacturers"),
-            ("電気自動車", "蓄電池", "充電サービス", "車載ソフトウェア"),
-        ),
-        (
-            (
-                "healthcare",
-                "pharmaceutical",
-                "drug",
-                "medicine",
-                "medical device",
-                "医薬品・ヘルスケア",
-            ),
-            ("医薬品", "医療機器", "診断・検査"),
-        ),
-        (
-            (
-                "energy",
-                "oil & gas",
-                "oil and gas",
-                "refining",
-                "exploration",
-                "エネルギー",
-            ),
-            ("石油・ガス", "エネルギー開発", "精製・販売"),
-        ),
-        (
-            (
-                "utilities",
-                "regulated gas",
-                "city gas",
-                "town gas",
-                "natural gas distribution",
-                "domestic energy",
-                "international energy",
-                "gas supply",
-                "gas distribution",
-                "ガス・エネルギーインフラ",
-                "電力・エネルギー供給",
-            ),
-            ("都市ガス", "電力", "LNG", "エネルギーサービス", "ガス機器"),
-        ),
-        (
-            ("telecom", "telecommunications", "wireless", "broadband", "通信サービス"),
-            ("通信サービス", "ブロードバンド"),
-        ),
-        (
-            (
-                "payment",
-                "payments",
-                "card network",
-                "transaction",
-                "merchant",
-                "決済ネットワーク",
-            ),
-            (
-                "カード決済",
-                "デジタル決済",
-                "決済ネットワーク",
-                "加盟店サービス",
-                "不正検知",
-            ),
-        ),
-        (
-            (
-                "human resources",
-                "staffing",
-                "recruitment",
-                "employment",
-                "人材・HRサービス",
-            ),
-            ("求人・採用サービス", "人材紹介", "HRプラットフォーム"),
-        ),
-        (
-            ("apparel", "fashion", "clothing", "retail", "アパレル小売", "小売・EC"),
-            ("衣料品", "店舗販売", "オンライン販売", "ブランド運営"),
-        ),
-        (
-            ("trading company", "general trading", "sogo shosha", "総合商社・事業投資"),
-            ("資源・エネルギー", "金属", "食品", "物流", "インフラ事業"),
-        ),
-        (
-            ("software", "cloud", "saas", "platform", "ソフトウェア・クラウド"),
-            ("ソフトウェアサービス", "クラウドサービス", "法人向けサービス"),
-        ),
-        (
-            (
-                "金融",
-                "financial",
-                "banking",
-                "insurance",
-                "asset management",
-                "金融サービス",
-            ),
-            (
-                "銀行サービス",
-                "金融商品",
-                "決済",
-                "融資・クレジット",
-                "保険",
-                "資産運用",
-            ),
-        ),
-        (
-            (
-                "electronics",
-                "consumer electronics",
-                "エレクトロニクス",
-                "game",
-                "entertainment",
-            ),
-            ("家電", "映像機器", "音響機器", "ゲーム", "エンタメ関連サービス"),
-        ),
-        (
-            (
-                "scientific",
-                "measurement",
-                "sensor",
-                "control equipment",
-                "科学・計測機器",
-                "FAセンサー",
-            ),
-            ("センサー", "測定器", "制御機器", "検査装置"),
-        ),
-        (
-            (
-                "semiconductor",
-                "gpu",
-                "ai infrastructure",
-                "accelerated computing",
-                "data center",
-                "半導体・GPU",
-                "AI・データセンター",
-            ),
-            ("GPU", "AIインフラ", "データセンター向け製品", "半導体"),
-        ),
-    )
-    for keywords, candidates in inference_specs:
-        if any(keyword.lower() in context for keyword in keywords):
-            return [f"{candidate}（補完候補）" for candidate in candidates]
-    return []
-
-
-def _company_research_regions_from_text(text: str) -> list[str]:
-    lowered = text.lower()
-    specs = (
-        ("日本", ("日本", "japan")),
-        ("北米", ("北米", "north america", "u.s.", "united states")),
-        ("欧州", ("欧州", "europe")),
-        ("アジア", ("アジア", "asia")),
-        ("グローバル", ("global", "worldwide", "世界")),
-    )
-    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
-
-
-def _company_research_customer_segments(text: str) -> list[str]:
-    lowered = text.lower()
-    specs = (
-        ("個人顧客", ("consumer", "retail", "個人")),
-        ("法人顧客", ("corporate", "enterprise", "business customers", "法人")),
-        (
-            "製造業",
-            ("manufacturing", "manufacturers", "factory", "industrial", "製造業"),
-        ),
-        ("販売店・ディーラー", ("dealer", "dealership", "販売店", "ディーラー")),
-        ("フリート顧客", ("fleet", "フリート")),
-        ("金融サービス利用者", ("financial services customers", "金融サービス利用者")),
-    )
-    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
-
-
 def _company_research_metric_from_evidence(
     evidence: Sequence[CompanyResearchEvidence],
     patterns: Sequence[str],
@@ -7156,45 +4242,16 @@ def _company_research_ir_item_for_rule(
     match: IRCategoryMatch | None,
     brief: ResearchBrief,
 ) -> IRSummaryItem:
-    ir_document_type = cast(IRDocumentType, rule.ir_document_type)
-    if match is None:
-        return IRSummaryItem(
-            document_type=rule.document_type,
-            ir_document_type=ir_document_type,
-            title="未取得",
-            availability="missing",
-            information_status="missing",
-            summary=f"{rule.document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
-            key_points=[],
-            evidence_level="missing",
-            classification_confidence=0.0,
-        )
-    candidate = match.candidate
-    key_points = _company_research_ir_key_points(rule.document_type, brief)
-    if not key_points and candidate.body and candidate.source_type != "tdnet":
-        key_points = [_clip_text(candidate.body, max_chars=120)]
-    information_status: InformationStatus = "found"
-    return IRSummaryItem(
-        document_type=rule.document_type,
-        ir_document_type=ir_document_type,
-        title=candidate.title,
-        availability="found",
-        information_status=information_status,
-        summary=_company_research_ir_summary(
-            rule.document_type,
-            key_points,
-            information_status,
+    return build_ir_summary_item(
+        rule=rule,
+        match=match,
+        key_points=_company_research_ir_key_points(rule.document_type, brief),
+        clip_text=lambda value: _clip_text(value, max_chars=120),
+        evidence_level_from_source_type=lambda source_type: (
+            _company_research_evidence_level_from_source_types(
+                [cast(ResearchSourceType, source_type)]
+            )
         ),
-        key_points=key_points,
-        source_title=candidate.source_title or candidate.title,
-        source_url=candidate.source_url,
-        evidence_level=_company_research_evidence_level_from_source_types(
-            [cast(ResearchSourceType, candidate.source_type)]
-        ),
-        classification_reason=match.classification_reason,
-        matched_keywords=list(match.matched_keywords),
-        classification_confidence=match.classification_confidence,
-        source_category=candidate.source_type,
     )
 
 
@@ -7223,22 +4280,6 @@ def _company_research_ir_key_points(
             )
         ][:3]
     return []
-
-
-def _company_research_ir_summary(
-    document_type: str,
-    key_points: Sequence[str],
-    information_status: InformationStatus,
-) -> str:
-    if key_points:
-        return (
-            f"{document_type}に関連しそうな資料候補があります。内容はリンク先で確認してください。"
-        )
-    if information_status == "found":
-        return "関連しそうな資料候補があります。内容はリンク先で確認してください。"
-    if information_status == "unparsed":
-        return "資料タイトルは取得済みですが、本文は未解析です。詳細はリンク先で確認してください。"
-    return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"
 
 
 def _company_research_latest_topic_type(

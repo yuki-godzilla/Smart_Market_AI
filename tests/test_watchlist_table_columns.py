@@ -24,6 +24,7 @@ def test_favorite_table_rows_keep_daily_columns_and_hide_internal_fields():
                 "price_change_1m": "-3.48",
                 "ai_score": "68.63",
                 "upside": "44.36",
+                "reversal": "63.20",
                 "downside": "57.39",
                 "status_label": "横ばい",
                 "refresh_label": "要確認",
@@ -46,6 +47,7 @@ def test_favorite_table_rows_keep_daily_columns_and_hide_internal_fields():
         "1か月",
         "AI総合",
         "上昇気配",
+        "上向き兆候",
         "下振れ警戒",
         "状態",
         "更新",
@@ -53,6 +55,7 @@ def test_favorite_table_rows_keep_daily_columns_and_hide_internal_fields():
         "確認ポイント",
     ]
     assert table_rows[0]["1日"] == "+0.35%"
+    assert table_rows[0]["上向き兆候"] == "63.20"
     assert "snapshot状態" not in table_rows[0]
     assert "Radar優先度" not in table_rows[0]
     assert "前回エラー" not in table_rows[0]

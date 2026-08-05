@@ -4,9 +4,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$python = Join-Path $projectRoot "venv_SMAI\Scripts\python.exe"
 $stopScript = Join-Path $projectRoot "scripts\stop_smai_server.bat"
 $startScript = Join-Path $projectRoot "scripts\start_smai_server.bat"
-$healthUrl = "http://127.0.0.1:8501/_stcore/health"
+if ([string]::IsNullOrWhiteSpace($env:SMAI_CONFIG_FILE)) {
+    $env:SMAI_CONFIG_FILE = Join-Path $projectRoot "config\server.yaml"
+}
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    Write-Error "SMAI Python environment was not found: $python"
+    exit 1
+}
+$network = & $python -m backend.server_ops.network --emit-json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $null -eq $network) {
+    Write-Error "SMAI network settings could not be resolved. Restart was cancelled."
+    exit 1
+}
+$healthUrl = ([string]$network.local_access_url) + "/_stcore/health"
+$localAccessUrl = [string]$network.local_access_url
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -44,18 +58,18 @@ if ($stopProcess.ExitCode -ne 0) {
     exit 2
 }
 
+Write-Host "[SMAI] Opening the SMAI server console..."
 Start-Process `
     -FilePath $env:ComSpec `
-    -ArgumentList @("/d", "/c", ('"{0}"' -f $startScript)) `
-    -WorkingDirectory $projectRoot `
-    -WindowStyle Hidden
+    -ArgumentList @("/d", "/k", ('call "{0}" /console' -f $startScript)) `
+    -WorkingDirectory $projectRoot
 
 $deadline = (Get-Date).AddSeconds(45)
 do {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $healthUrl -TimeoutSec 2
         if ($response.StatusCode -eq 200) {
-            Write-Host "[OK] SMAI restarted successfully: http://localhost:8501"
+            Write-Host "[OK] SMAI restarted successfully: $localAccessUrl"
             exit 0
         }
     }

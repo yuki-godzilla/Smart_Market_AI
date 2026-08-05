@@ -18,7 +18,11 @@ from backend.assistant import (
     execute_assistant_tool_plan,
 )
 from backend.core.config import Settings
+from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
+from ui.copilot_conversation_content import copilot_conversation_presets as content_presets
+from ui.copilot_model_policy import model_option_for_profile_model
+from ui.style_assets import SMAI_BASE_TOKEN_CSS
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     COPILOT_LLM_MODEL_OPTIONS,
@@ -33,6 +37,7 @@ from ui.views.copilot import (
     _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
+    _conversation_answer,
     _fallback_free_chat_answer,
     _gateway_question,
     _intent_from_message,
@@ -153,11 +158,12 @@ def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready(
     assert 'data-testid="assistant-loading-radar-icon"' in markup
     assert 'data-testid="assistant-loading-modal"' in markup
     assert 'data-testid="assistant-loading-animation"' in markup
-    assert 'section[data-testid="stSidebar"]' in markup
+    assert 'section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]' in markup
     assert (
         ".smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;"
         in markup
     )
+    assert "z-index:2001!important" in markup
     assert "max-height:calc(100dvh - 48px)" in markup
     assert 'alt="投資レーダー"' in markup
     assert "SMAIナビが市場の気配を確認中です" in markup
@@ -268,8 +274,8 @@ def test_copilot_layout_uses_shared_wide_lane():
     lane_gutter = "calc(100% - var(--smai-content-gutter))"
     shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
     chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
-    assert "--smai-content-max-width: 1320px;" in css
-    assert "--smai-chat-main-width: 1180px;" in css
+    assert "--smai-content-max-width: 1320px;" in SMAI_BASE_TOKEN_CSS
+    assert "--smai-chat-main-width: 1180px;" in SMAI_BASE_TOKEN_CSS
     assert css.count(shared_lane) >= 5
     assert chat_lane in css
     assert ".smai-copilot-chat-topbar" in css
@@ -385,6 +391,8 @@ def test_copilot_routes_concept_and_broad_discovery_without_forcing_stock_analys
 def test_copilot_conversation_presets_define_six_entry_intents():
     presets = copilot_conversation_presets()
 
+    assert presets == content_presets()
+
     assert [preset.intent for preset in presets] == [
         "app_help",
         "stock_summary",
@@ -424,6 +432,16 @@ def test_copilot_llm_model_option_normalizes_mismatched_profile_and_model():
     assert profile == "desktop_analysis"
     assert model == "qwen3:14b"
     assert purpose == "高精度 / 銘柄分析・RAG向け / 高負荷"
+
+
+def test_copilot_model_policy_has_no_gateway_or_streamlit_dependency():
+    profile, model, purpose = model_option_for_profile_model("unknown", "qwen3:30b")
+
+    assert (profile, model, purpose) == (
+        "desktop_heavy",
+        "qwen3:30b",
+        "最高精度 / 詳細分析・レポート向け / 高負荷",
+    )
 
 
 def test_copilot_llm_model_option_label_round_trips():
@@ -634,6 +652,44 @@ def test_fallback_free_chat_answer_handles_wellbeing_greeting():
     assert "fallback" not in answer.lower()
 
 
+def test_app_help_uses_known_screen_names_when_live_answer_hallucinates_navigation():
+    response = AssistantResponse(
+        intent="unknown",
+        answer=("まず市場概要を見て、次に個別銘柄と投資分析の画面で詳細を確認してください。"),
+        response_source="llm",
+    )
+
+    answer = _conversation_answer(
+        intent="app_help",
+        question="ランキングで候補を見つけた後、どの画面を使えばよいですか？",
+        response=response,
+    )
+
+    assert "銘柄コックピット" in answer
+    assert "銘柄ランキング" in answer
+    assert "投資レーダー" in answer
+    assert "市場概要" not in answer
+
+
+def test_app_help_keeps_grounded_live_answer_with_all_known_screen_names():
+    response = AssistantResponse(
+        intent="unknown",
+        answer=(
+            "銘柄ランキングで候補を探し、銘柄コックピットで価格・予測を確認します。"
+            "市場全体の材料は投資レーダーで確認してください。"
+        ),
+        response_source="llm",
+    )
+
+    answer = _conversation_answer(
+        intent="app_help",
+        question="SMAIの使い方を教えてください。",
+        response=response,
+    )
+
+    assert answer == response.answer
+
+
 def test_copilot_turn_html_separates_user_and_smai_messages():
     markup = copilot_turn_html(
         {
@@ -839,7 +895,10 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
         executed_checks=["現在文脈を確認"],
     )
 
-    assert turn["answer"].startswith("はい。SMAIは目的別に画面を使い分ける")
+    assert turn["answer"].startswith("SMAIは、目的別に画面を使い分ける")
+    assert "銘柄コックピット" in turn["answer"]
+    assert "銘柄ランキング" in turn["answer"]
+    assert "投資レーダー" in turn["answer"]
     assert turn["response_meta"] == "qwen3:8b / live / assistant_fast / ollama / app_help / 4230ms"
     assert turn["latency_ms"] == "4230"
     assert turn["gateway_status"] == "ok"
@@ -1463,6 +1522,11 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch, tm
         "ui.views.copilot._assistant_decision_report_archive_dir",
         lambda: tmp_path,
     )
+    published_archives: list[object] = []
+    monkeypatch.setattr(
+        "ui.views.copilot.publish_assistant_report_artifact_completion",
+        lambda _state, _context, archive: published_archives.append(archive),
+    )
     fetch_calls: list[dict[str, object]] = []
 
     def fake_fetch(symbol: str, **kwargs: object) -> ExternalResearchFetchResult:
@@ -1547,6 +1611,7 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch, tm
     assert manifest["reports"][0]["tool_status"]["news_fetch"] == "success"
     updated_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert updated_history[-1]["report_draft_status"] == "archived"
+    assert len(published_archives) == 1
 
 
 def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch, tmp_path):
@@ -1554,6 +1619,10 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     monkeypatch.setattr(
         "ui.views.copilot._assistant_decision_report_archive_dir",
         lambda: tmp_path,
+    )
+    monkeypatch.setattr(
+        "ui.views.copilot.publish_assistant_report_artifact_completion",
+        lambda *_args: None,
     )
 
     def fail_if_called(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
@@ -1597,6 +1666,38 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert manifest["reports"][0]["cached_only"] is True
     assert manifest["reports"][0]["tool_status"]["news_fetch"] == "skipped"
     assert manifest["reports"][0]["tool_status"]["research_fetch"] == "skipped"
+
+
+def test_copilot_default_user_disables_persistent_report_save(monkeypatch, tmp_path):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    context = build_decision_report_context(
+        title="Decision Report: NVDA",
+        sections=[
+            build_report_section(
+                title="確認材料",
+                source_kind="research",
+                symbol="NVDA",
+                summary={"summary": "確認済み資料を整理しました。"},
+            )
+        ],
+        created_at=datetime(2026, 8, 3, 10, 0, tzinfo=UTC),
+    )
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    app.session_state["smai_current_user_id"] = "default"
+    app.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = {
+        "turn_id": "turn-default",
+        "markdown": "# NVDA\n\n確認材料を整理しました。\n",
+        "context": context.model_dump_json(),
+        "status": "draft_ready",
+    }
+
+    app.run()
+
+    save_buttons = [button for button in app.button if button.label == "下書きを保存"]
+    assert len(save_buttons) == 1
+    assert save_buttons[0].disabled is True
+    assert not (tmp_path / "decision_reports").exists()
 
 
 def test_approved_external_fetch_failure_becomes_failed_tool_results(monkeypatch):

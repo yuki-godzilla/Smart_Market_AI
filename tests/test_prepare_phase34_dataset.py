@@ -36,7 +36,7 @@ def test_prepare_phase34_splits_writes_each_symbol_to_one_split(tmp_path: Path):
         rows = list(csv.DictReader(handle))
     assert len(rows) == 3
     assert {row["split"] for row in rows} == {"tuning", "validation", "audit"}
-    split_symbols = []
+    split_symbols: list[str] = []
     for split in ("tuning", "validation", "audit"):
         with paths[f"{split}_metadata"].open(encoding="utf-8", newline="") as handle:
             split_symbols.extend(row["symbol"] for row in csv.DictReader(handle))

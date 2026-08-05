@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,7 +13,11 @@ from backend.server_ops.launcher import (
     ServerLockUnavailable,
     consume_supervisor_stop_request,
     is_smai_healthy,
+    optimized_child_environment,
+    resilient_restart_delay,
+    run_server,
     server_lock,
+    should_leave_resilient_launcher,
     streamlit_command,
     streamlit_creation_flags,
     supervise_streamlit,
@@ -19,8 +25,35 @@ from backend.server_ops.launcher import (
 )
 
 
+def test_optimized_child_environment_bounds_nested_numerical_threads() -> None:
+    environment = optimized_child_environment({"PATH": "test"})
+
+    assert environment["OPENBLAS_NUM_THREADS"] == "1"
+    assert environment["OMP_NUM_THREADS"] == "1"
+    assert environment["MKL_NUM_THREADS"] == "1"
+    assert environment["NUMEXPR_MAX_THREADS"] == "4"
+
+
+def test_optimized_child_environment_preserves_operator_override() -> None:
+    environment = optimized_child_environment({"OPENBLAS_NUM_THREADS": "2"})
+
+    assert environment["OPENBLAS_NUM_THREADS"] == "2"
+
+
+def test_resilient_restart_delay_uses_bounded_exponential_backoff() -> None:
+    assert [resilient_restart_delay(index) for index in range(7)] == [
+        2.0,
+        4.0,
+        8.0,
+        16.0,
+        32.0,
+        60.0,
+        60.0,
+    ]
+
+
 def test_streamlit_command_uses_expected_lan_settings() -> None:
-    command = streamlit_command("192.168.1.20")
+    command = streamlit_command("localhost")
 
     assert command[:4] == [sys.executable, "-m", "streamlit", "run"]
     assert "ui/app.py" in command
@@ -28,7 +61,7 @@ def test_streamlit_command_uses_expected_lan_settings() -> None:
     assert command[command.index("--server.port") + 1] == "8501"
     assert command[command.index("--server.headless") + 1] == "true"
     assert command[command.index("--server.runOnSave") + 1] == "false"
-    assert command[command.index("--browser.serverAddress") + 1] == "192.168.1.20"
+    assert command[command.index("--browser.serverAddress") + 1] == "localhost"
 
 
 def test_server_lock_allows_only_one_launcher_and_is_reusable() -> None:
@@ -92,6 +125,15 @@ def test_resilient_creation_flags_are_windows_only(monkeypatch) -> None:
     assert streamlit_creation_flags(resilient=True) == 0
 
 
+def test_visible_console_keeps_the_resilient_child_window_available(monkeypatch) -> None:
+    monkeypatch.setattr("backend.server_ops.launcher.sys.platform", "win32")
+
+    assert streamlit_creation_flags(
+        resilient=True,
+        visible_console=True,
+    ) == getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+
 def test_resilient_wait_returns_when_child_already_stopped() -> None:
     class Process:
         def wait(self, timeout=None) -> int:
@@ -143,7 +185,7 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
     )
     monkeypatch.setattr(
         "backend.server_ops.launcher.consume_supervisor_stop_request",
-        lambda: consume_supervisor_stop_request(request_path),
+        lambda *_args, **_kwargs: consume_supervisor_stop_request(request_path),
     )
 
     assert supervise_streamlit("localhost", resilient=True) == 0
@@ -152,6 +194,54 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
 
 def test_missing_supervisor_stop_request_is_not_consumed(tmp_path: Path) -> None:
     assert consume_supervisor_stop_request(tmp_path / "missing.stop") is False
+
+
+def test_manual_stop_intent_suppresses_resilient_restart(tmp_path: Path) -> None:
+    request_path = tmp_path / "streamlit.stop"
+    intent_path = tmp_path / "service_intent.json"
+    request_path.write_text("manual_stop", encoding="ascii")
+    intent_path.write_text(
+        '{"schema_version": 1, "mode": "manual_stop", "status": "requested"}',
+        encoding="utf-8",
+    )
+
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=request_path,
+            intent_path=intent_path,
+        )
+        is True
+    )
+    assert not request_path.exists()
+
+
+def test_unexpected_exit_intent_allows_resilient_restart(tmp_path: Path) -> None:
+    intent_path = tmp_path / "service_intent.json"
+    intent_path.write_text(
+        '{"schema_version": 1, "mode": "unexpected_exit", "status": "requested"}',
+        encoding="utf-8",
+    )
+
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=tmp_path / "missing.stop",
+            intent_path=intent_path,
+        )
+        is False
+    )
+
+
+def test_unknown_intent_is_fail_closed_for_resilient_restart(tmp_path: Path) -> None:
+    intent_path = tmp_path / "service_intent.json"
+    intent_path.write_text("{broken", encoding="utf-8")
+
+    assert (
+        should_leave_resilient_launcher(
+            stop_path=tmp_path / "missing.stop",
+            intent_path=intent_path,
+        )
+        is True
+    )
 
 
 def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:
@@ -185,3 +275,34 @@ def test_smai_health_accepts_streamlit_ok_response(monkeypatch) -> None:
     )
 
     assert is_smai_healthy() is True
+
+
+def test_launcher_requests_local_llm_startup_without_delaying_streamlit(monkeypatch) -> None:
+    started: list[bool] = []
+    news_refresh_started: list[bool] = []
+
+    def start_local_llm_startup() -> bool:
+        started.append(True)
+        return True
+
+    @contextmanager
+    def no_lock(*_args, **_kwargs):
+        yield
+
+    monkeypatch.setattr("backend.server_ops.launcher.server_lock", no_lock)
+    monkeypatch.setattr("backend.server_ops.launcher.is_port_listening", lambda **_kwargs: False)
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.start_local_llm_startup_in_background",
+        start_local_llm_startup,
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.start_news_background_refresh_scheduler",
+        lambda: news_refresh_started.append(True),
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.supervise_streamlit", lambda *_args, **_kwargs: 0
+    )
+
+    assert run_server("localhost", port=8501) == 0
+    assert started == [True]
+    assert news_refresh_started == [True]

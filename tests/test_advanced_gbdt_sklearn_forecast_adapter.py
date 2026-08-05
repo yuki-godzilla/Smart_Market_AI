@@ -21,7 +21,7 @@ def test_advanced_gbdt_sklearn_adapter_predicts_forward_return():
     assert result.symbol == "AAPL"
     assert result.horizon_days == 5
     assert SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS[0] == 1
-    assert SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS[-1] == 60
+    assert 61 in SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS
     assert result.validation_metrics.sample_count == 67
     assert result.validation_metrics.fold_count >= 3
     assert result.validation_metrics.mae >= Decimal("0")
@@ -53,9 +53,15 @@ def test_advanced_gbdt_sklearn_adapter_accepts_smaller_iteration_count():
     assert result.feature_contribution_summary
 
 
-def test_advanced_gbdt_sklearn_adapter_rejects_out_of_range_horizon():
+def test_advanced_gbdt_sklearn_adapter_supports_horizon_above_former_limit():
+    result = AdvancedGbdtSklearnForecastAdapter().forecast(_bars(180), horizon_days=75)
+
+    assert result.horizon_days == 75
+
+
+def test_advanced_gbdt_sklearn_adapter_rejects_non_positive_horizon():
     with pytest.raises(ValueError, match="horizon_days"):
-        AdvancedGbdtSklearnForecastAdapter().forecast(_bars(80), horizon_days=61)
+        AdvancedGbdtSklearnForecastAdapter().forecast(_bars(80), horizon_days=0)
 
 
 def test_advanced_gbdt_sklearn_adapter_returns_graceful_data_shortage_error():
@@ -70,7 +76,7 @@ def test_advanced_forecast_registry_lists_gbdt_sklearn_adapter():
     assert spec is not None
     assert spec.display_name == "高度予測: ブースティングモデル"
     assert spec.supported_horizons[0] == 1
-    assert spec.supported_horizons[-1] == 60
+    assert 120 in spec.supported_horizons
 
 
 def _bars(count: int) -> list[Bar]:

@@ -9,6 +9,11 @@ from pydantic import ConfigDict, Field
 from backend.core.data_contracts import Bar, StrictBaseModel
 from backend.forecast.adapters import AdvancedForecastValidationMetrics, FeatureContribution
 from backend.forecast.advanced_registry import advanced_forecast_adapter_spec
+from backend.forecast.model_policy import (
+    AdvancedForecastModelCandidate,
+    AdvancedForecastModelSelection,
+    select_advanced_forecast_models,
+)
 
 DirectionSignalLabel = Literal[
     "STRONG_UPSIDE",
@@ -18,6 +23,9 @@ DirectionSignalLabel = Literal[
     "STRONG_DOWNSIDE",
     "UNKNOWN",
 ]
+
+FORECAST_ROLE_CONFIDENCE_POLICY_VERSION = "role_separated_confidence_v1"
+HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS = 120
 
 VOLATILITY_FLOOR = Decimal("0.02")
 DIRECTION_EDGE_SCALE = Decimal("1.25")
@@ -102,18 +110,26 @@ class AdvancedForecastConsensus(StrictBaseModel):
     symbol: str = Field(min_length=1)
     horizon_days: int = Field(ge=1)
     model_count: int = Field(ge=0)
+    available_model_count: int = Field(default=0, ge=0)
+    center_model_count: int = Field(default=0, ge=0)
     consensus_predicted_return: Decimal
+    direction_predicted_return: Decimal = Decimal("0")
     consensus_forecast_close: Decimal = Field(ge=0)
     median_predicted_return: Decimal
     min_predicted_return: Decimal
     max_predicted_return: Decimal
     predicted_return_range: Decimal = Field(ge=0)
+    center_predicted_return_range: Decimal = Field(default=Decimal("0"), ge=0)
+    direction_predicted_return_range: Decimal = Field(default=Decimal("0"), ge=0)
     predicted_return_lower: Decimal | None = None
     predicted_return_upper: Decimal | None = None
     forecast_close_lower: Decimal | None = Field(default=None, ge=0)
     forecast_close_upper: Decimal | None = Field(default=None, ge=0)
     agreement: str = Field(min_length=1)
     confidence: str = Field(min_length=1)
+    center_confidence: str = Field(default="low", min_length=1)
+    direction_confidence: str = Field(default="low", min_length=1)
+    confidence_policy_version: str = ""
     direction_agreement_score: Decimal = Field(ge=0, le=100)
     weighted_direction_score: Decimal = Field(ge=0, le=1)
     mean_direction_accuracy: Decimal = Field(ge=0, le=1)
@@ -121,6 +137,16 @@ class AdvancedForecastConsensus(StrictBaseModel):
     mean_rmse_improvement: Decimal | None = None
     best_adapter_name: str = ""
     best_model_name: str = ""
+    selection_policy_version: str = ""
+    horizon_band: str = ""
+    audit_status: str = ""
+    selection_mode: str = ""
+    center_adapter_names: list[str] = Field(default_factory=list)
+    direction_adapter_names: list[str] = Field(default_factory=list)
+    selected_adapter_names: list[str] = Field(default_factory=list)
+    center_excluded_adapter_names: list[str] = Field(default_factory=list)
+    model_weights: dict[str, Decimal] = Field(default_factory=dict)
+    selection_reason: str = ""
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -296,6 +322,12 @@ def evaluate_advanced_forecast(
     forecast_close = latest_close * (Decimal("1") + result.predicted_return)
     predicted_return_lower = getattr(result, "predicted_return_lower", None)
     predicted_return_upper = getattr(result, "predicted_return_upper", None)
+    warnings = list(result.warnings)
+    if horizon_days > 60:
+        warnings.append(
+            "This horizon exceeds the former 60-day audit range; rely on uncertainty ranges "
+            "and horizon-specific validation rather than treating the center price as precise."
+        )
     return AdvancedForecastEvaluation(
         adapter_name=result.adapter_name,
         model_name=result.model_name,
@@ -320,14 +352,14 @@ def evaluate_advanced_forecast(
         confidence=result.confidence,
         validation_metrics=result.validation_metrics,
         feature_contribution_summary=result.feature_contribution_summary,
-        warnings=result.warnings,
+        warnings=warnings,
     )
 
 
 def summarize_advanced_forecast_evaluations(
     evaluations: list[AdvancedForecastEvaluation],
 ) -> AdvancedForecastConsensus | None:
-    """Summarize registered advanced forecasts with conservative validation weights."""
+    """Route horizon-specific models and summarize only validation-eligible roles."""
 
     if not evaluations:
         return None
@@ -336,23 +368,43 @@ def summarize_advanced_forecast_evaluations(
     if len(same_horizon) != 1:
         raise ValueError("advanced forecast consensus requires one common horizon")
 
-    weights = [_advanced_forecast_weight(evaluation) for evaluation in evaluations]
-    predicted_returns = [evaluation.predicted_return for evaluation in evaluations]
-    consensus_return = _weighted_mean_metric(predicted_returns, weights)
+    selection = _advanced_forecast_model_selection(evaluations)
+    evaluations_by_adapter = {evaluation.adapter_name: evaluation for evaluation in evaluations}
+    center_evaluations = [
+        evaluations_by_adapter[name]
+        for name in selection.center_adapter_names
+        if name in evaluations_by_adapter
+    ]
+    if not center_evaluations:
+        return None
+    direction_evaluations = [
+        evaluations_by_adapter[name]
+        for name in selection.direction_adapter_names
+        if name in evaluations_by_adapter
+    ] or center_evaluations
+
+    center_weights = _horizon_center_weights(center_evaluations)
+    direction_weights = [
+        _advanced_forecast_weight(evaluation) for evaluation in direction_evaluations
+    ]
+    center_returns = [evaluation.predicted_return for evaluation in center_evaluations]
+    direction_returns = [evaluation.predicted_return for evaluation in direction_evaluations]
+    consensus_return = _weighted_mean_metric(center_returns, center_weights)
+    direction_return = _weighted_mean_metric(direction_returns, direction_weights)
     latest_close = evaluations[0].latest_close
     consensus_close = latest_close * (Decimal("1") + consensus_return)
 
-    sorted_returns = sorted(predicted_returns)
+    sorted_returns = sorted(center_returns)
     min_return = sorted_returns[0]
     max_return = sorted_returns[-1]
-    return_range = max_return - min_return
+    center_return_range = max_return - min_return
     lower_candidates = [
         (
             evaluation.predicted_return_lower
             if evaluation.predicted_return_lower is not None
             else evaluation.predicted_return
         )
-        for evaluation in evaluations
+        for evaluation in center_evaluations
     ]
     upper_candidates = [
         (
@@ -360,26 +412,26 @@ def summarize_advanced_forecast_evaluations(
             if evaluation.predicted_return_upper is not None
             else evaluation.predicted_return
         )
-        for evaluation in evaluations
+        for evaluation in center_evaluations
     ]
     predicted_return_lower = min([min_return, *lower_candidates])
     predicted_return_upper = max([max_return, *upper_candidates])
-    direction_agreement_score = _advanced_direction_agreement_score(predicted_returns)
+    direction_agreement_score = _advanced_direction_agreement_score(direction_returns)
     weighted_direction_score = _weighted_mean_metric(
-        [evaluation.direction_score for evaluation in evaluations],
-        weights,
+        [evaluation.direction_score for evaluation in direction_evaluations],
+        direction_weights,
     )
     mean_direction_accuracy = _weighted_mean_metric(
-        [evaluation.validation_metrics.direction_accuracy for evaluation in evaluations],
-        weights,
+        [evaluation.validation_metrics.direction_accuracy for evaluation in direction_evaluations],
+        direction_weights,
     )
     mean_rmse = _weighted_mean_metric(
-        [evaluation.validation_metrics.rmse for evaluation in evaluations],
-        weights,
+        [evaluation.validation_metrics.rmse for evaluation in center_evaluations],
+        center_weights,
     )
     rmse_improvement_pairs = [
         (evaluation.validation_metrics.rmse_improvement, weight)
-        for evaluation, weight in zip(evaluations, weights)
+        for evaluation, weight in zip(center_evaluations, center_weights)
         if evaluation.validation_metrics.rmse_improvement is not None
     ]
     mean_rmse_improvement = (
@@ -390,31 +442,51 @@ def summarize_advanced_forecast_evaluations(
         if rmse_improvement_pairs
         else None
     )
-    best = _best_advanced_forecast_evaluation(evaluations)
-    agreement = _advanced_agreement_label(return_range, len(evaluations))
-    confidence = _advanced_consensus_confidence(
-        evaluations,
+    best = _best_advanced_forecast_evaluation(center_evaluations)
+    direction_range = max(direction_returns) - min(direction_returns)
+    agreement = _advanced_agreement_label(direction_range, len(direction_evaluations))
+    raw_confidence = _advanced_consensus_confidence(
+        direction_evaluations,
         agreement=agreement,
         direction_agreement_score=direction_agreement_score,
         mean_direction_accuracy=mean_direction_accuracy,
     )
+    center_confidence = _horizon_selection_confidence(
+        raw_confidence,
+        selection=selection,
+        center_model_count=len(center_evaluations),
+    )
+    direction_confidence = _horizon_direction_confidence(
+        raw_confidence,
+        selection=selection,
+        evaluations=direction_evaluations,
+    )
+    confidence = center_confidence
 
     return AdvancedForecastConsensus(
         symbol=evaluations[0].symbol,
         horizon_days=evaluations[0].horizon_days,
-        model_count=len(evaluations),
+        model_count=len(direction_evaluations),
+        available_model_count=len(evaluations),
+        center_model_count=len(center_evaluations),
         consensus_predicted_return=_round_metric(consensus_return),
+        direction_predicted_return=_round_metric(direction_return),
         consensus_forecast_close=_round_price(consensus_close),
         median_predicted_return=_round_metric(_median(sorted_returns)),
         min_predicted_return=_round_metric(min_return),
         max_predicted_return=_round_metric(max_return),
-        predicted_return_range=_round_metric(return_range),
+        predicted_return_range=_round_metric(direction_range),
+        center_predicted_return_range=_round_metric(center_return_range),
+        direction_predicted_return_range=_round_metric(direction_range),
         predicted_return_lower=_round_metric(predicted_return_lower),
         predicted_return_upper=_round_metric(predicted_return_upper),
         forecast_close_lower=_round_price(latest_close * (Decimal("1") + predicted_return_lower)),
         forecast_close_upper=_round_price(latest_close * (Decimal("1") + predicted_return_upper)),
         agreement=agreement,
         confidence=confidence,
+        center_confidence=center_confidence,
+        direction_confidence=direction_confidence,
+        confidence_policy_version=FORECAST_ROLE_CONFIDENCE_POLICY_VERSION,
         direction_agreement_score=direction_agreement_score,
         weighted_direction_score=_round_metric(weighted_direction_score),
         mean_direction_accuracy=_round_metric(mean_direction_accuracy),
@@ -424,12 +496,28 @@ def summarize_advanced_forecast_evaluations(
         ),
         best_adapter_name=best.adapter_name if best is not None else "",
         best_model_name=best.model_name if best is not None else "",
-        warnings=_advanced_consensus_warnings(
-            evaluations,
-            agreement=agreement,
-            confidence=confidence,
-            direction_agreement_score=direction_agreement_score,
-        ),
+        selection_policy_version=selection.policy_version,
+        horizon_band=selection.horizon_band,
+        audit_status=selection.audit_status,
+        selection_mode=selection.selection_mode,
+        center_adapter_names=list(selection.center_adapter_names),
+        direction_adapter_names=list(selection.direction_adapter_names),
+        selected_adapter_names=list(selection.selected_adapter_names),
+        center_excluded_adapter_names=list(selection.center_excluded_adapter_names),
+        model_weights={
+            evaluation.adapter_name: _round_metric(weight)
+            for evaluation, weight in zip(center_evaluations, center_weights)
+        },
+        selection_reason=selection.reason,
+        warnings=[
+            *_advanced_consensus_warnings(
+                direction_evaluations,
+                agreement=agreement,
+                confidence=confidence,
+                direction_agreement_score=direction_agreement_score,
+            ),
+            *selection.warnings,
+        ],
     )
 
 
@@ -893,6 +981,87 @@ def forecast_model_signal_weight(evaluation: ForecastEvaluation) -> Decimal:
     )
     raw_weight = Decimal("1") + (direction_accuracy - Decimal("0.50"))
     return _round_metric(min(max(raw_weight, Decimal("0.80")), Decimal("1.20")))
+
+
+def _advanced_forecast_model_selection(
+    evaluations: list[AdvancedForecastEvaluation],
+) -> AdvancedForecastModelSelection:
+    return select_advanced_forecast_models(
+        [
+            AdvancedForecastModelCandidate(
+                adapter_name=evaluation.adapter_name,
+                rmse=evaluation.validation_metrics.rmse,
+                baseline_zero_rmse=evaluation.validation_metrics.baseline_zero_rmse,
+                rmse_improvement=evaluation.validation_metrics.rmse_improvement,
+                direction_accuracy=evaluation.validation_metrics.direction_accuracy,
+                sample_count=evaluation.validation_metrics.sample_count,
+                fold_count=evaluation.validation_metrics.fold_count,
+            )
+            for evaluation in evaluations
+        ],
+        horizon_days=evaluations[0].horizon_days,
+    )
+
+
+def _horizon_center_weights(
+    evaluations: list[AdvancedForecastEvaluation],
+) -> list[Decimal]:
+    """Normalize validation weights while keeping the audited quantile anchor >= 50%."""
+
+    raw_weights = [_advanced_forecast_weight(evaluation) for evaluation in evaluations]
+    quantile_index = next(
+        (
+            index
+            for index, evaluation in enumerate(evaluations)
+            if evaluation.adapter_name == "advanced_quantile"
+        ),
+        None,
+    )
+    if quantile_index is not None and len(raw_weights) > 1:
+        other_weight = sum(
+            (weight for index, weight in enumerate(raw_weights) if index != quantile_index),
+            Decimal("0"),
+        )
+        raw_weights[quantile_index] = max(raw_weights[quantile_index], other_weight)
+    total = sum(raw_weights, Decimal("0"))
+    if total <= 0:
+        return [Decimal("1") / Decimal(len(evaluations)) for _ in evaluations]
+    return [weight / total for weight in raw_weights]
+
+
+def _horizon_selection_confidence(
+    confidence: str,
+    *,
+    selection: AdvancedForecastModelSelection,
+    center_model_count: int,
+) -> str:
+    if selection.audit_status == "outside_sealed_audit":
+        return "low"
+    if selection.selection_mode == "best_available_fallback":
+        return "low"
+    if center_model_count < 1:
+        return "low"
+    if selection.audit_status == "interpolated" and confidence == "high":
+        return "medium"
+    return confidence
+
+
+def _horizon_direction_confidence(
+    confidence: str,
+    *,
+    selection: AdvancedForecastModelSelection,
+    evaluations: list[AdvancedForecastEvaluation],
+) -> str:
+    """Cap direction confidence independently from the less stable long price center."""
+
+    if selection.horizon_days > HISTORICAL_DIRECTION_CONFIDENCE_MAX_DAYS:
+        return "low"
+    if selection.horizon_days > 60:
+        model_confidences = {evaluation.confidence for evaluation in evaluations}
+        return "medium" if model_confidences & {"high", "medium"} else "low"
+    if selection.audit_status == "interpolated" and confidence == "high":
+        return "medium"
+    return confidence
 
 
 def _advanced_forecast_weight(evaluation: AdvancedForecastEvaluation) -> Decimal:

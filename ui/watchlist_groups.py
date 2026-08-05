@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 import secrets
 from datetime import UTC, datetime
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 import streamlit as st
 from pydantic import ValidationError
@@ -354,7 +354,7 @@ def _remount_dnd_board() -> None:
 
 
 def render_grouped_watchlist(
-    rows: list[Mapping[str, str]],
+    rows: Sequence[Mapping[str, str]],
     state: WatchlistGroupsState,
     *,
     render_card: Callable[[Mapping[str, str]], None],

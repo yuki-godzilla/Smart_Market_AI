@@ -60,3 +60,40 @@ forecast return、up/down model count、consensus confidence、model disagreemen
 - 過去foldのdirection accuracyとzero-return baseline比RMSE improvementから保守的な候補weightを作る。
 - 前半rolling originsで候補weightを作り、後半originを時系列holdoutとして現行consensusと比較する。holdoutでRMSE改善かつ方向一致率維持の場合だけ採用候補にする。
 - gate未通過weightは通常Rankingや通常Forecastへ適用できない。
+
+## 10. 2026-07-19 広範比較後の選定
+
+非重複133symbol、20日・60日、各最大3 rolling originsの比較では、単一modelがRMSEと方向一致率を
+全horizon・全cohortで同時に支配しなかった。中心価格は`moving_average_3`または
+`advanced_quantile`の保守的予測、方向はadvanced consensus、rangeは`advanced_quantile`へ分ける。
+長期ほどzero-return近傍へ縮める`horizon-conditioned conservative calibration`をevaluation-onlyで
+実装した。tuningは20日をconsensus 30% + `moving_average_3` 70%、60日を
+`moving_average_3` 100%として固定した。overall RMSEはvalidation / auditの両horizonで改善したが、
+validationの20日downtrend群で10.92%悪化してsubgroup gateを通過しなかった。結果を見た再調整は
+行わず、runtimeへ接続しない。固定profileを過去3評価群と重複しない60symbolへ適用した直近再現は
+20日14.96%、60日7.42%のoverall RMSE改善でgateを通過した。一方、2021年末cutoffの履歴再現は
+overallで20日15.13%、60日12.55%改善しても、ETF・60日が19.08%悪化してsubgroup gate未通過と
+なった。2023年末cutoffもoverallで20日13.59%、60日2.80%改善した一方、ETF・60日27.18%、
+downtrend・60日36.70%悪化でgate未通過だった。3期間、重複なし1,074評価点、2019〜2026年へ
+拡張してもasset type / regimeをまたぐ安定性が証明できないため、Cockpit、Ranking、Forecast consensusへ
+接続しない。後付けでETF weightを調整せず、次は後日の新暦期間をsealed auditとして使う。
+
+LLM material scoreはprice headへ直接加えず、point-in-timeのevent / adverse risk / freshness /
+evidence qualityによるconfidence上限・range調整候補として実ニュース履歴で別評価する。
+synthetic/static fixtureの高指標はruntime採用根拠にしない。詳細は
+`Documents/40_Forecast_Model_Selection_Report.md`を参照する。
+
+## 11. Point-in-time適応型weightの評価結果
+
+固定profileの時期・asset type依存に対して、`forecast_consensus`、`advanced_quantile`、
+`moving_average_3`、zero-returnの非負weightをasset type / horizon別に推定する評価専用候補を
+実装した。各評価originでは、その時点までにtargetが確定したdevelopment履歴だけを利用し、古い
+originでweightを選択、新しい内部originは1%改善gateだけに使う。履歴不足・gate未通過は現行
+Consensusへfallbackし、direction headは変更しない。
+
+development 60symbol / 1,440点とsymbol非重複の新規監査39symbol / 936点では、20日RMSEは
+4.95%改善したが、60日は0.53%悪化した。適応weight採用率も440 / 936点、47.01%で事前条件50%を
+下回った。同一監査の固定profileは20日8.11%、60日2.46%改善して適応型より良かったが、固定型は
+2021年末・2023年末のETF / downtrend重大劣化が残る。両候補をruntimeへ接続せず、監査結果を
+使った閾値・weight再調整も行わない。次の採用判断には、事前固定policyと後日の新暦期間監査を
+必要とする。

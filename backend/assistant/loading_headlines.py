@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from backend.news import load_cached_news_dashboard_snapshot
+from backend.news.cache import load_cached_news_dashboard_snapshot
 
 
 @dataclass(frozen=True)

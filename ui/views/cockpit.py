@@ -1,18 +1,34 @@
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Callable
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
 
-from backend.research import CompanyResearchReport
+from backend.reporting import DecisionReportContext
+from backend.research import CompanyResearchReport, ExternalResearchFetchResult, StockNewsReport
+from ui.cockpit_application import (
+    CockpitDecisionReportRenderContext,
+    CockpitForecastChartContext,
+    CockpitForecastHeroContext,
+    CockpitSummaryContext,
+)
+from ui.cockpit_decision_report_presenter import (
+    CockpitDecisionReportDetailModel,
+    cockpit_decision_report_overview_card_html,
+    cockpit_decision_summary_list_html,
+)
+from ui.cockpit_research_presenter import CockpitResearchOperationCard
 from ui.content.cockpit_texts import (
     COCKPIT_CARD_MEANINGS,
     COCKPIT_DECISION_VIEW_EVALUATION_TABLE,
     COCKPIT_FORECAST_RETURN_EVALUATION_TABLE,
     COCKPIT_SCORE_EVALUATION_TABLE,
 )
+from ui.content.common_texts import DECISION_REPORT_SUPPORT_MESSAGE, EMPTY_STATE_MESSAGES
 from ui.content.score_texts import score_text_key
 from ui.styles import (
     badge_html,
@@ -605,9 +621,7 @@ def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         return
     render_section_heading("03 上昇気配・下降警戒")
-    st.caption(
-        "ランキングと同じ上昇気配・下降警戒を、1銘柄の深掘り用に確認します。売買推奨ではありません。"
-    )
+    st.caption("ランキングと同じ上昇気配・下降警戒を、1銘柄で確認します。")
     columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
@@ -690,7 +704,7 @@ def render_cockpit_summary_header(
     title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
     render_dashboard_header(
         title,
-        "価格・予測・AI調査を一つの流れで確認する分析ビューです。表示内容は売買推奨ではありません。",
+        "価格・予測・AI調査を一つの流れで確認する分析ビューです。",
         chips=[
             ("データ取得元", _item_value(item_by_label, "データ取得元")),
             ("基準日", _item_value(item_by_label, "基準日")),
@@ -707,6 +721,149 @@ def render_cockpit_summary_header(
                 unsafe_allow_html=True,
             )
             header_action()
+
+
+def render_cockpit_summary(
+    context: CockpitSummaryContext,
+    *,
+    header_action: Callable[[], None] | None = None,
+) -> dict[str, str] | None:
+    """Render the typed Cockpit summary and return its existing score row unchanged."""
+
+    items = cockpit_summary_items(
+        symbol=context.symbol,
+        name=context.name,
+        provider=context.provider,
+        as_of=context.as_of,
+        reference_period_days=context.reference_period_days,
+        forecast_horizon_days=context.forecast_horizon_days,
+        score_row=context.score_row,
+        symbol_metadata=context.symbol_metadata,
+    )
+    render_cockpit_summary_header(items, header_action=header_action)
+    if context.score_row is None:
+        st.info(EMPTY_STATE_MESSAGES["investment_score_rows"])
+        return None
+    render_cockpit_kpi_cards(cockpit_kpi_cards(context.score_row))
+    return dict(context.score_row)
+
+
+def render_cockpit_forecast_hero_header(
+    context: CockpitForecastHeroContext,
+    *,
+    render_advanced_status: Callable[[list[dict[str, str]], int], None],
+    render_advanced_consensus: Callable[[list[dict[str, str]]], None],
+    register_assistant_context: Callable[[str, list[dict[str, str]], int], None],
+) -> None:
+    """Render the context-frozen price and Forecast hero header before chart controls."""
+
+    display = context.presentation.display
+    st.subheader("02 価格・AI予測")
+    st.caption(
+        f"予測期間: {display.forecast_horizon_days}営業日相当（取得履歴から自動計算）"
+        + (f" / {context.horizon_summary}" if context.horizon_summary else "")
+    )
+    for warning in context.horizon_warnings:
+        st.warning(warning)
+    render_advanced_status(display.advanced_forecast_rows, display.forecast_horizon_days)
+    render_advanced_consensus(display.advanced_forecast_consensus_rows)
+    register_assistant_context(
+        context.presentation.symbol_label,
+        display.advanced_forecast_consensus_rows,
+        display.forecast_horizon_days,
+    )
+
+
+def render_cockpit_forecast_chart_and_details(
+    context: CockpitForecastChartContext,
+    *,
+    select_chart_series: Callable[[list[dict[str, str]]], set[str]],
+    filter_chart_rows: Callable[[list[dict[str, str]], set[str]], list[dict[str, str]]],
+    select_display_currency: Callable[[str, list[dict[str, str]]], str],
+    resolve_fx_rate: Callable[[list[dict[str, str]], str], Decimal | None],
+    convert_chart_rows: Callable[
+        [list[dict[str, str]], str, str, Decimal | None], list[dict[str, str]]
+    ],
+    render_chart: Callable[[list[dict[str, str]], str, list[dict[str, str]]], None],
+    render_model_details: Callable[
+        [
+            list[dict[str, str]],
+            list[dict[str, str]],
+            list[dict[str, str]],
+            Decimal | None,
+            date | None,
+        ],
+        None,
+    ],
+) -> None:
+    """Render existing Forecast chart controls, conversion, and details in order."""
+
+    display = context.presentation.display
+    selected_chart_series = select_chart_series(display.forecast_rows)
+    display_forecast_rows = filter_chart_rows(display.forecast_rows, selected_chart_series)
+    fx_rows = list(context.fx_rows)
+    display_currency = select_display_currency(context.source_currency, fx_rows)
+    display_forecast_rows = convert_chart_rows(
+        display_forecast_rows,
+        context.source_currency,
+        display_currency,
+        resolve_fx_rate(fx_rows, context.source_currency),
+    )
+    render_chart(display_forecast_rows, display_currency, display.forecast_rows)
+    render_model_details(
+        display.metric_rows,
+        display.advanced_forecast_rows,
+        display.advanced_forecast_consensus_rows,
+        context.latest_close,
+        context.latest_date,
+    )
+
+
+def render_cockpit_forecast_model_details(
+    *,
+    advanced_model_cards: list[dict[str, object]],
+    comparison_rows: list[dict[str, str]],
+    advanced_display_rows: list[dict[str, str]],
+    validation_rows: list[dict[str, str]],
+    baseline_rows: list[dict[str, str]],
+    model_cards_html: str,
+    render_comparison_cards: Callable[[list[dict[str, str]]], None],
+    render_table: Callable[[list[dict[str, str]], str], None],
+) -> None:
+    """Render the established individual Forecast model cards and folded details."""
+
+    if advanced_model_cards:
+        st.markdown("##### 高度予測モデル")
+        st.caption(
+            "個別モデルの見方です。AI予測インサイトの内訳として、方向やレンジの割れ方を確認します。"
+        )
+        render_comparison_cards(comparison_rows)
+        st.markdown(model_cards_html, unsafe_allow_html=True)
+    with st.expander("高度予測モデルの詳細を見る", expanded=False):
+        st.caption(
+            "モデル別の予測変化率、検証指標、特徴量メモです。"
+            "カードで気になった点を表で分解して確認します。"
+        )
+        render_table(
+            advanced_display_rows,
+            "高度予測を表示するには、もう少し長い価格データが必要です。",
+        )
+    with st.expander("検証指標を見る", expanded=False):
+        st.caption(
+            "初期表示から外した検証指標です。数値は将来精度の保証ではなく、予測の読み方を補助します。"
+        )
+        render_table(
+            validation_rows,
+            "検証指標を表示できるAI予測インサイトがありません。",
+        )
+    with st.expander("単純予測との比較を見る", expanded=False):
+        st.caption(
+            "単純予測は基準・保険です。高度予測との差が小さい場合は、AI予測を強く読みすぎないよう確認します。"
+        )
+        render_table(
+            baseline_rows,
+            "比較に使える予測検証データがありません。",
+        )
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
@@ -739,6 +896,164 @@ def render_research_evidence_summary(report: CompanyResearchReport) -> None:
                 caption=item.get("help", ""),
                 badges=(_badge_for_research_item(item),),
             )
+
+
+def render_cockpit_research_operation_card(
+    card: CockpitResearchOperationCard,
+    *,
+    symbol: str,
+) -> bool:
+    """Render the sole Cockpit Research refresh action from a prepared card model."""
+
+    status_chips_html = "".join(
+        f'<span class="research-ai-state-chip">{html.escape(label)}: '
+        f"{html.escape(value)}</span>"
+        for label, value in card.status_chips
+    )
+    materials_html = "".join(
+        _research_operation_material_list_html(group.label, group.items)
+        for group in card.material_groups
+    )
+    with st.container(border=True):
+        st.markdown(
+            (
+                '<div class="research-ai-cta research-ai-cta--hero">'
+                f'<div class="research-ai-cta-title">{html.escape(card.title)}</div>'
+                f'<div class="research-ai-cta-copy">{html.escape(card.summary)}</div>'
+                f"{materials_html}"
+                '<div class="research-ai-state-row">'
+                f"{status_chips_html}"
+                '<span class="research-ai-state-chip">次に見る: 決算 / 株主還元 / リスク材料</span>'
+                "</div>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+        return st.button(
+            card.action_label,
+            key=f"research_ai_fetch_{symbol}",
+            help="ニュース・IR・開示・外部データをまとめて確認します。",
+            type="primary",
+            use_container_width=True,
+        )
+
+
+def render_cockpit_research_result(
+    *,
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+    external_overview_html: Callable[[ExternalResearchFetchResult], str],
+    render_stock_news_panel: Callable[[StockNewsReport], None],
+    render_research_panel: Callable[..., None],
+) -> None:
+    """Render the resolved Research result without reading session state or rebuilding inputs."""
+
+    if report is None:
+        if external_research_result is not None:
+            st.markdown(
+                external_overview_html(external_research_result),
+                unsafe_allow_html=True,
+            )
+        if news_report is not None and news_report.news:
+            render_stock_news_panel(news_report)
+        return
+    render_research_panel(
+        report,
+        detail_expanded=False,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        display_context="cockpit",
+    )
+
+
+def render_cockpit_decision_report_page(
+    render_context: CockpitDecisionReportRenderContext,
+    *,
+    register_assistant_context: Callable[[DecisionReportContext, tuple[str, ...]], None],
+    render_evidence_table: Callable[[list[dict[str, str]]], None],
+    render_detail_sections: Callable[[CockpitDecisionReportRenderContext], None],
+    render_download_buttons: Callable[..., None],
+) -> None:
+    """Render the Decision Report page from a prepared context and injected UI-edge actions."""
+
+    context = render_context.decision_report
+    st.markdown("### 05 確認レポート")
+    st.info(DECISION_REPORT_SUPPORT_MESSAGE)
+    st.markdown(
+        cockpit_decision_report_overview_card_html(render_context.overview),
+        unsafe_allow_html=True,
+    )
+
+    register_assistant_context(context, render_context.summary_lines)
+    st.markdown("#### AI要約")
+    st.markdown(
+        cockpit_decision_summary_list_html(render_context.summary_lines),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### 判断に使った主な根拠")
+    render_evidence_table(list(render_context.evidence_rows))
+    render_detail_sections(render_context)
+    render_download_buttons(
+        context,
+        expander_label="確認レポート",
+        json_file_name="decision_report_cockpit.json",
+        markdown_file_name="decision_report_cockpit.md",
+        heading_prefix="06",
+    )
+
+
+def render_cockpit_decision_report_detail_sections(
+    detail_model: CockpitDecisionReportDetailModel,
+    *,
+    render_detail_table: Callable[[list[dict[str, str]]], None],
+    research_evidence_cards_html: Callable[[list[dict[str, str]]], str],
+    render_context_summary: Callable[[list[dict[str, str]]], None],
+) -> None:
+    """Render Decision Report expanders from a prepared detail model."""
+
+    st.markdown("#### 確認項目の詳細")
+    with st.container(border=True):
+        st.markdown("##### 1. 要約")
+        st.markdown(
+            cockpit_decision_summary_list_html(detail_model.summary_lines),
+            unsafe_allow_html=True,
+        )
+
+    for label, rows, expanded in (
+        ("2. 確認方針", detail_model.policy_rows, True),
+        ("3. スコア内訳", detail_model.score_rows, True),
+        ("4. 価格・予測", detail_model.price_forecast_rows, True),
+        ("5. ファンダメンタル", detail_model.fundamental_rows, False),
+        ("6. バリュエーション", detail_model.valuation_rows, False),
+        ("7. リスク", detail_model.risk_rows, True),
+    ):
+        with st.expander(label, expanded=expanded):
+            render_detail_table(list(rows))
+
+    with st.expander("8. 根拠資料との対応", expanded=False):
+        render_detail_table(list(detail_model.evidence_rows))
+        if detail_model.evidence_card_rows:
+            st.markdown(
+                research_evidence_cards_html(list(detail_model.evidence_card_rows)),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("根拠資料はまだ取得されていません。AI調査を更新すると確認できます。")
+
+    with st.expander("9. 補足", expanded=False):
+        render_context_summary(list(detail_model.context_summary_rows))
+
+
+def _research_operation_material_list_html(label: str, items: tuple[str, ...]) -> str:
+    list_html = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return (
+        '<div class="research-ai-materials">'
+        f'<div class="research-ai-materials-title">{html.escape(label)}</div>'
+        f"<ul>{list_html}</ul>"
+        "</div>"
+    )
 
 
 def _badge_for_summary_item(item: dict[str, str]) -> str:

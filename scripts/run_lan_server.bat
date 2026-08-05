@@ -1,8 +1,11 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0\.."
 
-set "SMAI_PYTHON=%CD%\venv_SMAI\Scripts\python.exe"
+set "SMAI_ROOT=%CD%"
+set "SMAI_PYTHON=%SMAI_ROOT%\venv_SMAI\Scripts\python.exe"
+if not defined SMAI_CONFIG_FILE set "SMAI_CONFIG_FILE=%SMAI_ROOT%\config\server.yaml"
+
 if not exist "%SMAI_PYTHON%" (
     echo [SMAI] Python virtual environment was not found:
     echo        %SMAI_PYTHON%
@@ -10,50 +13,31 @@ if not exist "%SMAI_PYTHON%" (
     exit /b 1
 )
 
-set "SMAI_LAN_IP="
-set "SMAI_LAN_IP_FOUND=1"
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.IPv4Address -ne $null } | Select-Object -First 1 -ExpandProperty IPv4Address | Select-Object -ExpandProperty IPAddress" 2^>nul`) do set "SMAI_LAN_IP=%%I"
-
-if "%SMAI_LAN_IP%"=="" (
-    set "SMAI_LAN_IP=localhost"
-    set "SMAI_LAN_IP_FOUND=0"
+for /f "usebackq delims=" %%I in (`"%SMAI_PYTHON%" -m backend.server_ops.network --emit-batch`) do %%I
+if errorlevel 1 (
+    echo [ERROR] SMAI MagicDNS URL could not be resolved.
+    echo [SMAI] Check config\server.yaml or SMAI_TAILSCALE_HOSTNAME.
+    exit /b 2
 )
 
-echo [SMAI] Starting LAN server...
-echo [SMAI] Listening on all network interfaces: 0.0.0.0:8501
+echo [SMAI] Starting SMAI Main Application...
+echo [SMAI] Listening on all network interfaces: 0.0.0.0:%SMAI_MAIN_PORT%
 echo [SMAI] Static serving: enabled
 echo [SMAI] WebSocket compression: enabled
 echo [SMAI] Duplicate-safe shared launcher: enabled
 echo.
-echo [SMAI] From this PC, open:
-echo        http://localhost:8501
+echo [SMAI] Normal access from another PC, iPad, or smartphone:
+echo        %SMAI_MAIN_APPLICATION_URL%
+echo [SMAI] Start Tailscale on the connecting device before opening this URL.
 echo.
-if "%SMAI_LAN_IP_FOUND%"=="1" (
-    echo [SMAI] From iPhone / iPad on the same Wi-Fi, open:
-    echo        http://%SMAI_LAN_IP%:8501
-) else (
-    echo [SMAI] LAN IPv4 address could not be detected automatically.
-    echo [SMAI] Streamlit URL display will fall back to http://localhost:8501
-    echo [SMAI] Run ipconfig to find the Desktop PC IPv4 address for mobile access.
-)
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$command=Get-Command tailscale -ErrorAction SilentlyContinue; if($command){tailscale ip -4 2^>$null | Select-Object -First 1}" 2^>nul`) do set "SMAI_TAILSCALE_IP=%%I"
-if not "%SMAI_TAILSCALE_IP%"=="" (
-    echo.
-    echo [SMAI] From a trusted Tailscale device, open:
-    echo        http://%SMAI_TAILSCALE_IP%:8501
-)
+echo [SMAI] Server PC local check:
+echo        %SMAI_LOCAL_APPLICATION_URL%
 echo.
-echo [SMAI] If the mobile URL does not open, check:
-echo        1. iPhone/iPad is on the same Wi-Fi
-echo        2. Windows Firewall allows TCP 8501 on private networks
-echo        3. The displayed IP is your Desktop PC LAN IP
-echo.
-echo [SMAI] Use only on a trusted private network.
-echo [SMAI] Do not expose port 8501 to the Internet.
+echo [SMAI] Do not expose port %SMAI_MAIN_PORT% to the Internet.
 echo.
 
 "%SMAI_PYTHON%" -m backend.server_ops.launcher ^
-  --browser-address %SMAI_LAN_IP%
+  --browser-address localhost
 
 set "SMAI_EXIT_CODE=%ERRORLEVEL%"
 echo.

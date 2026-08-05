@@ -6,7 +6,7 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from backend.core.config import DataAccessConfig
+from backend.core.config import DataAccessConfig, TimeoutConfig
 from backend.core.errors import DataSourceError, ProviderUnavailableError, SchemaMismatchError
 from backend.marketdata import MarketDataProviderAdapter, create_market_data_provider_adapter
 from backend.marketdata.providers import yahoo
@@ -191,6 +191,116 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch)
         Decimal("270.5"),
         Decimal("275.25"),
     ]
+
+
+def test_yahoo_adapter_recovers_only_symbol_missing_from_batch(monkeypatch):
+    fake_yfinance = _FakeYFinance()
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(fake_yfinance, "download", _partial_aapl_download(fake_yfinance))
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["AAPL", "MSFT"],
+            start=datetime(2026, 4, 7, tzinfo=UTC),
+            end=datetime(2026, 4, 9, tzinfo=UTC),
+        )
+    )
+
+    assert fake_yfinance.download_calls == 1
+    assert fake_yfinance.ticker_sessions == ["shared-session"]
+    assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
+
+
+def test_yahoo_adapter_reports_unresolved_partial_batch(monkeypatch):
+    fake_yfinance = _FakeYFinance()
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(fake_yfinance, "download", _partial_aapl_download(fake_yfinance))
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    async def fail_history(*args, **kwargs):
+        raise ProviderUnavailableError("single-symbol recovery failed")
+
+    monkeypatch.setattr(adapter, "_history", fail_history)
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["AAPL", "MSFT"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert exc_info.value.message == "Yahoo market-data provider returned partial batch data"
+    request = exc_info.value.details["request"]
+    assert request["returned_symbols"] == ["AAPL"]
+    assert request["missing_symbols"] == ["MSFT"]
+    assert request["recovery_errors"] == {"MSFT": "ProviderUnavailableError"}
+
+
+def test_yahoo_adapter_does_not_misattribute_flat_batch_frame(monkeypatch):
+    fake_yfinance = _FakeYFinance()
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(fake_yfinance, "download", _flat_download(fake_yfinance))
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["AAPL", "MSFT"],
+            start=datetime(2026, 4, 7, tzinfo=UTC),
+            end=datetime(2026, 4, 9, tzinfo=UTC),
+        )
+    )
+
+    assert fake_yfinance.download_calls == 1
+    assert fake_yfinance.ticker_sessions == ["shared-session", "shared-session"]
+    assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
+
+
+def test_yahoo_adapter_bounds_whole_operation_and_reports_timeout(monkeypatch):
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(
+            provider="yahoo",
+            allow_external_providers=True,
+            timeouts_ms=TimeoutConfig(operation=10),
+        )
+    )
+    cancelled = False
+
+    async def never_finishes(*args, **kwargs):
+        nonlocal cancelled
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
+
+    monkeypatch.setattr(adapter, "_download_ohlcv", never_finishes)
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["AAPL"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert cancelled is True
+    assert exc_info.value.message == "Yahoo market-data provider operation timed out"
+    request = exc_info.value.details["request"]
+    assert request["operation"] == "fetch_ohlcv"
+    assert request["timeout_ms"] == 10
+    assert request["failure_kind"] == "operation_timeout"
+    assert request["retryable"] is True
 
 
 def test_yahoo_adapter_retries_empty_batch_download_once(monkeypatch):
@@ -642,6 +752,53 @@ class _FakeYFinance:
             columns=columns,
             index=pd.to_datetime(["2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z"]),
         )
+
+
+def _partial_aapl_download(fake_yfinance: _FakeYFinance):
+    def download(**kwargs: object) -> pd.DataFrame:
+        fake_yfinance.download_calls += 1
+        fake_yfinance.last_download_kwargs = kwargs
+        columns = pd.MultiIndex.from_product([["AAPL"], ["Open", "High", "Low", "Close", "Volume"]])
+        return pd.DataFrame(
+            [
+                [
+                    Decimal("169"),
+                    Decimal("171"),
+                    Decimal("168"),
+                    Decimal("170.5"),
+                    Decimal("61000000"),
+                ],
+                [
+                    Decimal("174"),
+                    Decimal("176"),
+                    Decimal("173"),
+                    Decimal("175.25"),
+                    Decimal("62000000"),
+                ],
+            ],
+            columns=columns,
+            index=pd.to_datetime(["2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z"]),
+        )
+
+    return download
+
+
+def _flat_download(fake_yfinance: _FakeYFinance):
+    def download(**kwargs: object) -> pd.DataFrame:
+        fake_yfinance.download_calls += 1
+        fake_yfinance.last_download_kwargs = kwargs
+        return pd.DataFrame(
+            {
+                "Open": [Decimal("169")],
+                "High": [Decimal("171")],
+                "Low": [Decimal("168")],
+                "Close": [Decimal("170.5")],
+                "Volume": [Decimal("61000000")],
+            },
+            index=pd.to_datetime(["2026-04-08T00:00:00Z"]),
+        )
+
+    return download
 
 
 class _FakeTicker:

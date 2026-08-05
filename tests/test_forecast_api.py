@@ -186,6 +186,47 @@ def test_forecast_evaluate_api_returns_advanced_linear_common_horizon(monkeypatc
     assert row["validation_metrics"]["sample_count"] == 62
 
 
+def test_forecast_evaluate_api_derives_horizon_when_omitted(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.main.create_market_data_provider_adapter",
+        lambda _: _FakeForecastProvider(_bars(180)),
+    )
+
+    response = client.post(
+        "/forecast/evaluate",
+        json={
+            "symbol": "AAPL",
+            "start": "2026-01-01",
+            "end": "2026-06-29",
+            "adapter": "advanced_quantile",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["horizon_days"] == 15
+
+
+def test_forecast_evaluate_api_accepts_horizon_above_former_limit(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.main.create_market_data_provider_adapter",
+        lambda _: _FakeForecastProvider(_bars(180)),
+    )
+
+    response = client.post(
+        "/forecast/evaluate",
+        json={
+            "symbol": "AAPL",
+            "start": "2026-01-01",
+            "end": "2026-06-29",
+            "horizon_days": 75,
+            "adapter": "advanced_linear",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["horizon_days"] == 75
+
+
 def test_forecast_evaluate_api_rejects_unknown_adapter(monkeypatch):
     monkeypatch.setattr(
         "backend.app.main.create_market_data_provider_adapter",

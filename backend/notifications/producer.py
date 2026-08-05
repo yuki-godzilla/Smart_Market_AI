@@ -30,6 +30,7 @@ class CatalogNotificationProducer:
         dedupe_key: str | None = None,
         client: NotificationClient | None = None,
         now: datetime | None = None,
+        source: str = "notification_catalog",
     ) -> AppNotification | None:
         if user_id == "default":
             return None
@@ -75,7 +76,7 @@ class CatalogNotificationProducer:
             title=title,
             message=summary,
             symbol=data.get("symbol"),
-            source="notification_catalog",
+            source=source,
             action_url=f"?page={template.cta_page}",
             metadata={
                 "template_id": template.template_id,

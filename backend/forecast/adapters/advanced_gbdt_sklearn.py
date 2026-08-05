@@ -22,9 +22,10 @@ from backend.forecast.adapters.advanced_linear import (
     _rmse,
     _validation_metrics,
 )
+from backend.forecast.horizon import OPEN_ENDED_FORECAST_HORIZONS
 
 ADVANCED_GBDT_SKLEARN_ADAPTER_NAME = "advanced_gbdt_sklearn"
-SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS = tuple(range(1, 61))
+SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS = OPEN_ENDED_FORECAST_HORIZONS
 
 AdvancedGbdtSklearnModelName = Literal["HistGradientBoostingRegressor"]
 
@@ -96,7 +97,7 @@ class AdvancedGbdtSklearnForecastAdapter:
         horizon_days: int,
     ) -> AdvancedGbdtSklearnForecastResult:
         if horizon_days not in SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS:
-            raise ValueError("horizon_days must be between 1 and 60")
+            raise ValueError("horizon_days must be at least 1")
 
         sorted_bars = sorted(bars, key=lambda bar: bar.ts)
         if not sorted_bars:

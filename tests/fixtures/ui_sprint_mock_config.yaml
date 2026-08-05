@@ -1,0 +1,6 @@
+dataaccess:
+  provider: mock
+  allow_external_providers: false
+assistant:
+  warmup:
+    enabled: false

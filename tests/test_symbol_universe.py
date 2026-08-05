@@ -70,13 +70,21 @@ def test_symbol_universe_csv_matches_schema():
 
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 6, 1))
+    metadata_dates = sorted(
+        date.fromisoformat(row["metadata_as_of"])
+        for row in symbol_universe_csv_rows()
+        if row.get("metadata_as_of")
+    )
 
     assert summary["total_rows"] >= 9197
     assert summary["source_counts"]["yahoo"] == 9197
     assert summary["source_counts"]["sbi_hk_stock"] >= 1200
     assert summary["source_counts"]["sbi_overseas_etf"] >= 20
     assert sum(summary["source_counts"].values()) == summary["total_rows"]
-    assert summary["metadata_period"] == "2026-06-01 〜 2026-06-23"
+    assert (
+        summary["metadata_period"]
+        == f"{metadata_dates[0].isoformat()} 〜 {metadata_dates[-1].isoformat()}"
+    )
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"

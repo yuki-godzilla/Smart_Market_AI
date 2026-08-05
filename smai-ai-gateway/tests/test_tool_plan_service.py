@@ -100,6 +100,21 @@ def test_tool_plan_service_falls_back_on_unknown_action():
     assert response.planner_source == "fallback"
 
 
+def test_tool_plan_service_falls_back_on_japanese_purchase_advice():
+    answer = FakePlannerClient().answer.replace(
+        "確認手順の整理であり、売買推奨ではありません。",
+        "この銘柄は今すぐ買ってください。",
+    )
+    client = FakePlannerClient(answer=answer)
+    service = ToolPlanService(client)  # type: ignore[arg-type]
+
+    response = service.plan(_request())
+
+    assert response.gateway_status == "fallback"
+    assert response.fallback_reason == "response_validation_failure"
+    assert response.steps == []
+
+
 def test_tool_plan_service_falls_back_on_provider_error():
     client = FakePlannerClient(
         error=OllamaClientError(

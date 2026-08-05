@@ -1,5 +1,605 @@
 # 99_Work_Log
 
+## 2026-08-03 N6 notification market-calendar sixth-B slice
+
+- `config/notification_market_calendar.v1.json`へ、公式JPX / NYSEカレンダーで確認した2026年の休場日と、米国株11月27日・12月24日の13:00 ET短縮取引をreview済みlocal seedとして追加した。calendar loaderはschema、coverage、ISO日付、HTTPS source、休場日とoverrideの競合、時間帯の順序・重複を検証し、破損・欠損・coverage外は通知をfail-closedにする。
+- `favorite_move_alert`はmarket calendarをregular sessionと組み合わせ、休場日、短縮取引終了後、calendar未カバー、calendar読込不能を安全にskipする。`favorite_move`だけはserver timezoneの週末でも市場側が取引中なら評価できる。runtime外部照会、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更は行わない。翌年はreview済みseedを追加するまで通知を安全に止める。
+
+## 2026-08-03 N6 notification market-session sixth-A slice
+
+- `favorite_move_alert`を、端末の一律9〜15時条件ではなく、保存済みFavorite / Watchlist snapshotの`market` / `asset_type`を用いた銘柄単位のregular-session判定へ接続した。日本株は`Asia/Tokyo`の前場・後場、米国株は`America/New_York`の09:30〜16:00を使い、DSTをIANA timezoneで扱う。市場不明、非対応asset、週末、時間外はsampleへfallbackせず安全にskipする。
+- Schedulerは同一のtimezone付き評価時刻をadapterへ渡すため、dry-runと実配送の境界判定が一致する。tickerから市場を推測せず、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更は行わない。exchange holidayと短縮取引のローカルカレンダーはN6第6Bとして未導入であり、regular weekday sessionを休場確認済みとは扱わない。
+
+## 2026-08-03 N6 notification measured-daily-report fifth slice
+
+- `favorite_daily_report`の入力を、custom userごとの保存済みWatchlist snapshotから読む36時間鮮度の市場計測coverageへ接続した。`status=ok`、timezone付き取得時刻、有限な価格または1日騰落率を満たす計測だけを数え、`有効計測数 / お気に入り総数`として表示する。
+- 有効計測が0件ならsampleへfallbackせずskipする。市場別取引時間、休場日、現在価格は推測せず、Provider取得、cache/profile書込み、Ranking / Forecast / Score変更を行わない。急変通知の90分鮮度、5%閾値、計測hash dedupeは不変である。
+
+## 2026-08-03 N6 notification measured-market-data fourth slice
+
+- `favorite_move_alert`の入力を、custom userごとの保存済みWatchlist snapshotから読む測定contractへ切り替えた。`status=ok`、有限な1日騰落率、timezone付き取得時刻、90分以内の鮮度を満たすものだけを採用し、失敗・欠損・破損・期限切れはsampleへfallbackせずskipする。
+- 同一のsymbol / 騰落率 / 取得時刻集合はhashでdedupeし、計測値が変わるまでinterval schedulerで再通知しない。`scheduler_runner --dry-run`は通知履歴、run claim/log、ntfy配送を行わずdue評価だけをJSON表示する。Provider取得、cache/profile書込み、Ranking / Forecast / Scoreの数値変更は行わない。
+
+## 2026-08-03 N6 notification Report-artifact third slice
+
+- Assistantの明示`下書きを保存`後だけ、custom userの`data/user/profiles/<user_id>/decision_reports/`へsanitized Markdown / ZIP / manifestを保存し、本文・LLM出力・URL・local pathを持たない`ReportArtifactCompletionEvent`から`smai_report_ready`を生成するようにした。同一sanitized Markdown hashはdedupeし、preview / download / cancel / rerun / archive失敗 / default userでは通知を作らない。
+- `SMAIデフォルト`はsession-only方針に合わせてartifactを永続保存しない。保存・通知の失敗境界は分離し、通知の設定・履歴・配送障害は保存済みartifactを失敗扱いにしない。measured market-data adapterは未実装として残す。
+
+## 2026-08-03 N6 notification Research-completion second slice
+
+- 明示Cockpit `AI調査を更新` の完了後だけ、`CompanyResearchReport`からbounded `ResearchCompletionEvent`を作り、`smai_analysis_complete` catalog通知へ接続した。document/chunk ID由来fingerprintで同一結果をdedupeし、画面rerun、Report表示/download、default userでは通知を作らない。
+- 通知処理はUIから分離し、history保存後に既存opt-in ntfy clientを使う。設定・履歴の障害は安全なreasonとして返し、Cockpit調査の保存・表示を失敗扱いにしない。Report artifact eventとmeasured market-data adapterは未実装として残す。
+
+## 2026-08-03 N6 notification live-data first slice
+
+- scheduler runnerから、user-scoped profileのfavorites / watchlist snapshotsとfresh News dashboard cacheを読むread-only N6 adapterを接続した。Favorite daily/move/news、Investment News、Sector templateは実キャッシュ値を使い、default user・未登録・stale・該当なしはsampleへfallbackせずsanitized run logを`skipped`として残す。
+- adapterは外部取得、cache / profile書込み、score / Ranking変更を行わず、外部ntfy配送も既存の明示opt-in設定を通る場合だけである。Research/report完了eventとmeasured market-data adapterは未実装として残す。
+
+## 2026-08-02 R4/R5 closeout and full-screen responsive verification
+
+- Cockpit、Ranking、Radar、Watchlist、Assistant、Rebalance、Settingsを実browserで確認し、PC実画面では例外0・横スクロール0、responsive smokeではiPhone / iPad / PCの横幅・主要操作領域・modal / chart / fallbackを確認した。
+- Ranking、Radar、Cockpit、Watchlistのresponsive smokeに残っていた旧ラベル・旧DOM件数・旧grid前提を現行UI contractへ同期し、更新された画面画像を保存した。R4 / R5の完了gateを満たし、数値、順位、Provider、LLM fallback、user persistenceは変更していない。
+
+## 2026-08-02 R4-B News snapshot-controller boundary slice
+
+- cached snapshot / update status読込とdemo fallbackを`ui/news_controller.py`へ分離し、viewは依存注入と描画に限定した。
+- cache優先・fallback順を直接回帰で固定した。Provider、news cache、候補・順位、表示文言は変更していない。
+
+## 2026-08-02 R5 package import-safety contract slice
+
+- Assistant / News / Research の package root を独立processでimportし、network socket、background thread、cache writeを禁止した回帰を追加した。
+- Assistant / Newsの広い互換rootはcaller移行まで残すが、root import自体は外部副作用を起こさないことをCIで固定した。Provider、LLM、通知、数値ロジックは変更していない。
+
+## 2026-08-02 R4-B News user-state boundary slice
+
+- Radar の user-scoped transient state の採用・消去規則を `ui/news_state.py` へ分離し、view は Streamlit session adapter に限定した。
+- user切替時の Radar / filter / refresh state消去と、同一userでの保持を回帰で固定した。Watchlist、news cache、候補・順位・数値ロジックは変更していない。
+
+## 2026-08-02 R4-C CSS base-token boundary slice
+
+- global colour、semantic signal、chart、table、button、surface、layout、後方互換CSS variableを`SMAI_BASE_TOKEN_CSS`へ移した。global style loaderはCTA、base token、legacy bundleの既存順で合成する。
+- style regressionでasset連結順とtoken contractを固定した。CSS値、selector優先順位、Streamlit loader、画面挙動は変更していない。
+
+## 2026-08-02 R4-A Copilot conversation-content boundary slice
+
+- six entry conversation preset、`CopilotIntent`、immutable preset contractを`ui/copilot_conversation_content.py`へ分離し、viewから同名importを再公開して既存call siteを維持した。
+- preset順、表示文言、初期質問、prompt instruction、fallbackをdirect content importとview façadeの同値回帰で固定した。Gateway呼出し、timeout、session state、LLM設定、数値ロジックは変更していない。
+
+## 2026-08-02 R6 function-size baseline gate closeout
+
+- `architecture-baseline-v2`へ80行の新規function上限と、既存超過functionごとの名前・現在値上限を追加した。新規超過と許可済みlegacy functionの成長はいずれもCIでfail-closeになり、例外はbaseline差分として明示レビューされる。
+- architecture audit regressionで、名前付きlegacy functionだけが現行上限まで許され、1行の成長でも検出されることを固定した。数値ロジック、外部接続、UI挙動は変更していない。R6は初期完了とし、gateは以後の通常変更に継続適用する。
+
+## 2026-08-02 R3 Research use-case separation closeout
+
+- company profile policy、quantitative / company overview / IR summary builder、local store、ingestion/index、vector store、query expansion、evidence policyをserviceから個別責務へ分離し、公開package façadeで既存import互換を維持した。
+- Research service / package境界、fallback、citation・sort order、lightweight importを回帰で固定し、通常testが外部networkを使わないことを確認した。Research Score、Ranking順位、Forecast数値・意味は変更していない。
+- R3完了gateを満たしたため、R4 Copilot / News / CSSを主構造作業として継続する。最終の全画面responsive確認はR4/R5/R6完了後に再実行する。
+
+## 2026-08-02 R3-B Research evidence-policy boundary slice
+
+- freshness factor、source type priority、chunk単位dedupe、rerank score、`ResearchEvidenceReranker`を`backend/research/evidence_policy.py`へ移した。keyword / hybrid retrievalとResearch Scoreは同じ決定論的policyを参照する。
+- score、published dateを含むsort order、fallback、既存public exportは不変とし、package import smokeで軽量reranker export時にaggregate serviceを読まないことを固定した。
+- Research service / package pytest 118件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 605ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
+## 2026-08-02 R3-C Research query-expansion boundary slice
+
+- topic dictionaryによるquery expansionとYAML schema validationを`backend/research/query_expansion.py`へ移し、legacy serviceの公開re-exportと`backend.research`の既存公開名を維持した。
+- expanded termsのnormalization / order、unknown category・不正termのerror contractを保ち、package import smokeで軽量export時にaggregate serviceを読まないことを固定した。
+- Research service / package pytest 118件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 604ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
+## 2026-08-02 R5 public API compatibility inventory
+
+- `Documents/47_Public_API_Compatibility.md`へResearch / Assistant / Newsの安定contract、互換façade、package import安全契約、削除条件、検証入口を記録した。
+- Researchの軽量direct exportとaggregate service遅延読込を現行実装として明記し、Assistant / Newsのrootを全面lazy化する判断はscenario・import graph・副作用確認を伴う別sliceへ残した。数値、Provider、UI挙動は変更していない。
+
+## 2026-08-02 R6 module-size baseline gate slice
+
+- architecture baselineをschema v2へ更新し、backend→UI edge / eager cycleに加え、新規moduleの600行上限と既存超過moduleの現在値上限をCIでfail-closeにした。既存超過moduleも増加すれば同じgateで失敗する。
+- auditはfunction上限も同一contractで検知できる。80行defaultを有効化する前に、既存超過functionの名前・上限・分離方針をbaselineへ固定するため、R6は継続中とする。
+- architecture audit pytest 5件、実baseline監査、対象Mypy、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 603ファイル、Ruff、Blackで成功した。Altairの既存非推奨warning 1件のみ継続している。金融数値、外部接続、UI挙動は変更していない。
+
+## 2026-08-02 R3-B Research ingestion/index boundary slice
+
+- local file / transient external textのregister、document directory boundary、UTF-8 validation、stable document ID、Markdown chunk化、index rebuildを`backend/research/ingestion.py`へ移した。`ResearchIngestionService` / `ResearchIndexService`の公開名と既存serviceの互換re-exportは維持する。
+- chunk ID、section、chunk index / char count、metadata、empty-document error、index warning、symbol sortを既存contractのまま保持した。package import smokeは、ingestion/index公開要求がaggregate serviceをeager importしないことを固定する。
+- Research service / package pytest 119件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 603ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
+## 2026-08-02 R3-B Research vector-store boundary slice
+
+- optional vector retrievalのProtocol、disabled / in-memory / JSONL-backed store、query term正規化、local embedding、cosine検索、retrieval-quality組立を`backend/research/vector_store.py`へ移した。service側の公開互換名は維持する。
+- JSONL atomic replace、candidate / embedding `chunk_id`検証、symbol・source filter、scoreとpublished dateのsort order、empty-cache fallback warningを既存contractのまま維持した。package / vector module import smokeで、軽量exportがaggregate serviceをeager importしないことも固定した。
+- Research service / package pytest 119件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,496件（16 skipped）、`mypy .` 602ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。外部network、Research Score、Ranking、Forecast、Provider、保存形式、UIの意味は変更していない。
+
+## 2026-08-02 R2 Cockpit application-flow closeout
+
+- `CockpitPreviewState` / `CockpitPreviewSessionKeys`のadopt・clear回帰、Summary / Forecast hero / chart / Research / Decision Reportのtyped context・page境界回帰を確認し、R2完了gateを満たした。
+- local Streamlit mock `AAPL`をDesktop 1366×768、iPhone 375×812、iPad 768×1024で確認し、SMAI例外0・page横scroll 0、Cockpitの価格・Forecast・材料・確認レポート主要表示を確認した。
+- Forecast、Score、Research Score、Ranking、Report本文の数値・意味を変更していない。R3を次の構造作業対象とする。
+
+## 2026-08-02 R3-B Research local-store slice
+
+- `ResearchInMemoryStore`をaggregate serviceから`backend/research/store.py`へ移した。document hash dedupe、symbol正規化、chunk置換、document / chunkのsort orderは既存contractのまま維持する。
+- Ingestion / index serviceは同じstore interfaceを使い続け、store moduleはProvider / UIをimportしない。package import smokeも、store公開と重いserviceの遅延読込を固定した。
+- Research package / service pytest 118件、対象Mypy 4ファイル、Ruff、Black、全体pytest 2,495件（16 skipped）、`mypy .` 600ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R5 Research lazy public-façade slice
+
+- `backend.research`のheavy service再exportをlazy façadeへ変更した。既存の公開class名は維持し、package import時にはaggregate `service`を読まず、必要なexportを要求した時点で初めて読み込む。
+- 独立processのimport smokeで、package import後の未読込状態と`ResearchInMemoryStore` public export要求後のservice読込を固定した。contract、Provider接続、filesystem mutation、数値ロジックは変更していない。
+- Research package / service pytest 118件、対象Mypy 2ファイル、Ruff、Black、全体pytest 2,495件（16 skipped）、`mypy .` 599ファイル、Ruff、Black、architecture baseline監査（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R6 architecture baseline gate slice
+
+- `config/architecture_baseline.json`にbackend-to-UI edgeとeager import cycleの許容baselineをversion管理し、`tools/audit_python_architecture.py --baseline`が差分をdeterministicに失敗として返すようにした。
+- CIはpytest前にbaseline gateを実行する。既存巨大module / functionは単純なline-count failureにせず、依存方向・cycle・責務数の監査reportで継続確認する。
+- architecture audit pytest 4件、実リポジトリbaseline監査、対象Mypy 2ファイル、Ruff、Black、全体pytest 2,494件（16 skipped）、`mypy .` 598ファイル、Ruff、Blackで成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R4-C CSS base-asset slice
+
+- Research AI CTAの共通base CSSを`ui/style_assets.py`へ移し、`ui/styles.py`は同assetを既存global bundleの前に順序固定で合成するloaderへ縮小した。selector順、最終CSS、既存`SMAI_GLOBAL_CSS` valueは変わらない。
+- CSS assetの順序と既存style / Watchlist関連のselector回帰を固定した。対象pytest 32件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,493件（16 skipped）、`mypy .` 598ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R4-B News/Radar display-policy slice
+
+- `ui/news_display_policy.py`へ、News / Radarの鮮度、候補由来、データ状態、材料分類labelとneutral material toneを移した。空値・未分類のfallbackも同じ表示を返す。
+- `ui/views/news.py`は更新、cache / Provider、user-scoped state、candidate生成、widgetを保持し、既存private名はcompatibility aliasとして残す。ニュース取得、候補、順位、保存、表示文言の意味は変更していない。
+- News view pytest 40件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,492件（16 skipped）、`mypy .` 597ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R4-A Copilot model-policy slice
+
+- `ui/copilot_model_policy.py`へ、固定profile / model catalogue、profile fallback、option matching、label変換を移した。Streamlit、Gateway、session stateをimportしないため、model選択policyを単体で検証できる。
+- `ui/views/copilot.py`はcatalog取得、session state採用、runtime status、widgetを保ち、既存のprivate helper importは薄いcompatibility façadeで維持する。Provider probe、timeout / fallback、会話state、表示文言は変更していない。
+- Copilot view pytest 69件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 596ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R3-A IR Research summary assembly slice
+
+- `backend/research/ir_summary.py`へ、分類済み候補と既存key pointから`IRSummaryItem`を組み立てる純粋処理を移した。未取得・取得済みのstate、title / source metadata、分類理由・confidence、evidence level、既存の表示文言を固定する。
+- `backend/research/service.py`はsource card / candidate収集、IR分類、fact由来key pointの選択を継続し、builderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。
+- 対象Research pytest 117件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 595ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R3-A company-overview Research summary assembly slice
+
+- `backend/research/overview_summary.py`へ、既に選択済みのbusiness profile、概要、segment、region、規模、直近材料、source metadataから`CompanyOverviewSummary`を組み立てる純粋処理を移した。profile field、fallback evidence level、source titleの重複除去・順序、220文字clipは移動前のcontractを保つ。
+- `backend/research/service.py`はbusiness profile / fact、規模・直近材料、source metadataの既存選択を継続し、それらをbuilderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。
+- 対象Research pytest 116件、対象Mypy 3ファイル、Ruff、Black、全体pytest 2,489件（16 skipped）、`mypy .` 594ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 R3-A quantitative Research summary assembly slice
+
+- `backend/research/quantitative_summary.py`へ、既存Research evidenceから選択済みの定量値を`QuantitativeSummary` contractへ組み立てる純粋処理を移した。欠損項目、found/missing状態、要約、evidence level、source titleの重複除去は同じ入力から同じ出力を返す。
+- `backend/research/service.py`は各指標値とsource metadataの収集だけを担当し、新builderへ渡す。Research Score、Ranking、Forecast、外部取得、保存、UI出力は変更していない。直接builder testと既存Research service回帰で契約を固定した。
+- 全体pytest 2,488件（16 skipped）、`mypy .` 593ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 Cockpit R2-C Forecast model-detail page slice
+
+- `render_cockpit_forecast_model_details`へ、高度Forecast model見出し、比較card、model card HTML、3つの既存detail expanderとtableを移した。`ui.app`は既存のmodel card、comparison、display、validation、baseline rowを組み立て、comparison/table rendererだけを注入する。
+- Forecast計算、予測値、validation値、Score、Ranking、保存state、表示順、文言、expander初期状態は変更していない。
+- 対象pytest 427件、全体pytest 2,487件（16 skipped）、`mypy .` 592ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 Cockpit R2-C Forecast Altair chart renderer slice
+
+- `ui/cockpit_chart_renderer.py`を追加し、既存のmain price chart、forecast focus chart、range band、最新実績marker、forecast boundary、fixed palette、interactive legend、series click selectionを`CockpitMarketChartRenderContext`から組み立てるrendererへ移した。
+- `ui.app`は既存のchart row / range / boundary / latest-price frameを整形してcontextへ渡し、Streamlitの`altair_chart`だけをoutput portとして注入する。Forecast計算、予測値、通貨換算、chart row filter、色・幅・legend・tooltip・interaction、Score、Ranking、保存stateは変更していない。
+- controllerがAltair specを直接組み立てないことと、既存chart specの通貨軸、main / focus幅、ポイント、palette、legend、click selectionを回帰で固定した。local Streamlitの実Chromeでmock `AAPL`を再取得し、Forecast scope、表示通貨、Vega chart、個別model detailまで確認した。対象pytest 427件、全体pytest 2,487件（16 skipped）、`mypy .` 592ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 Cockpit R2-C Forecast chart orchestration slice
+
+- `CockpitForecastChartContext`へ既存`CockpitPresentationContext`、source currency、FX rows、latest close / dateを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_chart_and_details`へ移した。page componentがchart series選択、row filter、表示通貨、FX rate解決、通貨換算、chart、個別モデル詳細の既存順を保持して呼び出す。
+- `ui.app`は既存のStreamlit widget、換算関数、chart renderer、detail expanderをtyped adapterとして注入する。Forecast計算、予測値・confidence・warning、Score、Ranking、保存state、表示順、chart renderer自体は変更していない。
+- local Streamlitの実Chromeでmock `AAPL`を確認し、`価格チャート / 予測スコープ`、高度／単純予測model toggle、表示通貨、JPY切替、個別モデルcard / detail expanderを確認した。対象pytest 426件、全体pytest 2,486件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 Cockpit R2-C Forecast hero header slice
+
+- `CockpitForecastHeroContext`に、既存`CockpitPresentationContext`、予測期間の取得履歴要約、horizon warningを固定し、`ui/views/cockpit.py`の`render_cockpit_forecast_hero_header`へ移した。page componentは`02 価格・AI予測`見出し、期間caption、warning、高度Forecast状態・AI予測インサイト、同じForecast snapshotのAssistant context登録順を担当する。
+- `ui.app`は既存の高度Forecast状態／insight／Assistant adapterを注入し、Chart操作、通貨選択、変換、描画、個別モデル詳細expanderは次sliceに残す。Forecast計算、予測値・confidence・warning、Ranking、Score、保存state、表示順は変更していない。
+- local Streamlitの実Chromeでmock `AAPL`を取得し、予測期間、coverage warning 2件、AI予測インサイト、中心／下振れ／上振れ予測、価格・レンジ・confidence、Chart controlsまで描画されることを確認した。対象pytest 424件、全体pytest 2,484件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 Cockpit R2-C Summary page component slice
+
+- `CockpitSummaryContext`を`ui/views/cockpit.py`へ一つのtyped inputとして渡す`render_cockpit_summary`を追加した。header item組立、header / KPI描画、score未取得時のempty state、既存score rowの後続hand-offをpage componentへ移し、`ui.app`はcontext解決とお気に入りaction注入だけを持つ。
+- Score、Forecast、Ranking、保存state、section順、favorite挙動は変更していない。summary内の数値は既存`score_row`を再計算せず、そのままcopyして後続の判断シグナル・Score Breakdownへ渡す。
+- local Streamlitの実Chromeでmock `AAPL`を取得し、Cockpit header、KPI、判断シグナル、価格・AI予測まで表示し、SMAIの画面例外がないことを確認した。対象pytest 422件、全体pytest 2,482件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-08-02 PR CI Mypy contract修復
+
+- GitHub Actionsでpytest開始前に停止していたMypy 27件を修復した。Ranking build serviceのtest double、Ranking pipelineの進捗・Forecast入力、LLM起動testのcallback、Streamlit session stateとRanking builder / provider-error callbackの境界を、実行時の振る舞いを変えずに宣言済みcontractへ整合させた。
+- large-cohort Ranking builderは既存の`include_advanced_forecast`契約を受け取り、無効時は高度Forecastの表示補強を省いて従来のInvestment Score順を返す。通常経路の高度Forecast補強、Ranking数値・順位、Provider、保存形式は不変とした。
+- 対象pytest 436件、全体pytest 2,481件（16 skipped）、`mypy .` 591ファイル、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。Altairの既存非推奨warning 1件のみ継続している。
+
+## 2026-07-22 Cockpit application flow R2 presenter context
+
+- `CockpitPresentationContext`を追加し、symbol labelと`CockpitDisplayModel`を価格・AI予測heroと
+  詳細データpresenterの共通入力へ集約した。
+- Forecast chart / consensus / metrics / 高度Forecast / score rowを個別引数で受け渡す代わりに同一display
+  modelを参照する。summary、Research、Decision Report、chart filter、通貨選択などの描画・操作は変更していない。
+- presenter contextを固定する回帰を追加し、Cockpit/Ranking関連UI回帰412件、Ruff、Black、追加moduleのMypyを
+  確認した。
+
+## 2026-07-22 Cockpit application flow R2 display model boundary
+
+- `CockpitDisplayModel`を追加し、共通forecast horizonでadvanced Forecast、chart、consensus、metrics、
+  score display rowsを組み立てるapplication contractを分離した。
+- Forecastの既存計算・legacy previewのhorizon再計算はUI edgeから注入したまま維持し、Streamlitのheader、
+  favorite操作、chart filter、currency選択、research、report、detail renderは変更していない。
+- common horizonの入力伝播と組立順をnetwork-free regressionで固定し、Cockpit/Ranking関連UI回帰399件、
+  Ruff、Black、追加moduleのMypyを確認した。次はsummary / hero / detail presenterの引数を表示modelへ集約する。
+
+## 2026-07-22 Cockpit application flow R2 preview boundary
+
+- `ui/cockpit_application.py`へ、symbol・期間・provider・forecast horizonを明示する
+  `CockpitPreviewRequest`、preview取得adapter、preview/session state採用contractを追加した。
+- 既存のMarketData preview builderはUI edgeから注入する。preview、status、forecast daysを保存し、
+  前回のchart display currencyを無効化する既存state遷移を固定した。widget、progress、エラー/toast、
+  symbol DB preflight、描画は`ui.app`に残し、MarketData、Forecast、Scoreの計算と表示結果は変更していない。
+- request伝播とsession state採用をnetwork-free testで追加し、Cockpit/Ranking関連UI回帰398件、Ruff、Blackを
+  確認した。次はForecast実行後のCockpit表示model / presenter境界を分離する。
+
+## 2026-07-22 Ranking R1 large-cohort advanced Forecast split
+
+- `ui/ranking_application.py`へ、large-cohort buildの上位候補だけへ高度Forecastを再適用するoptional
+  orchestrationを分離した。候補数上限、advanced field抽出、既存rowへの統合、cache release、最終sortを明示した。
+- 高度Forecast側が失敗しても通常のRanking rowsを返し、cache releaseは必ず実行する。Forecast計算、Ranking数値、
+  Provider、通常fallbackの意味は変更していない。
+- bounded candidate、advanced field統合、cache release、progressを確認するnetwork-free regressionを追加した。
+  Ranking application / UI回帰は403 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+- これによりRanking application flow R1を完了とし、次の構造作業はR2 Cockpit application flowとする。
+
+## 2026-07-21 Ranking R1 presentation assembly split
+
+- `ui/ranking_market_data.py`へ、基本score rowへfeature詳細・通貨・出来高を付加し、高度Forecast fieldを
+  統合して既存sortを適用する`RankingPresentationInputs` contractを追加した。
+- 既存のdetail enricher、advanced-field enricher、sorterはUI edgeから注入する。表示row形式、Ranking順、
+  計算値を変更していない。
+- feature詳細→高度Forecast統合→sortの順序と既存値の受渡しをnetwork-freeで回帰した。Ranking関連UI回帰は
+  408 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 deterministic score assembly split
+
+- `ui/ranking_market_data.py`へ、`FeatureSnapshot`とForecast consensusからScreening、Investment Score、
+  基本score rowを作る`RankingScoreInputs` contractを追加した。既存serviceとrow builderはUI edgeから注入する。
+- feature詳細・通貨・出来高・高度Forecastの表示field付加と最終Ranking順は未移動であり、Score計算、Forecast、
+  Ranking数値・順位を変更していない。
+- service呼出順、consensusの受渡し、基本row作成を確認するnetwork-free regressionを追加した。Ranking関連UI回帰は
+  407 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 Forecast consensus split
+
+- `ui/ranking_market_data.py`へ、usable symbolごとにpoint-in-time Forecast consensusを作る
+  `RankingForecastInputs` contractを追加した。horizon、評価器、consensus summary、進捗reporterはUI edgeから
+  注入し、Forecastモデル・数値・Rankingへの入力を変更していない。
+- Forecastを計算する銘柄、horizon、consensusの収集、最初／10件ごと／最終件のprogress cadenceを確認する
+  network-free regressionを追加した。Ranking関連UI回帰は406 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 feature snapshot split
+
+- `ui/ranking_market_data.py`へ、MarketData / fundamental入力からfeature rows、`FeatureSnapshot`、
+  provider名を生成する`RankingFeatureInputs` contractを追加した。feature builder、missing / quality集計は
+  UI edgeから注入し、既存の決定論的なfeature計算を維持する。
+- Forecast、Screening、Investment Score、Ranking順はこのsliceでは変更していない。
+- feature builderへの入力、provider名、missing / quality summaryを保持するnetwork-free regressionを追加した。
+  Ranking関連UI回帰は405 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 fundamental input split
+
+- `ui/ranking_market_data.py`へ、利用可能display symbolのprovider symbol変換、fundamental取得、
+  銘柄別non-fatal error row保持、display symbol復元を`RankingFundamentalInputs` contractとして追加した。
+- feature / Forecast / score計算は移動しておらず、Provider、fallback、Ranking数値・順位は変更していない。
+- fundamental error rowを保持しつつsymbol mappingを復元するnetwork-free regressionを追加した。Ranking関連の
+  UI回帰は404 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 MarketData input acquisition split
+
+- 高速Ranking buildから、OHLCVのchunk取得、display symbol復元、FX取得、利用可能銘柄・Quoteの確定、
+  銘柄別no bar / insufficient bar error row収集を`ui/ranking_market_data.py`へ分離した。
+- `RankingMarketDataInputs`はStreamlit stateを持たず、bars、bars-by-symbol、quotes、利用可能銘柄、
+  error rows、通貨、FXを後続のfundamental / feature / score段階へ渡す。Provider/cache/fetch実装は
+  UI edgeから注入し、Ranking数値・順位・fallbackの意味を変更していない。
+- provider fetch失敗と通常のno-barを混同しないunit regressionを追加した。Ranking applicationとUI表示回帰は
+  403 passed、対象Ruff / Black、関連2 moduleのMypyを通過した。
+
+## 2026-07-21 Ranking R1 MarketData pipeline routing split
+
+- Ranking buildのlive cohort選択、通常の高速build、fixture preview fallback、live provider失敗時の
+  fail-closed error row化を、`ui/ranking_application.py`のStreamlit非依存pipelineへ分離した。
+- 既存のMarketData取得、feature生成、Forecast / score計算、provider選択、fallback、Ranking順は
+  `ui/app.py`の互換façade経由で同じ実装を使い、結果を変更していない。
+- liveのcohort経路、fixture fallback、live失敗のerror化をnetwork-freeで回帰した。Ranking applicationと
+  UI表示回帰は402 passed、対象Ruff / Black、`ui/ranking_application.py`のMypyを通過した。
+
+## 2026-07-21 Ranking R1 completed-job session adoption split
+
+- `ui/ranking_application.py`へ、process-wide Ranking jobの完了結果をbrowser sessionへ一度だけ
+  採用するcontroller adapterを追加した。completedかつ同一cache keyのjobだけを受理し、既存の
+  rows / error rows / source / timestamp / history handoff state keyへ反映する。
+- `ui/app.py`はStreamlitの描画、現在時刻、`st.rerun()`だけを保持する。Ranking計算、取得、score、
+  並び、provider、cache、history形式は変更していない。
+- matching以外のjob、running job、二重採用を拒否する回帰を追加した。`tests/test_ranking_application.py`
+  と`tests/test_ui_forecast_display.py`は400 passed、対象Ruff / Black、`ui/ranking_application.py`のMypyを通過した。
+
+## 2026-07-20 大規模リファクタリングR0（責務境界）
+
+- Python module 238、内部import edge 692と巨大moduleを静的監査し、`ui/app.py` 23,468行、
+  `ui/styles.py` 9,384行、`backend/research/service.py` 8,791行を主要な段階分割対象とした。
+- `backend.investment_candidates.exporter`から`ui.ranking`への唯一の逆向きimportを、backend-owned
+  `RankingPolicyPort`とUI edge adapterへ反転した。CLI composition rootが既存ranking policyを注入する。
+- `backend`から`ui`へのimportをASTで拒否するboundary regressionを追加した。Forecast、Ranking、
+  Scoring、Risk、export schema、順位計算は変更していない。
+- Assistant loading headlineのNews package façade参照、RadarのAssistant / Research package façade参照を
+  直接実装・contract importへ置換した。相互package初期化を避け、eager import cycleは0件になった。
+- `tools/audit_python_architecture.py`を追加し、module / internal edge、backend-to-UI、eager cycle、
+  巨大module / function、fan-outをimport実行なしで再現可能にした。lazy importと`TYPE_CHECKING`は
+  fan-outには含めるが、eager cycleには数えない。
+- `backend/research/service.py`に混在していた事業、補助事業、製品・サービス、地域、顧客の
+  決定論的分類policy約1,660行をbusiness / product moduleへ分離した。薄いprofile façadeと同名importで
+  既存呼出しを維持し、serviceは8,791行から7,140行になった。Research関連回帰129件を通過した。
+- `ui/app.py`から、副作用のないランキング基準説明、上向き兆候点数表、条件summary HTML約200行を
+  `ui/ranking_policy_presenter.py`へ分離した。同名importで既存UI test contractを維持し、
+  `tests/test_ui_forecast_display.py` 395件を通過した。
+- Cockpitのfilter defaults、active判定、universe絞り込み、keyword / alias / sector / theme検索順位を
+  Streamlit非依存の`ui/cockpit_filter_policy.py`へ分離した。session state wrapperと描画は`ui.app`に残し、
+  同じUI回帰395件を通過した。2つのUI抽出で`ui/app.py`は23,468行から23,069行になった。
+- 最終構造監査は245 module / 713 internal edge、backend-to-UI 0件、eager cycle 0件だった。
+  network-free全体回帰2438 passed / 16 skipped、Ruff、Black（518ファイル）、Mypy（575ファイル）を
+  通過した。warning 1件は既存Altair APIの非推奨通知である。
+- 目標依存方向、folder語彙、compatibility façade、R0〜R6の実施順、停止条件を
+  `Documents/46_Large_Scale_Refactoring_Plan.md`へ固定した。
+
+## 2026-07-20 Backend readiness gate
+
+- 必須FastAPI route、設定済みMarketData Provider、operation deadline、sealed Forecast DB / manifest / hash / maturity、
+  point-in-time材料archive、LLM材料risk signal storeを横断確認するtyped readiness contractとCLIを追加した。
+- `pass`、`pending`、`fail`を分離し、将来target・新規材料待ちだけなら`ready_with_pending_evidence`、
+  DB/hash破損やAPI欠落があれば`not_ready`とする。JSON / Markdownはatomic出力する。
+- 実データ監査はblocker 0、pending 2件、Frontend sprint ready=trueだった。sealed Forecastはprediction 360 / outcome 0、
+  材料archive 113件、signal 0件で、pendingは因果条件を維持した時間経過待ちである。
+- network-free contract / CLI回帰4件を追加し、全体回帰2432 passed / 16 skipped、Ruff、Black、Mypyを
+  通過した。warning 1件は既存Altair APIの非推奨通知である。
+
+## 2026-07-20 Yahoo OHLCV partial batch recovery
+
+- 複数銘柄のYahoo OHLCV batchが空ではない一方、一部銘柄だけ欠ける場合に、その部分応答を完全成功として
+  返さないようにした。欠落銘柄だけを既存の単銘柄history/retry経路で再取得する。
+- 回復後も欠ける場合は、requested / returned / missing symbolと銘柄別recovery error型を
+  `ProviderUnavailableError`へ保存する。Rankingの既存銘柄別fallbackやsealed Forecastのfail-closed診断が
+  欠損を安全に扱える。
+- MarketData、DataAccess、Provider adapterの対象回帰55件とRanking / Forecast境界397件、Ruff、対象Black、Mypyを通過した。
+  予測値、Ranking、Score、Provider選択は変更していない。
+
+## 2026-07-20 Yahoo whole-operation deadline
+
+- `TimeoutConfig.operation`を追加し、既定45秒でYahoo OHLCV、quote、FX、fundamentalsの公開呼び出し全体を
+  制限した。既存`read` timeoutは1 request、operation timeoutはretry / backoff / partial recoveryを含む全体上限である。
+- 超過時はoperation、symbol / pair、timeout、`failure_kind=operation_timeout`、retryableを持つ
+  `ProviderUnavailableError`として返す。非同期処理がcancelされることをnetwork-free回帰で確認した。
+- config / MarketDataの対象回帰73件、Ruff、対象Black、Mypyを通過した。計算結果やProvider既定は変更していない。
+
+## 2026-07-20 Point-in-Time材料risk run-once
+
+- 材料archiveへrecord ID・本文hash再検証、file lock、immutable conflict検出、atomic replace、完全性digest、
+  検証済みbackupを追加した。既存113件は警告0件で再検証できた。
+- LLM risk signalをhash付き追記専用storeへ保存し、同一symbol / horizon / decision時点の上書きと内容改変を
+  拒否する。legacy list読込は維持し、shadow評価toolも新storeを利用する。
+- sealed Forecast originより前に公開・利用可能・初回保存された銘柄一致材料だけをGatewayへ渡すrun-onceを追加した。
+  typed応答とcitationを検証し、provider / model / prompt / mapping / source hashをconfidence / range専用signalへ保存する。
+  Gateway、validation、citation失敗は銘柄単位で記録し、通常Forecast、Cockpit、Ranking、Scoringは変更しない。
+- `fsa_20260720_new_calendar_v1`の初回実行は60 origin groupを確認したが、origin 2026-07-17より113件の
+  初回保存2026-07-20が後だったためeligible 0件、Gateway呼び出し0回、signal 0件で正常完了した。
+  過去記事を過去originへ遡及投入しない因果境界を確認した。
+- network-free全体回帰は2424 passed / 16 skipped、Ruff、Black、`backend/llm_factor`・`backend/forecast`・
+  対象CLIのMypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+
+## 2026-07-20 Forecast新暦期間sealed audit backend
+
+- `forecast-sealed-audit-v1`として、cohort / symbol / horizon / source revision / policy / gateを予測前に
+  固定するmanifest、現在時点のConsensusを保存するprediction、target成熟後だけ付与するoutcomeを追加した。
+- local SQLiteを追記専用で使い、canonical JSON SHA-256、foreign key、transaction、unique keyで改変と
+  上書きを検出する。古いorigin、policy不一致、target観測後capture、origin価格改訂、provider混在は
+  fail-closedとした。
+- `manage_forecast_sealed_audit.py`でinit / capture / mature / status / exportを提供し、成熟済みpointだけを
+  既存`ForecastValidationPoint` CSVへ変換する。通常Forecast、Cockpit、Ranking、Scoringは変更しない。
+- commit `79ccef8`で固定済みの60銘柄、日本株25・米国株25・米国ETF10、74,355日足をlive更新し、全件
+  eligibleを確認した。`fsa_20260720_new_calendar_v1`へ共通origin 2026-07-17、6 horizon、360 predictionを
+  保存した。同一origin再実行は360件skip、target未到来360件、outcome 0件である。
+- 全行schema / hash / foreign key / SQLite検証、atomic online backup、prediction / outcomeのhash付きJSONL
+  exportを追加し、成熟前snapshotもDB外へ安全に退避できるようにした。
+- strict live snapshotとreplay-safe run-onceを追加した。全cohortのbar / metadata / provider / timestamp contractが
+  揃わなければDB更新前に停止し、重大成熟異常はoutcomeをall-or-none、captureは全候補成功後に一括追記する。
+- DB単位の多重起動lockと、collection / cycle別のtyped failure JSON・非0 exit codeを追加した。
+- 保存済み60銘柄snapshotを新run-onceで再生し、既存origin 360件skip、pending 360件、outcome追加0件、
+  DB verify、hash付きexport、検証済みbackupの完了を確認した。
+- network-free全体回帰は2418 passed / 16 skipped、Ruff、Black（502ファイル）、backend/forecast・
+  backend/app・uiのMypy（79ファイル）を通過した。warning 1件は既存Altair APIの非推奨通知である。
+
+## 2026-07-20 Rolling Conformal予測レンジshadow
+
+- 60%想定rangeのcoverage不足に対し、中心return・方向returnをschema上変更できない
+  `bounded-normalized-cqr-temporal-gate-v1`を追加した。
+- target成熟済み履歴だけを使う有限標本CQR、最大1.50倍相当の上限、group階層fallback、時間順70/30の
+  internal proper-score gate、prequential option、新sealed audit以外を採用不可にする外側gateを実装した。
+- 44symbol・792 calibration点、非重複42symbol・756 audit点、20〜120日で再生。最終bounded候補は
+  60日proper score +0.68%で1% gate未達、他horizonは0.79〜3.91%悪化した。cap 0.10 / 0.25 / 0.50、
+  static / prequential、2 audit cohort分離でも採用条件を通過しなかった。
+- runtime range、Forecast、Cockpit、Ranking、Scoringは変更しない。評価CLI・詳細case・subgroup metric・
+  fail-closed採用判定だけを残し、次の新暦期間または新symbol sealed auditを待つ。
+- network-free全体回帰は2403 passed / 16 skipped、Ruff、Black（493ファイル）、変更2ファイルの
+  Mypyを通過した。warning 1件は既存Altair APIの非推奨通知である。
+
+## 2026-07-20 Point-in-Time材料archive・長期confidence監査
+
+- 実ニュース・IRのURL、短いsummary、symbol、source、hash、published / available / first archived / last seenを
+  atomic保存する`point-in-time-material-archive-v1`を追加した。
+- `7203.T`、`NVDA`と広域ニュースをlive取得し、113件をlocal archiveへ保存。今日取得した過去記事を
+  古いoriginへ遡及投入しないことを確認した。
+- LLM材料riskを中心returnへ加算せず、confidence上限とrange 1.15 / 1.25倍だけで比較するtyped shadow契約、
+  proper interval score評価、100成熟case gateを追加した。
+- Forecast評価CSVへrange lower / upper、coverage、width、confidence、policy metadataを追加し、CLIの
+  `--horizons`で20 / 40 / 60 / 80 / 100 / 120日を指定可能にした。
+- split metadata外のOHLCV symbolまで読むdataset境界不備を検出し、metadata明示symbolだけを読むよう修正。
+  誤実行を停止し、Phase 34 validation 21、audit 19で再実行した。
+- pooled validation 132点/horizon、audit 126点/horizonを監査。長期price centerと固定range 1.50倍は
+  gate未通過で不採用。中心confidence lowを維持し、61〜120日の方向だけ内部検証medium以上なら最大mediumとする
+  `role_separated_confidence_v1`を追加した。Rankingは中心confidenceを継続利用する。
+- network-free全体回帰は2394 passed / 16 skipped、Ruff、Black、変更9ファイルのMypyを通過した。
+  skippedは既存の任意環境依存、warning 1件は既存Altair APIの非推奨通知である。
+
+## 2026-07-20 取得履歴連動Forecastモデル選択・役割別Consensus
+
+- `backend/forecast/model_policy.py`へ`horizon_validation_router_v1`を追加した。取得履歴から決まる
+  共通horizonを短期30日以下、中期31〜60日、長期60日超に分け、price centerは
+  `advanced_quantile`を50%以上に固定する。短期はorigin以前のquantile比1% RMSE gateを通過したtree / GBDTを
+  最大2本、中期は最大1本だけ追加し、60日超はquantile単独へ縮退する。linearを含む個別4modelは
+  引き続き表示する。
+- price-center returnとdirection returnをtyped contract、rolling-origin評価、CSV、Cockpit、Rankingで
+  分離した。60日以内のdirection headは旧4adapter Consensusを完全保持し、60日超は監査外のため
+  quantile単独・confidence lowとする。選択policy、期間帯、監査状態、center / direction model、
+  center weight、中心値からの除外、選択理由を観測可能にした。
+- 固定2cohortを直近750 bars、20 / 60日、最大3 originsで再実行した。統合validation 132点/horizonの
+  RMSEは20日0.0994→0.0869（12.56%改善）、60日0.2377→0.2218（6.68%改善）。統合audit
+  126点/horizonは20日0.0770→0.0744（3.37%改善）、60日0.2019→0.1874（7.17%改善）。
+  方向returnは516 / 516点で旧runtimeと一致し、標本10点以上かつ相対10%超・絶対0.005超の
+  market / asset type / regime重大劣化は0件だった。
+- 既に結果を確認済みの履歴を使うsafety regressionであり、後日の新暦期間sealed auditではない。
+  固定calibration、適応weight、残差Ridge、横断GBDT、LLM Factorは不採用のまま接続していない。
+  60日超、20 / 60日間の補間horizon、range coverageは次の独立監査対象とする。
+
+## 2026-07-20 取得履歴連動Forecast horizon・60日上限撤廃
+
+- 固定20日 / 60日選択をruntime既定から外し、指定期間の平日数または取得後の実bar数、同日重複、
+  coverageを使って予測期間を決定する`backend/forecast/horizon.py`を追加した。effective historyを
+  coverageの平方根で保守補正し、約12個の非重複target窓を残す期間を安定stepで下方向へ丸める。
+- 高度予測4adapter、Forecast API、Cockpit chart / metric、評価horizon contractの固定60日上限を撤廃した。
+  Cockpitは実barで再計算し、Rankingは比較可能性のため指定取得期間由来の共通horizonを使う。
+  60日超は従来監査外warningを残し、履歴不足は従来どおりfail closedする。
+- 2026年4月公開のhorizon-specific / leakage-controlled equity forecastingとscikit-learnの時系列gap仕様を
+  参照し、同じ結果から都合のよいhorizonを選ばず、期間決定とモデル性能監査を分離した。横断GBDTなど
+  不採用modelのruntime採用状態は変更していない。
+- GitHub Actionsは毎pushで待機せず、通常5作業単位ごと、merge / release / workflow変更 / 高リスク統合時に
+  まとめて確認する方針を`AGENTS.md`とOperations Guideへ追加した。targeted local checkは各作業単位で継続する。
+
+## 2026-07-20 Point-in-Time LLM材料・銘柄横断残差評価
+
+- 2026年6月更新のPoint-in-Time Financial RAG、FinTSB v3、ACL 2026金融sentiment、軽量TSFM、LLM時系列ablation等を確認し、LLMへ数値価格を生成させず、価格経路と材料経路を分離する設計を`Documents/41_Point_In_Time_LLM_Forecast_Design.md`へ固定した。
+- `backend/llm_factor/point_in_time.py`へtimezone-aware event/evidence contract、取引判断時刻への割当、future・late archive・anchor重複・重複資料・別銘柄・peer上限制御、20日embargo付き市場残差label、matured targetと有効citationだけで更新するbounded Source Memoryを追加した。実archiveがないためruntimeへは接続していない。
+- `backend/forecast/cross_sectional_residual.py`へ、固定保守anchor周りで同一originの予測乖離・dispersion・横断percentile rankを使う小規模HistGradientBoosting residual候補を評価専用で追加した。古い70% originでfit、新しい30%を内部gateとし、target確定前labelを除外、小cross-section・不足履歴・不通過ではanchorへfallbackする。
+- 60銘柄・1,440点をdevelopmentに固定し、完全非重複52銘柄・1,248点を監査。Consensus比20日4.37%、60日10.27%改善したが、固定anchor比1.96% / 1.31%悪化し、採用点だけでは6.90% / 19.20%悪化、採用率18.59%だった。別の非重複39銘柄・936点でもanchor比2.60% / 2.68%悪化し、不採用を再現した。
+- tree parameterやgateを監査結果へ合わせて変更せず、Forecast、Cockpit、Ranking、Investment Scoreを維持した。次は新規取得分から実point-in-time material archiveを蓄積し、Source Memoryなし/ありをprequential比較する。
+
+## 2026-07-19 固定anchor残差Ridgeの新規symbol監査
+
+- `backend/forecast/anchored_residual_calibration.py`へ評価専用の残差calibrationを追加した。固定20日・60日profileをanchorとし、global Ridge（alpha 10）とmarket / asset type / regimeを含むcontext Ridge（alpha 25）の2候補だけを比較する。各監査originまでにtarget確定済みのdevelopment labelを時間順70% fit / 30% validationへ分け、固定anchor比1%以上を両方で満たさない場合は補正ゼロへfallbackする。補正はfit残差90%点または25%でclipし、directionはConsensus、総returnは絶対75%上限を維持した。
+- 全既存point / symbol artifact 22ファイルの258銘柄を除外し、data quality OK、平均出来高10万以上、非leveraged / 非inverseから固定SHA-256順で76銘柄を事前固定した。全76銘柄・143,349日足を取得し、履歴800 bars以上の52銘柄（日本株20、日本ETF3、米国株15、米国ETF14）、2016-12-21〜2026-06-19、20日・60日各624点、合計1,248点を監査した。24銘柄の履歴不足はcoverageへ記録した。
+- 新規監査で残差RidgeはConsensus比20日2.94%、60日10.40%改善したが、固定anchor比では20日3.49%、60日1.16%悪化した。20日downtrend 28点はanchor比13.21%・絶対0.0103悪化し、補正採用率も42.79%で50% gate未満だった。旧39銘柄・936点の参考再現もanchor比20日0.06%、60日1.10%悪化した。parameterの後付け調整は行わず、Forecast、Cockpit、Ranking、Investment Scoreへ接続していない。
+- 実装は未来label遮断、内部時系列validation、symbol非重複、fallback、direction保持、clip / cap、one-to-one metric、CLI manifestをnetwork-free回帰で確認した。詳細は`Documents/40_Forecast_Model_Selection_Report.md`とローカル`reports/2026-07-19_1300/anchored_residual_calibration/`に記録した。
+
+## 2026-07-19 Point-in-time適応型Forecast weight分離監査
+
+- `backend/forecast/adaptive_calibration.py`へ評価専用の適応型price-centerを追加した。各評価originでtarget確定済みのdevelopment labelだけを使い、asset type / 20・60日別にConsensus、advanced quantile、moving average、zero-returnの非負weightを0.1刻みで選ぶ。古いoriginをfit、新しい内部originを通過判定専用とし、履歴不足・1%改善gate未通過はConsensusへfallbackする。direction headと0.75 return安全上限は維持した。
+- 既存60symbolの10年履歴から1,440点をdevelopment historyとして作成し、全既存評価群・development群と非重複の日本株15、米国株15、ETF10を新規取得した。40symbol・96,580日足からSPLGを履歴不足で除外し、39symbol、20/60日各468点、計936点、2016-12-26〜2026-06-19を監査した。両symbol台帳をversioned CSVへ固定した。
+- 適応型は20日RMSEを0.0848から0.0806へ4.95%改善したが、60日は0.1584から0.1592へ0.53%悪化した。適応weight採用も440 / 936点、47.01%で事前条件50%未満となり、不採用とした。2024年以降60日は7.24%、drawdown 60日は5.86%、日本株60日は3.88%悪化した。
+- 同一の未使用symbol監査では固定profileが20日8.11%、60日2.46%改善し、適応型を上回った。ただし固定profileには2021年末・2023年末のETF / downtrend重大劣化が残るため、固定型・適応型ともForecast、Cockpit、Ranking、Investment Scoreへ接続していない。監査結果を使ったweight、最低標本数、採用率閾値の再調整も行っていない。
+- CSV loaderのsource保全、symbol非重複、future-label除外、内部validation fallback、履歴不足fallback、direction保持、return安全性、期間別group、重複prediction拒否、空metricのfail-closed、manifest / 日本語report出力をnetwork-freeテストで固定した。
+
+## 2026-07-19 固定Forecast profileの新規symbol・履歴再現
+
+- 保守的price-center profileをversioned JSONとして固定し、fit経路を持たない再現評価toolを追加した。既定の過去3評価群symbol台帳が存在しない場合や、1symbolでも重複する場合は評価を拒否する。
+- 過去3評価群と重複しない日本株25、米国株25、ETF10の計60symbolから、10年分148,370日足を隔離領域へ取得した。各originのregimeとmoving averageはorigin時点までのbarだけで算出し、履歴cutoffはeligibility判定前に適用する。
+- 直近再現は60/60symbol、360点で、overall RMSEを20日14.96%、60日7.42%改善しgateを通過した。60日downtrend 11点は6.68%悪化したが、重大劣化の相対閾値10%未満だった。
+- 2021-12-31 cutoff再現は59/60symbol、354点で、overall RMSEを20日15.13%、60日12.55%改善した。一方、ETF・60日27点が19.08%・絶対0.0094悪化し、subgroup gate不通過となった。QQQMはcutoff以前308 barsで必要500 barsに届かず除外した。
+- 2023-12-31 cutoff再現は60/60symbol、360点で、overall RMSEを20日13.59%、60日2.80%改善した。一方、ETF・60日30点が27.18%・絶対0.0199、downtrend・60日14点が36.70%・絶対0.0399悪化してgate不通過となった。3期間の1,074評価点に重複はなく、originは2019-02-05〜2026-06-19を覆う。
+- 同日中の履歴再現は後日の新暦期間監査を代替しない。結果に合わせたETF専用weightの再調整は行わず、Cockpit、Ranking、Forecast consensus、Investment Scoreを変更していない。
+
+## 2026-07-19 Horizon-conditioned conservative calibration評価
+
+- `backend/forecast/conservative_calibration.py`へ評価専用typed contractを追加し、price centerと元のadvanced consensus由来direction headを分離した。profile fitはtuning splitだけを受理し、長期horizonのconsensus weightが短期を超えない制約を持つ。
+- 既存2cohortの同一originで`forecast_consensus`、`advanced_quantile`、`moving_average_3`をjoinする再実行toolを追加した。798 pointを使用し、20日profileはconsensus 30% + moving average 70%、60日はmoving average 100%となった。
+- overall RMSEはvalidationで20日15.65%・60日12.26%、auditで20日4.61%・60日19.23%改善した。direction headは元のconsensusを完全保持し、price centerの最大絶対returnも0.75以内だった。
+- validationの20日downtrend 21点でRMSEが10.92%・絶対0.0065悪化し、subgroup gate未通過と判定した。profileは再調整せず、Cockpit、Ranking、Forecast API、Investment Scoreへ接続していない。
+
+## 2026-07-19 将来価格モデル広範比較・LLM scoring選定
+
+- Phase 34の評価可能62銘柄に、非重複の日本株・米国株・ETF 71銘柄、88,044日足を追加した。合計133銘柄を直近750 bars、20日・60日、最大3 rolling originsで比較した。
+- `naive`、`moving_average_3`、`momentum_3`をadvanced validation pointsと同一originで比較するCLIと、評価履歴長を揃える`--recent-bars`を追加した。20日・60日で単一winnerはなく、中心価格、方向、予測幅を分離する方針とした。
+- `advanced_regime_gated_ensemble`は一部splitで改善したが、全validation / audit gateを通過しなかったためshadowを継続する。runtime Forecast、Ranking、Investment Scoreは変更していない。
+- LLM Factorのdeterministic validation report CLIを追加した。35symbol・280 samplesの既存fixtureはsynthetic/staticであり、実市場統合の根拠に使わない。LLM scoringは最初にevent / adverse risk / freshness / evidence qualityによるconfidence・range調整として実ニュース履歴で検証する。
+- 詳細な指標、最新研究、次の採用gateを`Documents/40_Forecast_Model_Selection_Report.md`へ記録した。
+
+## 2026-07-16 投資レーダーの文字切れ・単独ヒートマップ修正
+
+- 実画面のフィードバックで、タブレット幅の`HEADLINE FLOW`が固定行高より長い見出しと補助メタデータを同時に置き、文字の下端が切れることを確認した。タブレット／iPhoneでは見出しを3行まで優先して表示できる行高へ広げ、カード内の補助メタデータは隠した。サイドバーで本文幅が狭くなる場合は3カードを一列にして、カテゴリchipが見出しの幅を過度に奪わないようにした。ニュース候補、表示順、更新間隔、外部取得は変更していない。
+- セクター／業種の1〜2銘柄分類を独立マップへ戻した表示が、1銘柄を全面の大きなタイルとして描いていた。複数の少数分類は元の分類名をカード内に残した`少数セクター`／`少数業種`へ再統合し、単独で残る少数分類も低いコンパクトカードへ縮めた。通常・少数カードの銘柄名、symbol、騰落率の最小文字も一段大きくした。実測銘柄、分類根拠、Cockpit導線、注目ニュース別の根拠カード対応は保持する。
+
+## 2026-07-16 Phase 16S 実画面UX・安全性回帰
+
+- 実稼働のStreamlitで、Yahooの7203.T / V取得、CSVの未対応Vによる失敗、Yahooへの復帰を確認した。失敗時は`価格データを取得できませんでした`、domain error code、設定・銘柄・期間を再確認する導線が表示され、stack traceは通常画面に出なかった。
+- Yahoo上位100件のRankingを作成し、進捗4%→19%、投資レーダーへ遷移した後もサーバー側ジョブが継続すること、完了後に99件表示と価格未取得1件が明示されることを確認した。VisaをCockpitへ引き継ぐと、対象、provider、期間を明示し、再取得は自動実行しなかった。
+- 投資レーダーはcached live snapshotでHEADLINE FLOW、鮮度、7分類・19実測銘柄、本文/テーマ推測の区別、Cockpit導線、非推奨表現を確認した。1366x768、810x1080、375x812でページ全体の横overflowは発生しなかった。
+- 予測注意文の原文に含まれるセミコロンを先に分割していたため、日本語変換表に登録済みのconsensus注意が英語のまま残る不具合を修正した。変換を先に適用してから注意項目を分割し、全ての対象注意が日本語になる回帰テストを追加した。
+
+## 2026-07-15 投資レーダー 少数分類の統合表示・ヘッドラインフロー改善
+
+- ニュース起点の価格候補は従来どおり最大30件、実測できた銘柄だけを対象とする。候補数や候補生成順序を水増し・変更せず、セクター／業種表示で複数の1〜2銘柄分類がある場合だけ、元の分類名を明示した`少数セクター`／`少数業種`の一枚へ統合する表示ルールを追加した。注目ニュース別は根拠ニュースカードとの一対一の対応を保つため統合しない。
+- 両タブ先頭の最大3件ヘッドラインに`HEADLINE FLOW`、順番に移る自動ハイライト、表示件数、正確な最新公開時刻を追加した。これはニュースの自動更新・リアルタイム配信を意味せず、取得済みsnapshotの読みやすさと更新感を高める視覚表現である。
+- 市場マップ／ニュース表示の対象58件と投資レーダーのStreamlitページ確認1件をnetwork-freeで実行し、すべて成功した。Windowsの共有一時フォルダへのアクセス拒否により、対象外の`tmp_path`利用3件は通常の一括実行では環境エラーとなった。PC／iPad／iPhoneのopt-in Playwright smokeも試行したが、ブラウザ起動前にWindows名前付きパイプがアクセス拒否となる環境エラーで未実行に終わった。
+
+## 2026-07-15 投資レーダー 市場マップの候補密度・レスポンシブ粒度改善
+
+- ニュース候補の実価格取得上限を24件から30件へ広げた。候補の決定論的な順序、Ranking、Forecast、Investment Score、Research Scoreは変更せず、Yahoo等Providerへの価格取得は従来どおり一回のbounded batchで行う。
+- 分類内の固定8件上限を廃止し、12件以下はすべて地図に表示する。5〜8件と9〜12件の分類カードは高さを段階的に増やし、13件以上では`表示12 / 該当N銘柄`と`あとN銘柄を見る`で残りの価格実測値とCockpit導線を明示する。
+- PC、iPad、iPhoneでは同じ最大12件の分類粒度を保つ。iPhoneはtreemapの位置情報を安全な縦カードに変換して、銘柄名、symbol、方向、騰落率、根拠件数を省略しない。市場マップ見出しには実測表示数と価格取得対象数を追加した。
+- `注目ニュース` 分類では、各値動きマップの直前に既存ニュース根拠を示す小カードを1件置いた。URLがあるカード全体は新しいタブで元記事を開き、セクター／業種の価格マップには混在させない。
+- 利用評価を受けて、情報量の大きい独立 `ニュース・根拠` タブを廃止した。`市場レーダー` / `ニュース一覧` の2タブに絞り、探索条件、トリアージ、RAG状態、候補詳細ダイアログは通常画面から外した。
+- 最大3件を一定時間で切り替える `市場ニュースヘッドライン` を両タブの先頭へ配置した。ニュース一覧の末尾には、初期状態で閉じた `確認候補（補助）` を置き、最大6件を根拠件数・由来だけの簡易カードとして同一アプリの銘柄コックピットへ案内する。
+
+## 2026-07-15 Main Application MagicDNS対応・接続URL統一
+
+- Tailscale CLIのSelf statusから、このSMAIサーバーの端末名を`DESKTOP-BQRPR4C`、
+  MagicDNS短縮名を`desktop-bqrpr4c`として確認した。Main Applicationの正式ポートは
+  既存どおり`8501`である。
+- `backend.server_ops.network`へ、設定/環境変数/Tailscale CLI/OS hostnameの優先順位で
+  MagicDNS hostnameを解決する共通URL生成を追加した。通常アクセスURLとサーバーPC内の
+  localhost URLを分離し、IPアドレス、`localhost`、`0.0.0.0`を通常アクセスURLとして
+  誤設定できないようにした。
+- `config/server.yaml`で`desktop-bqrpr4c:8501`を明示し、通常起動、手動起動、状態確認、
+  設定画面のURL案内を同じ共通設定へ統一した。Streamlitは従来どおり`0.0.0.0:8501`へ
+  bindし、`--browser.serverAddress`とhealth checkはlocalhostを使用する。
+- LAN IPv4/Tailscale IPの並列案内を廃止し、README、運用ガイド、PWAガイド、接続診断、
+  UI文言をMagicDNS利用手順へ更新した。QRコード生成処理は現状存在しないため、追加・変更はない。
+- URL resolver / launcher / script / docs / UI diagnostic / config回帰63件、Ruff、対象Blackを確認。
+  `tools/run_local_checks.py`も成功した。pytestの標準temp/cacheには既存のWindows権限警告が
+  あるため、workspace内の隔離`--basetemp`を指定してテスト本体を実行した。
+
+## 2026-07-12: SMAIアシスタント実アプリ・Ollama品質改善スプリント
+
+- ローカルGateway経由で、インストール済み `qwen3:1.7b / 4b / 8b / 14b / 30b` の全5モデルに、合成文脈だけを使う5ケース（自然会話、画面案内、予測・リスク、RAGニュース・開示、売買助言境界）を実行する`tools/evaluate_assistant_live_models.py --allow-live`を追加した。通常pytest/CIには含めない。
+- 当該端末の25 live runでは、1.7Bは平均3.64秒・5/5 Gateway成功、8Bは5.18秒・5/5、14Bは7.33秒・5/5、30Bは30.27秒・4/5（最大67.38秒）、4Bは13.74秒・2/5（schema/response validation fallback 3件）だった。構造・根拠・安全の機械採点は14B/30Bが32/35、1.7B/8B/4Bが31/35だったが、30Bの遅延と4Bのfallback率を確認した。runtime既定モデルは変更していない。
+- live出力で、助言的な「購入は慎重に検討してください」と実在しないSMAI画面名を確認した。親SMAIは未信頼LLMのprescriptive buy/sell/hold-like文章を表示前に決定論的非助言fallbackへ切り替え、`app_help`のlive回答は実在する`銘柄コックピット` / `銘柄ランキング` / `投資レーダー`をすべて含む場合だけ採用するようにした。
+- 実Streamlitで、profile start用のouter-document overlayがquery-parameter遷移後に残りサイドバーを無効化する問題を修正した。LLM warmup中もサイドバーをmodalより上に保ち、PC（1366px）、iPad（810px）、iPhone（375px）の画面遷移・横overflowなし・例外なしを確認した。live会話シナリオでは、実在3画面名を含む回答とcomposerの継続利用を確認した。
+- network-free回帰93件、Ruff、対象Black、live Streamlit PlaywrightのAssistant会話1件、PC/iPad/iPhone実画面smokeを実行。background refreshは評価中のruntime artifact混入を避けるため隔離起動で無効化し、Gateway/Ollamaはliveのまま使用した。
+
+## 2026-07-12: SMAIアシスタント確認型エージェント安全性スプリント
+
+- Assistantの実行層で、payload、現在文脈、Decision Report材料に複数または不一致の銘柄がある場合を`target_mismatch`として拒否するようにした。外部AI調査はfetcherを呼ばず、確認レポートも作成しない。
+- 最新ターンだけを確認対象にし、turn / context / workflow step / 対象銘柄が変わった古い確認は取消結果として記録する既存導線を、実行層の対象照合と整合させた。
+- Parent SMAIと`smai-ai-gateway`の両方で、日本語の購入・保有推奨、即時売買、買い時・売り時などの助言表現をTool Plan採用前に拒否するよう統一。ユーザーに表示するPlanのwarning / disabled reasonも検査する。
+- Agent evaluationに日本語助言表現のraw planner fixtureを追加。対象Assistant回帰303件（3 skip）とGatewayテスト62件（1 skip）、Ruff、対象Blackが成功。実Streamlit loading smokeは、独立起動時のプロフィール選択で既存harnessが停止するため未完了として残した。
+
+## 2026-07-12: 全画面UI品質スプリント（3サイクル）
+
+- 7画面（Cockpit / Ranking / 投資レーダー / Myウォッチリスト / アシスタント / リバランス / 設定）のnetwork-free画面スモークと、リバランスの決定論的な主操作を追加。3週分の因子・水準・live smoke境界は `docs/ui/three_week_ui_quality_sprint.md` に記録。
+- Watchlist更新で、部分的なCockpit previewに `feature_rows` がなくても、取得済みの価格・スコアを捨てて1件失敗にしないようにした。部分preview回帰は成功へ回復。
+- 上向き兆候をCockpit KPI・詳細、Watchlist表に反映する既存仕様にテストを同期。Rankingの指標ソート説明とcache世代の古い期待も現行仕様へ同期。
+- 追加・対象回帰471件、Ruff、対象Black確認が成功。実viewportの対話確認はブラウザ実体がないため未実行で、既存opt-in responsive smokeへ残した。
+
+## 2026-07-11: Phase 35-A 上向き兆候 Forecast根拠の評価専用slice
+
+- `backend/scoring/upward_signal_forecast_integration.py` に、既存のAdvanced Forecast consensusまたはRanking行から予測上向き余地、quantile下振れ安全性、方向一致、confidence、model disagreementを抽出するtyped contractを追加。
+- low / unknown confidenceのscore ceiling、high disagreement、negative quantile downside、model数不足を評価用warningとして記録。Forecast根拠を現行上向き兆候スコアと比較するcase評価と、`upward_signal_forecast_integration.md`、`upward_signal_model_contribution_cases.csv`、`upward_signal_confidence_adjustments.md` の出力を追加。
+- 既存`ForecastValidationPoint`を同一symbol / origin / horizonで束ね、adapter予測から方向一致・予測レンジ・confidence候補を再構成するpoint-in-time validation caseを追加。実績forward returnは評価ラベルとして保持するだけでscore計算へ渡さない。
+- validation caseをhorizon、market、asset type、regime、confidence、disagreement band別に集計し、positive actual rate、direction accuracy、平均actual/predicted return、平均integration score、warning rateを`upward_signal_forecast_validation_summary.csv`へ出力する機能を追加。
+- `tools/evaluate_upward_signal_forecast_integration.py` を追加し、既存`forecast_model_validation_points.csv`を再利用してnetwork-freeに評価可能にした。Phase 34 validation reportで1,050 pointsを210 consensus-origin casesへ変換するCLI smokeを確認。これはruntime精度改善ではなく評価coverageの確認であり、runtime採用は保留。
+- 通常Ranking、Forecast API/UI、runtime consensus weightは変更していない。新規銘柄・新規期間でのwalk-forward holdout採用判定は後続。
+- 対象12件の関連回帰、Ruff、対象2ファイルのBlack checkが成功。
+
 ## 2026-07-11 上向き兆候スコア分布・補助マップ改善
 
 - 55点近辺へ密集していた上向き兆候を、形状30%・予測25%・安全性20%・押し目10%・企業/配当品質10%・材料5%へ再配分し、危険減点後に50点近辺を滑らかに広げる0〜100点化へ変更。
@@ -4549,3 +5149,196 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 底打ち・蓄積形状にhigher-lowまたは出来高回復確認を要求し、形状基礎点を保守化。監査群で成功平均63.96、失敗平均51.37、Top10狙い形状10/10、Top10成功3/10。
 - consensus weight、予測幅校正は時間順または銘柄holdout gate未通過。runtime forecast weight / predictionは変更なし。Top10 7/10未達だが、監査群への過学習を避けるため追加調整を停止。
 - 対象35 testとRuff成功。大きい一括評価runはcoverage後に長時間化したため2回明示停止し、split別・評価/調整分離へ変更して完走。
+
+## 2026-07-11: 挙動不変リファクタリング第1スライス
+
+- `ui/styles.py` の巨大CSS定数は適用順とimport時保持を維持し、表示値整形、カードHTML、見出し、Altair設定を `ui/style_components.py` へ分離。既存 `ui.styles` importは互換aliasで維持。
+- Research symbol正規化を `backend/research/normalization.py` へ分離し、external fetchから巨大serviceのprivate helper依存を除去。`ExternalResearchFetchService` はpackage `__getattr__` で遅延公開し、既存公開importを維持したまま循環importを縮小。
+- Copilotの段階表示文字列生成を `ui/copilot_streaming.py`、Rankingの状態非依存な確認文・信頼度要約を `ui/ranking_presenter.py` へ分離。従来のprivate import契約は互換aliasで維持。
+- 新しい責務境界と互換importを `tests/test_refactoring_boundaries.py` で固定。計算式、Ranking順位、Forecast、Research Score、session state key、外部通信、CSS内容は変更していない。
+
+## 2026-07-11: Ranking AgGrid表示責務の分離
+
+- `ui/app.py` にあった約240行のAgGrid column/selection/sort/tooltip設定を `ui/ranking_table.py` へ移動。
+- 新moduleは完成済みDataFrameとimmutableな `RankingTableConfig` だけを受け取り、Ranking計算、取得、Streamlit session stateへ依存しない。
+- `ui.app.ranking_result_aggrid_options` は既存private importと呼び出し契約を維持する互換wrapperとして残した。
+- `tests/test_ranking_table_presenter.py` で新旧経路の完全一致、row/header height、hidden column契約を確認。Ranking順位、表示列、sort方向、欠損値順、数値comparatorは変更していない。
+
+## 2026-07-11: Research contract / Copilot runtime責務の分離
+
+- `backend/research/service.py` 冒頭に集中していた型alias、Pydantic contract、adapter Protocol約880行を `backend/research/contracts.py` へ移動。
+- packageルートはcontractを定義元から直接公開し、旧 `backend.research.service` importも明示再exportで維持。Research取得、検索、score、要約、外部fetchの処理内容は変更していない。
+- `ui/views/copilot.py` からGateway runtime設定、status/event contract、状態遷移、session保存・復元を `ui/copilot_runtime.py` へ移動。warmup、Gateway呼び出し、workflow、描画順は変更していない。
+- `tests/test_research_contract_boundaries.py` と `tests/test_copilot_runtime_boundary.py` でpackage/旧import互換と状態遷移を固定した。
+
+## 2026-07-11: Phase 36 LLM材料評価のnetwork-free基盤
+
+- `backend/llm_factor/material_evaluation.py` に、point-in-time top候補のLLM材料レビューを評価するstrict contract、false positive / positive候補維持率 / adverse material・dividend trapラベル / latency / failure / cache hit集計、保守的な採用判断を追加。
+- 良好な評価でも採用判断は材料バッジ限定候補までとし、rank / score correctionはcontract上常にfalseに固定。live LLM、外部材料取得、通常Ranking、UIは変更していない。
+- `tools/evaluate_llm_material_assessment.py` がラベル付きCSVを検証して、Phase 36で定義した5つのMarkdown/CSV成果物を生成する。fixtureベースの24 test、Ruff、対象Black helperを確認した。
+
+## 2026-07-11: ランキング作成中断の根本修正
+
+- 22:42の484銘柄実行はserver restartではなく、72.662秒・fundamental 2/5 cohort付近で `ranking.create=failed` になったことをaudit logで確認。従来はランキング計算全体がStreamlit画面実行に直結し、mobile reconnect / rerun / session終了と任意fundamental例外の双方で全結果を失う構造だった。
+- `ui/ranking_jobs.py` にprocess-wide daemon job registryを追加し、ランキング計算・progress・完成行・失敗型を画面sessionから分離。同条件の再接続sessionは同じjobを監視し、完了結果を採用する。失敗ログはprovider raw messageを残さず、例外型とcode位置だけを記録する。
+- optional fundamentalsを最大4並列・1銘柄15秒timeout・全Exceptionの銘柄単位fallbackへ変更。100銘柄cohortの想定外例外はそのcohortだけをsanitized errorにし、後続cohortと通常ランキングを継続する。advanced forecastもoptional enrichmentとして想定外例外で通常結果を破棄しない。
+- session-independent worker、reconnect時job共有、sanitized failure、unexpected fundamental、cohort継続をnetwork-free testで固定。関連400 test中397件pass、残る3件は既存watchlist fixture・旧文言・旧`signal-v4`期待値で今回差分外。
+
+## 2026-07-12: 全画面UI品質スプリント 実画面フォローアップ
+
+- 隔離したmock Streamlitで全7画面を横断する3ユーザーパスを実操作し、銘柄取得・お気に入り・ウォッチリスト・リバランス・設定、投資レーダー・Ranking、Assistant送信まで確認した。`tests/ui/test_ui_user_paths_smoke.py` として回帰化し、3件成功。
+- 7画面をiPhone / iPad縦横 / PCで実操作するresponsive smokeを追加・実行した。Cockpit、Ranking、投資レーダー、Myウォッチリスト、Assistant、リバランス、設定 / データ情報で、横はみ出し、例外、主要操作、モーダル、サイドバーを確認し、7件成功・任意チャートsmoke 1件をスキップ。
+- タップ領域（PC 36px、タッチ画面44px）、固定ユーザー操作とサイドバーの干渉、スマホの共通ヘッダー／本文上余白を改善した。画面冒頭の重複説明を短文化し、全体のベース配色・CTAを青／ネイビー基調へ戻した。緑は上昇・成功などの状態色に限定した。
+- network-free UI回帰577件、全viewport実画面、全ユーザーパスを成功として確認。実機Safari / PWA、live provider、外部LLM、実通知配送は未実行。
+
+## 2026-07-12: RAG検索品質・再索引性能改善スプリント
+
+- Cockpit / Ranking / Assistantの既存AI調査導線を、キーワードとローカルvector候補を統合するhybrid retrievalへ接続。vector候補だけでキーワード一致・公式資料を落とす挙動を除去し、同一資料の隣接chunkも上位を独占しないよう制限した。
+- file-backed vector cacheの再索引をチャンクごとの全JSONL書込みから一括atomic更新へ変更。160チャンクの比較で160書込み・237.83 msから1書込み・2.37 ms（約100.2x）となった。
+- ETFの`market`のような弱いcross-topic一致が成長/財務安全性の根拠になる事象を再現し、観点別の関連度floor未満を`confirmation_gap`として扱うよう修正。資料不足を低スコアや投資魅力度へ変換しない方針を維持。
+- `ResearchRetrievalQuality`へキーワード/ベクトル候補数、資料数、局所latencyを追加。通常画面に検索方式・根拠数・資料数、詳細に候補数・処理時間を表示する。
+- 国内株7203.T、米国株AAPL、ETF SPY、資料不足のnetwork-freeシナリオを確認。関連pytest 524件成功・opt-in UI smoke 1件スキップ、Ruff、Research / state範囲のmypyが成功。隔離Streamlitが実行環境のプロセス管理により終了したため、実UI smokeは通常端末で再実行する。詳細は `Documents/35_RAG_Improvement_Sprint_Report.md` を参照。
+
+## 2026-07-13: クライアントheartbeat監視契約の安全化
+
+- `activity_state.json`のheartbeatを、最終通信、正規化済み端末種別、接続状態だけの最小記録へ更新した。User-Agentから端末種別をローカル分類するが、生のUser-Agent、IPアドレス、Cookieは保存しない。
+- 旧来の時刻文字列セッションを読み続け、メンテナンス再起動のfail-closed判定との後方互換性を維持した。Analytics側の読み取り専用セッション契約とも整合する。WindowsのPID生存確認は安全なプロセス照会APIへ切り替え、`os.kill(pid, 0)`による対象プロセス停止を避けた。
+- ユーザー設定のアイコン表示を、static境界外のローカルパスを渡す`st.image`から、既存の最適化済みstatic URL（または安全なfallback）へ統一した。Streamlitのstatic境界警告を避け、直URLで画像配信を確認した。
+- Cockpit responsive smokeは可視範囲のstatic画像が読み込み完了してからスクリーンショットを保存するようにした。隔離StreamlitでiPhone、iPad縦横、PCの4 viewportを再確認し、画像欠落なしで成功した。
+- 実行済みのサーバー運用分離、20分間隔の銘柄background refresh、更新済み銘柄マスター、および root に残すPhase要約レポートに追随するよう、既存の4件の回帰テスト期待値を更新した。
+
+## 2026-07-13: 投資レーダー根拠追跡強化スプリント
+
+- 既存の市場ヒートマップを維持したまま、news snapshotから決定論的に生成する追加候補マップを実装。`direct_mention`、`inferred_candidate`、`macro_proxy`を候補ID・表示・操作可否まで分離し、安定した根拠ID、鮮度、独立ソース数、材料構成、確認不足を追跡できるようにした。確認優先度は確認材料の優先順であり、Rankingや投資魅力度ではない。
+- 候補詳細からの明示操作だけでlocal hybrid RAGを実行し、引用ID、鮮度、検索品質、確認不足を表示する。未来資料、別銘柄、関連度floor未満を根拠から除外し、空結果・取得失敗をscoreや順位へ変換しない。
+- `radar_interpretation.v1`を追加。既定無効の明示AI操作でのみ、候補と許可済みニュース/RAG根拠IDだけをGatewayへ送る。未知の引用、助言表現、score/rank変更表現、Gateway/provider/schema失敗は決定論的な「この根拠だけでは判断できません」メモへfallbackする。
+- candidate / RAG / LLM契約、future資料除外、provenance分離、Gateway未呼出のdisabled経路、Streamlit画面をnetwork-free testで確認した。in-app browser runtimeが利用不能だったため、iPhone/iPad/PCのlive responsive smokeとlive RSS/Gateway smokeは未実行として残した。
+
+## 2026-07-13: 投資レーダー R4 live確認（部分完了）
+
+- 保存しない明示Google News RSS取得で100 headline / 9 category laneを正規化し、direct 21、inferred 26、macro proxy 9の計56 candidateがすべて根拠IDへ戻れることを確認した。Ranking、Forecast、Score、news cacheは変更していない。
+- 7203.Tの既存local資料を一時in-memory storeにだけ読み込み、candidate RAGで4 citationを取得した。すべて公開日が古く`stale`として表示され、資料の古さを候補順位やscoreへ変換しないことを確認した。
+- Radar Gatewayはローカル設定で無効のため接続せず、`disabled`の決定論的fallbackを確認。起動中StreamlitのHTTP応答は200だった。in-app browser runtimeが利用不能なため、iPhone/iPad/PCのresponsive smoke、実機Safari/PWA、enabled Gatewayのlive smokeは未実行として残した。
+
+## 2026-07-13: 投資レーダーAI根拠拘束・shadow評価
+
+- `radar_interpretation.v1`のsummary / positive materials / cautions / unknowns / next checkpointsを、項目ごとの`cited_evidence_ids`を必須にする構造化契約へ更新。親SMAIとGatewayの`/api/v1/context-answer` contractを同期した。
+- 親validatorはcandidate ID、全fieldの許可済みcitation、response referenceとの一致、助言・score/rank変更表現に加え、候補外symbol、根拠束にない数値・日付をrejectする。不採用時は既存の決定論的確認メモへfallbackし、候補マップ、Ranking、Forecast、各Scoreは変更しない。
+- 8件のnetwork-free shadow fixtureと評価CLIを追加。正常1件を採用し、未知引用、候補外symbol、根拠外数値・日付、助言、schema不正の7件を期待どおり拒否した。
+
+## 2026-07-13: 投資レーダー未実行smokeの再確認
+
+- in-app browser runtimeは利用できなかったが、作業ツリーから隔離したStreamlit（`127.0.0.1:8503`）へ`SMAI_RUN_RESPONSIVE_SMOKE=1`を指定し、投資レーダーのiPhone 13 mini、iPad縦横、PC 1366px responsive smokeを実行。横はみ出し、例外、投資レーダー、ヒートマップ、mobile tap targetの確認は`1 passed`だった。
+- 隔離Gateway（`127.0.0.1:8088`）とローカルOllamaでRadar live smokeを実行。Gateway / Ollama readinessは正常で、4B/8Bの親SMAI経由応答は`validation_error`の決定論的fallbackとなった。8Bは同一promptで構造化Radar JSONを生成できるが、親側で受理されるlive応答の再現性は未確認として残す。隔離プロセスは確認後に停止した。
+
+## 2026-07-13 SMAIサーバー可視コンソール
+
+- 手動のSMAI再起動時に、ローカルURL、信頼済みLAN端末用URL、インターネット公開禁止の注意、Streamlit起動ログを確認できるWindowsコマンド画面を残す `/console` 起動モードを追加した。
+- 常時運用のスケジュール起動は従来どおり非対話・ログ保存のままとし、表示用モードだけがWindows子プロセスの非表示フラグを外す。
+
+## 2026-07-13 投資レーダー確認候補の可読性改善
+
+- 固定3値の直接性を連続散布図へ置いて点が重なる表示をやめ、本文に出た銘柄、SMAI推測候補、市場背景の由来別レーンへ変更した。PCでは候補一覧と選択中詳細を並べ、スマホでは安全に縦積みする。
+- `RadarCandidate`へ決定論的な確認優先度の要因を追加し、鮮度・追跡できる根拠記事数・材料種別・Myウォッチリスト一致を画面で追跡できるようにした。価格/RAGの`not_checked`は、失敗ではなく明示操作前の「未実行」と表示する。
+- Ranking、Forecast、Investment Score、Research Score、候補抽出、外部取得の自動開始は変更していない。
+
+## 2026-07-13 投資レーダー UX/P0・可視化基盤の実装
+
+- `Documents/39_Investment_Radar_UX_Visualization_Requirements.md` を正本として、材料種別を好悪・価格方向へ読み替える表示を廃止した。ニュース代理の市場指標は `ニュース代理 / 方向未確認` と明示し、実測の価格・出来高とは区別する。
+- 画面上部に `今日の確認ポイント` を置き、由来別件数と「まず確認する候補」への明示導線を追加した。テーマ概観はコンパクトな `今日のテーママップ` とし、候補は3由来レーンで初期件数を絞り、`あと N 件を見る` で展開する。クイックフィルター、確認トリアージ、解除操作、到達可能な詳細ダイアログを追加した。
+- 詳細では根拠記事、データ状態、確認の順番、`根拠資料を確認` と `銘柄コックピットで確認` を縦に読める形で提示する。表示・候補選択・フィルター変更だけでは外部ニュース更新、価格取得、RAG、Gateway、保存を開始しない。
+- 対象のnetwork-free回帰481件、Ruff、Black、PC/iPad縦横/iPhoneの実Streamlit responsive smokeを確認した。4 viewportで横はみ出し・例外・主要操作・詳細ダイアログを確認し、PC上部の `今日の確認ポイント`、テーママップ、次操作も実画面で確認した。P1後半のテーマ連動、根拠タイムライン／ルートマップ、snapshot差分は未実装として残す。
+
+## 2026-07-13 投資レーダー テーママップの密度・根拠量回復
+
+- 参照PDFと実画面を比較し、初期のテーママップを最大3テーマ・各最大3銘柄タイルへ戻した。4テーマ目で行が折れて候補キューを押し下げる状態を解消し、残るテーマは `ほか Nテーマを見る` に明示的に退避した。
+- タイル面積を企業規模や材料種別ではなく、転載・重複を除いた根拠記事数に固定し、独立出典数を補助表示へ変更した。色は鮮度だけ、直接性は `本文に出た` / `テーマ関連` のラベルだけで表し、ニュース代理の個別タイルに擬似的な価格方向・赤緑を戻さない。カテゴリ市場データが取得済みの場合も、見出しだけに区別して表示する。
+- PC/iPad縦横/iPhoneの実Streamlit responsive smokeで、テーママップ、横はみ出し、例外、タップ領域を確認した。対象network-free回帰505件、Ruff、Blackを確認した。テーマ選択から候補キューへ条件連動するP1後半、根拠タイムライン／ルートマップ、snapshot差分は未実装として残す。
+
+## 2026-07-14 投資レーダー hot-reload ImportError修正・実Chrome評価
+
+- 7月13日から常時稼働しているStreamlitを実Chromeで再読み込みし、変更前の `backend.news` module cacheに公開前のheadline dedupe helperが残ると、`ui/views/news.py` の新しい公開名importが `ImportError` になる事象を再現した。新規processのimport、サーバーhealth、Analytics healthは正常だった。
+- UIからpackage rootの新規symbol import依存を外し、`backend.news.sources` の公開名、直前版のprivate名、同じ決定論的キー計算の順に解決するhot-reload互換境界を追加した。ニュース重複判定の意味、候補抽出、Ranking、Forecast、Score、保存データは変更していない。
+- 同じ実Chromeタブで投資レーダーの復旧、テーママップ、候補詳細ダイアログ、根拠記事と次の操作を確認した。PC / iPad / iPhone相当で3列 / 2列 / 1列、ページ全体の横はみ出しなしを確認した。モバイルでテーママップまでの縦距離、凡例・補足文字の密度、固定Assistantの右下重なりは次のUI改善候補として残す。
+
+## 2026-07-14 投資レーダー P1 タブ・実価格ヒートマップ・根拠経路
+
+- 画面を `今日のレーダー` / `市場ヒートマップ` / `ニュース・根拠` / `ニュース一覧` の4タブへ再編し、「市場変動を発見 → ニュース／RAGで理由をたどる → 次に確認する候補を決める」の目的別導線へ変更した。
+- `価格マップを更新` の明示操作でだけ、ニュース候補を最大24銘柄に制限してYahoo等の設定Providerから取得する `値動き注目マップ` を追加した。1/5/20営業日の絶対騰落率を面積、符号付き騰落を色とし、正確な率・取得元・価格基準日時を併記する。履歴不足・取得失敗には擬似方向を付けない。
+- ニュース側は `ニューステーマ` として実価格マップから分離し、展開時に先頭3テーマを重複していた表示を修正した。候補詳細には `ニュース根拠 → 本文言及/テーマ推測 → RAG確認状態 → 銘柄コックピット` の経路を追加し、由来別件数の重複表示を削減した。
+- TradingViewの面積／色の分離、NN/gの少数タブと既定タブ、Data Science Journal 2025年論文の2Dヒートマップの符号数を参考に表示契約を文書化した。iPhoneではニューステーマを3列コンパクト表示、実価格マップを数値付き縦カードへ切り替える。
+- 常駐Streamlitが旧`backend.news`を保持して新契約をimportできない問題を、独立`backend.news.radar_market`から直接読むhot-reload互換境界で解消した。共通CSSにもrevision guardを設け、旧style moduleを保持した常駐processだけ一度再読込する。本番8501のプロフィール画面・タブ・新CSSの復旧、隔離8511での実価格19銘柄表示、候補詳細、PC実ブラウザ、および375×812 / 810×1080 / 1080×810 / 1366×768 responsive smokeを確認した。
+
+## 2026-07-14 投資レーダー 統合市場レーダー
+
+- `今日のレーダー` と `市場ヒートマップ` を `市場レーダー` へ統合し、本文抽出数、テーマ推測数、市場背景数、最初に確認する候補をマップ直前のコンパクトな確認サマリーへ移した。
+- ニュース候補最大24銘柄の実価格を、セクター、業種、注目ニュース別に切り替える grouped treemapへ変更した。面積は選択期間の絶対騰落率、色は符号付き騰落方向に固定し、本文／テーマ推測、根拠件数、Watchlist一致、確認順の先頭を別ラベルとして統合した。各タイルは銘柄コックピットへ直接つながる。
+- 比較期間を20営業日（約1か月）に固定して期間UIを外し、snapshot未取得、15分以上経過後の再表示、および画面を開いている間の15分ごとのサーバー側fragment実行でbounded価格取得を自動実行する。`今すぐ更新`を残し、通常テストは`SMAI_RADAR_AUTO_FETCH=0`でnetwork-freeを維持する。
+- 実画面で確認した単調な塗りと密集グループの文字切れに対し、上昇／下落の半透明グラデーション、階層化した文字、2行企業名、シンボルpill、狭いタイルの段階的省略、モバイルでの全情報復元を追加した。一分類は値動き上位8銘柄までとし、全候補数を見出しに残す。
+
+## 2026-07-15 投資レーダー ヘッドライン循環・ニュース根拠の精度強化
+
+- 上部ヘッドラインを、重複除外済み最大12件の循環プールから3件ずつ表示するカードボードへ変更。PCでは3列、iPadでは2列＋1件、iPhoneでは1列3件に組み替え、次ページを8秒ごとに切替、ホバー時停止、手動ページ選択、reduced-motion停止を維持した。市場レーダーとニュース一覧のIDを分離し、両タブでもカードの操作・原記事URLが競合しない。URLがあるニュースカードはカード全体から別タブで開く。
+- Google Newsの標準カテゴリを12から17へ増やし、不動産・REIT、通信・メディア、工業・資本財、ヘルスケア、素材・化学を追加。明示的な国内コード／米国ティッカーはローカル銘柄ユニバースで照合し、未知の4桁年号などを銘柄として誤抽出しない。名称、ティッカー、カテゴリ、マクロ指標を含む13件のラベル済みoffline評価を追加し、直接言及・テーマ推測・マクロ代理の各precision/recallを回帰化した。
+- 投資レーダーのlocal RAGは、表示上限5件の前に最大12件を取得して資料単位で重複除外し、異なる資料の引用を優先するようにした。未来資料、別銘柄、低関連度の除外に加えて同一資料の近接断片を明示し、資料不足をスコアや投資判断に読み替えない。Cockpitなど既存のGoogle News検索も、企業名・別名・ティッカー・国内コードの最大4表記を1リクエストに含め、国内外の表記揺れによる取りこぼしを減らした。
+- network-freeの対象pytest 157件で成功。live Google News取得、実外部記事へのリンク遷移、実端末iPhone/iPad/PCの画面確認は今回実行していない。
+
+## 2026-07-15 投資レーダー 分類の偏り解消・CI型検査修復
+
+- セクター／業種で1〜2銘柄の異なる分類を`少数セクター`／`少数業種`へ一括統合していたため、実測銘柄は残っていても分類の広がりが見えにくくなっていた。各分類を独立した小マップへ戻し、上部メタ情報に分類数と実測銘柄数を表示した。1280px以上のPCでは3列で比較し、タブレットとiPhoneでは同じタイル対象を読みやすく再配置する。
+- 価格取得対象が30銘柄上限に達する場合、既存の確認優先順をカテゴリ内で維持しつつ、低頻度のニュース分類を残す決定論的なカテゴリ均衡選定を追加した。候補抽出、Ranking、Forecast、各Score、価格方向の計算は変更していない。
+- CIで失敗していたMypyの`display_groups`空リスト型推論を、少数分類統合の撤廃と明示的な表示group contractへ置換して解消した。Ruff／Black／MypyはCIと同じnetwork-freeコマンドで成功を確認し、全pytestはpush後のCIで再確認する。
+
+## 2026-07-16 Server Watch 実運用整合
+
+- `SMAI_Projects\Smart_Market_AI` は実体 `workspace\Smart_Market_AI` への Junction であり、既存Autostart／Watchタスクが実体パスを参照していても二重のワークスペースではないことを確認した。
+- Watch の `exit 1` はTailscale CLIのJSONをWindows既定CP932で復号した例外だった。CLI出力をUTF-8固定で読むようにし、Watcherを通常タスクで再起動して`Running`、8501正常、保守不要のログを確認した。
+- 8501の所有プロセスを権限上検証できない状態は、停止と誤認して復旧を試みない。`unknown`として記録し復旧を抑止するfail-closed分岐を追加した。通常のS4Uタスクでは所有プロセスを検証でき、正常ログを確認した。
+
+## 2026-07-20 全画面実起動・ユーザビリティ監査
+
+- 実Chromeと隔離Streamlitで、プロフィール選択、主要7画面、ランキング履歴、銘柄データ全タブ、詳細条件、ウォッチリストグループ、通知・ユーザー・アイコン設定、フローティングAssistantを確認した。YahooのCockpit取得、ランキング作成、ニュース更新、ウォッチリスト更新、LLM応答、リバランス計算も実行し、通常結果まで到達した。
+- 長い画面から別画面へ移動しても旧スクロール位置が残る問題を、画面描画完了後の共通先頭復帰へ変更した。重いランキング結果の遅延描画後も先頭に留まることを実ブラウザで確認した。
+- Cockpitの取得完了後に100%進捗が残る問題、数値入力stateと`value`併用によるStreamlit警告、既定値`2.00`を`2.0`へ正規化しただけで信託報酬条件が有効に見える問題を修正した。予測、スコア、ランキング計算は変更していない。
+- 375x812、810x1080、1080x810、1366x768で全7画面を確認した。iPad縦でサイドバー展開時にCockpit Assistantカードが右へ142px欠ける状態を縦積みへ変更し、全viewport・全画面でページ横はみ出し、Streamlit例外、破損画像が0であることを再確認した。
+- 外部通知は配送先が無効のため送信せず、ユーザー切替・セッション解放・データ削除など状態を失う操作は実行していない。起動中8501が複数の旧Forecast submoduleを保持したImportErrorは、部分reloadによるcontract混在を避け、管理者権限でfresh processへ切り替える必要があることを確認した。
+
+## 2026-07-20 Ranking application flow R1 typed build境界
+
+- `RankingBuildRequest` / `RankingBuildResult`とStreamlit非依存の`RankingBuildService`を追加し、完成済みcacheの再利用、銘柄DB preflight、保守guard下のMarketData build、完成結果のcache publishをbackend側の一つの実行順へ移した。
+- `ui.app._execute_market_data_ranking_job`は既存worker / testとの互換façadeとして残し、UI側ではProvider、MarketData builder、cache adapterを注入する。ランキング数値、score、並び順、対象銘柄、Provider挙動、保存形式は変更していない。
+- cache hit、fresh build、preflightとMarketDataのguard順、失敗結果をpublishしない境界をnetwork-free testで固定した。対象回帰405件と全体2444件、Ruff、Black、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。
+
+## 2026-07-20 Ranking application flow R1 adapter・job controller分離
+
+- `ui/ranking_application.py`へ銘柄DB preflight adapter、既存MarketData builder adapter、typed requestをprocess-wide jobへ渡す起動controllerを追加した。ランキング作成ボタンのruntime経路は個別引数とlambdaではなく`RankingBuildRequest`を終端workerまで保持する。
+- `ui.app._execute_market_data_ranking_job`は互換façadeとして維持し、既存callerとbackground job contractを変更していない。ランキング数値、score、並び順、対象銘柄、Provider、cache、session保存の意味は変更していない。
+- adapter引数、preflight条件、job request伝播をnetwork-free testで固定し、対象回帰407件、Ruff、Black、Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）を確認した。
+
+## 2026-08-02 Cockpit R2-B Research / Decision Report context初回slice
+
+- `CockpitSummaryContext`、`CockpitResearchContext`、`CockpitDecisionReportRenderContext`を追加し、Cockpit header、Research状態、Decision Report表示入力をStreamlit非依存のtyped contextとして組み立てるようにした。symbol一致を確認したResearch / news / external resultは一度だけ解決し、LLM材料、確認メモ、Decision Reportへ同じsnapshotを渡す。
+- 外部取得、企業Research report生成、stock news report生成、progress、toast、`st.rerun()`はUI edgeに残す。Forecast、Score、Research Score、Decision Report本文、citation、表示順、外部接続条件は変更していない。次のR2-B sliceで、Research buttonから取得・生成use caseを分離する。
+- 対象pytest 416件、Ruff、Black、`ui/cockpit_application.py`と対象testのMypyは成功した。PR CIは今回より前のcommitからMypy 27件で停止しpytestへ到達していない。主因はRanking application test adapterと既存`ui/app.py` protocol varianceであり、R2-Bの対象型検査では再現しない。
+
+## 2026-08-02 Cockpit R2-B Research refresh use case分離
+
+- `run_cockpit_research_refresh`へ、外部Research取得、企業Research report生成、stock news report生成、progress event、elapsed-time traceを移した。use caseはStreamlitやsession stateを参照せず、UIがfetcher / builder / publisher / progress / clockを注入する。
+- 外部取得の成功結果、企業report、news reportは各step直後にpublisherでsessionへ採用する。後段のbuilderが失敗しても、すでに取得済みのsession-local根拠を失わない。外部`AppError`は記録して保存済み資料・既存データでreport/news生成を続行する既存挙動を維持した。UIはbutton、loading、通知、error詳細、trace、rerunだけを持つ。
+- 成功順序、progress、trace、publisher、外部失敗時の継続をfixture callback / clockで追加検証した。対象pytest 419件、全体pytest 2,474件、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で成功した。
+
+## 2026-08-02 Cockpit R2-C Research operation / page境界 初回slice
+
+- `ui/cockpit_research_presenter.py`へResearch操作cardのtyped表示modelを追加した。title、要約、根拠状態chip、注目/注意材料、action labelの組立はStreamlit非依存とし、`ui/views/cockpit.py`がHTML、button、既存widget keyを描画する。
+- Cockpitの未取得時external/news fallbackと通常Research panelへの分岐もpage componentへ移した。`ui.app`はcontext解決、refresh use case、通知、rerun、既存詳細rendererの注入だけを持ち、`_render_research_operation_card`は既存caller向けcompatibility façadeとして残した。
+- Research内容、根拠数・順序、button挙動、Forecast、Score、Ranking数値は変更していない。モデル単体、Cockpit表示、Research表示、refresh use caseの対象pytest 421件、全体pytest 2,476件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。
+
+## 2026-08-02 Cockpit R2-C Decision Report presenter / page境界 第二slice
+
+- `CockpitDecisionReportRenderContext`を入力に、overview cardとAI要約HTMLを`ui/cockpit_decision_report_presenter.py`へ移した。`ui/views/cockpit.py`は見出し、根拠表、詳細section、download導線を描画し、`ui.app`はcontext組立と既存table/detail/download/assistant-context adapterの注入だけを担当する。
+- Report本文、overview field、AI要約3件上限、根拠行、download file名、assistant context、Forecast / Score / Ranking数値は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 424件、全体pytest 2,479件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。
+
+## 2026-08-02 Cockpit R2-C Decision Report detail model 第三slice
+
+- `CockpitDecisionReportDetailModel`を追加し、確認方針、score、価格・予測、fundamental、valuation、risk、根拠資料、補足の表示行をStreamlit描画前に固定した。詳細の根拠表は上部表示と同じ`CockpitDecisionReportRenderContext.evidence_rows`を再利用し、二重の根拠組立を廃止した。
+- `ui/views/cockpit.py`がexpander、table、根拠card、empty state、補足表を描画し、`ui.app`は既存row builderとrenderer adapterの注入だけを行う。section順、初期展開、根拠card上限、empty message、Forecast / Score / Ranking数値、出典の意味は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 426件、全体pytest 2,481件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。

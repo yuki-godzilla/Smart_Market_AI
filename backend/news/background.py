@@ -15,9 +15,14 @@ from backend.news.update_manager import NewsRefreshResult, refresh_news_dashboar
 from backend.server_ops.maintenance import maintenance_operation
 
 NEWS_BACKGROUND_STARTUP_DELAY_SECONDS = 2.0
+# The regular cache is considered fresh for three hours.  Refreshing every two
+# hours leaves room for a slow provider retry without presenting stale data.
+NEWS_BACKGROUND_REFRESH_INTERVAL_SECONDS = 2 * 60 * 60
 
 _WORKER_LOCK = threading.Lock()
 _WORKER_THREAD: threading.Thread | None = None
+_SCHEDULER_LOCK = threading.Lock()
+_SCHEDULER_THREAD: threading.Thread | None = None
 
 
 def start_news_background_refresh_worker(
@@ -47,6 +52,58 @@ def start_news_background_refresh_worker(
         worker.start()
         _WORKER_THREAD = worker
         return worker
+
+
+def _run_news_background_refresh_scheduler(
+    *,
+    interval_seconds: float,
+    cache_dir: Path | str,
+    startup_delay_seconds: float,
+    delay_scale: float,
+    logger: logging.Logger | None,
+) -> None:
+    """Refresh while the server launcher is alive, without a user session."""
+
+    interval = max(60.0, interval_seconds)
+    while True:
+        run_news_background_refresh_once(
+            cache_dir=cache_dir,
+            startup_delay_seconds=startup_delay_seconds,
+            delay_scale=delay_scale,
+            logger=logger,
+        )
+        sleep(interval)
+
+
+def start_news_background_refresh_scheduler(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+    startup_delay_seconds: float = NEWS_BACKGROUND_STARTUP_DELAY_SECONDS,
+    delay_scale: float = 1.0,
+    interval_seconds: float = NEWS_BACKGROUND_REFRESH_INTERVAL_SECONDS,
+    logger: logging.Logger | None = None,
+) -> threading.Thread:
+    """Start one daemon scheduler for timely news freshness during server uptime."""
+
+    global _SCHEDULER_THREAD
+    with _SCHEDULER_LOCK:
+        if _SCHEDULER_THREAD is not None and _SCHEDULER_THREAD.is_alive():
+            return _SCHEDULER_THREAD
+        scheduler = threading.Thread(
+            target=_run_news_background_refresh_scheduler,
+            kwargs={
+                "interval_seconds": interval_seconds,
+                "cache_dir": cache_dir,
+                "startup_delay_seconds": startup_delay_seconds,
+                "delay_scale": delay_scale,
+                "logger": logger,
+            },
+            name="smai-news-background-scheduler",
+            daemon=True,
+        )
+        scheduler.start()
+        _SCHEDULER_THREAD = scheduler
+        return scheduler
 
 
 def run_news_background_refresh_once(

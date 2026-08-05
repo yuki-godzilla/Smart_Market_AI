@@ -1761,16 +1761,18 @@ def ranking_weight_preset_label(preset: str) -> str:
 def ranking_provider_error_rows(
     provider: str,
     symbols: list[str],
-    exc: AppError,
+    exc: Exception,
 ) -> list[dict[str, str]]:
-    details = dict(exc.details)
+    details = dict(exc.details) if isinstance(exc, AppError) else {}
     details.setdefault("provider", provider)
     details.setdefault("symbols", symbols)
+    if not isinstance(exc, AppError):
+        details["error_type"] = type(exc).__name__
     return [
         {
             "symbol": _ranking_error_symbol_summary(symbols),
-            "code": exc.code,
-            "message": exc.message,
+            "code": exc.code if isinstance(exc, AppError) else "ranking_provider_error",
+            "message": exc.message if isinstance(exc, AppError) else str(exc),
             "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
         }
     ]
@@ -2080,7 +2082,12 @@ def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
     # `calculate_reversal_expectation` treats absence as neutral, whereas an
     # explicit zero is a meaningful negative observation. The display values
     # are filled after scoring for backward-compatible table rendering.
-    enriched.update(calculate_reversal_expectation(enriched).as_row())
+    enriched.update(
+        {
+            key: str(value)
+            for key, value in calculate_reversal_expectation(enriched).as_row().items()
+        }
+    )
     if not enriched.get("forecast_return_pct"):
         enriched["forecast_return_pct"] = "0"
     if not enriched.get("up_model_count"):

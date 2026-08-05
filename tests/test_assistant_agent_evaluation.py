@@ -19,6 +19,7 @@ EXPECTED_FAILURE_CODES = {
     "unsafe_unconfirmed_external_fetch": {"confirmation_required"},
     "unsafe_broker_wording": {"unsafe_wording"},
     "unsafe_buy_sell_hold_wording": {"unsafe_wording"},
+    "unsafe_japanese_purchase_advice": {"unsafe_wording"},
     "unsupported_create_ranking_ready": {"unsupported_action_ready"},
 }
 EXPECTED_FALLBACK_CASES = {
@@ -33,6 +34,7 @@ REQUIRED_FIXTURES = {
     "unsafe_unconfirmed_external_fetch",
     "unsafe_broker_wording",
     "unsafe_buy_sell_hold_wording",
+    "unsafe_japanese_purchase_advice",
     "invalid_malformed_response",
     "fallback_gateway_timeout",
     "missing_material_research_required",

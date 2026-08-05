@@ -9,6 +9,8 @@ from ui.views.ranking_chart_profiles import (
     PROFILE_UPSIDE_DOWNSIDE,
     chart_profile_for_purpose,
     ranking_chart_frame,
+    ranking_data_quality_gate,
+    ranking_reversal_evidence_frame,
 )
 
 
@@ -124,6 +126,57 @@ def test_reversal_chart_falls_back_when_technical_axes_are_fixed():
     assert selection.x_column == "上昇気配"
     assert selection.y_column == "下降警戒"
     assert selection.used_fallback is True
+
+
+def test_reversal_evidence_frame_compares_top_ten_components_and_quality_gate():
+    rows = [
+        {
+            "順位": str(index),
+            "銘柄": f"R{index}",
+            "銘柄名": f"Candidate {index}",
+            "上向き兆候": str(90 - index),
+            "reversal_chart_shape_score": str(80 - index),
+            "reversal_forecast_score": str(70 + index),
+            "reversal_safety_score": "75",
+            "reversal_pullback_score": "82",
+            "reversal_quality_score": "68",
+            "reversal_material_score": "60",
+            "データ品質": "85" if index != 2 else "55",
+            "チャート形状": "押し目反発待ち",
+        }
+        for index in range(1, 13)
+    ]
+
+    frame = ranking_reversal_evidence_frame(rows)
+
+    assert frame["symbol"].nunique() == 10
+    assert frame["component"].drop_duplicates().tolist() == [
+        "総合",
+        "形状",
+        "予測余地",
+        "下落安全",
+        "押し目",
+        "補助品質",
+        "上向き材料",
+    ]
+    assert set(frame.loc[frame["symbol"] == "R2", "quality_status"]) == {"要確認"}
+    assert "データ品質" not in set(frame["component"])
+
+
+def test_reversal_data_quality_gate_blocks_unevaluated_rows_without_scoring_attractiveness():
+    assert ranking_data_quality_gate({"データ品質": "90"}) == "評価可能"
+    assert ranking_data_quality_gate({"データ品質": "55"}) == "要確認"
+    assert ranking_data_quality_gate({"データ品質": ""}) == "要確認"
+    assert (
+        ranking_data_quality_gate(
+            {
+                "データ品質": "90",
+                "reversal_expectation_label": "未評価",
+                "warnings_raw": "data_quality:block",
+            }
+        )
+        == "評価対象外"
+    )
 
 
 def test_ranking_chart_frame_uses_available_primary_profile_columns():

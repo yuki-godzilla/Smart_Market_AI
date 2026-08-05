@@ -15,6 +15,7 @@ from app.services.model_router import (
 )
 
 CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
+RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_interpretation.v1"
 
 ContextAnswerTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
 ContextAnswerLanguage = Literal["ja", "en"]
@@ -84,6 +85,7 @@ class ContextAnswerRequest(GatewayBaseModel):
     message_history: list[ContextAnswerMessage] = Field(default_factory=list)
     active_context_id: str | None = Field(default=None, min_length=1)
     referenced_context_ids: list[str] = Field(default_factory=list)
+    response_schema: str | None = Field(default=None, min_length=1)
     model: str | None = Field(default=None, min_length=1)
     profile: LlmProfileName | None = None
     task_type: LlmTaskType = "free_chat"
@@ -101,6 +103,28 @@ class ContextReferencedSection(GatewayBaseModel):
     source_kind: str = Field(min_length=1)
 
 
+class ContextEvidencePoint(GatewayBaseModel):
+    """One short Radar field tied to exact evidence section IDs."""
+
+    text: str = Field(min_length=1, max_length=320)
+    cited_evidence_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+class ContextRadarInterpretation(GatewayBaseModel):
+    """Optional evidence-bound Radar interpretation payload."""
+
+    schema_version: str = Field(
+        default=RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+        min_length=1,
+    )
+    candidate_id: str = Field(min_length=1)
+    summary: ContextEvidencePoint
+    positive_materials: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    cautions: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    unknowns: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+
+
 class ContextAnswerResponse(GatewayBaseModel):
     """Structured answer expected by client-side assistant UIs."""
 
@@ -110,6 +134,7 @@ class ContextAnswerResponse(GatewayBaseModel):
     cautions: list[str] = Field(default_factory=list)
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[ContextReferencedSection] = Field(default_factory=list)
+    radar_interpretation: ContextRadarInterpretation | None = None
     confidence: ContextAnswerConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)
     provider: str = Field(min_length=1)

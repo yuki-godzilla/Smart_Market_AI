@@ -9,9 +9,10 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 VIEWPORTS = (
     ("iphone13mini", 375, 812),
-    ("ipad", 820, 1080),
+    ("ipad8_portrait", 810, 1080),
     ("ipad8_landscape", 1080, 810),
-    ("pc_1440", 1440, 900),
+    ("pc_1366", 1366, 768),
+    ("pc_wide", 1600, 900),
 )
 
 
@@ -21,7 +22,12 @@ VIEWPORTS = (
 )
 def test_investment_radar_responsive_viewports() -> None:
     base_url = os.getenv("SMAI_STREAMLIT_URL", "http://127.0.0.1:8501")
-    screenshot_dir = Path("docs/responsive/screenshots/investment_radar")
+    screenshot_dir = Path(
+        os.getenv(
+            "SMAI_RESPONSIVE_SCREENSHOT_DIR",
+            "docs/responsive/screenshots/investment_radar",
+        )
+    )
     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
     with playwright.sync_playwright() as runtime:
@@ -34,13 +40,14 @@ def test_investment_radar_responsive_viewports() -> None:
                     wait_until="networkidle",
                     timeout=120_000,
                 )
-                sidebar_close = page.locator('[data-testid="stSidebarCollapseButton"] button')
-                if sidebar_close.count() and sidebar_close.is_visible():
-                    sidebar_close.evaluate("(element) => element.click()")
-                    page.keyboard.press("Escape")
+                sidebar = page.locator('[data-testid="stSidebar"]')
+                if width <= 767:
+                    assert sidebar.get_attribute("aria-expanded") == "false"
                 if page.get_by_text("どのユーザーで使いますか？", exact=True).count():
-                    page.get_by_text("Yuki", exact=True).click()
-                    page.get_by_text("このユーザーで開始", exact=True).click()
+                    page.locator(
+                        'a.smai-profile-link[aria-label="Yukiを選択"]:visible'
+                    ).first.click()
+                    page.locator("a#smai-profile-start:visible").click()
                     page.get_by_text("投資レーダー", exact=True).wait_for(
                         state="visible", timeout=60_000
                     )
@@ -56,22 +63,71 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert page.locator('[data-testid="stException"], .stException').count() == 0
                 assert page.get_by_text("投資レーダー", exact=True).count() > 0
                 assert page.get_by_role("button").count() > 0
-                heatmap_tile = page.locator("a.investment-stock-heatmap-tile").first
-                heatmap_header = page.locator(".investment-stock-heatmap-group-header").first
+                assert page.get_by_role("tab").count() == 2
+                assert page.get_by_role("tab", name="市場レーダー").count() == 1
+                assert page.get_by_role("button", name="今すぐ更新").count() == 1
+                ticker_items = page.locator(
+                    "#investment-news-market-headlines .investment-news-ticker-item"
+                )
+                assert 1 <= ticker_items.count() <= 12
+                assert (
+                    page.locator(
+                        "#investment-news-market-headlines .investment-news-ticker-flow"
+                    ).count()
+                    == 1
+                )
+                assert (
+                    page.locator("#investment-news-market-headlines")
+                    .get_by_text(
+                        "HEADLINE FLOW",
+                        exact=True,
+                    )
+                    .count()
+                    == 1
+                )
+                market_surface = page.locator("section.investment-market-heatmap")
+                market_surface.wait_for(state="visible", timeout=120_000)
+                assert page.get_by_text("比較期間は約1か月", exact=False).count() > 0
+                assert page.get_by_text("比較期間", exact=True).count() == 0
+                heatmap_tile = market_surface.locator("a.investment-market-heatmap-tile").first
+                heatmap_header = market_surface.locator(
+                    ".investment-market-heatmap-group-header"
+                ).first
                 assert heatmap_tile.count() > 0
                 assert heatmap_header.count() > 0
                 assert str(heatmap_tile.get_attribute("href")).startswith("?smai_start_profile=")
                 header_box = heatmap_header.bounding_box()
                 assert header_box is not None
                 assert header_box["height"] >= 40
-                assert page.get_by_text("ニュース詳細フィルタ", exact=True).count() > 0
-                assert page.get_by_text("8セクター", exact=False).count() == 0
-                assert page.locator(".investment-stock-heatmap-group-kind").count() > 0
-                assert page.locator(".investment-news-ticker-item").count() <= 3
+                assert page.get_by_text("直近20営業日の値動き", exact=False).count() > 0
+                assert page.get_by_text("本文／推測", exact=False).count() > 0
+                market_groups = market_surface.locator(".investment-market-heatmap-groups")
+                if 768 <= width <= 1200:
+                    grid_column_count = market_groups.evaluate(
+                        "(element) => getComputedStyle(element).gridTemplateColumns"
+                        ".split(' ').filter(Boolean).length"
+                    )
+                    assert grid_column_count == 1
+                elif width >= 1280:
+                    grid_column_count = market_groups.evaluate(
+                        "(element) => getComputedStyle(element).gridTemplateColumns"
+                        ".split(' ').filter(Boolean).length"
+                    )
+                    assert grid_column_count >= 2
+                market_surface.scroll_into_view_if_needed()
+                page.screenshot(
+                    path=str(screenshot_dir / f"{name}.png"),
+                    full_page=False,
+                )
                 if width <= 767:
                     tile_box = heatmap_tile.bounding_box()
                     assert tile_box is not None
                     assert tile_box["height"] >= 44
+                    final_map_tile = market_surface.locator("a.investment-market-heatmap-tile").last
+                    final_map_tile.scroll_into_view_if_needed()
+                    final_tile_box = final_map_tile.bounding_box()
+                    assert final_tile_box is not None
+                    assert final_tile_box["height"] >= 44
 
                 page.screenshot(
                     path=str(screenshot_dir / f"{name}.png"),

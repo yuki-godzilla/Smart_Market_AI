@@ -1,15 +1,14 @@
 from pathlib import Path
 
 
-def test_external_access_guide_covers_six_environments_and_pwa_artifacts() -> None:
+def test_external_access_guide_covers_magicdns_environments_and_pwa_artifacts() -> None:
     text = Path("docs/EXTERNAL_ACCESS_STABILITY.md").read_text(encoding="utf-8")
     for phrase in (
-        "LAN / Windows Chrome",
-        "Tailscale / Windows Chrome",
-        "Tailscale / iPhone Safari",
-        "Tailscale / iPad Safari",
-        "Tailscale / iPhone PWA",
-        "Tailscale / iPad PWA",
+        "MagicDNS / LAN内 Windows Chrome",
+        "MagicDNS / 外出先 Windows Chrome",
+        "MagicDNS / iPhone Safari",
+        "MagicDNS / iPad Safari",
+        "MagicDNS / iPhone / iPad PWA",
         "JSON",
         "CSV",
         "Markdown",

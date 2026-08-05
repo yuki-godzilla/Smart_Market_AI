@@ -541,7 +541,22 @@ def _asset_class(name: str, description: str) -> str:
         ]
     ):
         return "commodity"
-    if any(k in text for k in ["通貨", "currency", "ドル", "円", "為替"]):
+    # Do not classify an equity ETF as currency merely because its benchmark or
+    # hedge description mentions USD/JPY. Require an explicit currency product.
+    if any(
+        k in text
+        for k in [
+            "通貨etf",
+            "通貨 etf",
+            "currency etf",
+            "currency fund",
+            "米ドル指数",
+            "ドルインデックス",
+            "dollar index",
+            "yen index",
+            "為替指数",
+        ]
+    ):
         return "currency"
     return "equity"
 

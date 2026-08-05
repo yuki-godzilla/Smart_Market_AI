@@ -165,7 +165,7 @@ def test_ranking_detail_filters_survive_client_session_restore(tmp_path: Path) -
         "sidemenu_page": "ranking",
         "market_data_ranking_period": "long_3y",
         "market_data_ranking_dividend_enabled": True,
-        "market_data_ranking_dividend_min": "3.0",
+        "market_data_ranking_min_dividend": "3.0",
         "market_data_ranking_per_enabled": True,
         "market_data_ranking_per_min": "5.0",
         "market_data_ranking_per_max": "20.0",
@@ -190,7 +190,7 @@ def test_ranking_detail_filters_survive_client_session_restore(tmp_path: Path) -
 
     assert restored_state["market_data_ranking_period"] == "long_3y"
     assert restored_state["market_data_ranking_dividend_enabled"] is True
-    assert restored_state["market_data_ranking_dividend_min"] == "3.0"
+    assert restored_state["market_data_ranking_min_dividend"] == "3.0"
     assert restored_state["market_data_ranking_per_enabled"] is True
     assert restored_state["market_data_ranking_per_min"] == "5.0"
     assert restored_state["market_data_ranking_per_max"] == "20.0"

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Callable
 
 from backend.notifications.catalog import NOTIFICATION_TEMPLATES
+from backend.notifications.live_data import NotificationDataSource
 from backend.notifications.notification_client import NotificationClient
 from backend.notifications.producer import CatalogNotificationProducer
 from backend.notifications.settings_repository import (
@@ -34,6 +35,18 @@ class NotificationRunLog:
     status: str
     reason: str
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationSchedulePreview:
+    """Read-only outcome for one due schedule evaluation."""
+
+    job_id: str
+    user_id: str
+    template_id: str
+    scheduled_slot: str
+    status: str
+    reason: str
 
 
 class NotificationScheduleRepository:
@@ -162,46 +175,114 @@ class NotificationScheduler:
         schedules: NotificationScheduleRepository,
         producer: CatalogNotificationProducer,
         client_factory: Callable[[str], NotificationClient | None] | None = None,
+        data_source: NotificationDataSource | None = None,
     ) -> None:
         self.schedules = schedules
         self.producer = producer
         self.client_factory = client_factory
+        self.data_source = data_source
 
     def run_due(self, user_ids: list[str], *, now: datetime | None = None) -> int:
         current = now or datetime.now().astimezone()
         produced = 0
+        for user_id, job, slot in self._due_jobs(user_ids, current):
+            if not self.schedules.claim(job.job_id, user_id, slot):
+                continue
+            values: dict[str, str] | None = None
+            dedupe_key = f"{job.template_id}:{user_id}:{slot}"
+            if self.data_source is not None:
+                source_values = self.data_source.values_for(
+                    job.template_id, user_id=user_id, evaluated_at=current
+                )
+                if source_values.values is None:
+                    self.schedules.finish(
+                        job.job_id, user_id, slot, "skipped", source_values.reason
+                    )
+                    continue
+                values = dict(source_values.values)
+                if source_values.dedupe_token:
+                    dedupe_key = f"{job.template_id}:{user_id}:{source_values.dedupe_token}"
+            try:
+                item = self.producer.produce(
+                    job.template_id,
+                    user_id=user_id,
+                    values=values,
+                    dedupe_key=dedupe_key,
+                    now=current.astimezone(UTC),
+                    client=self.client_factory(user_id) if self.client_factory else None,
+                )
+            except Exception:
+                self.schedules.finish(job.job_id, user_id, slot, "failed", "job_error")
+                continue
+            status = "created" if item else "skipped"
+            reason = "ok" if item else "disabled_or_duplicate"
+            self.schedules.finish(job.job_id, user_id, slot, status, reason)
+            produced += int(item is not None)
+        return produced
+
+    def preview_due(
+        self, user_ids: list[str], *, now: datetime | None = None
+    ) -> list[NotificationSchedulePreview]:
+        """Evaluate due jobs without claims, history writes, or delivery attempts."""
+
+        current = now or datetime.now().astimezone()
+        previews: list[NotificationSchedulePreview] = []
+        for user_id, job, slot in self._due_jobs(user_ids, current):
+            if self.data_source is None:
+                previews.append(
+                    NotificationSchedulePreview(
+                        job.job_id, user_id, job.template_id, slot, "ready", "ok"
+                    )
+                )
+                continue
+            source_values = self.data_source.values_for(
+                job.template_id, user_id=user_id, evaluated_at=current
+            )
+            previews.append(
+                NotificationSchedulePreview(
+                    job.job_id,
+                    user_id,
+                    job.template_id,
+                    slot,
+                    "ready" if source_values.values is not None else "skipped",
+                    source_values.reason,
+                )
+            )
+        return previews
+
+    def _due_jobs(
+        self, user_ids: list[str], current: datetime
+    ) -> list[tuple[str, ScheduledJob, str]]:
+        due: list[tuple[str, ScheduledJob, str]] = []
         for user_id in user_ids:
             setting = self.schedules.load(user_id)
-            if not setting.enabled or (setting.weekdays_only and current.weekday() >= 5):
+            if not setting.enabled:
                 continue
             for job in SCHEDULED_JOBS:
+                if (
+                    setting.weekdays_only
+                    and current.weekday() >= 5
+                    and (job.job_id != "favorite_move" or self.data_source is None)
+                ):
+                    continue
                 schedule_value = getattr(setting, job.schedule_field)
                 if job.schedule_field.endswith("_minutes"):
                     interval = max(1, int(schedule_value))
                     if current.minute % interval != 0:
                         continue
-                    if job.job_id == "favorite_move" and not (9 <= current.hour <= 15):
+                    # Catalog-only/manual scheduler use keeps its historical
+                    # sample-safe window.  Real N6 data sources evaluate the
+                    # market for each favorite instead of using server time.
+                    if (
+                        job.job_id == "favorite_move"
+                        and self.data_source is None
+                        and not (9 <= current.hour <= 15)
+                    ):
                         continue
                 elif schedule_value != current.strftime("%H:%M"):
                     continue
-                slot = current.strftime("%Y-%m-%dT%H:%M")
-                if not self.schedules.claim(job.job_id, user_id, slot):
-                    continue
-                try:
-                    item = self.producer.produce(
-                        job.template_id,
-                        user_id=user_id,
-                        dedupe_key=f"{job.template_id}:{user_id}:{slot}",
-                        now=current.astimezone(UTC),
-                        client=self.client_factory(user_id) if self.client_factory else None,
-                    )
-                except Exception:
-                    self.schedules.finish(job.job_id, user_id, slot, "failed", "job_error")
-                    continue
-                status = "created" if item else "skipped"
-                self.schedules.finish(job.job_id, user_id, slot, status, "ok")
-                produced += int(item is not None)
-        return produced
+                due.append((user_id, job, current.strftime("%Y-%m-%dT%H:%M")))
+        return due
 
 
 def registered_template_ids() -> tuple[str, ...]:

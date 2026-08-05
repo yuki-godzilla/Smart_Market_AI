@@ -229,6 +229,12 @@ http://127.0.0.1:8000/openapi.json
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+Windowsサーバーとして日常利用する場合は `scripts\start_smai_server.bat`（手動確認は
+`scripts\run_lan_server.bat`）を使います。通常アクセスURLはTailscale MagicDNSの
+`http://smai-server:8501` に統一し、LAN内・外出先の接続端末ではTailscaleを起動します。
+サーバーPC内での確認だけは `http://localhost:8501` を使用します。詳細は
+[`docs/LAN_PWA_ACCESS_GUIDE.md`](docs/LAN_PWA_ACCESS_GUIDE.md)を参照してください。
+
 現在の UI は左サイドメニューで画面を切り替えます。
 `銘柄コックピット` では 1 銘柄を深掘りし、`銘柄ランキング` では複数銘柄を比較します。
 `リバランス` では、現在資産、目標配分、配分差分、見直し候補、Risk 判定を順に確認します。

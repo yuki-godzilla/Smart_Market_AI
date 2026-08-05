@@ -1,8 +1,11 @@
 from backend.assistant import (
+    AssistantGuidedWorkflow,
     AssistantToolPlan,
     AssistantToolPlanStep,
+    AssistantWorkflowStep,
     build_assistant_context,
     build_deterministic_assistant_tool_plan,
+    validate_assistant_guided_workflow,
     validate_assistant_tool_plan,
 )
 
@@ -115,3 +118,65 @@ def test_execution_like_wording_is_rejected():
 
     assert not result.valid
     assert "plan contains execution-like wording" in result.errors
+
+
+def test_user_visible_disabled_reason_with_unsafe_advice_is_rejected():
+    plan = AssistantToolPlan(
+        user_intent="確認する",
+        current_page="cockpit",
+        overall_summary="確認順です。",
+        steps=[
+            AssistantToolPlanStep(
+                step_id="s1",
+                title="利用できない操作",
+                summary="現在は利用できません。",
+                action_id="update_research",
+                reason="検証用です。",
+                status="blocked",
+                disabled_reason="今すぐ買ってください。",
+            )
+        ],
+    )
+
+    result = validate_assistant_tool_plan(plan)
+
+    assert not result.valid
+    assert "plan contains investment-advice-like wording" in result.errors
+
+
+def test_user_visible_plan_warning_with_unsafe_advice_is_rejected():
+    plan = AssistantToolPlan(
+        user_intent="確認する",
+        current_page="cockpit",
+        overall_summary="確認順です。",
+        warnings=["この銘柄は購入推奨です。"],
+    )
+
+    result = validate_assistant_tool_plan(plan)
+
+    assert not result.valid
+    assert "plan contains investment-advice-like wording" in result.errors
+
+
+def test_user_visible_workflow_followup_hint_with_unsafe_advice_is_rejected():
+    workflow = AssistantGuidedWorkflow(
+        title="確認フロー",
+        summary="確認順です。",
+        user_intent="確認する",
+        current_page="cockpit",
+        steps=[
+            AssistantWorkflowStep(
+                step_id="s1",
+                title="資料を見る",
+                summary="取得済み資料を確認します。",
+                kind="review",
+                action_id="open_research_section",
+                followup_hint="今すぐ売ってください。",
+            )
+        ],
+    )
+
+    result = validate_assistant_guided_workflow(workflow)
+
+    assert not result.valid
+    assert "workflow contains investment-advice-like wording" in result.errors

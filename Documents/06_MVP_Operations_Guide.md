@@ -24,6 +24,7 @@ Phase N1〜N5-Cで、アプリ内通知、ntfy Push、通知カタログ、専�
 - カスタムユーザーのお気に入りとsnapshotは`data/user/profiles/<user_id>/`へ分離保存する
 - `SMAIデフォルト`のお気に入りとsnapshotはStreamlit session内だけに保持し、ファイル保存しない
 - `SMAIデフォルト`では通知UI、履歴生成、設定保存、外部送信を利用できない
+- Assistantの明示`下書きを保存`は、custom userごとに`data/user/profiles/<user_id>/decision_reports/`へsanitized Markdown、ZIP、manifestを保存する。`SMAIデフォルト`では永続保存せず、ダウンロードだけを利用できる
 - プロフィール選択は認証ではないため、信頼できるLAN内でのみ運用する
 
 Phase U1検証用smoke:
@@ -77,6 +78,9 @@ Phase N4:
 - 右上ユーザータグの`通知センター`はサイドメニューを隠した専用画面。縦スクロールで通知を確認し、既読、archive、カテゴリ/状態/期間/重要度順を操作する。
 - 定時通知は初期OFF。通知設定の`定時通知を有効にする`を明示選択し、別プロセスで`scripts\run_notification_scheduler.bat`を起動した場合だけdue jobを確認する。
 - 1回だけ確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --once`
+- 送信前にdue jobを確認する場合: `.\venv_SMAI\Scripts\python.exe -m backend.notifications.scheduler_runner --dry-run`。これは通知履歴、run claim/log、ntfy配送を作らず、ready / skippedの安全な理由だけをJSON表示する。
+- Favorite急変通知は、custom userの保存済みWatchlist snapshotで`status=ok`、有限な1日騰落率、timezone付き`last_price_at`、90分以内の取得時刻を満たす計測だけを使う。さらに保存済み`market` / `asset_type`から日本株（`Asia/Tokyo`、09:00–11:30 / 12:30–15:30）または米国株（`America/New_York`、09:30–16:00）のregular session内であることを確認する。`config/notification_market_calendar.v1.json`のreview済み2026年coverageでは、JPX / NYSEの休場日と米国株の11月27日・12月24日13:00 ET短縮取引を適用する。市場不明・非対応asset・週末・休場日・時間外・calendar未カバー・calendar読込不能は安全にskipし、tickerから市場を推測しない。翌年seed未登録時も通知を安全に止める。schedulerは価格Providerを呼ばず、snapshotを更新せず、古い・失敗・欠損データは通知しない。同じ計測内容は、次の価格計測が保存されるまで繰り返し送らない。
+- Favorite日次レポートは、custom userの保存済みWatchlist snapshotで`status=ok`、finiteな価格または1日騰落率、timezone付き`last_price_at`、36時間以内の取得時刻を満たす計測だけをcoverageへ数える。0件なら日次通知を作らず、一部だけ取得できた場合は`有効計測数 / お気に入り総数`を表示する。市場別の取引時間・休場日・現在価格は推測せず、schedulerはProvider呼び出しやsnapshot更新を行わない。
 - 通知カタログと手動生成は`SMAI_NOTIFICATION_DEBUG=1`で起動した通知センター内だけに表示する。
 - ユーザーicon候補は`ui/assets/user_icons/manifest.json`の`enabled=true`かつ実在するlocal Assetだけ。ユーザーDBにはicon IDのみ保存する。
 - 現在のbuilt-inは既存公式`ui/static/pwa/icon-192.png`。後続Assetはmanifestへ追加し、画像配置後にenabledへ変更する。
@@ -89,6 +93,8 @@ Phase N4:
 - `silent`、severity threshold 未満、quiet hours 中は ntfy へ送信しない。
 - ntfy 送信失敗は通知履歴と delivery result に残すが、SMAI 本体処理を止めない。
 - テスト通知は明示ボタンからのみ送信し、画面表示や Streamlit rerun では送信しない。
+- Cockpit `AI調査を更新` の完了と、custom userがAssistant Reportを明示保存した成功結果だけがイベント通知候補となる。preview、download、cancel、rerun、保存失敗、default userでは通知を生成しない。
+- Report保存通知は本文、LLM出力、外部URL、local pathを含めず、同一sanitized artifact hashを重複通知しない。通知失敗は保存済みartifactを失敗扱いにしない。
 - topic は実質的な秘密情報であるため、推測困難な値を使い、ログやスクリーンショットへ平文で残さない。
 - 通常の自動テストと CI は fake transport を使い、ntfy.sh へ接続しない。
 
@@ -103,6 +109,14 @@ Phase N4:
 7. 失敗時は topic 自体をログへ貼らず、server URL、時刻、HTTP status、短縮されたエラーだけで調査する。
 
 詳細設計は `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md` を参照する。
+
+## 2026-07-13 投資レーダーの根拠追跡導線
+
+- `追加候補マップ` は既存の投資ヒートマップを置き換えない探索用表示である。`本文に出た銘柄`、`SMAI推測候補`、`マクロ確認用` は混ぜず、確認優先度は鮮度・独立根拠数・材料種別・Watchlist関連だけを表す。投資魅力度、期待収益、ランキング順位、売買推奨ではない。
+- 通常の画面描画、候補選択、Cockpitへの画面遷移は、RAG、LLM、外部ニュース更新、価格取得、保存を開始しない。`根拠を確認（ローカルRAG）` の明示操作だけが、既存のローカル/キャッシュ済みResearch資料を検索する。未来時点の資料、別銘柄、低関連度の資料は根拠として表示しない。
+- `AIで根拠を整理（明示実行）` は、RAG根拠束を確認した後にだけ使える。`llm_interpretation.radar.enabled` は既定で `false` であり、無効時はGatewayへ接続せず「この根拠だけでは判断できません」という決定論的な確認メモを表示する。設定ファイルで有効化する場合も、Gateway / provider / schema / 引用ID / 助言表現の失敗は同じ確認メモへfallbackする。
+- AI根拠整理は `radar_interpretation.v1` として候補ID・ニュース根拠ID・local RAG citation IDだけを送る。Ranking、Forecast、Investment Score、Research Score、候補マップの位置・色・順序は変更しない。live Gateway確認は通常pytestとは分離した明示opt-in smokeとして実行する。
+- `radar_interpretation.v1` のsummary、材料、注意点、不明点、次の確認は、項目ごとに許可済み根拠IDを最低1件持つ。親SMAIは候補外symbol、根拠束にない数値・日付、未知の引用、助言表現を採用しない。`tools/evaluate_radar_interpretation_shadow.py --output-dir <folder>` は8件のnetwork-free fixtureでこの拒否契約を確認する。
 
 ## 2026-06-27 Myウォッチリスト MVP
 
@@ -121,6 +135,7 @@ Phase N4:
 - Myウォッチリスト card display is now grouped into header, status badge row, refresh badge, metric cards (`価格`, `AI総合`, `上昇気配`, `下振れ警戒`, `最終確認`), confirmation information, and action buttons. Missing values remain non-fatal and display as `未取得` or `未確認`.
 - The `watchlist` title mascot points to replaceable `smai-title-watchlist.webp`; if the file is not present yet, title rendering falls back to the Investment Radar mascot art.
 - Investment Radar news-card related symbols now use one horizontal chip per symbol for `本文に出た銘柄` and `SMAI推測候補`: left side opens the symbol in Cockpit, right side uses the existing `☆ お気に入り` / `★ お気に入り中` favorite toggle. Empty / unclear symbols are skipped.
+
 - Phase 32-D adds Decision Trail fields to `favorites.json` with backward compatibility: `watch_reason`, `decision_status`, `decision_note`, `next_check_at`, `next_check_label`, `decision_updated_at`, and `decision_trail`. Myウォッチリスト cards and tables show these fields, and each card has a compact `判断メモを編集` form.
 - Phase 32-E adds a display-only `My Radar` summary and filter/sort controls. Radar priority uses refresh state, note completeness, tags, next-check date, and displayed local metrics only; it does not change Ranking score, AI総合, Research Score, provider fetch behavior, or the saved order in `favorites.json`.
 - Phase 32-E2 keeps that logic and storage contract unchanged while compacting the daily workflow. My Radar shows five summary counts and keeps candidate reasons in `My Radarの判定理由を見る`; `最大更新件数` is under `更新オプション`; update/news actions remain explicit; empty Decision Trail cards show one `判断メモ: 未入力` state and an add form, while populated cards show the full decision details.
@@ -239,11 +254,11 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - `advanced_tree_sklearn` forecast adapter using scikit-learn `ExtraTreesRegressor` by default for nonlinear feature interaction checks
   - `advanced_gbdt_sklearn` forecast adapter using scikit-learn `HistGradientBoostingRegressor` for boosting-style nonlinear checks
   - `advanced_quantile` forecast adapter for deterministic historical forward-return range checks
-  - advanced forecast consensus layer that conservatively combines registered advanced adapters at one common horizon using confidence, error improvement, model agreement, and validation sample context
-  - `POST /forecast/evaluate` accepts `adapter=advanced_linear`, `adapter=advanced_tree_sklearn`, `adapter=advanced_gbdt_sklearn`, or `adapter=advanced_quantile` with `horizon_days` 1-60 and returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
-  - Cockpit overlays advanced forecast context on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. The initial chart emphasizes actual price, `AI予測インサイト` as the consensus line, and its lower-to-upper prediction range band; advanced model lines and simple forecast lines can be added with two grouped chart checkboxes that only filter already-built chart rows, while the fixed-color chart legend dims individual displayed series. Individual advanced model cards remain visible below the chart for detail confirmation. Naive / moving-average / momentum simple forecasts stay available as backend baseline / detail context, but are not part of the default Cockpit chart or main model-card display. The chart legend sits below the chart, the right forecast-focus chart is titled `予測スコープ`, and the full chart restores small point markers while keeping the actual-price line thinner. `表示通貨` は JPY / USD の二択にし、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。取得済み USDJPY レートはラジオボタン右横に `＄円相場` として短く表示する。換算はチャート表示だけで、スコア、予測計算、Ranking には影響しない。
-  - Ranking rows retain one period-derived common-horizon advanced forecast consensus return (`advanced_forecast_predicted_return`), horizon days, score, confidence, and AI総合用の高度予測上昇 / 下降警戒 / 信頼スコア. Ranking の上昇気配 / 下降警戒にはAI予測インサイトを25%までブレンドし、`AI総合` はこれらを `予測・上昇気配30%` / `リスク・下振れ警戒25%` の中で低信頼時に中立寄せしながら加味する。Ranking の理由表示、深掘り候補、score detail、Decision Report でも同じ文脈で説明する
-  - Ridge-style lightweight deterministic forecasting, scikit-learn tree ensemble / histogram gradient boosting forecasting, and quantile range checks for 1-60 day forward returns
+  - advanced forecast consensus layer that uses `horizon_validation_router_v1` at one common horizon. The price center anchors `advanced_quantile` at 50% or more, admits only past-validation-gated tree / GBDT secondaries through 60 days, and uses quantile alone beyond 60 days. The direction return is a separate field and preserves the previous all-adapter consensus through 60 days.
+  - `POST /forecast/evaluate` accepts `adapter=advanced_linear`, `adapter=advanced_tree_sklearn`, `adapter=advanced_gbdt_sklearn`, or `adapter=advanced_quantile` with any positive `horizon_days`; omit it to derive the horizon from acquired bars. It returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
+  - Cockpit overlays advanced forecast context on the existing price / forecast chart using the same automatically derived horizon as baseline forecasts. The policy uses observed daily points, coverage, and roughly 12 non-overlapping target windows without a fixed 60-day ceiling. The initial chart emphasizes actual price, `AI予測インサイト` as the consensus line, and its lower-to-upper prediction range band; advanced model lines and simple forecast lines can be added with two grouped chart checkboxes that only filter already-built chart rows, while the fixed-color chart legend dims individual displayed series. Individual advanced model cards remain visible below the chart for detail confirmation. Naive / moving-average / momentum simple forecasts stay available as backend baseline / detail context, but are not part of the default Cockpit chart or main model-card display. The chart legend sits below the chart, the right forecast-focus chart is titled `予測スコープ`, and the full chart restores small point markers while keeping the actual-price line thinner. `表示通貨` は JPY / USD の二択にし、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。取得済み USDJPY レートはラジオボタン右横に `＄円相場` として短く表示する。換算はチャート表示だけで、スコア、予測計算、Ranking には影響しない。
+  - Ranking rows retain one period-derived common-horizon price-center return (`advanced_forecast_predicted_return`), the separate direction-head return (`advanced_forecast_direction_predicted_return`), selected / center-excluded adapters, policy version, horizon days, score, confidence, and AI総合用の高度予測上昇 / 下降警戒 / 信頼スコア. Ranking の上昇気配 / 下降警戒には監査済み方向headを25%までブレンドし、価格シナリオと下振れ確認には選択center / quantile rangeを使う。`AI総合` はこれらを `予測・上昇気配30%` / `リスク・下振れ警戒25%` の中で低信頼時に中立寄せしながら加味する。Ranking の理由表示、深掘り候補、score detail、Decision Report でも同じ文脈で説明する
+  - Ridge-style lightweight deterministic forecasting, scikit-learn tree ensemble / histogram gradient boosting forecasting, and quantile range checks for positive forward-return horizons without a fixed day ceiling
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
   - designed to keep normal checks network-free; `scikit-learn` is pinned in setup requirements for tree / boosting adapters
 - Low-cost Assistant backend first slice
@@ -296,6 +311,11 @@ Research RAG / News RAG は実運用では情報鮮度が重要です。標準�
 
 外部取得の実行環境profileは `SMAI_PERFORMANCE_PROFILE` で選択します。`notebook` は Research external fetch profile上限4 workers / provider timeout 12秒 / global timeout 30秒 / cache TTL 30分、`workstation` はprofile上限10 workers / provider timeout 15秒 / global timeout 45秒 / cache TTL 20分です。実際の worker 数は profile 上限と external source adapter 数の小さい方に抑えます。現時点でこのprofileが実際に制御するのは `DefaultExternalResearchAdapter` の並列度、全体待ち時間、source別 limiter入口、EDINET / TDnet / 企業IR / Google News RSS の request timeout と retry / backoff です。provider名は `edinet -> edinet`、`tdnet -> tdnet`、`company_ir_site -> ir_pages`、`google_news_rss -> news`、`yahoo_finance -> yahoo_finance` に正規化します。HTTP 5xx、timeout、一時的な接続失敗はretry対象、HTTP 4xx / 404、データなし、parse error はretry対象外です。global timeout 到達時は取得済み情報だけを返し、未完了providerを `timeout` として `ExternalResearchFetchResult.provider_statuses`、直近summary、Cockpitの外部参照ソース確認メモ、Streamlit `設定 / データ情報` に残します。直近summaryには source別に `success / failed / timeout / no_result / cache_hit`、elapsed、retry回数、result数を保存します。`processing.rag_workers`、`forecast_workers`、`background_refresh_workers`、`llm_workers` は設定として保持しますが、共通適用は後続フェーズです。`SMAI_LLM_PROFILE` はLLMモデル選択用であり、この performance profile とは分けて扱います。Yahoo/yfinance timeoutの本格適用、adapter内部のURL/page単位並列化、News / MarketData / Symbol refresh へのprofile適用は後続範囲です。
 
+Yahooの複数銘柄OHLCVは、空でないbatchから欠落した銘柄だけを単銘柄経路で再取得する。それでも欠ける場合は
+returned / missing symbolとrecovery errorを持つstructured errorにし、部分応答を完全成功として扱わない。
+OHLCV、quote、FX、fundamentalsの公開呼び出し全体には`dataaccess.timeouts_ms.operation`の上限を適用する。
+既定45秒で、retry / backoff / 欠落銘柄recoveryも上限に含み、超過時はoperation、target、timeout、retryableを記録する。
+
 親SMAIの汎用 Assistant service から Gateway 接続を試す場合は、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認やCIではこの設定を使わず、`enabled: false` の既定値を維持します。専用 `SMAIアシスタント` workspace と親SMAIの `HttpAssistantGatewayClient` は、`http://127.0.0.1` / `localhost` の `smai-ai-gateway` が未起動なら画面遷移時の診断またはチャット送信時に自動起動を一度試し、失敗時は同じ画面内で deterministic fallback に戻ります。自動起動を無効にする場合は `SMAI_ASSISTANT_GATEWAY_AUTOSTART=0` を指定します。
 
 ```yaml
@@ -310,6 +330,18 @@ assistant:
 ```
 
 SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` から model / timeout / token budget を選び、分析・整理系の応答下部には `qwen3:1.7b / live / notebook_dev / ollama / stock_summary / 4230ms` のような控えめなメタ情報を表示します。通常会話、自己紹介、できること案内では技術メタ情報を表に出さず、自然な会話表示とコピー操作だけにします。ノートPC開発の既定は `qwen3:1.7b` で、SMAIアシスタント上部の小さなモデルピッカーから `qwen3:4b` / `qwen3:8b` / `qwen3:14b` / `qwen3:30b` profile へ切り替えられます。親側 HTTP timeout 既定はローカルLLMの実測に合わせて 90 秒です。Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ deterministic fallback に戻り、その場合は `fallback: gateway_unavailable`、`fallback: provider_unavailable`、`fallback: model_not_found`、`fallback: provider_timeout` のように理由を分けます。開発用 metadata として `request_id`、`timeout_sec`、`context_tokens_estimate`、`prompt_chars`、`response_chars`、`tool_execution_ms`、`llm_generation_ms`、`total_elapsed_ms`、conversation mode、`gateway_error_type`、`gateway_error_message`、`gateway_url`、`http_status`、`provider_error_type`、`provider_error_message` も保持し、分析・整理系の回答では通常本文ではなく `技術情報を表示` にだけ出します。SMAIアシスタントのヘッダーは `AssistantRuntimeStatus` を唯一の表示モデルとして使い、初期表示では自動ヘルスチェックで赤エラーにせず `LLM待機中` として表示し、model変更 / 送信開始 / LLM成功 / fallback / Tool Plan表示 / Tool実行 / キャンセル / 新しい会話で更新します。表示は `準備完了`、`LLM待機中`、`接続確認中`、`回答生成中`、`調査計画あり`、`材料確認中`、`簡易モードで回答中`、`LLM接続エラー`、`Ollama未接続`、`モデル未取得` に整理し、成功時は古いエラーを消して `準備完了` に戻します。通常focusの入力欄はcyan系、validation error時だけ赤系の枠にします。
+
+SMAI の通常起動（`scripts/start_smai_server.bat` / `backend.server_ops.launcher`）では、Streamlitを待たせずにローカル Ollama と `smai-ai-gateway` の起動・health確認・選択modelの短いウォームアップをdaemon threadで要求する。対象は `127.0.0.1` / `localhost` の HTTP endpointだけであり、remote providerへは起動・ウォームアップ要求を送らない。`SMAI_ASSISTANT_GATEWAY_AUTOSTART=0` でこの経路を無効化でき、`SMAI_ASSISTANT_GATEWAY_WARMUP=0` でmodelウォームアップだけを止められる。Gateway/Ollama未導入、起動失敗、model未取得、ウォームアップtimeoutでもSMAI本体は起動を継続し、通常のdeterministic機能と既存fallbackを維持する。結果はserver launcherのログで確認する。
+
+インストール済みOllamaモデルを比較する明示live評価は、通常pytestとは別に実行します。評価入力は合成したSMAI文脈だけで、MarketData・ニュース・保存状態は変更しません。GatewayとOllamaが起動済みの状態で、次を実行します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_assistant_live_models.py `
+  --allow-live `
+  --output .\outputs\work\assistant_live_model_evaluation.json
+```
+
+既定ではGatewayが検出した全installed modelに、自然な初回会話、SMAI画面案内、予測・リスク、RAGニュース・開示、売買助言境界の5ケースを送ります。JSONにはモデル別の応答時間、Gateway fallback、構造化材料、根拠語、内部表現、助言境界の判定を保存します。これは端末・Ollama・promptの時点依存の品質計測であり、runtimeの選択モデルやRanking / Forecast / Scoreを自動変更しません。
 
 LLM Tool Planner を試す場合は、別設定 `assistant.llm_planner` を明示ONにします。既定は `enabled: false` で、通常確認・CI・Playwright smoke は network-free の deterministic Tool Plan / Guided Workflow を使います。ONの場合も Gateway `/api/v1/assistant/tool-plan` は action案のJSONを返すだけで、SMAI 親側が schema / action allowlist / confirmation / unsafe wording / unsupported action を検証し、valid plan だけを既存の `次にできること` / `確認フロー` に採用します。invalid / timeout / Gateway fallback / malformed response は非表示にし、fallback reason は `技術情報を表示` にだけ保持します。
 
@@ -327,7 +359,7 @@ Assistant loading UIは投資レーダーの既存マスコットassetを小さ�
 
 Loading modalの市場ヘッドラインは、キャッシュ済みニュースを最大5件だけ表示します。市場全体、日本・米国株、決算、金利・為替、その他の順で優先し、各項目をカテゴリbadge、最大2行title、source / `前回取得` metadataに分けたmini news cardとして表示します。古いcacheでは前回取得記事であることを補足し、cacheがない場合は同期的な外部取得やdemo記事を使わず、`市場ヘッドラインを準備中です` の案内へ切り替えます。
 
-Phase 30-G1 の Workflow Session は親SMAI側だけの session-local runtime です。validation gate を通った `AssistantGuidedWorkflow` だけを `AssistantWorkflowSession` に変換し、`SMAIアシスタント` の `確認フロー` カードに進行状態と現在stepを表示します。`update_research` / `create_decision_report` は従来どおり確認カードでユーザーが押した1 actionだけを実行し、成功・一部成功・失敗・キャンセルの結果を session step に反映します。`update_research` 成功後に `create_decision_report` が確認待ちになっても自動実行はしません。失敗時は session を failed にし、同じターンで Tool Plan 由来の確認promptへ自動fallbackしません。Gateway は workflow session、action execution、skip/cancel 状態管理を担当しません。
+Phase 30-G1 の Workflow Session は親SMAI側だけの session-local runtime です。validation gate を通った `AssistantGuidedWorkflow` だけを `AssistantWorkflowSession` に変換し、`SMAIアシスタント` の `確認フロー` カードに進行状態と現在stepを表示します。`update_research` / `create_decision_report` は従来どおり確認カードでユーザーが押した1 actionだけを実行し、成功・一部成功・失敗・キャンセルの結果を session step に反映します。確認開始時にはturn、context、workflow step、対象銘柄を固定し、新しい相談または対象変更後の古い確認は取消として扱うため実行できません。実行層でもpayload、現在context、Decision Report材料の対象銘柄が不一致、または複数銘柄が混在する場合は拒否します。`update_research` 成功後に `create_decision_report` が確認待ちになっても自動実行はしません。失敗時は session を failed にし、同じターンで Tool Plan 由来の確認promptへ自動fallbackしません。Gateway は workflow session、action execution、skip/cancel 状態管理を担当しません。
 
 Phase 30-G2 では、この session に最小限のUI操作を接続しています。active session では `AI調査をスキップ` / `レポート作成をスキップ` / `フローを中止` を表示し、failed session では `AI調査をもう一度更新` / `今ある材料で確認` / `フローを中止` を表示します。`もう一度更新` は step を確認待ちに戻すだけで、ユーザーが改めて確認カードを押すまで外部取得しません。`今ある材料で確認` は失敗したAI調査更新を skipped にし、確認レポート作成など次のstepを確認待ちにするだけです。スキップや中止も session-local JSON 更新だけで、保存・外部取得・スコア変更・broker操作は行いません。
 
@@ -364,10 +396,16 @@ SMAIアシスタントの自由会話 `free_chat` は、体感速度を優先す
 
 ### Streamlitサーバーの再起動
 
-稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
+稼働中のSMAIを安全に停止して再起動する場合は、`scripts\restart_smai_server.bat` を実行します。バッチは8501番ポートの待受プロセスがSMAIのStreamlitであることを既存の停止処理で確認し、別アプリなら停止しません。権限が不足している場合はWindowsの管理者権限確認を表示します。再起動時にはSMAIのコマンド画面を開いたままにし、通常アクセスURL `http://smai-server:8501`、サーバーPC内確認用の`localhost`、インターネット公開禁止の注意、およびStreamlitの起動ログを確認できます。通常の自動起動は従来どおり非対話のログ出力で動作します。再起動後は `http://127.0.0.1:8501/_stcore/health` を最大45秒確認し、正常応答がなければエラーで終了します。
 
 ```powershell
 .\scripts\restart_smai_server.bat
+```
+
+SMAIをまだ起動していない状態で同じ操作画面を直接開くには、次を実行します。コンソールを閉じることを通常の停止手段にせず、停止時は `scripts\stop_smai_server.bat` を使います。
+
+```powershell
+.\scripts\start_smai_server.bat /console
 ```
 
 FastAPI を起動します。
@@ -392,7 +430,7 @@ http://127.0.0.1:8000/openapi.json
 | `POST /risk/pre-trade-check` | trade intent を deterministic risk rule で評価 |
 | `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
-| `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す。`adapter=advanced_linear` 指定時は 1〜60日の線形高度予測、`adapter=advanced_tree_sklearn` 指定時は scikit-learn ツリー型高度予測、`adapter=advanced_gbdt_sklearn` 指定時は scikit-learn ブースティング高度予測、`adapter=advanced_quantile` 指定時はレンジ高度予測を返す。各高度予測は予測変化率、予測価格、信頼度、検証指標、特徴量要約または注意点を返し、`advanced_quantile` は下振れ / 上振れレンジも返す |
+| `POST /forecast/evaluate` | OHLCV から baseline forecast とwalk-forward metricsを返す。`horizon_days`省略時は取得barから自動計算し、明示時は固定上限のない正の営業日数を受理する。`adapter=advanced_linear`は線形、`advanced_tree_sklearn`はツリー、`advanced_gbdt_sklearn`はブースティング、`advanced_quantile`はレンジ高度予測を返す。各高度予測は予測変化率、予測価格、信頼度、検証指標、特徴量要約または注意点を返し、`advanced_quantile`は下振れ / 上振れレンジも返す |
 | `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す。`research_scores_by_symbol` は任意入力で、既定 weight は 0.0 |
 
 エラー応答は JSON です。
@@ -517,16 +555,16 @@ Streamlitプロセスそのものを再起動すると、再起動前のブラ�
 in-memory download URLは無効になります。その場合は画面を再読み込みし、新しい
 download buttonから取得してください。
 
-### 同一LANのiPad / iPhoneから使う
+### MagicDNSでiPad / iPhone / 別PCから使う
 
-信頼できる家庭内LANに限り、`scripts\run_lan_server.bat` から
-`0.0.0.0:8501` で起動できます。通常起動とEXEの起動設定は変更しません。
-iPad / iPhoneは同じWi-Fiから `http://<Desktop PCのIPv4>:8501` をSafariで開きます。
-ホーム画面用アイコンとPWA風metadataも配信しますが、オフライン動作やService Workerを
-含む完全なPWAではありません。FirewallはPrivate profileだけを許可し、ルーターの
-ポート開放やインターネットへの直接公開は行いません。
+`scripts\run_lan_server.bat` と自動起動は、待受を `0.0.0.0:8501` に維持しつつ、
+通常アクセスURLを `http://smai-server:8501` に統一します。iPad / iPhone / 別PCでは
+Tailscaleを起動し、家庭内LAN・外出先を問わず同じURLをSafariまたはブラウザーで開きます。
+`localhost` はサーバーPC内の確認専用です。ホーム画面用アイコンとPWA風metadataも配信しますが、
+オフライン動作やService Workerを含む完全なPWAではありません。ルーターのポート開放、
+インターネットへの直接公開、Tailscale Funnelは行いません。
 
-IP確認、Firewall、固定IP予約、ホーム画面追加、制約、トラブルシュートの詳細は
+MagicDNS設定、Firewall、ホーム画面追加、制約、トラブルシュートの詳細は
 `docs/LAN_PWA_ACCESS_GUIDE.md` を参照してください。
 Windowsログオン時の自動起動、状態確認、停止、タスク登録/解除、運用ログ、
 銘柄DBメンテナンスとの分離は `docs/SERVER_OPERATIONS_GUIDE.md` を参照してください。
@@ -534,7 +572,7 @@ Windowsログオン時の自動起動、状態確認、停止、タスク登録/
 失敗後24時間は再実行を抑制します。
 一括更新のreportは実施日時ごとに `reports/YYYY-MM-DD_HHMM/` へ保存します。
 ホーム画面アイコンは
-`http://<Desktop PCのIPv4>:8501/app/static/pwa/apple-touch-icon-v2.png`
+`http://smai-server:8501/app/static/pwa/apple-touch-icon-v2.png`
 で直接確認できます。旧アイコンが残る場合は既存ショートカットを削除し、
 Safariで再読み込みしてから追加し直します。
 
@@ -604,7 +642,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - `データを取得` 実行中は、入力確認、価格・予測材料取得、予測 / スコア / チャート整理、表示更新の進捗を共通SMAIローディング画面で表示する。
 - `AI調査を更新` 実行中は、外部参照ソース取得、企業リサーチレポート生成、ニュース / 開示材料整理、表示更新の進捗を共通SMAIローディング画面で表示する。ローディング画面の `市場トピック` は保存済みニュースcacheだけを使い、追加通信しない。
 - 右下の floating `SMAI Copilot` は、現在見ているコックピット section に応じて固定質問を出す。データ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report の読み方を deterministic に説明し、価格取得や予測再計算は走らせない
-- 価格・予測チャート: 初期表示では実績価格、`AI予測インサイト`、予測レンジ帯を先に確認し、個別モデル線の重なりで読みづらくしない。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile` を取得期間から決まる共通の予測日数で計算する。高度予測モデルと単純予測モデルはチャート直上のグループチェックでまとめて追加する。このチェックは取得済みチャート行の表示対象だけを変え、データ取得や予測再計算は走らせない。表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。`表示通貨` は円 (JPY) と $ (USD) の二択で、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。USDJPY が取得できた場合だけチャートの全価格系列を表示換算し、ラジオボタン右横には `＄円相場` の短い値だけを表示する。スコアや予測計算は変えない。`AI予測インサイト` カードは結論、中心予測（高度予測モデルの統合結果）、下振れ予測 / 上振れ予測、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、主な理由、注意点を主表示にする。信頼度が低い、または判断保留に近い場合は amber accent を使う。個別高度モデルカードは常時表示し、平均 RMSE、誤差改善、過去検証の方向一致率、相対的に安定したモデル、単純予測比較は `高度予測モデルの詳細を見る` / `検証指標を見る` / `単純予測との比較を見る` で確認する。Consensus helper には `統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み` と、重みを信頼度・誤差改善・モデル合意度・検証数から保守的に丸めることを明記する。各モデルの helper も直近値維持、移動平均、モメンタム、線形、ツリー、ブースティング、レンジの考え方を初心者向けの短い計算式で説明する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べ、タイトルは `予測スコープ（31日）` のように期間を示す。全体チャートは `価格チャート` として小さな点マーカーを復活させつつ線を主役にする。naive / moving-average / momentum の単純予測は backend baseline / fallback / 詳細確認用として残すが、既定のチャート表示と主要モデルカードには出さない。
+- 価格・予測チャート: 初期表示では実績価格、`AI予測インサイト`、予測レンジ帯を先に確認し、個別モデル線の重なりで読みづらくしない。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile` を取得期間から決まる共通の予測日数で計算する。高度予測モデルと単純予測モデルはチャート直上のグループチェックでまとめて追加する。このチェックは取得済みチャート行の表示対象だけを変え、データ取得や予測再計算は走らせない。表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。`表示通貨` は円 (JPY) と $ (USD) の二択で、取得通貨が JPY なら円、USD なら $、それ以外または古い状態値なら円を初期値にする。USDJPY が取得できた場合だけチャートの全価格系列を表示換算し、ラジオボタン右横には `＄円相場` の短い値だけを表示する。スコアや予測計算は変えない。`AI予測インサイト` カードは結論、中心予測（取得期間・過去検証で選択したprice center）、方向判定用変化率、下振れ予測 / 上振れ予測、予測価格、予測レンジ、信頼度、モデル合意度、モデル選択、予測ばらつき、主な理由、注意点を主表示にする。信頼度が低い、または判断保留に近い場合は amber accent を使う。個別高度モデルカードは常時表示し、平均 RMSE、誤差改善、過去検証の方向一致率、相対的に安定したモデル、単純予測比較は `高度予測モデルの詳細を見る` / `検証指標を見る` / `単純予測との比較を見る` で確認する。Consensus helper には `中心予測 = Σ(選択モデルの予測変化率 × 検証重み) ÷ Σ重み`、quantileを中心重み50%以上にすること、60日以内の方向判定は監査済み従来合議を維持することを明記する。各モデルの helper も直近値維持、移動平均、モメンタム、線形、ツリー、ブースティング、レンジの考え方を初心者向けの短い計算式で説明する。予測日数は実bar数、coverage、約12個の非重複target窓から自動計算し、固定60日上限を置かない。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べ、タイトルは `予測スコープ（31日）` のように期間を示す。全体チャートは `価格チャート` として小さな点マーカーを復活させつつ線を主役にする。naive / moving-average / momentum の単純予測は backend baseline / fallback / 詳細確認用として残すが、既定のチャート表示と主要モデルカードには出さない。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary
@@ -687,7 +725,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
   - 株式: 業種/テーマ、時価総額、市場感応度（β）、配当利回り、PER、PBR、ROE、NISA
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - `取得期間` の `?` help では、標準3か月は20日/60日系の予測材料、1か月は直近反応、6か月は中期トレンド、1年は安定性確認に使うことを説明
+  - `取得期間` の `?` helpでは、予測日数が取得期間から自動計算され、同一Rankingでは共通になることを説明
   - 時価総額は、日本株では 10兆円 / 1兆円 / 1,000億円 / 100億円、米国株では $200B / $10B / $2B / $300M を目安に表示
   - 配当/分配金カテゴリは、0%、0%超〜3%未満、3%以上の利回り帯を選択肢に表示。ただし連続増配候補は curated metadata 由来
   - 配当/分配金カテゴリと数値条件の `配当/分配金利回り(%)` は同じ軸の条件なので、片方を指定した場合はもう片方を非活性にする
@@ -698,9 +736,9 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 初期状態では候補をすべて選択
   - 銘柄リストは折りたたみ内で確認・変更
 - `ランキング作成` は詳細条件入力欄の下に置く。直前の薄型サマリーで候補数、実際の作成対象件数、評価方針、期間、取得元、詳細条件あり/なしを確認できる。
-- `ランキング作成` 実行中はprogress bar直下に非モーダルのSMAIローディングカードを表示し、前回結果と画面を覆わない。現在のランキング生成は同期処理のため、完全な操作応答を可能にするbackground job化は後続とする。
+- `ランキング作成` はStreamlit画面実行から分離したprocess-wide daemon jobで行う。progressは非モーダルのSMAIローディングカードへ2秒間隔で反映し、モバイル通信切替、WebSocket切断、再接続、通常rerunで計算をキャンセルしない。同じ条件へ戻ったsessionは同じjobを監視し、完了後に結果をSession Stateへ採用する。サーバープロセス自体が終了した場合の永続job再開は対象外だが、完成済みcacheは従来どおり再利用する。
 - 大量件数でも進捗は一続きで表示し、外側を100件単位のグループには分けない。価格取得内部は25銘柄batchを使い、batch失敗時は単銘柄fallbackへ切り替えて取得不能銘柄だけを除外する。
-- 同じ日・期間・provider・銘柄のOHLCVとファンダメンタル、同じ終値・履歴・予測日数の高度予測、同一条件の完成ランキングはプロセス共通cacheで再利用する。ファンダメンタルは最大4並列、高度予測はworkstation profileで最大4プロセスとし、同一銘柄の失敗が他銘柄を止めない。
+- 同じ日・期間・provider・銘柄のOHLCVとファンダメンタル、同じ終値・履歴・予測日数の高度予測、同一条件の完成ランキングはプロセス共通cacheで再利用する。ファンダメンタルは任意補助データとして最大4並列・1銘柄15秒timeoutで取得し、`AppError`以外のprovider/schema例外もその銘柄だけの取得失敗へ変換する。大規模rankingの1 cohortで想定外例外が発生しても後続cohortを継続し、高度予測の失敗も通常ランキングを破棄しない。
 - ranking result with ticker / company name / score / warnings
 - ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄キャッシュDB `symbols_cache.sqlite` の登録値をモーダルで確認できます
 - `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
@@ -913,8 +951,8 @@ Phase 16 ranking implementation notes:
 - Yahoo OHLCV separates the stability-first Cockpit path from the speed-first Ranking path. Single-symbol Cockpit requests use `Ticker.history` first, retry transient DNS / curl timeout failures once with the same parameters, and retry Yahoo `possibly delisted` / `no price data` responses with `raise_errors=False` plus a non-expanded daily end date before surfacing a structured no-data error. Multi-symbol Ranking requests keep the smaller non-threaded yfinance `download` chunk path and retry empty batch responses once to absorb first-call warm-up / transient empty responses. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again, and initial fetch skips live FX / fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30 and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Completed Ranking rows are cached process-wide by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display. An in-progress job is tracked separately: reconnecting sessions do not restore an older completed result or start the same request twice while that job is running. Advanced forecasts use at most two worker threads on the Ranking path, and per-symbol forecast cache entries are published only after the whole advanced-forecast batch completes.
 - Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
-- Ranking rows can include common-horizon advanced forecast fields (`advanced_forecast_horizon_days`, `advanced_forecast_predicted_return`, `advanced_forecast_score`, `advanced_forecast_confidence`, `advanced_forecast_upside_score`, `advanced_forecast_downside_score`, `advanced_forecast_quality_score`). These are calculated from the advanced forecast consensus over registered adapters, currently `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, and `advanced_quantile`, then shown as `高度予測` / `高度予測日数` / `高度予測スコア` / confidence context in the ranking table and selected-candidate details when enough local history exists. The consensus uses capped weights from confidence, error improvement, model agreement, and validation sample context. Ranking blends derived advanced upside / downside into `上昇気配` / `下降警戒` at 25%, and `AI総合` places the derived advanced scores inside the `予測・上昇気配30%` and `リスク・下振れ警戒25%` groups; missing or low-confidence advanced data is pulled toward neutral 50 instead of being treated as zero.
-- Cockpit price / forecast display leads with `AI予測インサイト`. The card shows a short conclusion, `中心予測` as the main display name for the advanced-model consensus, downside / upside cases, forecast price, forecast range, confidence reason, model agreement, forecast dispersion, main reasons, cautions, and the forecast horizon. `中心予測` stays one row above the scenario cases, and the forecast price / range row follows the downside / upside comparison. Individual advanced model cards stay visible under the chart, while RMSE, error improvement, historical direction accuracy, relatively stable model, and simple forecast baseline comparisons are folded so the first view stays focused on the integrated forecast and uncertainty. The forecast remains decision-support context, not a future guarantee.
+- Ranking rows can include common-horizon advanced forecast fields (`advanced_forecast_horizon_days`, `advanced_forecast_predicted_return`, `advanced_forecast_direction_predicted_return`, `advanced_forecast_score`, `advanced_forecast_confidence`, `advanced_forecast_upside_score`, `advanced_forecast_downside_score`, `advanced_forecast_quality_score`). These are calculated from the role-routed advanced consensus over `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, and `advanced_quantile`, then shown as `高度予測` / `高度予測日数` / `高度予測スコア` / confidence context when enough local history exists. The price center uses horizon-specific selected models and capped validation weights with quantile at 50% or more; direction uses the retained prior consensus through 60 days. Ranking blends derived advanced upside / downside into `上昇気配` / `下降警戒` at 25%, and `AI総合` places the derived advanced scores inside the `予測・上昇気配30%` and `リスク・下振れ警戒25%` groups; missing or low-confidence advanced data is pulled toward neutral 50 instead of being treated as zero.
+- Cockpit price / forecast display leads with `AI予測インサイト`. The card shows a short conclusion, `中心予測` as the price-center scenario, `方向判定用変化率` as the separately retained direction head, downside / upside cases, forecast price, forecast range, confidence reason, model agreement, model selection, center / direction adapters, center exclusions, forecast dispersion, main reasons, cautions, and the forecast horizon. `中心値から除外` means exclusion from the price-center formula only; individual model detail remains visible. Individual advanced model cards stay visible under the chart, while RMSE, error improvement, historical direction accuracy, relatively stable model, and simple forecast baseline comparisons are folded so the first view stays focused on the integrated forecast and uncertainty. The forecast remains decision-support context, not a future guarantee.
 - Ranking result pages show `今回のランキング条件` before the ranking guide. It displays the selected evaluation policy, short summary, suited-for text, main-focus chips, common forecast horizon for that ranking run, grouped weight profile for `AI総合`, and a reminder that `下降警戒` / advanced downside caution are lower-is-better fields. The guide expander also includes beginner term rows for `AI総合`, `上昇気配`, `下降警戒`, `AI予測インサイト`, advanced upside / downside / confidence, and horizon.
 - The ranking progress indicator reports batch fetch, feature construction, direction signal calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `確認レポートを作成`, then reused for the same ranking source / evaluation policy so resorting and cockpit handoff remain responsive. Ranking report は上位候補メモとスコア詳細を分け、明細には symbol、銘柄名、評価方針、確認観点を並べて出力する。`AI予測インサイト` がある場合は、候補メモ、スコア詳細、分布、ファクター別上位、group checkpoint にも同じ予測文脈を残す。
@@ -993,6 +1031,16 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 通常の自動テストと local checks は `tests/fixtures/config/local.yaml` などで `mock` を明示し、外部 API に依存させません。
 
 ## 8. ローカル検証
+
+### 確認頻度
+
+- 変更した作業単位ごとに、対象moduleのtargeted test / lintを実行する。
+- GitHub Actionsは各commit / pushのたびに待機・再確認せず、通常は完了した5作業単位を目安に
+  まとめて確認する。
+- merge前、release前、CI workflow変更時、Forecast / Ranking / Scoring / Riskなど高リスク変更の
+  統合時は、5作業単位未満でもCIを確認する。
+- handoffでは、実行したlocal check、最後に確認したCIのcommit、今回CIを確認していない場合は
+  その理由を区別して記録する。
 
 まとめて確認:
 
@@ -1078,13 +1126,35 @@ URL の `client=smai_client_...` に対応する
 手動確認では、ユーザー、Cockpit、銘柄を選択してF5更新またはPWAを閉じ、30分以内の
 再表示で同じ状態が復元されることを確認します。`last_seen_at` を30分超へ変更した場合は、
 ユーザー選択画面へ戻り、該当する `clients/<client_id>.json` が削除されることも確認します。
-LAN URLとTailscale URLは別々に確認します。
+MagicDNS URL `http://smai-server:8501` で、LAN内と外出先の両方から同じ
+セッション復元手順を確認します。サーバーPC内の切り分けには `http://localhost:8501` を使います。
 
 ## Phase 33 Forecast Model Evaluation
 
-`backend.forecast.evaluate_forecast_models` は、登録済みadvanced adapterとforecast consensusを明示的・オフラインに評価する。既定horizonは20/60営業日で、各rolling originではその時点までのbarsだけを渡し、adapter内部のvalidation fold境界にもhorizon相当のpurge windowを置く。modelとconsensus自身のMAE、RMSE、方向一致率、zero-return baseline比RMSE improvement、履歴不足skip、consensus disagreementを実測する。
+`backend.forecast.evaluate_forecast_models` は、登録済みadvanced adapter、forecast consensus、評価専用の`advanced_regime_gated_ensemble`を明示的・オフラインに評価する。既定horizonは20/60営業日で、各rolling originではその時点までのbarsだけを渡し、adapter内部のvalidation fold境界にもhorizon相当のpurge windowを置く。modelとconsensus自身のMAE、RMSE、方向一致率、zero-return baseline比RMSE improvement、履歴不足skip、consensus disagreementを実測する。
+
+`advanced_regime_gated_ensemble`は、その時点までの20日価格履歴から局面を分類し、既存4モデルの固定配分を変えるshadow candidateである。Cockpit、通常Ranking、AI総合、上昇気配・下降警戒には、未使用期間を含む改善gateを通過するまで接続しない。
 
 market、asset type、regime別集計、最新point-in-time予測、誤差上位例も保持する。前半rolling originsから候補weightを作り、後半originを時系列holdoutとして現行consensusと比較する。holdoutでRMSE改善かつ方向一致率維持の場合だけ`adopted=true`になる。`evaluated_consensus_prediction`は採用gateを通ったweightだけを明示適用できる。通常Rankingのweightは自動変更しない。
+
+Runtimeのadvanced consensusは`horizon_validation_router_v1`で役割を分離する。取得期間と実barから
+自動計算されたhorizonが30日以下ならquantile + past-only quantile比1% RMSE gate通過tree / GBDT最大2本、
+31〜60日なら最大1本をprice centerへ使う。quantileのcenter weightは50%以上にする。60日超は
+quantile単独・confidence lowへ縮退する。方向headは60日以内で従来4adapter consensusを保持し、
+`direction_predicted_return`として中心returnと別に保存・評価する。UIの`中心値から除外`は個別modelを
+非表示にする意味ではなく、price center計算だけから外したことを示す。選択policy、center / direction
+adapter、weight、理由、監査状態はConsensus行とRanking文脈へ残す。
+
+2026-07-20 historical safety regressionは統合validation 132点/horizonで20 / 60日RMSEを12.56% /
+6.68%、統合audit 126点/horizonで3.37% / 7.17%改善した。方向returnは旧runtimeと516 / 516点一致し、
+標本10点以上で相対10%超かつ絶対0.005超の重大subgroup劣化は0件だった。既に結果を確認済みの
+履歴再評価なので、後日の新暦期間sealed auditや60日超horizon監査を代替しない。
+
+2026-07-20の長期監査では、`--horizons 20,40,60,80,100,120`で2 validation群132点/horizon、
+2 audit群126点/horizonを評価した。60日超は価格中心RMSEと60%想定range coverageが安定しないため
+`center_confidence=low`を維持する。`role_separated_confidence_v1`により、61〜120日の
+`direction_confidence`だけはQuantileのorigin以前validationがmedium / highの場合に最大mediumとなる。
+120日超は中心・方向ともlowである。Rankingの品質寄与は従来どおり保守的なcenter confidenceを使う。
 
 `write_forecast_evaluation_artifacts` は次を出力する。
 
@@ -1105,7 +1175,252 @@ market、asset type、regime別集計、最新point-in-time予測、誤差上位
 .\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py --output reports\forecast_evaluation
 ```
 
+長期horizonとrange coverage / widthを再評価する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_forecast_models.py `
+  --ohlcv data\phase34_evaluation\ohlcv.csv `
+  --metadata data\phase34_evaluation\splits\validation\symbols.csv `
+  --output reports\long_horizon_confidence `
+  --required-bars 300 `
+  --recent-bars 750 `
+  --max-origins 3 `
+  --horizons 20,40,60,80,100,120 `
+  --skip-tuning
+```
+
+metadata CSVは評価universe境界であり、OHLCVに他symbolが含まれていても読み込まない。split評価では
+validation / auditそれぞれのmetadataを必ず指定する。
+
 `data/marketdata/ohlcv.csv`と`symbol_universe.csv`を読み、coverage、評価、最新予測、error cases、weight調整に加えて、既存4モデルのbounded tuning候補を出力する。既定では1銘柄180 bars以上を必要とする。
+`--recent-bars 750`を指定すると、eligibility判定後に各symbolを直近750 barsへ揃えて評価できる。
+大規模cohort間で履歴長を統一する場合に使う。最小値は
+`max(120, max(horizons) + 24)`であり、長期horizonの評価窓と特徴量履歴を確保できない値は受け付けない。
+
+### Rolling Conformal予測レンジshadow
+
+固定validation群をcalibration履歴、symbol非重複audit群をhistorical replayとして評価する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_rolling_conformal_intervals.py `
+  --calibration-points reports\2026-07-20_1200\long_horizon_confidence\phase34_validation\forecast_model_validation_points.csv `
+  --calibration-points reports\2026-07-20_1200\long_horizon_confidence\extended_validation\forecast_model_validation_points.csv `
+  --evaluation-points reports\2026-07-20_1200\long_horizon_confidence\phase34_audit\forecast_model_validation_points.csv `
+  --evaluation-points reports\2026-07-20_1200\long_horizon_confidence\extended_audit\forecast_model_validation_points.csv `
+  --output reports\rolling_conformal_intervals
+```
+
+既定はtarget coverage 0.60、正規化quantile上限0.50、詳細group 30点、pooled 40点、2 origin、
+履歴最大500点である。中心・方向は変更せず、時間順internal proper-score gateを通ったrangeだけをshadow適用する。
+`historical_replay`は常にruntime review対象外である。新しい未確認監査だけ
+`--evaluation-role new_sealed_audit`を指定し、symbolが非重複なら`symbol_disjoint`、calibration targetが
+全audit originより前なら`--separation-mode temporal_disjoint`を使う。後続originが成熟済みの先行audit
+labelを使うprequential比較は`--include-matured-evaluation-history`で明示する。
+
+出力は`rolling_conformal_cases.csv`、`rolling_conformal_metrics.csv`、
+`rolling_conformal_report.md`。runtime Forecast / Ranking / Scoring設定を変更しない。
+
+### Forecast新暦期間sealed audit
+
+予測を保存する前にcohort、symbol、horizon、policy version、採用gateをmanifestへ固定する。`--accept-from`は
+timezone付き時刻、`--source-revision`は監査対象codeのcommit hashを指定する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py init `
+  --cohort new_calendar `
+  --symbols-file data\forecast_evaluation\profiles\adaptive_calibration_development_symbols_2026-07-19.csv `
+  --horizons 20,40,60,80,100,120 `
+  --accept-from 2026-07-20T00:00:00+09:00 `
+  --source-revision <commit-hash>
+```
+
+表示されたmanifest IDを固定して、最新の日足snapshotからConsensusを1回だけ保存する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py capture `
+  --manifest-id <manifest-id> `
+  --source-revision <commit-hash> `
+  --ohlcv <latest-ohlcv.csv> `
+  --metadata <frozen-symbol-metadata.csv>
+```
+
+OHLCVを更新した後、targetが到来した予測だけへoutcomeを付与する。bar不足は正常な未成熟状態であり、
+origin消失・価格改訂・target観測後の遅延captureはerrorとして分離する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py mature `
+  --manifest-id <manifest-id> `
+  --ohlcv <updated-ohlcv.csv> `
+  --metadata <frozen-symbol-metadata.csv>
+
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py status `
+  --manifest-id <manifest-id>
+
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py export `
+  --manifest-id <manifest-id> `
+  --output reports\forecast_new_calendar_sealed_audit
+
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py verify
+
+.\venv_SMAI\Scripts\python.exe .\tools\manage_forecast_sealed_audit.py backup `
+  --output reports\forecast_new_calendar_sealed_audit\forecast_sealed_audit.sqlite
+```
+
+既定DBはGit追跡外の`data/cache/forecast_sealed_audit.sqlite`。manifest / prediction / outcomeは追記専用で、
+canonical JSONのSHA-256を読込時に検証する。exportされた`forecast_model_validation_points.csv`だけが
+成熟済みpointを含み、Rolling Conformalの`--evaluation-role new_sealed_audit`へ渡せる。prediction / outcomeは
+hash付きJSONLにも出力する。`verify`はSQLite / foreign key / 全payloadを検証し、`backup`は検証済みonline
+backupだけをatomic確定する。100件/horizon到達は評価開始条件であり、自動採用条件ではない。詳細は
+`Documents/44_Forecast_Sealed_Audit_Backend.md`を参照する。
+
+通常運用では、個別commandの代わりに次のrun-onceを使う。`--allow-live`を指定しない限り外部通信せず、
+live取得で1銘柄でも欠損・Provider error・metadata不備があれば監査DBを変更しない。出力先には一意のrun directory、
+取得snapshot、cycle JSON / Markdown、hash付きexport、完全性検証済みSQLite backupを作る。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_forecast_sealed_audit_cycle.py `
+  --manifest-id fsa_20260720_new_calendar_v1 `
+  --source-revision 79ccef8d1c2fe9ae4f4b414e62225c2999df3840 `
+  --output reports\forecast_new_calendar_sealed_audit_runs `
+  --allow-live `
+  --metadata-source data\marketdata\symbol_universe.csv `
+  --years 5
+```
+
+保存済みsnapshotを再生するときは`--allow-live`を外し、`--ohlcv`と`--metadata`を両方指定する。同一originは
+上書きせず全件skipし、未到来targetは正常なpendingとして報告する。origin消失・価格改訂などの重大成熟異常は、
+そのrunのoutcomeを1件も追加せず失敗終了する。
+同一DBの多重runはfile lockで拒否する。既知の失敗はrun directoryの
+`sealed_forecast_audit_cycle_failure.json`に`collection` / `cycle` stage、例外型、短い理由、retry-safe状態を残す。
+
+### Point-in-Time材料archiveとLLM risk shadow
+
+実ニュース・IRを将来の時点整合評価用に保存する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\archive_point_in_time_materials.py `
+  --fetch-live-news `
+  --symbol 7203.T `
+  --symbol NVDA
+```
+
+既定保存先は`data/cache/point_in_time_material_archive_v1.json`で、Git追跡対象外である。raw本文全量ではなく
+URL、短いsummary、symbol、source、hash、公開・利用可能・初回保存・最終観測時刻を保存する。今日取得した
+過去記事は今日より前のoriginへ使用できない。破損時は空データを正常扱いせずwarningを返し、暗黙上書きしない。
+
+sealed Forecast originごとにLLM材料risk signalを収集する場合はrun-onceを使う。既定ではlive LLMを無効にし、
+明示的なGateway呼び出し時だけ`--allow-live-llm`を付ける。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_llm_material_risk_cycle.py `
+  --database data\cache\forecast_sealed_audit.sqlite `
+  --manifest-id fsa_20260720_new_calendar_v1 `
+  --archive data\cache\point_in_time_material_archive_v1.json `
+  --signals data\cache\llm_material_risk_signals_v1.json `
+  --output reports\llm_material_risk_cycle_runs `
+  --allow-live-llm
+```
+
+対象材料はsymbol一致に加えて`published_at`、`available_at`、`first_archived_at`のすべてがForecast origin以前の
+ものだけである。signalはhash付き追記専用storeへ保存し、同一symbol / horizon / decision時点の内容変更を拒否する。
+各runは材料・signalの検証済みbackup、結果JSON / Markdownを残す。Gateway、schema、citation失敗は銘柄単位で記録し、
+他銘柄を継続するが、exit code 1でpartial failureを通知する。中心return、方向return、Ranking、Scoreは変更しない。
+
+LLM risk signalと成熟済みForecast pointをshadow比較する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_llm_material_risk_shadow.py `
+  --forecast-points reports\forecast_evaluation\forecast_model_validation_points.csv `
+  --signals-json data\cache\llm_material_risk_signals_v1.json `
+  --output reports\llm_material_risk_shadow
+```
+
+signalはvalid archive citationを必須とし、中心returnと方向returnを変更できない。confidence上限とrange拡張だけを
+proper interval scoreで評価し、成熟case 100件未満は`insufficient_evidence`となる。
+
+### Backend readiness gate
+
+Frontend usability test / 改善sprintへ移行する前に、必須API、MarketData、sealed Forecast、point-in-time材料、
+LLM材料signalをnetwork-freeで横断確認する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\audit_backend_readiness.py `
+  --sealed-audit-manifest-id fsa_20260720_new_calendar_v1 `
+  --output reports\backend_readiness
+```
+
+`ready_with_pending_evidence`はコードblocker 0で、将来targetまたは新規材料の蓄積待ちだけを表す。
+`not_ready`だけFrontend sprintを停止する。詳細は`Documents/45_Backend_Readiness_Gate.md`を参照する。
+
+advanced validation pointsへ旧`naive` / `moving_average_3` / `momentum_3`を同一originで追加比較する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\compare_forecast_baselines.py `
+  --ohlcv data\phase34_evaluation\ohlcv.csv `
+  --metadata data\phase34_evaluation\symbols.csv `
+  --manifest data\phase34_evaluation\splits\phase34_split_manifest.csv `
+  --advanced-report-root reports\2026-07-19_1300
+```
+
+RMSEとdirection accuracyのwinnerを別々に表示し、単一指標でruntime採用しない。
+
+既存2cohortのtuningだけでhorizon別の保守的price-center profileを固定し、validation / auditへ
+再調整なしで適用する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_conservative_forecast_calibration.py
+```
+
+`forecast_consensus`、`advanced_quantile`、`moving_average_3`をsymbol / horizon / origin / targetの
+同一keyでjoinする。profile JSON、全point CSV、overall / cohort / market / asset type / regime別metrics、
+採用gate付きMarkdownを`reports\2026-07-19_1300\conservative_forecast_calibration`へ出力する。
+profile fitは`split=tuning`以外を拒否し、direction headは元のconsensus returnを保持する。
+2026-07-19評価ではoverall RMSEを全validation / audit horizonで改善したが、20日downtrend
+validation群のRMSEが10.92%悪化してsubgroup gate未通過となった。結果を見たprofile再調整や
+Cockpit / Ranking / Forecast APIへの接続は行わない。
+
+固定profileを過去評価と非重複のcohortへ再調整なしで適用する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_frozen_forecast_calibration.py `
+  --ohlcv reports\2026-07-19_1300\frozen_profile_replication\live_data\ohlcv.csv `
+  --metadata reports\2026-07-19_1300\frozen_profile_replication\live_data\symbols.csv `
+  --output reports\2026-07-19_1300\frozen_profile_replication\recent_new_symbols `
+  --cohort-name new_symbols_recent --split-name new_audit
+```
+
+`data\forecast_evaluation\profiles\horizon_conditioned_conservative_calibration_2026-07-19.json`
+を読み込むだけで、fit経路は持たない。既定の3つの追跡済みsymbol台帳との重複を拒否し、台帳が
+見つからない場合も評価を開始しない。`--evaluation-end 2021-12-31`のように指定すると、その終端
+より後のbarを除去してからeligibility / regime / discontinuityを判定する。各originのregimeと
+moving averageもorigin時点までのbarだけで再計算する。2026-07-19の直近60symbol再現は通過したが、
+2021年末cutoff再現はETF・60日が19.08%悪化してgate未通過だった。2023年末cutoffもETF・60日が
+27.18%、downtrend・60日が36.70%悪化して不通過だった。3期間の評価点は重複しない。runtime採用や
+profile再調整を自動実行しない。
+
+固定weightに対するpoint-in-time適応型候補を、development / auditのsymbolを完全分離して比較する
+場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_adaptive_forecast_calibration.py `
+  --calibration-points reports\2026-07-19_1300\adaptive_calibration\development_60\frozen_calibration_replication_points.csv `
+  --evaluation-points reports\2026-07-19_1300\adaptive_calibration\audit_40\frozen_calibration_replication_points.csv `
+  --output reports\2026-07-19_1300\adaptive_calibration\adaptive_audit_result `
+  --evaluation-split adaptive_audit
+```
+
+入力point CSVは`evaluate_frozen_forecast_calibration.py`で作成し、`forecast_consensus`、
+`advanced_quantile`、`moving_average_3`、actual returnを同じsymbol / horizon / origin / targetで保持
+する。調整・監査symbolが1件でも重複すると開始しない。weightはasset type / horizon別に、各監査
+originまでにtargetが確定した調整履歴だけから決める。古いoriginでweightを選択し、新しい内部
+originはfit済みweightの1%改善gateだけに使う。履歴不足やgate未通過はConsensusへfallbackし、
+direction headは変更しない。
+
+2026-07-19監査はdevelopment 60symbol / 1,440点、非重複audit 39symbol / 936点で、適応型は
+20日4.95%改善、60日0.53%悪化、weight採用率47.01%だった。60日1%改善gateと採用率50% gateに
+失敗したためruntime review対象外である。同じ監査の固定profileは20日8.11%、60日2.46%改善したが、
+過去のETF / downtrend失敗があるため自動採用しない。出力manifestの`evaluation_only=true`、
+`runtime_changed=false`を維持し、監査結果を見てgridや閾値を変更しない。
 
 明示live評価datasetを更新する場合:
 
@@ -1135,3 +1450,14 @@ Phase 34の追加銘柄評価では、`prepare_phase34_dataset.py`でmarket / as
 ```
 
 監査groupは最終1回だけ確認し、結果を見たthreshold調整には使わない。Phase 34ではconsensus weightと予測幅校正が採用gateを通らなかったため、runtime予測は変更していない。
+
+LLM Factorのsynthetic/static fixture評価を再出力する場合:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\evaluate_llm_factor_validation.py `
+  --output reports\llm_factor_validation
+```
+
+この出力はschema、metric、warning、再現性の確認用であり、実ニュースに対するalpha証明ではない。
+`should_integrate_into_forecast_now`、`should_integrate_into_ranking_now`、
+`should_integrate_into_investment_score_now`はfalseを維持する。

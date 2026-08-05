@@ -5,7 +5,7 @@ import json
 import os
 import time
 from collections.abc import MutableMapping
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Mapping, cast
@@ -82,6 +82,7 @@ from backend.reporting import (
     build_assistant_decision_report_archive_entry,
     render_decision_report_markdown,
 )
+from backend.reporting.archive_paths import assistant_report_archive_dir
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
@@ -106,6 +107,33 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
 )
+from ui.copilot_conversation_content import (
+    CopilotConversationPreset,
+    CopilotIntent,
+    copilot_conversation_presets,
+)
+from ui.copilot_model_policy import (
+    COPILOT_LLM_MODEL_OPTIONS,
+    model_for_profile,
+    model_option_for_profile_model,
+    model_option_from_label,
+    model_option_label,
+    model_option_labels,
+    profile_for_model,
+    profile_model_matches_option,
+)
+from ui.copilot_runtime import (
+    COPILOT_RUNTIME_STATUS_STATE_KEY,
+    AssistantRuntimeStatus,
+    AssistantStatusEvent,
+    CopilotGatewayRuntimeConfig,
+    _runtime_status_from_state,
+    _runtime_status_matches_runtime_config,
+    derive_assistant_runtime_status,
+    update_assistant_runtime_status,
+)
+from ui.copilot_streaming import stream_chunks as _stream_chunks
+from ui.notification_events import publish_assistant_report_artifact_completion
 from ui.research_state import fetch_external_research_for_symbol
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
@@ -121,7 +149,6 @@ COPILOT_LLM_MODEL_USER_STATE_KEY = "smai_copilot_llm_model_user_selected"
 COPILOT_LLM_MODEL_CATALOG_STATE_KEY = "smai_copilot_llm_model_catalog"
 COPILOT_LLM_MODEL_REASON_STATE_KEY = "smai_copilot_llm_model_reason"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
-COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY = "smai_copilot_warmup_auto_transition"
 COPILOT_WARMUP_READY_NOTICE_STATE_KEY = "smai_copilot_warmup_ready_notice"
 COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY = "smai_copilot_chat_last_scroll_count"
@@ -132,157 +159,8 @@ COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
 COPILOT_CONFIRMABLE_ACTION_IDS = ("update_research", "create_decision_report")
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
-COPILOT_STREAM_MAX_CHUNKS = 8
 COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
 COPILOT_WARMUP_POLL_SECONDS = 2.0
-
-COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
-    ("notebook_dev", "qwen3:1.7b", "軽量・高速 / 短い相談向け / 低負荷"),
-    ("notebook_standard", "qwen3:4b", "標準 / 普段使い向け / 中低負荷"),
-    ("desktop_fast", "qwen3:8b", "バランス / 要約・確認向け / 中負荷"),
-    ("desktop_analysis", "qwen3:14b", "高精度 / 銘柄分析・RAG向け / 高負荷"),
-    ("desktop_heavy", "qwen3:30b", "最高精度 / 詳細分析・レポート向け / 高負荷"),
-)
-
-CopilotIntent = Literal[
-    "app_help",
-    "identity",
-    "capability_help",
-    "stock_summary",
-    "forecast_risk_compare",
-    "news_materials",
-    "decision_report_draft",
-    "free_chat",
-    "concept_explanation",
-    "broad_discovery",
-]
-
-AssistantRuntimeState = Literal[
-    "ready",
-    "checking",
-    "generating",
-    "research_planned",
-    "research_running",
-    "degraded",
-    "gateway_unavailable",
-    "provider_unavailable",
-    "model_missing",
-]
-AssistantStatusSeverity = Literal["ready", "checking", "warning", "error"]
-
-
-@dataclass(frozen=True)
-class AssistantRuntimeStatus:
-    state: AssistantRuntimeState
-    label: str
-    message: str
-    severity: AssistantStatusSeverity
-    provider: str | None
-    model: str | None
-    profile: str | None
-    last_updated_at: str
-    last_request_id: str | None = None
-    fallback_reason: str | None = None
-    gateway_error_type: str | None = None
-    latency_ms: int | None = None
-
-
-@dataclass(frozen=True)
-class AssistantStatusEvent:
-    name: str
-    runtime_config: "CopilotGatewayRuntimeConfig"
-    response: AssistantResponse | None = None
-
-
-@dataclass(frozen=True)
-class CopilotGatewayRuntimeConfig:
-    enabled: bool
-    base_url: str
-    timeout_seconds: float
-    context_answer_path: str
-    execution_mode: str
-    environment_profile: str
-    provider: str = "ollama"
-    model: str = "qwen3:1.7b"
-    profile: str = "notebook_dev"
-    readiness_status: str = "unchecked"
-    readiness_message: str = ""
-    gateway_url: str = ""
-    gateway_error_type: str = ""
-    gateway_error_message: str = ""
-    http_status: int | None = None
-    provider_error_type: str = ""
-    provider_error_message: str = ""
-    ollama_base_url: str = ""
-    installed_models: tuple[str, ...] = ()
-
-    @property
-    def mode_label(self) -> str:
-        return "LLM Gateway" if self.enabled else "deterministic"
-
-    @property
-    def status_label(self) -> str:
-        return "LLM接続: ON" if self.enabled else "LLM接続: OFF"
-
-    @property
-    def readiness_label(self) -> str:
-        if not self.enabled:
-            return "準備完了"
-        if self.readiness_status == "ready":
-            return "準備完了"
-        if self.readiness_status == "gateway_unavailable":
-            return "LLM接続エラー"
-        if self.readiness_status == "gateway_timeout":
-            return "LLM接続エラー"
-        if self.readiness_status == "provider_unavailable":
-            return "Ollama未接続"
-        if self.readiness_status == "model_missing":
-            return "モデル未取得"
-        if self.readiness_status == "gateway_error":
-            return "簡易モードで回答中"
-        if self.readiness_status == "unchecked":
-            return "LLM待機中"
-        return "接続確認中"
-
-    @property
-    def readiness_tone(self) -> str:
-        if not self.enabled:
-            return "fallback"
-        if self.readiness_status == "ready":
-            return "ready"
-        if self.readiness_status == "model_missing":
-            return "warning"
-        if self.readiness_status in {
-            "gateway_unavailable",
-            "gateway_timeout",
-            "provider_unavailable",
-        }:
-            return "error"
-        if self.readiness_status == "gateway_error":
-            return "warning"
-        return "checking"
-
-    @property
-    def readiness_detail(self) -> str:
-        if not self.enabled:
-            return "deterministic fallback"
-        if self.readiness_message:
-            return self.readiness_message
-        if self.readiness_status == "ready":
-            return f"{self.model} 利用可能"
-        if self.readiness_status == "unchecked":
-            return "送信時にGateway接続を確認します。"
-        return "Gateway / Ollama の状態を確認しています。"
-
-
-@dataclass(frozen=True)
-class CopilotConversationPreset:
-    intent: CopilotIntent
-    label: str
-    description: str
-    context_id: str
-    default_question: str
-    prompt_instruction: str
 
 
 def copilot_context_options() -> tuple[SmaiAssistantContext, ...]:
@@ -411,74 +289,6 @@ def copilot_context_options() -> tuple[SmaiAssistantContext, ...]:
     )
 
 
-def copilot_conversation_presets() -> tuple[CopilotConversationPreset, ...]:
-    return (
-        CopilotConversationPreset(
-            intent="app_help",
-            label="SMAIの使い方を聞きたい",
-            description="画面ごとの役割と、次に開く場所を確認します。",
-            context_id="copilot_app_help",
-            default_question="SMAIの使い方と、最初に見る画面を教えてください。",
-            prompt_instruction=(
-                "SMAIの画面と機能を説明し、ユーザーが次に開くべき画面を案内してください。"
-            ),
-        ),
-        CopilotConversationPreset(
-            intent="stock_summary",
-            label="この銘柄を整理したい",
-            description="見る材料、注意点、次に確認することに分けます。",
-            context_id="copilot_cockpit_overview",
-            default_question="この銘柄を、見る材料・注意点・次に確認することに分けて整理してください。",
-            prompt_instruction=(
-                "現在の銘柄文脈を、見る材料、注意点、次に確認することに分けて整理してください。"
-            ),
-        ),
-        CopilotConversationPreset(
-            intent="forecast_risk_compare",
-            label="予測とリスクを比べたい",
-            description="予測側とリスク側の温度差を見ます。",
-            context_id="copilot_cockpit_overview",
-            default_question="AI予測インサイトと下振れ警戒を比べて、確認ポイントを整理してください。",
-            prompt_instruction=(
-                "予測側の見方、リスク側の見方、矛盾・温度差、確認ポイントの順に整理してください。"
-            ),
-        ),
-        CopilotConversationPreset(
-            intent="news_materials",
-            label="ニュース材料を見たい",
-            description="強気材料、弱気材料、未確認材料を分けます。",
-            context_id="copilot_news_overview",
-            default_question="ニュースや開示材料を、強気材料・弱気材料・未確認材料に分けて整理してください。",
-            prompt_instruction=(
-                "ニュース、開示、Research Evidenceを、強気材料、弱気材料、未確認材料、"
-                "次に見る資料に分けて整理してください。"
-            ),
-        ),
-        CopilotConversationPreset(
-            intent="decision_report_draft",
-            label="Decision Reportを作りたい",
-            description="判断メモとして残す下書きを作ります。",
-            context_id="copilot_cockpit_overview",
-            default_question="Decision Reportに残すための整理メモを作ってください。",
-            prompt_instruction=(
-                "確認した材料、強気材料、弱気材料、未確認事項、次回確認、メモの順に"
-                "Decision Reportの下書きを作ってください。"
-            ),
-        ),
-        CopilotConversationPreset(
-            intent="free_chat",
-            label="自由に会話する",
-            description="SMAIや投資材料について自由に相談します。",
-            context_id="copilot_app_help",
-            default_question="SMAIナビとして、自由相談を始めてください。",
-            prompt_instruction=(
-                "SMAIナビの口調で自然に会話してください。投資やSMAI以外の話題では、"
-                "主な役割がSMAIと投資判断材料の整理であることを添えてください。"
-            ),
-        ),
-    )
-
-
 def copilot_context_label(context: SmaiAssistantContext) -> str:
     return f"{context.page_label} / {context.section_label}"
 
@@ -545,55 +355,35 @@ def _selected_llm_profile_model(gateway: AssistantGatewayConfig) -> tuple[str, s
 
 
 def _profile_for_model(model: str, *, fallback: str = "notebook_dev") -> str:
-    for profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
-        if option_model == model:
-            return profile
-    return fallback
+    """Compatibility façade; model policy remains Streamlit-independent."""
+
+    return profile_for_model(model, fallback=fallback)
 
 
 def _model_for_profile(profile: str) -> str:
-    for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile:
-            return option_model
-    return "qwen3:1.7b"
+    """Compatibility façade; model policy remains Streamlit-independent."""
+
+    return model_for_profile(profile)
 
 
 def _llm_model_option_label(profile: str, model: str, purpose: str) -> str:
-    return f"{profile} / {model} - {purpose}"
+    return model_option_label(profile, model, purpose)
 
 
 def _llm_model_option_labels() -> list[str]:
-    return [
-        _llm_model_option_label(profile, model, purpose)
-        for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS
-    ]
+    return model_option_labels()
 
 
 def _llm_model_option_from_label(label: str) -> tuple[str, str, str] | None:
-    for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if label == _llm_model_option_label(profile, model, purpose):
-            return profile, model, purpose
-    return None
+    return model_option_from_label(label)
 
 
 def _llm_profile_model_matches_option(profile: str, model: str) -> bool:
-    return any(
-        option_profile == profile and option_model == model
-        for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS
-    )
+    return profile_model_matches_option(profile, model)
 
 
 def _llm_model_option_for_profile_model(profile: str, model: str) -> tuple[str, str, str]:
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile and option_model == model:
-            return option_profile, option_model, purpose
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_profile == profile:
-            return option_profile, option_model, purpose
-    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_model == model:
-            return option_profile, option_model, purpose
-    return COPILOT_LLM_MODEL_OPTIONS[0]
+    return model_option_for_profile_model(profile, model)
 
 
 def _render_model_selector(
@@ -961,191 +751,6 @@ def _probe_copilot_gateway_runtime(
     )
 
 
-def derive_assistant_runtime_status(event: AssistantStatusEvent) -> AssistantRuntimeStatus:
-    state = _assistant_runtime_state_from_event(event)
-    response = event.response
-    label, message, severity = _assistant_runtime_status_copy(
-        state=state,
-        runtime_config=event.runtime_config,
-        response=response,
-    )
-    return AssistantRuntimeStatus(
-        state=state,
-        label=label,
-        message=message,
-        severity=severity,
-        provider=(
-            response.provider if response and response.provider else event.runtime_config.provider
-        ),
-        model=(response.model if response and response.model else event.runtime_config.model),
-        profile=(
-            response.profile if response and response.profile else event.runtime_config.profile
-        ),
-        last_updated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        last_request_id=response.request_id if response else None,
-        fallback_reason=response.fallback_reason if response else None,
-        gateway_error_type=(
-            response.gateway_error_type
-            if response
-            else event.runtime_config.gateway_error_type or None
-        ),
-        latency_ms=response.latency_ms if response else None,
-    )
-
-
-def update_assistant_runtime_status(event: AssistantStatusEvent) -> AssistantRuntimeStatus:
-    status = derive_assistant_runtime_status(event)
-    st.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY] = _runtime_status_to_state(status)
-    return status
-
-
-def _assistant_runtime_state_from_event(event: AssistantStatusEvent) -> AssistantRuntimeState:
-    if event.name == "model_changed":
-        return "checking"
-    if event.name in {"request_started", "generating"}:
-        return "generating"
-    if event.name == "research_planned":
-        return "research_planned"
-    if event.name == "research_running":
-        return "research_running"
-    if event.name == "cancelled":
-        return "ready"
-    if event.name == "response_completed" and event.response is not None:
-        return _assistant_runtime_state_from_response(event.response)
-    return _assistant_runtime_state_from_config(event.runtime_config)
-
-
-def _assistant_runtime_state_from_config(
-    runtime_config: CopilotGatewayRuntimeConfig,
-) -> AssistantRuntimeState:
-    if not runtime_config.enabled:
-        return "degraded"
-    if runtime_config.readiness_status == "ready":
-        return "ready"
-    if runtime_config.readiness_status in {"gateway_unavailable", "gateway_timeout"}:
-        return "gateway_unavailable"
-    if runtime_config.readiness_status == "provider_unavailable":
-        return "provider_unavailable"
-    if runtime_config.readiness_status == "model_missing":
-        return "model_missing"
-    if runtime_config.readiness_status == "gateway_error":
-        return "degraded"
-    return "checking"
-
-
-def _assistant_runtime_state_from_response(response: AssistantResponse) -> AssistantRuntimeState:
-    if response.gateway_status == "ok" or response.response_source in {"llm", "gateway"}:
-        return "ready"
-    reason = str(response.fallback_reason or "").strip()
-    if reason in {"gateway_unavailable", "gateway_timeout"}:
-        return "gateway_unavailable"
-    if reason in {"provider_unavailable", "provider_timeout"}:
-        return "provider_unavailable"
-    if reason == "model_not_found":
-        return "model_missing"
-    if reason or response.response_source in {"deterministic_fallback", "fallback"}:
-        return "degraded"
-    if response.gateway_error_type:
-        return "gateway_unavailable"
-    if response.provider_error_type:
-        return "provider_unavailable"
-    return "checking"
-
-
-def _assistant_runtime_status_copy(
-    *,
-    state: AssistantRuntimeState,
-    runtime_config: CopilotGatewayRuntimeConfig,
-    response: AssistantResponse | None,
-) -> tuple[str, str, AssistantStatusSeverity]:
-    if state == "ready":
-        return "準備完了", "SMAIナビは通常回答できます。", "ready"
-    if state == "generating":
-        return "回答生成中", "SMAIナビが回答を整理しています。", "checking"
-    if state == "research_planned":
-        return "調査計画あり", "取得前の確認待ちです。", "ready"
-    if state == "research_running":
-        return "材料確認中", "価格・予測・ニュースなどを確認しています。", "checking"
-    if state == "degraded":
-        return (
-            "簡易モードで回答中",
-            "LLM応答が不安定なため、簡易回答に切り替わる場合があります。",
-            "warning",
-        )
-    if state == "gateway_unavailable":
-        return "LLM接続エラー", "Gatewayに接続できません。簡易モードで回答します。", "error"
-    if state == "provider_unavailable":
-        return "Ollama未接続", "Ollamaまたは選択モデルに接続できません。", "error"
-    if state == "model_missing":
-        return "モデル未取得", "選択中のモデルがOllamaに見つかりません。", "warning"
-    if state == "checking" and runtime_config.readiness_status == "unchecked":
-        return "LLM待機中", "送信時にGateway接続を確認します。", "checking"
-    message = runtime_config.readiness_message or "Gateway / Ollama の状態を確認しています。"
-    if response and response.gateway_error_message:
-        message = "Gateway / Ollama の状態を確認しています。"
-    return "接続確認中", message, "checking"
-
-
-def _runtime_status_to_state(status: AssistantRuntimeStatus) -> dict[str, object]:
-    return {
-        "state": status.state,
-        "label": status.label,
-        "message": status.message,
-        "severity": status.severity,
-        "provider": status.provider,
-        "model": status.model,
-        "profile": status.profile,
-        "last_updated_at": status.last_updated_at,
-        "last_request_id": status.last_request_id,
-        "fallback_reason": status.fallback_reason,
-        "gateway_error_type": status.gateway_error_type,
-        "latency_ms": status.latency_ms,
-    }
-
-
-def _runtime_status_from_state(value: object) -> AssistantRuntimeStatus | None:
-    if not isinstance(value, dict):
-        return None
-    raw_state = str(value.get("state", "")).strip()
-    if raw_state not in {
-        "ready",
-        "checking",
-        "generating",
-        "research_planned",
-        "research_running",
-        "degraded",
-        "gateway_unavailable",
-        "provider_unavailable",
-        "model_missing",
-    }:
-        return None
-    raw_severity = str(value.get("severity", "")).strip()
-    if raw_severity not in {"ready", "checking", "warning", "error"}:
-        raw_severity = "checking"
-    latency_value = value.get("latency_ms")
-    latency_ms = (
-        int(latency_value)
-        if latency_value is not None and str(latency_value).strip().isdigit()
-        else None
-    )
-    return AssistantRuntimeStatus(
-        state=cast(AssistantRuntimeState, raw_state),
-        label=str(value.get("label", "")).strip() or "接続確認中",
-        message=(
-            str(value.get("message", "")).strip() or "Gateway / Ollama の状態を確認しています。"
-        ),
-        severity=cast(AssistantStatusSeverity, raw_severity),
-        provider=str(value.get("provider", "")).strip() or None,
-        model=str(value.get("model", "")).strip() or None,
-        profile=str(value.get("profile", "")).strip() or None,
-        last_updated_at=str(value.get("last_updated_at", "")).strip(),
-        last_request_id=str(value.get("last_request_id", "")).strip() or None,
-        fallback_reason=str(value.get("fallback_reason", "")).strip() or None,
-        gateway_error_type=str(value.get("gateway_error_type", "")).strip() or None,
-        latency_ms=latency_ms,
-    )
-
-
 def _assistant_runtime_status_for_header(
     *,
     history: list[dict[str, str]],
@@ -1172,17 +777,6 @@ def _assistant_runtime_status_for_header(
         return stored
     return derive_assistant_runtime_status(
         AssistantStatusEvent(name="health_checked", runtime_config=runtime_config)
-    )
-
-
-def _runtime_status_matches_runtime_config(
-    status: AssistantRuntimeStatus,
-    runtime_config: CopilotGatewayRuntimeConfig,
-) -> bool:
-    return (
-        (status.provider or runtime_config.provider) == runtime_config.provider
-        and (status.model or runtime_config.model) == runtime_config.model
-        and (status.profile or runtime_config.profile) == runtime_config.profile
     )
 
 
@@ -1675,7 +1269,7 @@ def copilot_loading_panel_html(
         <style>
         .smai-warmup-overlay{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;
           padding:24px;background:rgba(2,8,23,.72);backdrop-filter:blur(4px);pointer-events:auto}
-        section[data-testid="stSidebar"]{z-index:1002!important}
+        section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{z-index:2001!important}
         .smai-warmup-inline{position:relative;margin:10px 0 18px}
         .smai-warmup-panel{position:relative;overflow:hidden;width:min(760px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow-y:auto;margin:10px 0 18px;padding:18px;
           border:1px solid rgba(56,189,248,.34);border-radius:16px;
@@ -2108,6 +1702,29 @@ def _render_confirmable_assistant_action(
         if turn is None or not action_id:
             st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
             return True
+        context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
+        if not _assistant_action_confirmation_is_current(history, turn):
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=_superseded_assistant_action_result(action_id),
+                context=context,
+                confirmed=False,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
+        pending_target = pending.get("target")
+        if not _assistant_action_confirmation_target_matches(
+            pending_target,
+            _assistant_action_confirmation_target(turn, context, action_id),
+        ):
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=_superseded_assistant_action_result(action_id),
+                context=context,
+                confirmed=False,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
         return _render_assistant_action_confirmation(
             turn,
             action_id=action_id,
@@ -2134,9 +1751,11 @@ def _render_confirmable_assistant_action(
             use_container_width=True,
             help="実行前に対象、使用材料、変更しないものを確認します。",
         ):
+            context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
             st.session_state[COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY] = {
                 "turn_id": str(turn.get("turn_id", "")),
                 "action_id": action_id,
+                "target": _assistant_action_confirmation_target(turn, context, action_id),
             }
             return True
     return False
@@ -2316,15 +1935,15 @@ def _workflow_retry_button_label(action_id: str | None) -> str:
 def _latest_workflow_session_turn(
     history: list[dict[str, str]],
 ) -> tuple[dict[str, str], AssistantWorkflowSession] | None:
-    for turn in reversed(history):
-        if str(turn.get("status", "")) != "complete":
-            continue
-        session = _workflow_session_from_turn(turn)
-        if session is None:
-            continue
-        if session.status in {"active", "failed"}:
-            return turn, session
-    return None
+    if not history:
+        return None
+    turn = history[-1]
+    if str(turn.get("status", "")) != "complete":
+        return None
+    session = _workflow_session_from_turn(turn)
+    if session is None or session.status not in {"active", "failed"}:
+        return None
+    return turn, session
 
 
 def _workflow_session_from_turn(
@@ -2482,6 +2101,22 @@ def _cancelled_assistant_action_result(action_id: str) -> AssistantActionResult:
     )
 
 
+def _superseded_assistant_action_result(action_id: str) -> AssistantActionResult:
+    now = datetime.now(UTC)
+    action = get_assistant_action(action_id)
+    label = action.label if action is not None else "操作"
+    return AssistantActionResult(
+        action_id=action_id,
+        status="cancelled",
+        title=f"{label}の確認を取り消しました",
+        summary="新しい相談または対象の変更があったため、以前の実行前確認を取り消しました。",
+        user_message="この操作ではデータ取得、レポート作成、スコア変更は行っていません。",
+        started_at=now,
+        completed_at=now,
+        followup_actions=["summarize_next_checks"],
+    )
+
+
 def _record_assistant_action_result(
     *,
     turn_id: str,
@@ -2609,16 +2244,15 @@ def _workflow_session_step_id_for_action(
 def _latest_confirmable_assistant_action_turn(
     history: list[dict[str, str]],
 ) -> tuple[dict[str, str], str] | None:
-    for turn in reversed(history):
-        if str(turn.get("status", "")) != "complete":
-            continue
-        action_id = _first_confirmable_action_id(turn)
-        if not action_id:
-            continue
-        if _turn_has_action_result(turn, action_id):
-            continue
-        return turn, action_id
-    return None
+    if not history:
+        return None
+    turn = history[-1]
+    if str(turn.get("status", "")) != "complete":
+        return None
+    action_id = _first_confirmable_action_id(turn)
+    if not action_id or _turn_has_action_result(turn, action_id):
+        return None
+    return turn, action_id
 
 
 def _first_confirmable_action_id(turn: dict[str, str]) -> str:
@@ -2718,9 +2352,62 @@ def _assistant_action_symbol(
 ) -> str:
     return (
         str(turn.get("decision_report_symbol", "")).strip()
+        or _assistant_workflow_target_symbol(turn)
         or str(context.summary.get("銘柄", "")).strip()
         or str(context.summary.get("symbol", "")).strip()
     )
+
+
+def _assistant_workflow_target_symbol(turn: dict[str, str]) -> str:
+    session = _workflow_session_from_turn(turn)
+    if session is not None:
+        active_step = _workflow_session_active_step(session)
+        if active_step is not None and active_step.symbol:
+            return str(active_step.symbol).strip()
+        if session.target_symbol:
+            return str(session.target_symbol).strip()
+    workflow = _assistant_guided_workflow_dict(turn)
+    return str(workflow.get("target_symbol", "")).strip()
+
+
+def _assistant_action_confirmation_is_current(
+    history: list[dict[str, str]],
+    turn: dict[str, str],
+) -> bool:
+    return bool(history) and str(history[-1].get("turn_id", "")) == str(turn.get("turn_id", ""))
+
+
+def _assistant_action_confirmation_target(
+    turn: dict[str, str],
+    context: SmaiAssistantContext | None = None,
+    action_id: str = "",
+) -> dict[str, str]:
+    session = _workflow_session_from_turn(turn)
+    session_id = session.session_id if session is not None else ""
+    workflow_step_id = session.active_step_id if session is not None else ""
+    symbol = (
+        _assistant_action_symbol(turn, context)
+        if context is not None
+        else _assistant_workflow_target_symbol(turn)
+        or str(turn.get("decision_report_symbol", "")).strip()
+    )
+    return {
+        "turn_id": str(turn.get("turn_id", "")).strip(),
+        "action_id": str(action_id or "").strip(),
+        "context_id": str(turn.get("context_id", "")).strip(),
+        "symbol": symbol,
+        "workflow_session_id": session_id,
+        "workflow_step_id": workflow_step_id or "",
+    }
+
+
+def _assistant_action_confirmation_target_matches(
+    stored: object,
+    current: dict[str, str],
+) -> bool:
+    if not isinstance(stored, dict):
+        return False
+    return all(str(stored.get(key, "")).strip() == value for key, value in current.items())
 
 
 def _assistant_action_company_name(
@@ -2794,28 +2481,21 @@ def _render_pending_decision_report_draft_preview() -> None:
         return
     status = str(draft.get("status", "draft_ready"))
     context = _decision_report_context_from_draft(draft)
-    if status == "archived":
-        saved_path = _display_path(str(draft.get("archive_markdown_path", "")))
-        st.success(f"Decision Report下書きを保存しました。保存先: {saved_path}")
-        if str(draft.get("manifest_status", "")) == "partial":
-            st.warning("下書きファイルは保存されましたが、manifestの更新に失敗しました。")
-    elif status == "archive_failed":
-        st.error(
-            "Decision Report下書きを保存できませんでした。ファイル権限または保存先を確認してください。"
-        )
-    else:
-        st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
+    archive_dir = _assistant_decision_report_archive_dir()
+    _render_assistant_report_archive_status(status, draft)
     with st.expander("Decision Report下書きプレビュー", expanded=True):
         st.markdown(markdown)
         save_col, markdown_col, zip_col, cancel_col = st.columns(4, gap="small")
         with save_col:
-            if st.button(
-                "下書きを保存",
-                key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
-                use_container_width=True,
-            ):
-                _archive_pending_decision_report_draft(draft, context=context)
-                st.rerun()
+            save_requested = _render_assistant_report_archive_action(
+                draft,
+                context=context,
+                archive_dir=archive_dir,
+            )
+        if archive_dir is None:
+            st.caption("SMAIデフォルトでは永続保存しません。必要な場合はダウンロードしてください。")
+        if save_requested:
+            st.rerun()
         with markdown_col:
             render_markdown_download(
                 label="レポートMarkdownをダウンロード",
@@ -2869,6 +2549,51 @@ def _render_pending_decision_report_draft_preview() -> None:
                 st.rerun()
 
 
+def _render_assistant_report_archive_action(
+    draft: dict[str, object],
+    *,
+    context: DecisionReportContext | None,
+    archive_dir: Path | None,
+) -> bool:
+    """Render the explicit, custom-user-only archive action for one draft."""
+
+    if archive_dir is None:
+        st.button(
+            "下書きを保存",
+            key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
+            use_container_width=True,
+            disabled=True,
+            help="SMAIデフォルトでは永続保存できません。ダウンロードは利用できます。",
+        )
+        return False
+    if not st.button(
+        "下書きを保存",
+        key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
+        use_container_width=True,
+    ):
+        return False
+    _archive_pending_decision_report_draft(draft, context=context)
+    return True
+
+
+def _render_assistant_report_archive_status(status: str, draft: Mapping[str, object]) -> None:
+    """Render the persisted-draft state without mixing it into the preview layout."""
+
+    if status == "archived":
+        saved_path = _display_path(str(draft.get("archive_markdown_path", "")))
+        st.success(f"Decision Report下書きを保存しました。保存先: {saved_path}")
+        if str(draft.get("manifest_status", "")) == "partial":
+            st.warning("下書きファイルは保存されましたが、manifestの更新に失敗しました。")
+    elif status == "archive_failed":
+        st.error(
+            "Decision Report下書きを保存できませんでした。ファイル権限または保存先を確認してください。"
+        )
+    elif status == "archive_skipped_default":
+        st.info("SMAIデフォルトではDecision Report下書きを永続保存しません。")
+    else:
+        st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
+
+
 def _archive_pending_decision_report_draft(
     draft: dict[str, object],
     *,
@@ -2879,10 +2604,15 @@ def _archive_pending_decision_report_draft(
         updated["status"] = "archive_failed"
         st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
         return
+    archive_dir = _assistant_decision_report_archive_dir()
+    if archive_dir is None:
+        updated["status"] = "archive_skipped_default"
+        st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+        return
     try:
         result = archive_assistant_decision_report_draft(
             context,
-            _assistant_decision_report_archive_dir(),
+            archive_dir,
             markdown=str(draft.get("markdown", "")),
             include_zip=True,
         )
@@ -2903,6 +2633,7 @@ def _archive_pending_decision_report_draft(
     )
     st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
     _mark_turn_report_draft_status(str(draft.get("turn_id", "")), "archived")
+    publish_assistant_report_artifact_completion(st.session_state, context, result)
 
 
 def _decision_report_context_from_draft(
@@ -2917,8 +2648,9 @@ def _decision_report_context_from_draft(
         return None
 
 
-def _assistant_decision_report_archive_dir() -> Path:
-    return Path("exports") / "decision_reports"
+def _assistant_decision_report_archive_dir() -> Path | None:
+    user_id = str(st.session_state.get("smai_current_user_id") or "default")
+    return assistant_report_archive_dir(user_id)
 
 
 def _display_path(path: str) -> str:
@@ -4439,63 +4171,6 @@ def _render_streaming_turn(
     )
 
 
-def _stream_chunks(text: str) -> list[str]:
-    normalized = str(text or "").strip()
-    if not normalized:
-        return [""]
-    segments = _stream_segments(normalized)
-    if len(segments) > 1:
-        chunk_count = min(COPILOT_STREAM_MAX_CHUNKS, len(segments))
-        chunks = []
-        for step in range(1, chunk_count + 1):
-            boundary = (len(segments) * step + chunk_count - 1) // chunk_count
-            chunks.append("".join(segments[:boundary]).strip())
-        return _deduplicate_stream_chunks(chunks, normalized)
-    chunk_count = min(
-        COPILOT_STREAM_MAX_CHUNKS,
-        max(2, min(6, (len(normalized) + 23) // 24)),
-    )
-    chunks = [
-        normalized[: (len(normalized) * step + chunk_count - 1) // chunk_count]
-        for step in range(1, chunk_count + 1)
-    ]
-    return _deduplicate_stream_chunks(chunks, normalized)
-
-
-def _stream_segments(text: str) -> list[str]:
-    sentence_segments = _split_stream_segments(text, "。！？!?\n")
-    if len(sentence_segments) > 1:
-        return sentence_segments
-    phrase_segments = _split_stream_segments(text, "、，,;；:")
-    return phrase_segments if len(phrase_segments) > 1 else [text]
-
-
-def _split_stream_segments(text: str, break_chars: str) -> list[str]:
-    segments: list[str] = []
-    current: list[str] = []
-    for character in text:
-        current.append(character)
-        if character in break_chars:
-            segment = "".join(current).strip()
-            if segment:
-                segments.append(segment)
-            current = []
-    tail = "".join(current).strip()
-    if tail:
-        segments.append(tail)
-    return segments
-
-
-def _deduplicate_stream_chunks(chunks: list[str], final_text: str) -> list[str]:
-    deduplicated: list[str] = []
-    for chunk in chunks:
-        if chunk and (not deduplicated or chunk != deduplicated[-1]):
-            deduplicated.append(chunk)
-    if not deduplicated or deduplicated[-1] != final_text:
-        deduplicated.append(final_text)
-    return deduplicated
-
-
 def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
     return (
         '<div class="smai-copilot-action-card">'
@@ -5062,13 +4737,11 @@ def _conversation_answer(
         if body:
             return body
         return _fallback_free_chat_answer(question)
-    if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
-        return (
-            "SMAIは、目的別に画面を使い分けると分かりやすいです。"
-            "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
-            "市場全体を見るなら「投資レーダー」を使います。"
-            "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
-        )
+    if intent == "app_help":
+        body = _safe_response_body(response.answer, intent=intent)
+        if response.response_source in {"gateway", "llm"} and _is_grounded_app_help_answer(body):
+            return body
+        return _deterministic_app_help_answer()
     lead = {
         "app_help": "はい。SMAIは目的別に画面を使い分けると分かりやすいです。",
         "stock_summary": "まず、この銘柄で確認する材料を短く整理します。",
@@ -5126,6 +4799,20 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
         "SMAIで確認したいことを、画面名や銘柄名と一緒に送ってください。"
         "見ている材料、注意点、次に確認することの順に整理します。"
     )
+
+
+def _deterministic_app_help_answer() -> str:
+    return (
+        "SMAIは、目的別に画面を使い分けると分かりやすいです。"
+        "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
+        "市場全体を見るなら「投資レーダー」を使います。"
+        "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
+    )
+
+
+def _is_grounded_app_help_answer(answer: str) -> bool:
+    required_screen_names = ("銘柄コックピット", "銘柄ランキング", "投資レーダー")
+    return bool(answer) and all(screen_name in answer for screen_name in required_screen_names)
 
 
 def _concept_explanation_answer(question: str) -> str:

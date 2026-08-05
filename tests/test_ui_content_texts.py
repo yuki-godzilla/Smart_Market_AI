@@ -23,6 +23,8 @@ def test_ui_content_catalogs_are_importable():
     assert symbol_texts.SYMBOL_UNIVERSE_DETAIL_LABELS
     assert common_texts.MARKET_DATA_PERIOD_PRESETS
     assert research_texts.RESEARCH_STATUS_WITH_EVIDENCE == "根拠あり"
+    assert "ハイブリッド検索" in research_texts.RESEARCH_RETRIEVAL_MODE_HYBRID
+    assert "キーワード根拠" in research_texts.RESEARCH_RETRIEVAL_FALLBACK_NOTE
 
 
 def test_score_texts_include_direction_signal_labels():
@@ -31,9 +33,9 @@ def test_score_texts_include_direction_signal_labels():
 
 
 def test_score_texts_keep_cockpit_score_forecast_and_risk_guardrails():
-    assert "売買指示ではありません" in score_texts.SCORE_TEXTS["investment_score"].description
-    assert "将来の保証ではありません" in score_texts.SCORE_TEXTS["forecast_return_pct"].description
-    assert "安全保証ではありません" in score_texts.SCORE_TEXTS["risk"].description
+    assert "比較の目安" in score_texts.SCORE_TEXTS["investment_score"].description
+    assert "直近終値" in score_texts.SCORE_TEXTS["forecast_return_pct"].description
+    assert "警戒材料" in score_texts.SCORE_TEXTS["risk"].description
 
 
 def test_ui_modules_reference_content_catalogs():

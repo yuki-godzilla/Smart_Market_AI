@@ -51,7 +51,7 @@ class AdvancedForecastAdapterSpec:
     key: str
     display_name: str
     description: str
-    supported_horizons: tuple[int, ...]
+    supported_horizons: range
     factory: Callable[[], AdvancedForecastAdapter]
 
 
@@ -111,8 +111,8 @@ def advanced_forecast_adapter_keys() -> tuple[str, ...]:
     return tuple(spec.key for spec in advanced_forecast_adapter_specs())
 
 
-def advanced_forecast_supported_horizons(adapter_name: str) -> tuple[int, ...]:
+def advanced_forecast_supported_horizons(adapter_name: str) -> range:
     """Return supported horizons for an advanced adapter key."""
 
     spec = advanced_forecast_adapter_spec(adapter_name)
-    return spec.supported_horizons if spec is not None else ()
+    return spec.supported_horizons if spec is not None else range(0)

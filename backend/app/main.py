@@ -18,6 +18,7 @@ from backend.forecast import (
     advanced_forecast_adapter_spec,
     advanced_forecast_supported_horizons,
     available_forecast_models,
+    determine_forecast_horizon,
     evaluate_advanced_forecast,
     evaluate_models,
     summarize_forecast_evaluations,
@@ -245,7 +246,14 @@ class ForecastEvaluateRequest(StrictBaseModel):
     symbol: str = Field(min_length=1)
     start: date
     end: date
-    horizon_days: int = Field(default=1, ge=1, le=60)
+    horizon_days: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Positive trading-day horizon. Omit it to derive a stable horizon from the "
+            "actually acquired history without a fixed maximum."
+        ),
+    )
     adapter: str = Field(default="baseline", min_length=1)
 
 
@@ -268,7 +276,7 @@ class InvestmentScoreRequest(StrictBaseModel):
 
     symbols: list[str] = Field(min_length=1)
     as_of: date
-    horizon_days: int = Field(default=1, ge=1, le=60)
+    horizon_days: int = Field(default=1, ge=1)
     research_scores_by_symbol: dict[str, Decimal] = Field(default_factory=dict)
 
 
@@ -372,8 +380,22 @@ async def build_forecast_evaluations(
         start=datetime.combine(request.start, time.min, tzinfo=UTC),
         end=datetime.combine(request.end, time.max, tzinfo=UTC),
     )
+    horizon_days = (
+        request.horizon_days
+        or determine_forecast_horizon(
+            start=request.start,
+            end=request.end,
+            bars=bars,
+        ).horizon_days
+    )
     if request.adapter != "baseline":
-        return [_build_advanced_forecast_evaluation(request, bars)]
+        return [
+            _build_advanced_forecast_evaluation(
+                request,
+                bars,
+                horizon_days=horizon_days,
+            )
+        ]
 
     models = _available_forecast_models(len(bars))
     if not bars or not models:
@@ -385,12 +407,14 @@ async def build_forecast_evaluations(
                 "minimum_bars": 1,
             },
         )
-    return evaluate_models(bars, models=models, horizon_days=request.horizon_days)
+    return evaluate_models(bars, models=models, horizon_days=horizon_days)
 
 
 def _build_advanced_forecast_evaluation(
     request: ForecastEvaluateRequest,
     bars: list[Bar],
+    *,
+    horizon_days: int,
 ) -> AdvancedForecastEvaluation:
     spec = advanced_forecast_adapter_spec(request.adapter)
     if spec is None:
@@ -402,20 +426,21 @@ def _build_advanced_forecast_evaluation(
             },
         )
     supported_horizons = advanced_forecast_supported_horizons(request.adapter)
-    if request.horizon_days not in supported_horizons:
+    if horizon_days not in supported_horizons:
         raise ComputationError(
-            f"{request.adapter} supports only 1 to 60 day horizons",
+            f"{request.adapter} requires a positive forecast horizon",
             details={
                 "adapter": request.adapter,
-                "horizon_days": request.horizon_days,
-                "supported_horizons": list(supported_horizons),
+                "horizon_days": horizon_days,
+                "minimum_horizon_days": 1,
+                "maximum_horizon_days": None,
             },
         )
     try:
         return evaluate_advanced_forecast(
             bars,
             adapter_name=request.adapter,
-            horizon_days=request.horizon_days,
+            horizon_days=horizon_days,
         )
     except ValueError as exc:
         raise ComputationError(
@@ -424,7 +449,7 @@ def _build_advanced_forecast_evaluation(
                 "symbol": request.symbol,
                 "bar_count": len(bars),
                 "adapter": request.adapter,
-                "horizon_days": request.horizon_days,
+                "horizon_days": horizon_days,
             },
         ) from exc
 
@@ -529,8 +554,8 @@ async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore
     description=(
         "Fetches configured OHLCV data for one symbol and evaluates deterministic baseline "
         "models by default. Set adapter=advanced_linear, advanced_tree_sklearn, "
-        "advanced_gbdt_sklearn, or advanced_quantile to evaluate 1 to 60 day "
-        "advanced forecast adapters."
+        "advanced_gbdt_sklearn, or advanced_quantile. Omit horizon_days to derive it "
+        "from the acquired history; positive explicit horizons have no fixed maximum."
     ),
     responses=ERROR_RESPONSES,
 )

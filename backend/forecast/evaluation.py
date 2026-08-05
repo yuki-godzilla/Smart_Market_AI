@@ -13,6 +13,11 @@ from backend.forecast.advanced_registry import (
     advanced_forecast_adapter_keys,
     advanced_forecast_adapter_spec,
 )
+from backend.forecast.regime_gated_ensemble import (
+    REGIME_GATED_ENSEMBLE_MODEL_NAME,
+    classify_forecast_regime,
+    summarize_regime_gated_forecasts,
+)
 from backend.forecast.service import (
     AdvancedForecastEvaluation,
     evaluate_advanced_forecast,
@@ -51,6 +56,15 @@ class ForecastValidationPoint(StrictBaseModel):
     origin_at: datetime
     target_at: datetime
     predicted_return: Decimal
+    direction_predicted_return: Decimal | None = None
+    predicted_return_lower: Decimal | None = None
+    predicted_return_upper: Decimal | None = None
+    confidence: str | None = Field(default=None, min_length=1)
+    center_confidence: str | None = Field(default=None, min_length=1)
+    direction_confidence: str | None = Field(default=None, min_length=1)
+    selection_policy_version: str | None = Field(default=None, min_length=1)
+    horizon_band: str | None = Field(default=None, min_length=1)
+    audit_status: str | None = Field(default=None, min_length=1)
     actual_return: Decimal
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
@@ -68,7 +82,15 @@ class ForecastPredictionRow(StrictBaseModel):
     horizon_days: int = Field(ge=1)
     as_of: datetime
     predicted_return: Decimal
+    direction_predicted_return: Decimal | None = None
+    predicted_return_lower: Decimal | None = None
+    predicted_return_upper: Decimal | None = None
     confidence: str = Field(min_length=1)
+    center_confidence: str | None = Field(default=None, min_length=1)
+    direction_confidence: str | None = Field(default=None, min_length=1)
+    selection_policy_version: str | None = Field(default=None, min_length=1)
+    horizon_band: str | None = Field(default=None, min_length=1)
+    audit_status: str | None = Field(default=None, min_length=1)
     model_disagreement: Decimal | None = Field(default=None, ge=0)
 
 
@@ -92,6 +114,9 @@ class ForecastModelEvaluationRow(StrictBaseModel):
     baseline_zero_rmse: Decimal = Field(ge=0)
     rmse_improvement: Decimal
     mean_model_disagreement: Decimal | None = Field(default=None, ge=0)
+    interval_sample_count: int = Field(default=0, ge=0)
+    interval_coverage: Decimal | None = Field(default=None, ge=0, le=1)
+    mean_interval_width: Decimal | None = Field(default=None, ge=0)
 
 
 class ForecastWeightAdjustment(StrictBaseModel):
@@ -154,7 +179,11 @@ def evaluate_forecast_models(
             )
             points.extend(case_points)
             present_models = {point.model_name for point in case_points}
-            for model_name in (*resolved_adapters, CONSENSUS_MODEL_NAME):
+            for model_name in (
+                *resolved_adapters,
+                CONSENSUS_MODEL_NAME,
+                REGIME_GATED_ENSEMBLE_MODEL_NAME,
+            ):
                 if model_name not in present_models:
                     skipped[(model_name, horizon)] += 1
             predictions.extend(
@@ -170,7 +199,11 @@ def evaluate_forecast_models(
         points,
         cases=cases,
         horizons=resolved_horizons,
-        model_names=(*resolved_adapters, CONSENSUS_MODEL_NAME),
+        model_names=(
+            *resolved_adapters,
+            CONSENSUS_MODEL_NAME,
+            REGIME_GATED_ENSEMBLE_MODEL_NAME,
+        ),
         skipped=skipped,
     )
     adjustments = _build_weight_adjustments(
@@ -296,6 +329,9 @@ def _evaluate_case_origins(
                     origin_at=bars[origin_index].ts,
                     target_at=target.ts,
                     predicted_return=evaluation.predicted_return,
+                    predicted_return_lower=evaluation.predicted_return_lower,
+                    predicted_return_upper=evaluation.predicted_return_upper,
+                    confidence=evaluation.confidence,
                     actual_return=actual_return,
                 )
             )
@@ -312,8 +348,37 @@ def _evaluate_case_origins(
                     origin_at=bars[origin_index].ts,
                     target_at=target.ts,
                     predicted_return=consensus.consensus_predicted_return,
+                    direction_predicted_return=consensus.direction_predicted_return,
+                    predicted_return_lower=consensus.predicted_return_lower,
+                    predicted_return_upper=consensus.predicted_return_upper,
+                    confidence=consensus.confidence,
+                    center_confidence=consensus.center_confidence,
+                    direction_confidence=consensus.direction_confidence,
+                    selection_policy_version=consensus.selection_policy_version,
+                    horizon_band=consensus.horizon_band,
+                    audit_status=consensus.audit_status,
                     actual_return=actual_return,
                     model_disagreement=consensus.predicted_return_range,
+                )
+            )
+        regime_gated = summarize_regime_gated_forecasts(
+            evaluations,
+            regime=classify_forecast_regime(history),
+        )
+        if regime_gated is not None:
+            points.append(
+                ForecastValidationPoint(
+                    symbol=case.symbol,
+                    market=case.market,
+                    asset_type=case.asset_type,
+                    regime=case.regime,
+                    model_name=REGIME_GATED_ENSEMBLE_MODEL_NAME,
+                    horizon_days=horizon_days,
+                    origin_at=bars[origin_index].ts,
+                    target_at=target.ts,
+                    predicted_return=regime_gated.predicted_return,
+                    actual_return=actual_return,
+                    model_disagreement=regime_gated.predicted_return_range,
                 )
             )
     return points
@@ -343,6 +408,8 @@ def _latest_predictions(
             horizon_days=horizon_days,
             as_of=bars[-1].ts,
             predicted_return=evaluation.predicted_return,
+            predicted_return_lower=evaluation.predicted_return_lower,
+            predicted_return_upper=evaluation.predicted_return_upper,
             confidence=evaluation.confidence,
         )
         for evaluation in evaluations
@@ -359,8 +426,35 @@ def _latest_predictions(
                 horizon_days=horizon_days,
                 as_of=bars[-1].ts,
                 predicted_return=consensus.consensus_predicted_return,
+                direction_predicted_return=consensus.direction_predicted_return,
+                predicted_return_lower=consensus.predicted_return_lower,
+                predicted_return_upper=consensus.predicted_return_upper,
                 confidence=consensus.confidence,
+                center_confidence=consensus.center_confidence,
+                direction_confidence=consensus.direction_confidence,
+                selection_policy_version=consensus.selection_policy_version,
+                horizon_band=consensus.horizon_band,
+                audit_status=consensus.audit_status,
                 model_disagreement=consensus.predicted_return_range,
+            )
+        )
+    regime_gated = summarize_regime_gated_forecasts(
+        evaluations,
+        regime=classify_forecast_regime(bars),
+    )
+    if regime_gated is not None:
+        rows.append(
+            ForecastPredictionRow(
+                symbol=case.symbol,
+                market=case.market,
+                asset_type=case.asset_type,
+                regime=case.regime,
+                model_name=REGIME_GATED_ENSEMBLE_MODEL_NAME,
+                horizon_days=horizon_days,
+                as_of=bars[-1].ts,
+                predicted_return=regime_gated.predicted_return,
+                confidence=regime_gated.confidence,
+                model_disagreement=regime_gated.predicted_return_range,
             )
         )
     return rows
@@ -477,6 +571,28 @@ def _aggregate_points(
     disagreements = [
         point.model_disagreement for point in points if point.model_disagreement is not None
     ]
+    interval_values: list[tuple[Decimal, Decimal, Decimal]] = []
+    for point in points:
+        lower = point.predicted_return_lower
+        upper = point.predicted_return_upper
+        if lower is None or upper is None or upper < lower:
+            continue
+        interval_values.append((lower, upper, point.actual_return))
+    interval_coverage = (
+        _mean(
+            [
+                Decimal("1") if lower <= actual <= upper else Decimal("0")
+                for lower, upper, actual in interval_values
+            ]
+        )
+        if interval_values
+        else None
+    )
+    mean_interval_width = (
+        _mean([upper - lower for lower, upper, _actual in interval_values])
+        if interval_values
+        else None
+    )
     return ForecastModelEvaluationRow(
         group_type=group_type,
         group_value=group_value,
@@ -492,6 +608,9 @@ def _aggregate_points(
         baseline_zero_rmse=baseline_rmse,
         rmse_improvement=_decimal(baseline_rmse - rmse),
         mean_model_disagreement=(_mean(disagreements) if disagreements else None),
+        interval_sample_count=len(interval_values),
+        interval_coverage=interval_coverage,
+        mean_interval_width=mean_interval_width,
     )
 
 
@@ -626,7 +745,14 @@ def _direction_accuracy(points: list[ForecastValidationPoint]) -> Decimal:
     if not points:
         return Decimal("0.0000")
     matches = sum(
-        1 for point in points if _sign(point.predicted_return) == _sign(point.actual_return)
+        1
+        for point in points
+        if _sign(
+            point.direction_predicted_return
+            if point.direction_predicted_return is not None
+            else point.predicted_return
+        )
+        == _sign(point.actual_return)
     )
     return _decimal(Decimal(matches) / Decimal(len(points)))
 
@@ -658,8 +784,8 @@ def _sign(value: Decimal) -> int:
 
 def _validated_horizons(horizons: tuple[int, ...]) -> tuple[int, ...]:
     normalized = tuple(dict.fromkeys(horizons))
-    if not normalized or any(horizon < 1 or horizon > 60 for horizon in normalized):
-        raise ValueError("horizons must contain values between 1 and 60")
+    if not normalized or any(horizon < 1 for horizon in normalized):
+        raise ValueError("horizons must contain positive values")
     return normalized
 
 
@@ -717,14 +843,16 @@ def _render_summary(report: ForecastModelEvaluationReport) -> str:
         "- 改善weightは後半holdoutで現行consensusと比較し、条件通過時だけ採用候補にします。",
         "",
         "| Model | Horizon | Cases | Samples | MAE | RMSE | Direction | "
-        "RMSE improvement | Disagreement |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "RMSE improvement | Range coverage | Range width | Disagreement |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in overall:
         lines.append(
             f"| {row.model_name} | {row.horizon_days} | {row.evaluated_case_count} | "
             f"{row.validation_sample_count} | {row.mae} | {row.rmse} | "
             f"{row.direction_accuracy} | {row.rmse_improvement} | "
+            f"{_display_optional(row.interval_coverage)} | "
+            f"{_display_optional(row.mean_interval_width)} | "
             f"{_display_optional(row.mean_model_disagreement)} |"
         )
     if report.warnings:

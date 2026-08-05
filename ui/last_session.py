@@ -52,7 +52,6 @@ RANKING_STATE_KEYS = (
     "market_data_ranking_pbr_min",
     "market_data_ranking_pbr_max",
     "market_data_ranking_dividend_enabled",
-    "market_data_ranking_dividend_min",
     "market_data_ranking_dividend_max",
     "market_data_ranking_roe_enabled",
     "market_data_ranking_roe_min",

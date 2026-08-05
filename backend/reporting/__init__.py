@@ -1,3 +1,13 @@
+from backend.reporting.archive_paths import (
+    DEFAULT_USER_ID as REPORT_ARCHIVE_DEFAULT_USER_ID,
+)
+from backend.reporting.archive_paths import (
+    PROFILE_ROOT as REPORT_ARCHIVE_PROFILE_ROOT,
+)
+from backend.reporting.archive_paths import (
+    REPORT_ARCHIVE_DIRECTORY,
+    assistant_report_archive_dir,
+)
 from backend.reporting.assistant_archive import (
     ASSISTANT_DECISION_REPORT_ARCHIVE_MANIFEST,
     ASSISTANT_DECISION_REPORT_ARCHIVE_SCHEMA_VERSION,
@@ -36,6 +46,9 @@ __all__ = [
     "ASSISTANT_DECISION_REPORT_ARCHIVE_SCHEMA_VERSION",
     "DECISION_REPORT_SCHEMA_VERSION",
     "DECISION_SUPPORT_NOTE",
+    "REPORT_ARCHIVE_DEFAULT_USER_ID",
+    "REPORT_ARCHIVE_DIRECTORY",
+    "REPORT_ARCHIVE_PROFILE_ROOT",
     "AssistantDecisionReportArchiveResult",
     "DecisionReportContext",
     "DecisionReportManifest",
@@ -43,6 +56,7 @@ __all__ = [
     "DecisionReportSource",
     "ReportSourceKind",
     "archive_assistant_decision_report_draft",
+    "assistant_report_archive_dir",
     "assistant_decision_report_zip_download",
     "build_assistant_decision_report_archive_entry",
     "build_data_confidence_section",

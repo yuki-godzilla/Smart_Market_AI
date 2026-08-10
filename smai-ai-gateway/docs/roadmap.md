@@ -45,6 +45,7 @@
 ## Phase 2.6: Cockpit LLM interpretation support
 
 - 親SMAI側 Phase 28-A で Cockpit `AI解釈メモ` を実装済み。Gateway は `/api/v1/context-answer` の `task_type=cockpit_interpretation` として扱う
+- 親SMAI側 Phase 28-B で明示実行型の Ranking `Ranking AI解釈（参考）` を実装済み。Gateway は `task_type=ranking_interpretation` / `response_schema=ranking_interpretation.v1` で候補順とcitationを固定する
 - Gateway は価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextから、強い材料、注意点、矛盾・不確実性、次の確認を整理する
 - context compression、Pydantic validation、cache、deterministic fallback、UI表示は親SMAI側の責務とする
 - Ranking、Forecast、AI総合、Investment Score、Research Score、Decision Report本文、売買判断は変更しない

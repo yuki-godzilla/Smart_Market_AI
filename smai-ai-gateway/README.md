@@ -213,6 +213,8 @@ SMAI_OLLAMA_BASE_URL=http://localhost:11434
 
 `task_type=cockpit_interpretation` は SMAI 親側 Phase 28-A の Cockpit `AI解釈メモ` 用です。Gateway は渡された価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextを読み解き、強い材料、注意点、矛盾・不確実性、次の確認を返します。スコア、ランキング順位、予測値、Decision Report 本文の自動変更は Gateway の責務ではありません。
 
+`task_type=ranking_interpretation` と `response_schema=ranking_interpretation.v1` は Phase 28-B の明示実行専用です。Gateway は、親SMAIが固定したRanking条件・上位候補順・主要指標・候補集合内sector contextだけを使い、項目別の`cited_evidence_ids`と候補IDを持つstrict JSONを返します。候補順、順位、score、Forecastの再計算や変更は行いません。候補順・citationが不正な応答はGatewayでfallbackとなり、親SMAIも候補・数値・日付・助言表現を再検証します。
+
 Gateway / SMAI parent の両方で user-facing presentation を整形し、provider raw fields、debug logs、external source bodies、`privacy_notes` / `safety_notes` などの内部向け文言は通常回答・コピー・Markdown保存に出さない方針です。必要な runtime metadata は SMAI UI の `技術情報を表示` に閉じて扱います。
 
 `/api/v1/llm-factor/generate` は `task_type=llm_factor_generation` 相当の構造化 JSON endpoint です。SMAI 親側が渡す 1銘柄の compact context だけを使い、`llm_factor.v1` の `overall_summary`、`sentiment_label`、`confidence`、`factors`、`risks`、`opportunities`、`evidence`、`missing_fields`、`warnings` を返します。Provider failure、timeout、validation failure では deterministic fallback 形の JSON を返し、SMAI 親側はさらに Pydantic validation / cache / fallback を行います。Phase 27-B では親側の fallback reason を `disabled`、`gateway_unavailable`、`gateway_timeout`、`gateway_http_error`、`malformed_json`、`validation_error`、`wrong_symbol`、`unknown_evidence`、`stale_source`、`cache_miss`、`cache_corrupt`、`provider_error` に標準化しました。Ranking、Forecast、AI総合、Investment Score の変更は Gateway の責務ではありません。

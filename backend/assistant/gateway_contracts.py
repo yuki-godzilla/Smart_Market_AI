@@ -17,6 +17,7 @@ ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION = "assistant-context-bundle-v1"
 ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION = "assistant-gateway-request-v1"
 ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION = "radar_interpretation.v1"
+ASSISTANT_GATEWAY_RANKING_INTERPRETATION_SCHEMA_VERSION = "ranking_interpretation.v1"
 ASSISTANT_PLANNER_REQUEST_SCHEMA_VERSION = "assistant_tool_planner_request.v1"
 ASSISTANT_PLANNER_RESPONSE_SCHEMA_VERSION = "assistant_tool_planner_response.v1"
 ASSISTANT_PLANNER_PROMPT_VERSION = "assistant_tool_planner_mvp.v1"
@@ -45,6 +46,7 @@ AssistantGatewayTaskType = Literal[
     "decision_report_draft",
     "llm_factor_generation",
     "cockpit_interpretation",
+    "ranking_interpretation",
     "report_export_summary",
     "assistant_tool_plan",
 ]
@@ -187,6 +189,38 @@ class AssistantGatewayRadarInterpretation(StrictBaseModel):
     )
 
 
+class AssistantGatewayRankingCandidateNote(StrictBaseModel):
+    """One explanation for an already-ranked candidate without reordering it."""
+
+    candidate_id: str = Field(min_length=1)
+    reading: AssistantGatewayEvidencePoint
+    caution: AssistantGatewayEvidencePoint | None = None
+    next_check: AssistantGatewayEvidencePoint
+
+
+class AssistantGatewayRankingInterpretation(StrictBaseModel):
+    """Strict evidence-bound payload for explicit Ranking interpretation."""
+
+    schema_version: str = Field(
+        default=ASSISTANT_GATEWAY_RANKING_INTERPRETATION_SCHEMA_VERSION,
+        min_length=1,
+    )
+    ranking_context_id: str = Field(min_length=1)
+    summary: AssistantGatewayEvidencePoint
+    common_strengths: list[AssistantGatewayEvidencePoint] = Field(
+        default_factory=list, max_length=4
+    )
+    common_cautions: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    metric_notes: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    sector_notes: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    candidate_notes: list[AssistantGatewayRankingCandidateNote] = Field(
+        default_factory=list, max_length=5
+    )
+    next_checkpoints: list[AssistantGatewayEvidencePoint] = Field(
+        default_factory=list, max_length=4
+    )
+
+
 class AssistantGatewayResponse(StrictBaseModel):
     """SMAI-facing response shape expected from the external LLM Gateway."""
 
@@ -197,6 +231,7 @@ class AssistantGatewayResponse(StrictBaseModel):
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[AssistantGatewayReferencedSection] = Field(default_factory=list)
     radar_interpretation: AssistantGatewayRadarInterpretation | None = None
+    ranking_interpretation: AssistantGatewayRankingInterpretation | None = None
     confidence: AssistantGatewayConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)
     provider: str | None = Field(default=None, min_length=1)

@@ -49,6 +49,13 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     assert settings.llm_factor.live.response_schema_version == "llm_factor.v1"
     assert settings.llm_factor.live.preferred_profile == "desktop_analysis"
     assert settings.llm_factor.live.cache_enabled is True
+    assert settings.llm_interpretation.ranking.enabled is False
+    assert settings.llm_interpretation.ranking.execution_mode == "auto"
+    assert settings.llm_interpretation.ranking.environment_profile == "notebook"
+    assert settings.llm_interpretation.ranking.preferred_profile == "desktop_fast"
+    assert settings.llm_interpretation.ranking.schema_version == "ranking_interpretation.v1"
+    assert settings.llm_interpretation.ranking.cache_ttl_seconds == 21600
+    assert settings.llm_interpretation.ranking.max_candidates == 5
     assert settings.performance_profiles["notebook"].external_fetch.max_workers == 4
     assert settings.performance_profiles["workstation"].external_fetch.max_workers == 10
     assert settings.performance_profiles["notebook"].external_fetch.global_timeout_sec == 30.0

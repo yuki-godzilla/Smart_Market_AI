@@ -5342,3 +5342,28 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - `CockpitDecisionReportDetailModel`を追加し、確認方針、score、価格・予測、fundamental、valuation、risk、根拠資料、補足の表示行をStreamlit描画前に固定した。詳細の根拠表は上部表示と同じ`CockpitDecisionReportRenderContext.evidence_rows`を再利用し、二重の根拠組立を廃止した。
 - `ui/views/cockpit.py`がexpander、table、根拠card、empty state、補足表を描画し、`ui.app`は既存row builderとrenderer adapterの注入だけを行う。section順、初期展開、根拠card上限、empty message、Forecast / Score / Ranking数値、出典の意味は不変とした。presenter単体、Cockpit表示、Research表示、refresh use caseの対象pytest 426件、全体pytest 2,481件（16 skipped）、Ruff、Black、対象Mypy、architecture audit（backend-to-UI edge 0 / eager cycle 0）で確認した。
+## 2026-08-10 Phase 28-B Ranking Interpretation MVP
+
+### 実装
+
+- 既定disabledの`llm_interpretation.ranking`設定と`config/ranking_interpretation_example.yaml`を追加した。
+- 型付きのRanking解釈input / context / result / cache contractを追加した。bounded contextは固定済みRanking条件、表示上位5候補、主要指標・注意・品質項目、上位候補集合内のsector groupだけを含み、provider raw field、外部本文、ユーザーメモ、debug dataは除外する。
+- `ranking_interpretation.v1`のstrict validationを追加した。正確なcontext / candidate IDと項目別citationを必須とし、未知の根拠・候補・数値・日付、candidate重複、助言表現、順位・score・Forecast変更表現、schema不整合、timeout、provider errorはlive payload全体を拒否する。
+- disabled / failure用のdeterministic確認ガイドと、検証済みlive結果だけを保存する6時間TTLのatomic cacheを追加した。
+- `smai-ai-gateway`へschema、prompt contract、最大8件のcontext section選択、task routing、runtime / token policy、structured response mappingを追加した。
+- Ranking上位候補カード直後に`Ranking AI解釈（参考）`を追加した。Gateway生成は明示button操作時だけで、result stateを`user_id + context_hash`で分離し、ユーザー切替やRanking再作成後に古い結果を再利用しない。
+- Ranking summary card描画とpure summary集計を`ui.app`から分離し、`ui.app`と`_render_market_data_ranking`を既存architecture baseline以下に保った。
+- Ranking順、score、Forecast、AI総合、Investment Score、Research Score、Decision Report、portfolio、execution behaviorは変更していない。
+
+### 確認
+
+- 親側のcontext / validation / policy / fallback / cache / config / UI adapter testと、Gatewayのschema / service / prompt / candidate order / citation testを追加した。
+- 親側対象testは30件成功、Gateway全体testは1件skipを除いて成功した。
+- 親側全体pytestは2,548件成功、16件skip、今回範囲外の既存通知scheduler件数test 1件だけが失敗した。単独再実行でも期待1に対し2で再現し、Ranking変更とは独立している。
+- 親側全体Ruff、Black 578 files、対象Mypy 17 files、Gateway対象Mypy 4 files、architecture baseline auditは成功した。
+- browser skillによる実viewport確認はlocal URLの管理ポリシー検証が成立せず未実施。安全制御を回避せず、responsive smokeは通常suiteのskip状態として報告する。
+
+### 後続
+
+- 実Gateway / Ollama smokeは明示的に有効化したlocal環境だけで行い、通常確認はnetwork-freeを維持する。
+- Phase 28の残りはRadar / News / Research Summary / Decision Reportへの解釈展開であり、Ranking score統合ではない。

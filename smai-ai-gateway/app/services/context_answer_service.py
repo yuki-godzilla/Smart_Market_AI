@@ -12,11 +12,13 @@ from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
     RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+    RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     ContextAnswerConfidence,
     ContextAnswerGatewayStatus,
     ContextAnswerRequest,
     ContextAnswerResponse,
     ContextRadarInterpretation,
+    ContextRankingInterpretation,
     ContextReferencedSection,
     ContextSection,
 )
@@ -220,10 +222,23 @@ class ContextAnswerService:
             if _is_radar_interpretation_request(request)
             else None
         )
+        ranking_payload = (
+            _parse_llm_ranking_interpretation(result.answer)
+            if _is_ranking_interpretation_request(request)
+            else None
+        )
         if _is_radar_interpretation_request(request):
             usable_payload = (
                 _llm_payload_from_radar(radar_payload)
-                if radar_payload is not None and _radar_payload_matches_request(radar_payload, request)
+                if radar_payload is not None
+                and _radar_payload_matches_request(radar_payload, request)
+                else None
+            )
+        elif _is_ranking_interpretation_request(request):
+            usable_payload = (
+                _llm_payload_from_ranking(ranking_payload)
+                if ranking_payload is not None
+                and _ranking_payload_matches_request(ranking_payload, request)
                 else None
             )
         else:
@@ -233,7 +248,7 @@ class ContextAnswerService:
                 plain_answer=_strip_thinking_blocks(result.answer).strip(),
                 request=request,
             )
-        if usable_payload is None and not _is_radar_interpretation_request(request):
+        if usable_payload is None and not _is_structured_interpretation_request(request):
             try:
                 repair_messages = _quality_repair_messages(messages)
                 repair_result = self.client.chat(
@@ -298,17 +313,26 @@ class ContextAnswerService:
             referenced_sections=(
                 _radar_referenced_sections(radar_payload, sections)
                 if radar_payload is not None and usable_payload is not None
-                else [
-                    ContextReferencedSection(
-                        section_id=section.section_id,
-                        title=section.title,
-                        source_kind=section.source_kind,
-                    )
-                    for section in sections
-                ]
+                else (
+                    _ranking_referenced_sections(ranking_payload, sections)
+                    if ranking_payload is not None and usable_payload is not None
+                    else [
+                        ContextReferencedSection(
+                            section_id=section.section_id,
+                            title=section.title,
+                            source_kind=section.source_kind,
+                        )
+                        for section in sections
+                    ]
+                )
             ),
             radar_interpretation=(
                 radar_payload if radar_payload is not None and usable_payload is not None else None
+            ),
+            ranking_interpretation=(
+                ranking_payload
+                if ranking_payload is not None and usable_payload is not None
+                else None
             ),
             confidence=(
                 usable_payload.confidence
@@ -394,6 +418,14 @@ def _is_radar_interpretation_request(request: ContextAnswerRequest) -> bool:
     return request.response_schema == RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION
 
 
+def _is_ranking_interpretation_request(request: ContextAnswerRequest) -> bool:
+    return request.response_schema == RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION
+
+
+def _is_structured_interpretation_request(request: ContextAnswerRequest) -> bool:
+    return _is_radar_interpretation_request(request) or _is_ranking_interpretation_request(request)
+
+
 def _radar_payload_matches_request(
     payload: ContextRadarInterpretation,
     request: ContextAnswerRequest,
@@ -458,8 +490,113 @@ def _llm_payload_from_radar(
     return LlmContextAnswerPayload(
         answer=payload.summary.text,
         materials=[point.text for point in payload.positive_materials],
-        cautions=[*(point.text for point in payload.cautions), *(point.text for point in payload.unknowns)],
+        cautions=[
+            *(point.text for point in payload.cautions),
+            *(point.text for point in payload.unknowns),
+        ],
         next_checkpoints=[point.text for point in payload.next_checkpoints],
+        confidence="low",
+    )
+
+
+def _parse_llm_ranking_interpretation(answer: str) -> ContextRankingInterpretation | None:
+    raw_json = _extract_json_object(_strip_thinking_blocks(answer))
+    if raw_json is None:
+        return None
+    try:
+        return ContextRankingInterpretation.model_validate_json(raw_json)
+    except ValidationError:
+        return None
+
+
+def _ranking_payload_matches_request(
+    payload: ContextRankingInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    if payload.schema_version != RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return False
+    if payload.ranking_context_id != _ranking_context_id(request):
+        return False
+    payload_candidate_ids = [note.candidate_id for note in payload.candidate_notes]
+    if payload_candidate_ids != _ranking_candidate_ids(request):
+        return False
+    cited_ids = _ranking_cited_evidence_ids(payload)
+    return bool(cited_ids) and set(cited_ids).issubset(set(request.referenced_context_ids))
+
+
+def _ranking_context_id(request: ContextAnswerRequest) -> str:
+    for section in request.context.sections:
+        if section.section_id == "ranking_scope":
+            return str(section.summary.get("ranking_context_id") or "").strip()
+    return ""
+
+
+def _ranking_candidate_ids(request: ContextAnswerRequest) -> list[str]:
+    return [
+        candidate_id
+        for section in request.context.sections
+        if section.source_kind == "ranking_candidate"
+        if (candidate_id := str(section.summary.get("candidate_id") or "").strip())
+    ]
+
+
+def _ranking_cited_evidence_ids(payload: ContextRankingInterpretation) -> list[str]:
+    points = [
+        payload.summary,
+        *payload.common_strengths,
+        *payload.common_cautions,
+        *payload.metric_notes,
+        *payload.sector_notes,
+        *payload.next_checkpoints,
+        *(
+            point
+            for note in payload.candidate_notes
+            for point in [
+                note.reading,
+                *([note.caution] if note.caution is not None else []),
+                note.next_check,
+            ]
+        ),
+    ]
+    return _dedupe_non_empty(
+        [evidence_id for point in points for evidence_id in point.cited_evidence_ids]
+    )
+
+
+def _ranking_referenced_sections(
+    payload: ContextRankingInterpretation,
+    sections: Sequence[ContextSection],
+) -> list[ContextReferencedSection]:
+    by_id = {section.section_id: section for section in sections}
+    return [
+        ContextReferencedSection(
+            section_id=evidence_id,
+            title=by_id[evidence_id].title,
+            source_kind=by_id[evidence_id].source_kind,
+        )
+        for evidence_id in _ranking_cited_evidence_ids(payload)
+        if evidence_id in by_id
+    ]
+
+
+def _llm_payload_from_ranking(
+    payload: ContextRankingInterpretation,
+) -> LlmContextAnswerPayload:
+    candidate_cautions = [
+        note.caution.text for note in payload.candidate_notes if note.caution is not None
+    ]
+    return LlmContextAnswerPayload(
+        answer=payload.summary.text,
+        materials=[
+            *(point.text for point in payload.common_strengths),
+            *(point.text for point in payload.metric_notes),
+            *(point.text for point in payload.sector_notes),
+        ],
+        cautions=[*(point.text for point in payload.common_cautions), *candidate_cautions],
+        next_checkpoints=[
+            *(point.text for point in payload.next_checkpoints),
+            *(note.next_check.text for note in payload.candidate_notes),
+        ],
         confidence="low",
     )
 
@@ -707,9 +844,7 @@ def _llm_micro_fallback_answer(request: ContextAnswerRequest) -> str:
             f"「{question[:40]}」について、SMAIで確認する観点を整理します。"
             "価格・AI予測・ニュース・根拠資料を分けて見て、最後に不足している材料を確認すると判断しやすいです。"
         )
-    return (
-        "SMAIで確認したいことを送ってください。見ている材料、注意点、次に確認することの順に整理します。"
-    )
+    return "SMAIで確認したいことを送ってください。見ている材料、注意点、次に確認することの順に整理します。"
 
 
 def _is_identity_question(text: str) -> bool:
@@ -757,7 +892,14 @@ def _is_simple_greeting(text: str) -> bool:
     normalized = str(text or "").strip().lower()
     return normalized in {"こんにちは", "こんばんは", "おはよう", "hello", "hi"} or any(
         normalized.startswith(prefix)
-        for prefix in ("こんにちは。", "こんにちは、", "こんばんは。", "こんばんは、", "hello ", "hi ")
+        for prefix in (
+            "こんにちは。",
+            "こんにちは、",
+            "こんばんは。",
+            "こんばんは、",
+            "hello ",
+            "hi ",
+        )
     )
 
 
@@ -806,6 +948,7 @@ def _bounded_non_empty(
 
 
 def _selected_sections(request: ContextAnswerRequest) -> list[ContextSection]:
+    limit = 8 if _is_ranking_interpretation_request(request) else 4
     ids = set(request.referenced_context_ids)
     if request.active_context_id:
         ids.add(request.active_context_id)
@@ -814,8 +957,8 @@ def _selected_sections(request: ContextAnswerRequest) -> list[ContextSection]:
     if ids:
         selected = [section for section in request.context.sections if section.section_id in ids]
         if selected:
-            return selected[:4]
-    return request.context.sections[:4]
+            return selected[:limit]
+    return request.context.sections[:limit]
 
 
 def _materials_from_sections(sections: list[ContextSection]) -> list[str]:

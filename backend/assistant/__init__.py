@@ -51,6 +51,7 @@ from backend.assistant.gateway_client import (
 from backend.assistant.gateway_contracts import (
     ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION,
     ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION,
+    ASSISTANT_GATEWAY_RANKING_INTERPRETATION_SCHEMA_VERSION,
     ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION,
     ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION,
     ASSISTANT_PLANNER_PROMPT_VERSION,
@@ -62,6 +63,8 @@ from backend.assistant.gateway_contracts import (
     AssistantGatewayEvidencePoint,
     AssistantGatewayMessage,
     AssistantGatewayRadarInterpretation,
+    AssistantGatewayRankingCandidateNote,
+    AssistantGatewayRankingInterpretation,
     AssistantGatewayReferencedSection,
     AssistantGatewayRequest,
     AssistantGatewayResponse,
@@ -180,6 +183,7 @@ from backend.assistant.workflow_session import (
 __all__ = [
     "ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION",
+    "ASSISTANT_GATEWAY_RANKING_INTERPRETATION_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION",
     "ASSISTANT_GUIDED_WORKFLOW_SAFETY_NOTE",
@@ -216,6 +220,8 @@ __all__ = [
     "AssistantGatewayEvidencePoint",
     "AssistantGatewayMessage",
     "AssistantGatewayRadarInterpretation",
+    "AssistantGatewayRankingCandidateNote",
+    "AssistantGatewayRankingInterpretation",
     "AssistantGatewayReferencedSection",
     "AssistantGatewayRequest",
     "AssistantGatewayResponse",

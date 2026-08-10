@@ -5,6 +5,7 @@ import json
 from app.schemas.common import LlmMessage
 from app.schemas.context_answer import (
     RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+    RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     ContextAnswerMessage,
     ContextAnswerRequest,
     ContextSection,
@@ -189,7 +190,9 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
     privacy_notes = "\n".join(f"- {note}" for note in context.privacy_notes[:5])
     constraints = request.constraints
     intent_instruction = _intent_instruction(request.user_question)
-    radar_contract = _radar_interpretation_contract(request)
+    structured_contract = _radar_interpretation_contract(
+        request
+    ) or _ranking_interpretation_contract(request)
     return (
         f"Task: {request.task}\n"
         f"Question: {request.user_question.strip()}\n"
@@ -205,7 +208,7 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         f"Privacy notes:\n{privacy_notes or '- none'}\n\n"
         "Context sections:\n"
         f"{sections}\n\n"
-        f"{radar_contract or _default_context_answer_contract()}"
+        f"{structured_contract or _default_context_answer_contract()}"
         "Do not include privacy_notes, safety_notes, provider_notes, internal_notes, debug_notes, "
         "provider/raw/debug/source-body wording, or internal implementation notes in any user-facing field. "
         "Do not wrap the JSON in markdown. Do not add fields. Output JSON only."
@@ -246,6 +249,43 @@ def _radar_interpretation_contract(request: ContextAnswerRequest) -> str | None:
         "- Every text object must cite one or more allowed cited_evidence_ids.\n"
         "- Do not add any symbol, number, date, or factual claim that is absent from the supplied sections.\n"
         "- Do not output answer, materials, next_checkpoints, confidence, Markdown fences, or extra fields.\n"
+    )
+
+
+def _ranking_interpretation_contract(request: ContextAnswerRequest) -> str | None:
+    if request.response_schema != RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return None
+    context_id = ""
+    candidate_ids: list[str] = []
+    for section in request.context.sections:
+        if section.section_id == "ranking_scope":
+            context_id = str(section.summary.get("ranking_context_id") or "").strip()
+        if section.source_kind == "ranking_candidate":
+            candidate_id = str(section.summary.get("candidate_id") or "").strip()
+            if candidate_id:
+                candidate_ids.append(candidate_id)
+    allowed_ids = [item for item in request.referenced_context_ids if item.strip()]
+    return (
+        "Return only valid JSON with these exact keys:\n"
+        f"- schema_version: {RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION}\n"
+        f"- ranking_context_id: exactly {context_id}\n"
+        "- summary: object with text and cited_evidence_ids\n"
+        "- common_strengths: array of objects with text and cited_evidence_ids\n"
+        "- common_cautions: array of objects with text and cited_evidence_ids\n"
+        "- metric_notes: array of objects with text and cited_evidence_ids\n"
+        "- sector_notes: array of objects with text and cited_evidence_ids\n"
+        "- candidate_notes: array of objects with candidate_id, reading, caution, and next_check; "
+        "reading, caution, and next_check are objects with text and cited_evidence_ids, and caution may be null\n"
+        "- next_checkpoints: array of objects with text and cited_evidence_ids\n"
+        f"Allowed candidate_id values only: {json.dumps(candidate_ids, ensure_ascii=False)}\n"
+        f"Allowed cited_evidence_ids only: {json.dumps(allowed_ids, ensure_ascii=False)}\n"
+        "Rules:\n"
+        "- Preserve the supplied candidate order, rank, scores, and forecast values.\n"
+        "- Every text object must cite one or more allowed cited_evidence_ids.\n"
+        "- Candidate notes must use only a supplied candidate_id and must not duplicate it.\n"
+        "- Sector observations apply only to this result cohort, never to the whole market.\n"
+        "- Do not add any symbol, number, date, or factual claim absent from the supplied sections.\n"
+        "- Do not output answer, materials, cautions, confidence, Markdown fences, or extra fields.\n"
     )
 
 
@@ -294,6 +334,15 @@ def _intent_instruction(user_question: str) -> str:
             "- next_checkpoints should name what the user should inspect next in the Cockpit.\n"
             "- Do not say buy, sell, hold, strong buy, or strong sell. Do not change scores, "
             "forecasts, rankings, or Investment Score."
+        )
+    if "intent: ranking_interpretation" in text:
+        return (
+            "- Explain only the already-frozen Ranking result and preserve its order and values.\n"
+            "- Separate common strengths, cautions, effective metrics, current-cohort sector notes, "
+            "and candidate-specific reading.\n"
+            "- Treat data quality separately from attractiveness.\n"
+            "- Do not say buy, sell, hold, strong buy, or strong sell. Do not change or recompute "
+            "scores, forecasts, ranks, or sectors."
         )
     if "intent: free_chat" in text:
         return (

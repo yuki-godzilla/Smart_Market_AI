@@ -55,6 +55,7 @@ from backend.interpretation import (
     InterpretationBullet,
     build_cockpit_interpretation_context,
     build_cockpit_interpretation_from_settings,
+    build_ranking_interpretation_context,
 )
 from backend.investment_candidates.contracts import RankingBuildRequest, RankingBuildResult
 from backend.llm_factor import (
@@ -402,6 +403,11 @@ from ui.ranking_history import (
     save_ranking_history_for_current_user,
     synchronize_ranking_history_user,
 )
+from ui.ranking_interpretation import (
+    RankingResultOverviewContext,
+    build_ranking_interpretation_input,
+    ranking_summary_cards,
+)
 from ui.ranking_jobs import (
     RankingProgressCallback as BackgroundRankingProgressCallback,
 )
@@ -539,6 +545,12 @@ from ui.views.news import (
     NEWS_COCKPIT_QUERY_PAGE_PARAM,
     NEWS_COCKPIT_QUERY_SYMBOL_PARAM,
     render_news_dashboard_page,
+)
+from ui.views.ranking import (
+    render_ranking_interpretation_panel,
+)
+from ui.views.ranking import (
+    render_ranking_summary_cards as _render_ranking_summary_cards,
 )
 from ui.views.ranking_chart_profiles import (
     PROFILE_REVERSAL_EXPECTATION,
@@ -4340,60 +4352,6 @@ def _normalize_research_symbol(symbol: str) -> str:
     return symbol.strip().upper()
 
 
-def ranking_summary_cards(
-    display_rows: list[dict[str, str]],
-    *,
-    ranking_axis: str,
-    weight_preset: str,
-    region: str,
-    product_type: str,
-    selected_count: int,
-) -> list[dict[str, str]]:
-    # The ranking axis and scope already appear in the result header. Keep this
-    # row focused on quantities that change after a ranking run.
-    _ = ranking_axis, weight_preset, region, product_type
-    scores = [
-        score
-        for row in display_rows
-        if (score := _ranking_display_decimal(row, "総合スコア")) is not None
-    ]
-    confidence_values = [
-        confidence
-        for row in display_rows
-        if (confidence := _ranking_display_decimal(row, "DB信頼度")) is not None
-    ]
-    average_score = (
-        str((sum(scores, Decimal("0")) / Decimal(len(scores))).quantize(Decimal("0.1")))
-        if scores
-        else "未計算"
-    )
-    high_confidence_count = sum(
-        1 for confidence in confidence_values if confidence >= Decimal("75")
-    )
-    return [
-        {
-            "label": "対象銘柄数",
-            "value": str(selected_count),
-            "help": "現在の条件で取得対象になった銘柄数です。",
-        },
-        {
-            "label": "表示候補数",
-            "value": str(len(display_rows)),
-            "help": "ランキング結果として表示している比較候補数です。",
-        },
-        {
-            "label": "平均投資スコア",
-            "value": average_score,
-            "help": "表示候補の総合スコア平均です。売買判断そのものではありません。",
-        },
-        {
-            "label": "データ信頼度高め",
-            "value": str(high_confidence_count),
-            "help": "DB信頼度が75以上の候補数です。投資魅力度ではなく評価信頼度です。",
-        },
-    ]
-
-
 def ranking_top_candidate_cards(
     display_rows: list[dict[str, str]],
     *,
@@ -4834,20 +4792,80 @@ def _ranking_advanced_forecast_report_summary(row: Mapping[str, str]) -> str:
     return f"{ADVANCED_FORECAST_CONSENSUS_LABEL}: {display}"
 
 
-def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
-    if not cards:
-        return
-    columns = st.columns(3)
-    for index, card in enumerate(cards):
-        with columns[index % len(columns)]:
-            render_metric_card(
-                card["label"],
-                card["value"],
-                caption=card.get("help", ""),
-                badges=(_metric_badge_for_card(card),) if _metric_badge_for_card(card) else (),
-                tone=_metric_card_tone(card),
-                progress=_metric_card_progress(card),
-            )
+def _render_ranking_result_overview(
+    display_rows: list[dict[str, str]],
+    error_rows: list[dict[str, str]],
+    scope: RankingResultOverviewContext,
+) -> None:
+    _register_ranking_results_assistant_context(
+        display_rows,
+        ranking_policy=scope.ranking_policy,
+        forecast_horizon_days=scope.forecast_horizon_days,
+    )
+    render_dashboard_header(
+        "ランキング候補ダッシュボード",
+        "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
+        chips=[
+            ("ランキング基準", ranking_policy_label(scope.ranking_policy)),
+            ("評価プロファイル", ranking_weight_preset_label(scope.policy_preset)),
+            (
+                "対象",
+                f"{ranking_region_label(scope.region)} / "
+                f"{ranking_product_type_label(scope.product_type)}",
+            ),
+            ("表示", f"{len(display_rows)}件"),
+        ],
+    )
+    render_mascot_panel(
+        "ranking",
+        message=(
+            "上位候補は深掘りの入口です。"
+            f"{ranking_policy_label(scope.ranking_policy)}の重視ポイントと注意点をセットで見比べます。"
+        ),
+        layout="compact",
+    )
+    _render_ranking_purpose_context(scope.ranking_policy, scope.policy_preset)
+    _render_ranking_data_state(
+        provider=scope.provider, display_rows=display_rows, error_rows=error_rows
+    )
+    _render_ranking_score_explanation()
+    _render_ranking_summary_cards(
+        ranking_summary_cards(
+            display_rows,
+            ranking_axis=ranking_policy_label(scope.ranking_policy),
+            weight_preset=ranking_weight_preset_label(scope.policy_preset),
+            region=ranking_region_label(scope.region),
+            product_type=ranking_product_type_label(scope.product_type),
+            selected_count=scope.selected_count,
+        )
+    )
+    top_candidate_cards = ranking_top_candidate_cards(
+        display_rows,
+        ranking_purpose=scope.ranking_policy,
+    )
+    _render_top_screening_candidate_cards(top_candidate_cards)
+    interpretation_config = get_settings().llm_interpretation.ranking
+    interpretation_input = build_ranking_interpretation_input(
+        display_rows,
+        top_candidate_cards,
+        result_id=scope.ranking_source,
+        as_of=scope.as_of,
+        ranking_policy=ranking_policy_label(scope.ranking_policy),
+        weight_preset=ranking_weight_preset_label(scope.policy_preset),
+        region=ranking_region_label(scope.region),
+        product_type=ranking_product_type_label(scope.product_type),
+        metadata_by_symbol=_symbol_universe_rows_by_symbol(),
+        candidate_count=len(display_rows),
+        max_candidates=interpretation_config.max_candidates,
+        max_sector_groups=interpretation_config.max_sector_groups,
+    )
+    render_ranking_interpretation_panel(
+        build_ranking_interpretation_context(
+            interpretation_input,
+            max_text_chars=interpretation_config.max_context_text_chars,
+        ),
+        user_id=scope.user_id,
+    )
 
 
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
@@ -5139,36 +5157,6 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
         f'<div class="smai-badge-row">{badge_row}</div>'
         "</div>"
     )
-
-
-def _metric_badge_for_card(card: dict[str, str]) -> str:
-    label = card.get("label", "")
-    value = card.get("value", "")
-    if "信頼度" in label and value not in {"0", "-", "未計算"}:
-        return badge_html("データ", "success")
-    if "ランキング" in label or "対象範囲" in label:
-        return badge_html("条件", "info")
-    return ""
-
-
-def _metric_card_tone(card: dict[str, str]) -> str:
-    label = card.get("label", "")
-    if "スコア" in label:
-        return "score"
-    if "信頼度" in label:
-        return "success"
-    if "ランキング" in label or "対象範囲" in label:
-        return "info"
-    if "候補" in label or "銘柄" in label:
-        return "forecast"
-    return "neutral"
-
-
-def _metric_card_progress(card: dict[str, str]) -> int | None:
-    label = card.get("label", "")
-    if "スコア" in label or "信頼度" in label:
-        return metric_progress_from_value(card.get("value"))
-    return None
 
 
 def _confidence_badge(value: str) -> str:
@@ -8777,51 +8765,21 @@ def _render_market_data_ranking() -> None:
                 as_of_date=end_date,
             ),
         )
-        _register_ranking_results_assistant_context(
+        _render_ranking_result_overview(
             display_rows,
-            ranking_policy=ranking_policy,
-            forecast_horizon_days=ranking_forecast_horizon_days,
-        )
-        render_dashboard_header(
-            "ランキング候補ダッシュボード",
-            "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
-            chips=[
-                ("ランキング基準", ranking_policy_label(ranking_policy)),
-                ("評価プロファイル", ranking_weight_preset_label(policy_preset)),
-                (
-                    "対象",
-                    f"{ranking_region_label(region)} / {ranking_product_type_label(product_type)}",
-                ),
-                ("表示", f"{len(display_rows)}件"),
-            ],
-        )
-        render_mascot_panel(
-            "ranking",
-            message=(
-                "上位候補は深掘りの入口です。"
-                f"{ranking_policy_label(ranking_policy)}の重視ポイントと注意点をセットで見比べます。"
-            ),
-            layout="compact",
-        )
-        _render_ranking_purpose_context(ranking_policy, policy_preset)
-        _render_ranking_data_state(
-            provider=provider,
-            display_rows=display_rows,
-            error_rows=cast(list[dict[str, str]], error_rows),
-        )
-        _render_ranking_score_explanation()
-        _render_ranking_summary_cards(
-            ranking_summary_cards(
-                display_rows,
-                ranking_axis=ranking_policy_label(ranking_policy),
-                weight_preset=ranking_weight_preset_label(policy_preset),
-                region=ranking_region_label(region),
-                product_type=ranking_product_type_label(product_type),
+            cast(list[dict[str, str]], error_rows),
+            RankingResultOverviewContext(
+                provider=provider,
+                ranking_policy=ranking_policy,
+                policy_preset=policy_preset,
+                region=region,
+                product_type=product_type,
                 selected_count=len(effective_selected_labels),
-            )
-        )
-        _render_top_screening_candidate_cards(
-            ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_policy)
+                ranking_source=ranking_source,
+                as_of=end_date,
+                user_id=ranking_history_user_id,
+                forecast_horizon_days=ranking_forecast_horizon_days,
+            ),
         )
         if ranking_policy == RANKING_PURPOSE_REVERSAL_EXPECTATION:
             _render_ranking_profile_chart(display_rows, ranking_policy)

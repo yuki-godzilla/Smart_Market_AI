@@ -44,7 +44,7 @@ Markdown ビューアによって文字色指定の効き方が変わるため�
 | Phase 25 | 🟦 **実装済み / live smoke任意** | Live LLM Gateway初期接続は実装済み。SMAI server launcherはlocal Ollama / Gatewayをbackground起動・model warmupするが、実Gateway / Ollama品質確認は通常確認から分離。 |
 | Phase 26〜26A | 🟩 **主要MVP完了** | SMAIアシスタントCommand Center、承認後外部取得MVP、Decision Report下書きarchive UXまで完了。 |
 | Phase 27 | 🟨 **MVP済み / 継続拡張** | Phase 27-A / 27-B LLM Factor live generation と確認導線は実装済み。Gateway応答をschema validationし、Cockpit `AI材料分析` に参考表示する。モデル統合判断は後続。 |
-| Phase 28 | 🟨 **MVP済み / 継続拡張** | Phase 28-A Cockpit `AI解釈メモ` は実装済み。Ranking / Radar / News / Decision Report 展開は後続。 |
+| Phase 28 | 🟨 **MVP済み / 継続拡張** | Phase 28-A Cockpit `AI解釈メモ` と Phase 28-B Ranking `Ranking AI解釈（参考）` は実装済み。Radar / News / Decision Report 展開は後続。 |
 | Phase 29 | 🟨 **MVP済み / 継続拡張** | Phase 29-A / 29-B Cockpit情報設計整理と Phase 29-C Ranking初期表示・条件ビルダー導線整理は実装済み。確認レポート草案支援は後続。 |
 | Phase 30 | 🟨 **MVP済み / 継続拡張** | SMAI Assistant Tool Plan、confirmable navigation、Confirmable Safe Actions、Guided Workflow、optional LLM Tool Planner MVP。`create_decision_report` と `update_research` は確認付き実行に接続済み。 |
 | Phase 31-A / Product Copy | 🟦 **実装済み / 継続確認** | Priority 1画面の通常表示文言を確認メモ / 根拠資料 / 詳しく確認したい候補へ寄せ、内部語と過剰な免責反復を削減。 |
@@ -103,7 +103,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 未実装または今後の範囲（状態ラベル付き）:
 
 - 🟨 **MVP済み / 継続拡張**: `SMAI LLM Factor` の Phase 27-A / 27-B live generation と確認導線は実装済み。`smai-ai-gateway` `/api/v1/llm-factor/generate`、親SMAI側 context compression、HTTP adapter、`llm_factor.v1` validation、cache / reproducibility、Cockpit `AI材料分析` 参考表示、deterministic fallback、live smoke手順、Playwright panel smoke、fallback reason標準化、stale / contradiction / version mismatch / overlong outputのwarningを備える。初期段階では既存予測モデル、Ranking score、Forecast、AI総合、Investment Score へ混ぜない。統合可否判断は後続。
-- 🟨 **MVP済み / 継続拡張**: Phase 28-A Cockpit LLM Interpretation MVP は実装済み。Cockpit の価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、`AI材料分析` を `AssistantContextBundle` に圧縮し、`/api/v1/context-answer` の `task_type=cockpit_interpretation` で読み解き支援を行う。既定disabled、Gateway失敗時はdeterministic fallback、通常testsはmockでnetwork-free。Ranking / Forecast / AI総合 / Investment Score / Research Score / Decision Report contents は変更しない。
+- 🟨 **MVP済み / 継続拡張**: Phase 28-A Cockpit / 28-B Ranking LLM Interpretation MVP は実装済み。Cockpitは表示済みの価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、`AI材料分析`、Rankingは現在の条件・上位5候補・主要指標・候補集合内セクター比較を、それぞれboundedな `AssistantContextBundle` に圧縮する。Ranking live生成は `llm_interpretation.ranking.enabled=true` かつ画面の明示ボタン操作時だけ `/api/v1/context-answer` の `task_type=ranking_interpretation` を呼ぶ。既定disabled、Gateway失敗・schema不整合・未知の根拠/候補/数値/日付・助言表現はdeterministic fallback、通常testsはmockでnetwork-free。Ranking順位 / score / Forecast / AI総合 / Investment Score / Research Score / Decision Report contents は変更しない。
 - 🟨 **MVP済み / 継続拡張**: Phase 29-A / 29-B Cockpit Information Architecture Cleanup と Phase 29-C Ranking Initial View / Condition Builder UX は実装済み。Cockpitの主導線を `03 AI解釈メモ` -> `04 スコア・リスクの内訳` -> `05 根拠資料` -> `06 確認レポート` -> `07 詳細データ` に整理し、Rankingは `ランキング作成条件`、横並びの評価方針 / ランキング条件サマリー、常時表示の属性・数値・キーワード条件、条件入力後の `ランキング作成` 導線へ整理した。Forecast / Ranking score / Investment Score / LLM Factor / Research取得ロジックは変更しない。確認レポート草案支援は後続。
 - 🟦 **実装済み / 継続確認**: `SMAIアシスタント` の会話UX / Agentic Tool 基盤拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への HTTP client wiring、既定 LLM Gateway 接続、Gateway側のLLM構造化JSON応答、親SMAI側の opt-in live smoke test path、6つの会話開始 intent、read-only `Assistant Tool Layer`、実行した確認表示、Markdownメモ出力導線、LLM回答主役のchat-first回答、中央1カラム会話レイアウト、チャット幅に揃えた `新しい会話`、コンパクトな回答下アクション、待機中カードの現在ステップ表示と順次切替、通常送信のchat placeholder内pending→final差し替え、pending / assistant カードの最小高さ、文/まとまり単位の擬似ストリーミング表示、不要な定型免責文削減は実装済み。`Command Center / Research Mode` は normal chat / soft research suggestion / research plan の会話モード判定、承認付き Tool Plan contract、chat-thread内Tool Planカード、承認 / 取得済み情報だけ / キャンセル action、progress bubble、`AssistantResearchContextBundle` による確認済み / 未確認 / 注意 / 次確認の集約を実装済み。Phase 30-A では、現在画面 context builder、available action registry、deterministic Tool Plan、plan validation、チャット回答下の `次にできること` 表示を追加済み。Phase 30-B では、navigation action に Ranking / Cockpit / News への同一アプリ内リンクを付け、`smai_page` query param から安全に画面遷移できるようにした。Phase 30-Cでは、確認付き `create_decision_report` と `update_research` を接続済み。Phase 30-Dでは deterministic `確認フロー` を追加済み。Phase 30-Eでは optional LLM Tool Planner を追加し、Gateway案は schema / allowlist / safety validation 後だけ既存カードへ採用し、失敗時は deterministic fallback に戻る。Phase 30-Fでは fixture-based Agent Evaluation Harness を追加し、raw planner候補、採用後planner states、deterministic Tool Plan / Guided Workflow の安全回帰を network-free に確認できる。外部取得や確認レポート作成はユーザー確認後だけ実行し、ランキング作成などは後続。
 - 🟦 **実装済み / 継続確認**: Phase 30-G1/G2 Limited Semi-automatic Workflow Session / Recovery Controls MVP として、評価/検証済み Guided Workflow だけを session-local state machine 化し、既存確認カードで1 actionずつ進める。`update_research` 成功・一部成功後は `create_decision_report` を確認待ちにするが自動実行せず、失敗時はsessionをfailedにしてTool Plan fallbackの確認提示も止める。active session のstep skip / workflow cancel、failed session のretry / existing-materials recovery / cancel もUI接続済み。
@@ -343,10 +343,10 @@ Phase 25 以降の LLM は、SMAI 全体の判断を置き換えるものでは�
 | 2 | 🟩 **主要MVP完了** | Phase 26: Context-Aware / Agentic SMAI Assistant | 画面文脈と会話指示から、許可されたread-only内部機能を呼び出して整理する | 6 intent会話UX、中央1カラムChat Layout、Intent Router、Assistant Tool Layer、実行した確認表示、Markdown memo、screen / symbol / price / forecast / research / news / report context | LLM は説明と整理のみ。順位・スコア・予測値は変更しない |
 | 3 | 🟩 **主要MVP完了** | Phase 26A: SMAI Assistant Command Center / Research Mode Integration | SMAIナビが通常会話と承認付き調査計画を切り替え、必要なSMAI機能を使って材料を整理する | Conversation Mode Router、Tool Plan Builder、approval card、progress bubble、read-only Tool Executor、Context Aggregator、Decision Report handoff、承認後 `news_fetch` / `research_fetch` MVP、Decision Report下書き保存/archive UX MVP は実装済み。Phase 27-A へ接続済み | 承認前に外部取得しない。cached-only / cancel はnetwork-free。売買推奨、順位・スコア・予測値変更は行わない |
 | 4 | 🟨 **MVP済み / 継続拡張** | Phase 27: LLM Factor Live Generation | News / RAG / IR / profile から LLM Factor を実生成する | Phase 27-A: Gateway structured JSON endpoint、Pydantic validation、context hash cache、prompt / schema / model metadata、fallback、Cockpit reference display は実装済み。Phase 27-B: live smoke手順、Playwright panel smoke、UX表示、validation拡張は実装済み | 参考表示のみ。Forecast / Ranking / AI総合には混ぜない |
-| 5 | 🟨 **MVP済み / 継続拡張** | Phase 28: LLM Interpretation Across SMAI Screens | Cockpit / Ranking / Radar / News / Research Summary / Decision Report へ解釈支援を広げる | Phase 28-A Cockpit `AI解釈メモ` は実装済み。28-B以降でRanking、Radar、News、Decision Reportへ展開する | 画面説明と材料整理に限定する。順位・スコア・予測値は変更しない |
+| 5 | 🟨 **MVP済み / 継続拡張** | Phase 28: LLM Interpretation Across SMAI Screens | Cockpit / Ranking / Radar / News / Research Summary / Decision Report へ解釈支援を広げる | Phase 28-A Cockpit `AI解釈メモ` と 28-B Ranking `Ranking AI解釈（参考）` は実装済み。Radar、News、Research Summary、Decision Reportへ展開する | 画面説明と材料整理に限定する。順位・スコア・予測値は変更しない |
 | 6 | 🟨 **MVP済み / 継続拡張** | Phase 30-C: Assistant Confirmable Safe Actions | Tool Plan の安全なactionを、ユーザー確認後だけ実行する | Action Execution Layer、`AssistantActionResult`、session-local audit、確認UI、結果カード、`create_decision_report` と `update_research` は実装済み。`refresh_news` / `create_ranking` は後続 | 確認なし実行なし。取得結果は安全な要約だけ表示。順位・スコア・予測値変更、broker操作はしない |
 | 7 | 🟨 **MVP済み / 継続拡張** | Phase 30-D/E/F/G1/G2: Guided Workflow / Optional LLM Tool Planner / Agent Evaluation / Workflow Session Controls | Ranking -> Cockpit -> Research -> Report の確認付きworkflowと、限定action catalog内のLLM plannerを安全に扱う | multi-step state、action result chaining、schema validation、deterministic fallback、fixture-based evaluation harness、session-local workflow runtime / recovery controls は実装済み | 完全自律化しない。unsafe / hallucinated action を拒否し、評価ゲート通過済みworkflowだけをユーザー確認単位で進める |
-| 8 | 🟨 **MVP済み / 継続拡張** | Phase 28/29 follow-up: Interpretation / LLM-Assisted Decision Report | Ranking / Radar / News / Decision Report へ解釈支援と草案作成支援を広げる | checked materials、strong / weak / neutral evidence、unconfirmed items、next checks、uncertainty | 最終判断はユーザー。売買指示は出さない |
+| 8 | 🟨 **MVP済み / 継続拡張** | Phase 28/29 follow-up: Interpretation / LLM-Assisted Decision Report | Radar / News / Research Summary / Decision Report へ解釈支援と草案作成支援を広げる | checked materials、strong / weak / neutral evidence、unconfirmed items、next checks、uncertainty | 最終判断はユーザー。売買指示は出さない |
 | 9 | 🟨 **MVP済み / 継続拡張** | Research RAG / 高度ニュース活用 | 外部最新 source と根拠抽出、News 整理の幅を広げる | Symbol Extraction v2、追加 adapter、vector / hybrid 運用UI、source reliability、impact horizon、Cockpit / Report handoff | 通常 checks は network-free。News だけで順位・スコアを変えない |
 | 10 | ⬜ **後続 / 運用接続** | 銘柄DB live provider refresh 接続 | 実装済み background refresh 基盤を live provider へつなぐ | provider / opt-in 条件、失敗時表示、bounded retry | local cache / deterministic path は維持 |
 | 11 | 🟥 **保留 / 安全待ち** | Phase 31: 高度 Export / Execution Gate | Decision Report を保存・共有し、broker execution 再開可否を判断する | PDF / Excel、archive、saved scenario、dry-run、risk gate、user confirmation、audit log | live order sending は最後まで保留 |
@@ -2395,14 +2395,14 @@ UI要件:
 
 ### 5.19 🟨 Phase 28: LLM Interpretation Across SMAI Screens
 
-状態: 🟨 **MVP済み / 継続拡張**。Phase 28-A Cockpit `AI解釈メモ` MVP は実装済み。Ranking / 投資レーダー / News / Research Summary / Decision Report への展開は後続。
+状態: 🟨 **MVP済み / 継続拡張**。Phase 28-A Cockpit `AI解釈メモ` と Phase 28-B Ranking `Ranking AI解釈（参考）` MVP は実装済み。投資レーダー / News / Research Summary / Decision Report への展開は後続。
 
 目的: LLM を Copilot だけでなく、Cockpit、Ranking、投資レーダー、News、Research Summary、Decision Report の読み解き支援に広げる。
 
 Subphases:
 
 - 28-A Cockpit LLM reflection: 実装済み。Cockpit の価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、`AI材料分析` を圧縮し、`/api/v1/context-answer` の `task_type=cockpit_interpretation` で注目点、強気 / 弱気材料、矛盾・不確実性、追加確認を整理する。
-- 28-B Ranking: 上位理由、注意点、効いている指標、sector comparison、deep-dive 候補を説明する。ランキング順位は変更しない。
+- 28-B Ranking: 実装済み。現在のRanking結果から上位5候補、主要指標、注意点、データ品質、候補集合内sector comparisonだけをbounded contextへコピーし、明示実行時に共通する強み / 注意点、効いている指標、sectorの見方、候補別の読み方、次の確認事項を説明する。`ranking_interpretation.v1` の各textは根拠ID必須で、候補順・順位・score・Forecastを変更しない。
 - 28-C Investment Radar: market / sector mood、news-symbol links、today's themes、deep-dive hints をまとめる。
 - 28-D News screen: news list ではなく投資確認に使える整理として、impact direction / horizon、related sectors、noise filtering、evidence-backed summary、Cockpit handoff を表示する。
 
@@ -2415,6 +2415,7 @@ Subphases:
 
 - 各画面で LLM あり / なしの fallback 表示が成立する。
 - 28-A では `live` / `fallback` / `disabled` / `validation_error` 表示、cache metadata、missing fields、warning、deterministic fallback を実装済み。
+- 28-B では既定disabled、明示実行のみ、`user_id + context_hash` のsession state分離、live成功結果だけの6時間atomic cache、未知の根拠ID / 候補 / 数値 / 日付 / 助言表現の全payload拒否、Gateway / schema失敗時のdeterministic fallbackを実装済み。
 - News / Research / Forecast / Ranking / Report の説明が矛盾しない。
 - 通常 tests は fixture / mock で deterministic に通る。
 

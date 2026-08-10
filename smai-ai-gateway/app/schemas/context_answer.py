@@ -16,6 +16,7 @@ from app.services.model_router import (
 
 CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_interpretation.v1"
+RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "ranking_interpretation.v1"
 
 ContextAnswerTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
 ContextAnswerLanguage = Literal["ja", "en"]
@@ -125,6 +126,35 @@ class ContextRadarInterpretation(GatewayBaseModel):
     next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
 
 
+class ContextRankingCandidateNote(GatewayBaseModel):
+    """One evidence-bound explanation for an already-ranked candidate."""
+
+    candidate_id: str = Field(min_length=1)
+    reading: ContextEvidencePoint
+    caution: ContextEvidencePoint | None = None
+    next_check: ContextEvidencePoint
+
+
+class ContextRankingInterpretation(GatewayBaseModel):
+    """Strict payload for an explicit, reference-only Ranking explanation."""
+
+    schema_version: str = Field(
+        default=RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+        min_length=1,
+    )
+    ranking_context_id: str = Field(min_length=1)
+    summary: ContextEvidencePoint
+    common_strengths: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    common_cautions: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    metric_notes: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    sector_notes: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    candidate_notes: list[ContextRankingCandidateNote] = Field(
+        default_factory=list,
+        max_length=5,
+    )
+    next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+
+
 class ContextAnswerResponse(GatewayBaseModel):
     """Structured answer expected by client-side assistant UIs."""
 
@@ -135,6 +165,7 @@ class ContextAnswerResponse(GatewayBaseModel):
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[ContextReferencedSection] = Field(default_factory=list)
     radar_interpretation: ContextRadarInterpretation | None = None
+    ranking_interpretation: ContextRankingInterpretation | None = None
     confidence: ContextAnswerConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)
     provider: str = Field(min_length=1)

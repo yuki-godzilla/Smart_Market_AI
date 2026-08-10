@@ -219,6 +219,22 @@ llm_interpretation:
     preferred_profile: "desktop_fast"
 ```
 
+Investment Radarの画面全体AI読み解きを試す場合は、`config/radar_overview_interpretation_example.yaml`を参考に親SMAI側で別途opt-inします。候補単位の`llm_interpretation.radar`とは独立しており、設定を有効にしても画面の`AIで今日のレーダーを整理`を押すまでGatewayを呼びません。
+
+```yaml
+llm_interpretation:
+  radar_overview:
+    enabled: true
+    base_url: "http://127.0.0.1:8088"
+    context_answer_path: "/api/v1/context-answer"
+    timeout_seconds: 45
+    execution_mode: "auto"
+    environment_profile: "desktop"
+    preferred_profile: "desktop_fast"
+    cache_enabled: true
+    cache_ttl_seconds: 21600
+```
+
 SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 
 ```powershell
@@ -242,7 +258,7 @@ Phase 30-H以降は、親SMAIがAssistant初回描画時にbackgroundで `GET /m
 
 `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は短い通常会話用の `llm_micro` 経路です。SMAI 親は Tool Layer / RAG / news / symbol-specific context / 長い履歴を送らず、Gateway 側は最小 context、`/no_think`、Ollama `think: false` で応答を軽量化します。runtime は task_type を主軸にしつつ、実際の Ollama model ごとに token budget を調整します。軽量会話の目安は `qwen3:1.7b` が 280-300 tokens、`qwen3:4b` が 320 tokens、`qwen3:8b` が 360-450 tokens、`qwen3:14b` が 360-500 tokens です。挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、provider timeout などの失敗時だけ自然な fallback に寄せます。SMAI 親に画面固有の report context がない場合も、即時 fallback せず最小のSMAIアシスタント文脈で Gateway を呼びます。
 
-SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat`、`cockpit_interpretation`、`ranking_interpretation` などの intent marker をプロンプト指示として読みます。通常回答は同じJSON response contractの `materials` / `cautions` / `next_checkpoints` を使い、`response_schema=ranking_interpretation.v1` では候補順とcitationを固定した専用strict JSONを使います。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
+SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat`、`cockpit_interpretation`、`ranking_interpretation`、`radar_overview_interpretation` などの intent marker をプロンプト指示として読みます。通常回答は同じJSON response contractの `materials` / `cautions` / `next_checkpoints` を使い、画面固有の`response_schema`では候補・context・citationを固定した専用strict JSONを使います。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
 Qwen3 系は thinking 出力が長くなりやすいため、Gateway は Ollama chat API に `think: false` を指定します。LLM の構造化JSONに文字化け、`????`、不正JSON、空項目がある場合も、画面には文脈由来の安全な回答を返します。
 
 ### Ollama ありの opt-in live smoke

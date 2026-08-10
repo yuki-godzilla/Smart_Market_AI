@@ -2395,7 +2395,7 @@ UI要件:
 
 ### 5.19 🟨 Phase 28: LLM Interpretation Across SMAI Screens
 
-状態: 🟨 **MVP済み / 継続拡張**。Phase 28-A Cockpit `AI解釈メモ` と Phase 28-B Ranking `Ranking AI解釈（参考）` MVP は実装済み。投資レーダー / News / Research Summary / Decision Report への展開は後続。
+状態: 🟨 **MVP済み / 継続拡張**。Phase 28-A Cockpit、28-B Ranking、28-C Investment Radar MVP は実装済み。News / Research Summary / Decision Report への展開は後続。
 
 目的: LLM を Copilot だけでなく、Cockpit、Ranking、投資レーダー、News、Research Summary、Decision Report の読み解き支援に広げる。
 
@@ -2403,7 +2403,7 @@ Subphases:
 
 - 28-A Cockpit LLM reflection: 実装済み。Cockpit の価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、`AI材料分析` を圧縮し、`/api/v1/context-answer` の `task_type=cockpit_interpretation` で注目点、強気 / 弱気材料、矛盾・不確実性、追加確認を整理する。
 - 28-B Ranking: 実装済み。現在のRanking結果から上位5候補、主要指標、注意点、データ品質、候補集合内sector comparisonだけをbounded contextへコピーし、明示実行時に共通する強み / 注意点、効いている指標、sectorの見方、候補別の読み方、次の確認事項を説明する。`ranking_interpretation.v1` の各textは根拠ID必須で、候補順・順位・score・Forecastを変更しない。
-- 28-C Investment Radar: market / sector mood、news-symbol links、today's themes、deep-dive hints をまとめる。
+- 28-C Investment Radar: 実装済み。28-C1の既存`radar_interpretation.v1`は明示取得した1候補のNews / local RAG根拠を整理する。28-C2の`radar_overview_interpretation.v1`は画面全体について、最大8 sectionのbounded contextから取得済み候補集合の値動き、最大4 sector、最大3 theme、news-symbol links、最大2 deep-dive候補を整理する。既定disabledかつ明示実行だけで、stale / missing market snapshotから方向を生成せず、macro proxyを個別候補にしない。
 - 28-D News screen: news list ではなく投資確認に使える整理として、impact direction / horizon、related sectors、noise filtering、evidence-backed summary、Cockpit handoff を表示する。
 
 非ゴール:
@@ -2416,6 +2416,7 @@ Subphases:
 - 各画面で LLM あり / なしの fallback 表示が成立する。
 - 28-A では `live` / `fallback` / `disabled` / `validation_error` 表示、cache metadata、missing fields、warning、deterministic fallback を実装済み。
 - 28-B では既定disabled、明示実行のみ、`user_id + context_hash` のsession state分離、live成功結果だけの6時間atomic cache、未知の根拠ID / 候補 / 数値 / 日付 / 助言表現の全payload拒否、Gateway / schema失敗時のdeterministic fallbackを実装済み。
+- 28-C2 では既定disabled、明示実行のみ、custom user別profile cache、default userのsession-only結果、`user_id + context_hash`分離、stale市場値除外、未知のcontext / citation / sector / theme / candidate / symbol / 数値 / 日付と助言・過剰一般化表現の全payload拒否、deterministic fallbackを実装済み。Overview実行はNews更新、価格取得、RAG検索を開始しない。
 - News / Research / Forecast / Ranking / Report の説明が矛盾しない。
 - 通常 tests は fixture / mock で deterministic に通る。
 

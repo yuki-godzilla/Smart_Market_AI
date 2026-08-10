@@ -49,6 +49,12 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     assert settings.llm_factor.live.response_schema_version == "llm_factor.v1"
     assert settings.llm_factor.live.preferred_profile == "desktop_analysis"
     assert settings.llm_factor.live.cache_enabled is True
+    assert settings.llm_interpretation.radar_overview.enabled is False
+    assert settings.llm_interpretation.radar_overview.schema_version == (
+        "radar_overview_interpretation.v1"
+    )
+    assert settings.llm_interpretation.radar_overview.cache_ttl_seconds == 21600
+    assert settings.llm_interpretation.radar_overview.max_themes == 3
     assert settings.llm_interpretation.ranking.enabled is False
     assert settings.llm_interpretation.ranking.execution_mode == "auto"
     assert settings.llm_interpretation.ranking.environment_profile == "notebook"
@@ -191,6 +197,33 @@ def test_settings_can_load_explicit_radar_interpretation_opt_in():
     assert radar.timeout_seconds == 12.0
     assert radar.schema_version == "radar_interpretation.v1"
     assert radar.max_citations == 5
+
+
+def test_settings_can_load_explicit_radar_overview_interpretation_opt_in():
+    settings = Settings.model_validate(
+        {
+            "llm_interpretation": {
+                "radar_overview": {
+                    "enabled": True,
+                    "timeout_seconds": 20.0,
+                    "execution_mode": "light",
+                    "schema_version": "radar_overview_interpretation.v1",
+                    "cache_ttl_seconds": 3600,
+                    "max_themes": 2,
+                    "max_sector_groups": 3,
+                    "max_deep_dive_candidates": 1,
+                }
+            }
+        }
+    )
+
+    overview = settings.llm_interpretation.radar_overview
+    assert overview.enabled is True
+    assert overview.timeout_seconds == 20.0
+    assert overview.schema_version == "radar_overview_interpretation.v1"
+    assert overview.cache_ttl_seconds == 3600
+    assert overview.max_themes == 2
+    assert overview.max_deep_dive_candidates == 1
 
 
 def test_settings_can_load_explicit_llm_factor_live_opt_in():

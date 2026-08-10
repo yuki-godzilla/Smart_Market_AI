@@ -38,7 +38,7 @@ Provider raw fields、debug logs、保存対象でない外部本文全文は通
 LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_checkpoints`、`referenced_sections` は Gateway が受け取った context から安定生成します。
 これにより、SMAI 側 UI が必要とする表示順と安全境界を保ちます。
 
-例外は、親SMAIが明示的に`response_schema=radar_interpretation.v1`または`ranking_interpretation.v1`を指定する根拠整理です。この場合はstrict JSONを返し、各text objectに`cited_evidence_ids`を最低1件持たせる。Radarはcandidate ID、Rankingは`ranking_context_id`と固定済みcandidate順を照合し、許可済みcitationだけを受け付ける。親SMAIは候補外symbol、根拠外数値・日付、助言表現を最終rejectする。Gatewayは候補追加、スコア・順位・予測の変更、SMAI action実行を行わない。
+例外は、親SMAIが明示的に`response_schema=radar_interpretation.v1`、`radar_overview_interpretation.v1`、または`ranking_interpretation.v1`を指定する根拠整理です。この場合はstrict JSONを返し、各text objectに`cited_evidence_ids`を最低1件持たせる。Radar候補はcandidate ID、Radar Overviewはcontext hashとsector/theme/candidate関係、Rankingは`ranking_context_id`と固定済みcandidate順を照合し、許可済みcitationだけを受け付ける。親SMAIは候補外symbol、根拠外数値・日付、助言表現を最終rejectする。Gatewayは候補追加、スコア・順位・予測の変更、SMAI action実行を行わない。
 
 ## Tool Planner
 
@@ -61,6 +61,8 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 `cockpit_interpretation` では、LLM は Cockpit に表示済みの価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、AI材料分析を読み解く補助だけを担当します。
 
 `ranking_interpretation` では、LLM は親SMAIが固定したRanking条件、上位候補順、主要指標、候補集合内sector contextの説明だけを担当します。出力は`ranking_interpretation.v1`に限定し、candidate noteは入力順を保ちます。全市場のsector傾向への一般化、順位・score・Forecastの再計算、候補追加、売買助言は行いません。
+
+`radar_overview_interpretation`では、LLMは親SMAIが固定したNews theme、取得済み候補集合、sector比較、deep-dive候補の説明だけを担当します。stale / missing marketではmovementを返さず、direct mention / inferred candidate / macro proxyを混同しません。候補集合を市場全体へ一般化せず、候補追加、順序・価格・score・Forecast変更、外部取得、売買助言は行いません。
 
 - 強い材料、注意点、矛盾・不確実性、次の確認を整理する。
 - score、ランキング順位、Forecast値、AI総合、Investment Score、Research Score、Decision Report本文を変更しない。

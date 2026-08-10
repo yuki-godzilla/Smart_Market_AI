@@ -17,6 +17,7 @@ ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION = "assistant-context-bundle-v1"
 ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION = "assistant-gateway-request-v1"
 ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 ASSISTANT_GATEWAY_RADAR_INTERPRETATION_SCHEMA_VERSION = "radar_interpretation.v1"
+ASSISTANT_GATEWAY_RADAR_OVERVIEW_INTERPRETATION_SCHEMA_VERSION = "radar_overview_interpretation.v1"
 ASSISTANT_GATEWAY_RANKING_INTERPRETATION_SCHEMA_VERSION = "ranking_interpretation.v1"
 ASSISTANT_PLANNER_REQUEST_SCHEMA_VERSION = "assistant_tool_planner_request.v1"
 ASSISTANT_PLANNER_RESPONSE_SCHEMA_VERSION = "assistant_tool_planner_response.v1"
@@ -46,6 +47,7 @@ AssistantGatewayTaskType = Literal[
     "decision_report_draft",
     "llm_factor_generation",
     "cockpit_interpretation",
+    "radar_overview_interpretation",
     "ranking_interpretation",
     "report_export_summary",
     "assistant_tool_plan",
@@ -198,6 +200,48 @@ class AssistantGatewayRankingCandidateNote(StrictBaseModel):
     next_check: AssistantGatewayEvidencePoint
 
 
+class AssistantGatewayRadarOverviewSectorNote(StrictBaseModel):
+    sector_id: str = Field(min_length=1)
+    reading: AssistantGatewayEvidencePoint
+
+
+class AssistantGatewayRadarOverviewThemeNote(StrictBaseModel):
+    theme_id: str = Field(min_length=1)
+    related_candidate_ids: list[str] = Field(default_factory=list, max_length=3)
+    reading: AssistantGatewayEvidencePoint
+
+
+class AssistantGatewayRadarOverviewDeepDiveHint(StrictBaseModel):
+    candidate_id: str = Field(min_length=1)
+    reason: AssistantGatewayEvidencePoint
+
+
+class AssistantGatewayRadarOverviewInterpretation(StrictBaseModel):
+    """Strict screen-wide Radar explanation over an already-built candidate map."""
+
+    schema_version: str = Field(
+        default=ASSISTANT_GATEWAY_RADAR_OVERVIEW_INTERPRETATION_SCHEMA_VERSION,
+        min_length=1,
+    )
+    radar_context_id: str = Field(min_length=1)
+    context_hash: str = Field(min_length=1)
+    summary: AssistantGatewayEvidencePoint
+    candidate_set_movement: AssistantGatewayEvidencePoint | None = None
+    sector_notes: list[AssistantGatewayRadarOverviewSectorNote] = Field(
+        default_factory=list, max_length=4
+    )
+    theme_notes: list[AssistantGatewayRadarOverviewThemeNote] = Field(
+        default_factory=list, max_length=3
+    )
+    deep_dive_hints: list[AssistantGatewayRadarOverviewDeepDiveHint] = Field(
+        default_factory=list, max_length=2
+    )
+    unknowns: list[AssistantGatewayEvidencePoint] = Field(default_factory=list, max_length=4)
+    next_checkpoints: list[AssistantGatewayEvidencePoint] = Field(
+        default_factory=list, max_length=4
+    )
+
+
 class AssistantGatewayRankingInterpretation(StrictBaseModel):
     """Strict evidence-bound payload for explicit Ranking interpretation."""
 
@@ -231,6 +275,7 @@ class AssistantGatewayResponse(StrictBaseModel):
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[AssistantGatewayReferencedSection] = Field(default_factory=list)
     radar_interpretation: AssistantGatewayRadarInterpretation | None = None
+    radar_overview_interpretation: AssistantGatewayRadarOverviewInterpretation | None = None
     ranking_interpretation: AssistantGatewayRankingInterpretation | None = None
     confidence: AssistantGatewayConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)

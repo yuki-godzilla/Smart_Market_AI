@@ -224,6 +224,8 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
     assert "市場ヒートマップ" in page_text
+    assert "投資レーダー AI読み解き（参考）" in page_text
+    assert "AI読み解きは設定で無効です" in page_text
     assert "ニュース候補を、セクター・業種・注目ニュースで並べます。" in page_text
     assert "追加候補マップ" not in page_text
     assert "ニュース・根拠" not in {item.label for item in app.tabs}
@@ -235,6 +237,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "データ状態" not in page_text
     assert "ニュースを更新" in button_labels
     assert "今すぐ更新" in button_labels
+    assert "AIで今日のレーダーを整理" not in button_labels
     assert "最初の候補の根拠を見る" not in button_labels
     assert not text_input_labels
     assert not multiselect_labels

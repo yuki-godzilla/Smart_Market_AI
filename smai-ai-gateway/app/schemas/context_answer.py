@@ -16,6 +16,7 @@ from app.services.model_router import (
 
 CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_interpretation.v1"
+RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_overview_interpretation.v1"
 RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "ranking_interpretation.v1"
 
 ContextAnswerTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
@@ -135,6 +136,42 @@ class ContextRankingCandidateNote(GatewayBaseModel):
     next_check: ContextEvidencePoint
 
 
+class ContextRadarOverviewSectorNote(GatewayBaseModel):
+    sector_id: str = Field(min_length=1)
+    reading: ContextEvidencePoint
+
+
+class ContextRadarOverviewThemeNote(GatewayBaseModel):
+    theme_id: str = Field(min_length=1)
+    related_candidate_ids: list[str] = Field(default_factory=list, max_length=3)
+    reading: ContextEvidencePoint
+
+
+class ContextRadarOverviewDeepDiveHint(GatewayBaseModel):
+    candidate_id: str = Field(min_length=1)
+    reason: ContextEvidencePoint
+
+
+class ContextRadarOverviewInterpretation(GatewayBaseModel):
+    """Strict screen-wide Investment Radar interpretation payload."""
+
+    schema_version: str = Field(
+        default=RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+        min_length=1,
+    )
+    radar_context_id: str = Field(min_length=1)
+    context_hash: str = Field(min_length=1)
+    summary: ContextEvidencePoint
+    candidate_set_movement: ContextEvidencePoint | None = None
+    sector_notes: list[ContextRadarOverviewSectorNote] = Field(default_factory=list, max_length=4)
+    theme_notes: list[ContextRadarOverviewThemeNote] = Field(default_factory=list, max_length=3)
+    deep_dive_hints: list[ContextRadarOverviewDeepDiveHint] = Field(
+        default_factory=list, max_length=2
+    )
+    unknowns: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+
+
 class ContextRankingInterpretation(GatewayBaseModel):
     """Strict payload for an explicit, reference-only Ranking explanation."""
 
@@ -165,6 +202,7 @@ class ContextAnswerResponse(GatewayBaseModel):
     next_checkpoints: list[str] = Field(default_factory=list)
     referenced_sections: list[ContextReferencedSection] = Field(default_factory=list)
     radar_interpretation: ContextRadarInterpretation | None = None
+    radar_overview_interpretation: ContextRadarOverviewInterpretation | None = None
     ranking_interpretation: ContextRankingInterpretation | None = None
     confidence: ContextAnswerConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)

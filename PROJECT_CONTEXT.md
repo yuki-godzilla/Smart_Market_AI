@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-08-03
+Last updated: 2026-08-11
 
 ## Main Application access / MagicDNS
 
@@ -65,6 +65,18 @@ unsupported numeric or date claim, unknown citation, unsafe wording, or schema
 failure and falls back to a deterministic confirmation memo. A network-free
 eight-case shadow suite keeps those rejection paths covered. See
 `Documents/38_Investment_Radar_Enhancement_Sprint_Report.md`.
+
+Phase 28-C2 adds a separate screen-wide `radar_overview_interpretation.v1` without changing the
+candidate-level contract. It is disabled by default and runs only after the explicit Radar overview
+button. The parent copies at most eight sections from the existing News snapshot, deterministic
+candidate map, and optional fresh market snapshot: scope, measured-candidate breadth, up to four
+sector groups, three themes, and two existing deep-dive candidates. Stale or missing market data is
+excluded from directional interpretation; direct mentions, inferred candidates, and macro proxies
+remain distinct. The parent rejects unknown context, citations, sector/theme/candidate IDs, symbols,
+numbers, dates, advice wording, whole-market generalization, and macro-proxy deep dives, then uses a
+deterministic guide. Valid live results alone may use a six-hour custom-profile cache; the default
+user remains session-only. Opening or generating the overview does not refresh News/MarketData, run
+RAG, reorder candidates, or change Ranking, Forecast, Investment Score, or Research Score.
 
 ## Upward Signal / Forecast Improvement / Serious Analysis Strategy
 

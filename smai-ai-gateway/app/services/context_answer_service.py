@@ -12,12 +12,14 @@ from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
     RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+    RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     ContextAnswerConfidence,
     ContextAnswerGatewayStatus,
     ContextAnswerRequest,
     ContextAnswerResponse,
     ContextRadarInterpretation,
+    ContextRadarOverviewInterpretation,
     ContextRankingInterpretation,
     ContextReferencedSection,
     ContextSection,
@@ -222,6 +224,11 @@ class ContextAnswerService:
             if _is_radar_interpretation_request(request)
             else None
         )
+        radar_overview_payload = (
+            _parse_llm_radar_overview_interpretation(result.answer)
+            if _is_radar_overview_interpretation_request(request)
+            else None
+        )
         ranking_payload = (
             _parse_llm_ranking_interpretation(result.answer)
             if _is_ranking_interpretation_request(request)
@@ -232,6 +239,13 @@ class ContextAnswerService:
                 _llm_payload_from_radar(radar_payload)
                 if radar_payload is not None
                 and _radar_payload_matches_request(radar_payload, request)
+                else None
+            )
+        elif _is_radar_overview_interpretation_request(request):
+            usable_payload = (
+                _llm_payload_from_radar_overview(radar_overview_payload)
+                if radar_overview_payload is not None
+                and _radar_overview_payload_matches_request(radar_overview_payload, request)
                 else None
             )
         elif _is_ranking_interpretation_request(request):
@@ -314,20 +328,29 @@ class ContextAnswerService:
                 _radar_referenced_sections(radar_payload, sections)
                 if radar_payload is not None and usable_payload is not None
                 else (
-                    _ranking_referenced_sections(ranking_payload, sections)
-                    if ranking_payload is not None and usable_payload is not None
-                    else [
-                        ContextReferencedSection(
-                            section_id=section.section_id,
-                            title=section.title,
-                            source_kind=section.source_kind,
-                        )
-                        for section in sections
-                    ]
+                    _radar_overview_referenced_sections(radar_overview_payload, sections)
+                    if radar_overview_payload is not None and usable_payload is not None
+                    else (
+                        _ranking_referenced_sections(ranking_payload, sections)
+                        if ranking_payload is not None and usable_payload is not None
+                        else [
+                            ContextReferencedSection(
+                                section_id=section.section_id,
+                                title=section.title,
+                                source_kind=section.source_kind,
+                            )
+                            for section in sections
+                        ]
+                    )
                 )
             ),
             radar_interpretation=(
                 radar_payload if radar_payload is not None and usable_payload is not None else None
+            ),
+            radar_overview_interpretation=(
+                radar_overview_payload
+                if radar_overview_payload is not None and usable_payload is not None
+                else None
             ),
             ranking_interpretation=(
                 ranking_payload
@@ -422,8 +445,16 @@ def _is_ranking_interpretation_request(request: ContextAnswerRequest) -> bool:
     return request.response_schema == RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION
 
 
+def _is_radar_overview_interpretation_request(request: ContextAnswerRequest) -> bool:
+    return request.response_schema == RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION
+
+
 def _is_structured_interpretation_request(request: ContextAnswerRequest) -> bool:
-    return _is_radar_interpretation_request(request) or _is_ranking_interpretation_request(request)
+    return (
+        _is_radar_interpretation_request(request)
+        or _is_radar_overview_interpretation_request(request)
+        or _is_ranking_interpretation_request(request)
+    )
 
 
 def _radar_payload_matches_request(
@@ -497,6 +528,210 @@ def _llm_payload_from_radar(
         next_checkpoints=[point.text for point in payload.next_checkpoints],
         confidence="low",
     )
+
+
+def _parse_llm_radar_overview_interpretation(
+    answer: str,
+) -> ContextRadarOverviewInterpretation | None:
+    raw_json = _extract_json_object(_strip_thinking_blocks(answer))
+    if raw_json is None:
+        return None
+    try:
+        return ContextRadarOverviewInterpretation.model_validate_json(raw_json)
+    except ValidationError:
+        return None
+
+
+def _radar_overview_payload_matches_request(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    if payload.schema_version != RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return False
+    return (
+        _radar_overview_identity_matches(payload, request)
+        and _radar_overview_sector_ids_match(payload, request)
+        and _radar_overview_theme_ids_match(payload, request)
+        and _radar_overview_candidate_ids_match(payload, request)
+        and _radar_overview_citations_match(payload, request)
+    )
+
+
+def _radar_overview_identity_matches(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    scope = next(
+        (item for item in request.context.sections if item.section_id == "radar_scope"),
+        None,
+    )
+    if scope is None:
+        return False
+    if payload.radar_context_id != str(scope.summary.get("radar_context_id") or "").strip():
+        return False
+    if payload.context_hash != str(scope.summary.get("context_hash") or "").strip():
+        return False
+    return True
+
+
+def _radar_overview_sector_ids_match(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    allowed_ids = [
+        str(row.get("sector_id") or "").strip()
+        for section in request.context.sections
+        if section.section_id == "radar_sector_comparison"
+        for row in section.rows
+        if str(row.get("sector_id") or "").strip()
+    ]
+    payload_sector_ids = [item.sector_id for item in payload.sector_notes]
+    if len(payload_sector_ids) != len(set(payload_sector_ids)):
+        return False
+    if set(payload_sector_ids) - set(allowed_ids):
+        return False
+    return _preserves_relative_order(payload_sector_ids, allowed_ids)
+
+
+def _radar_overview_theme_ids_match(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    theme_candidates = {
+        str(section.summary.get("theme_id") or "").strip(): [
+            item
+            for item in str(section.summary.get("related_candidate_ids") or "").split(",")
+            if item
+        ]
+        for section in request.context.sections
+        if section.source_kind == "radar_news_theme"
+    }
+    payload_theme_ids = [item.theme_id for item in payload.theme_notes]
+    if len(payload_theme_ids) != len(set(payload_theme_ids)):
+        return False
+    if not _preserves_relative_order(payload_theme_ids, list(theme_candidates)):
+        return False
+    for note in payload.theme_notes:
+        if note.theme_id not in theme_candidates:
+            return False
+        allowed_related = theme_candidates[note.theme_id]
+        if set(note.related_candidate_ids) - set(allowed_related):
+            return False
+        if not _preserves_relative_order(note.related_candidate_ids, allowed_related):
+            return False
+    return True
+
+
+def _radar_overview_candidate_ids_match(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    allowed_ids = [
+        str(section.summary.get("candidate_id") or "").strip()
+        for section in request.context.sections
+        if section.source_kind == "radar_overview_candidate"
+        if str(section.summary.get("candidate_id") or "").strip()
+    ]
+    payload_candidate_ids = [item.candidate_id for item in payload.deep_dive_hints]
+    if len(payload_candidate_ids) != len(set(payload_candidate_ids)):
+        return False
+    if set(payload_candidate_ids) - set(allowed_ids):
+        return False
+    return _preserves_relative_order(payload_candidate_ids, allowed_ids)
+
+
+def _radar_overview_citations_match(
+    payload: ContextRadarOverviewInterpretation,
+    request: ContextAnswerRequest,
+) -> bool:
+    market = next(
+        (item for item in request.context.sections if item.section_id == "radar_market_breadth"),
+        None,
+    )
+    market_state = str(market.summary.get("market_state") or "missing") if market else "missing"
+    if market_state in {"missing", "stale"} and payload.candidate_set_movement is not None:
+        return False
+    if "radar_scope" not in payload.summary.cited_evidence_ids:
+        return False
+    if (
+        payload.candidate_set_movement is not None
+        and "radar_market_breadth" not in payload.candidate_set_movement.cited_evidence_ids
+    ):
+        return False
+    if any(
+        "radar_sector_comparison" not in note.reading.cited_evidence_ids
+        for note in payload.sector_notes
+    ):
+        return False
+    if any(note.theme_id not in note.reading.cited_evidence_ids for note in payload.theme_notes):
+        return False
+    if any(
+        note.candidate_id not in note.reason.cited_evidence_ids for note in payload.deep_dive_hints
+    ):
+        return False
+    cited_ids = _radar_overview_cited_evidence_ids(payload)
+    return bool(cited_ids) and set(cited_ids).issubset(set(request.referenced_context_ids))
+
+
+def _radar_overview_cited_evidence_ids(
+    payload: ContextRadarOverviewInterpretation,
+) -> list[str]:
+    points = [
+        payload.summary,
+        *([payload.candidate_set_movement] if payload.candidate_set_movement is not None else []),
+        *[item.reading for item in payload.sector_notes],
+        *[item.reading for item in payload.theme_notes],
+        *[item.reason for item in payload.deep_dive_hints],
+        *payload.unknowns,
+        *payload.next_checkpoints,
+    ]
+    return _dedupe_non_empty(
+        [evidence_id for point in points for evidence_id in point.cited_evidence_ids]
+    )
+
+
+def _radar_overview_referenced_sections(
+    payload: ContextRadarOverviewInterpretation,
+    sections: Sequence[ContextSection],
+) -> list[ContextReferencedSection]:
+    by_id = {section.section_id: section for section in sections}
+    return [
+        ContextReferencedSection(
+            section_id=evidence_id,
+            title=by_id[evidence_id].title,
+            source_kind=by_id[evidence_id].source_kind,
+        )
+        for evidence_id in _radar_overview_cited_evidence_ids(payload)
+        if evidence_id in by_id
+    ]
+
+
+def _llm_payload_from_radar_overview(
+    payload: ContextRadarOverviewInterpretation,
+) -> LlmContextAnswerPayload:
+    return LlmContextAnswerPayload(
+        answer=payload.summary.text,
+        materials=[
+            *(
+                [payload.candidate_set_movement.text]
+                if payload.candidate_set_movement is not None
+                else []
+            ),
+            *(item.reading.text for item in payload.sector_notes),
+            *(item.reading.text for item in payload.theme_notes),
+        ],
+        cautions=[item.text for item in payload.unknowns],
+        next_checkpoints=[
+            *(item.reason.text for item in payload.deep_dive_hints),
+            *(item.text for item in payload.next_checkpoints),
+        ],
+        confidence="low",
+    )
+
+
+def _preserves_relative_order(values: list[str], allowed_values: list[str]) -> bool:
+    selected = set(values)
+    return values == [item for item in allowed_values if item in selected]
 
 
 def _parse_llm_ranking_interpretation(answer: str) -> ContextRankingInterpretation | None:
@@ -948,7 +1183,12 @@ def _bounded_non_empty(
 
 
 def _selected_sections(request: ContextAnswerRequest) -> list[ContextSection]:
-    limit = 8 if _is_ranking_interpretation_request(request) else 4
+    limit = (
+        8
+        if _is_ranking_interpretation_request(request)
+        or _is_radar_overview_interpretation_request(request)
+        else 4
+    )
     ids = set(request.referenced_context_ids)
     if request.active_context_id:
         ids.add(request.active_context_id)

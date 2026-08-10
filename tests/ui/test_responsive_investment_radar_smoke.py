@@ -101,6 +101,10 @@ def test_investment_radar_responsive_viewports() -> None:
                 assert header_box["height"] >= 40
                 assert page.get_by_text("直近20営業日の値動き", exact=False).count() > 0
                 assert page.get_by_text("本文／推測", exact=False).count() > 0
+                overview_title = page.get_by_text("投資レーダー AI読み解き（参考）", exact=True)
+                assert overview_title.count() == 1
+                overview_title.scroll_into_view_if_needed()
+                assert page.get_by_text("候補順・価格・Ranking・Forecast", exact=False).count() > 0
                 market_groups = market_surface.locator(".investment-market-heatmap-groups")
                 if 768 <= width <= 1200:
                     grid_column_count = market_groups.evaluate(

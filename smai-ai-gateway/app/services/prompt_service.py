@@ -5,6 +5,7 @@ import json
 from app.schemas.common import LlmMessage
 from app.schemas.context_answer import (
     RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
+    RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     ContextAnswerMessage,
     ContextAnswerRequest,
@@ -190,9 +191,11 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
     privacy_notes = "\n".join(f"- {note}" for note in context.privacy_notes[:5])
     constraints = request.constraints
     intent_instruction = _intent_instruction(request.user_question)
-    structured_contract = _radar_interpretation_contract(
-        request
-    ) or _ranking_interpretation_contract(request)
+    structured_contract = (
+        _radar_interpretation_contract(request)
+        or _radar_overview_interpretation_contract(request)
+        or _ranking_interpretation_contract(request)
+    )
     return (
         f"Task: {request.task}\n"
         f"Question: {request.user_question.strip()}\n"
@@ -289,6 +292,81 @@ def _ranking_interpretation_contract(request: ContextAnswerRequest) -> str | Non
     )
 
 
+def _radar_overview_interpretation_contract(request: ContextAnswerRequest) -> str | None:
+    if request.response_schema != RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return None
+    context_id = ""
+    context_hash = ""
+    sector_ids: list[str] = []
+    theme_ids: list[str] = []
+    candidate_ids: list[str] = []
+    theme_candidate_ids: dict[str, list[str]] = {}
+    for section in request.context.sections:
+        if section.section_id == "radar_scope":
+            context_id = str(section.summary.get("radar_context_id") or "").strip()
+            context_hash = str(section.summary.get("context_hash") or "").strip()
+        if section.section_id == "radar_market_breadth":
+            continue
+        if section.section_id == "radar_sector_comparison":
+            sector_ids.extend(
+                str(row.get("sector_id") or "").strip()
+                for row in section.rows
+                if str(row.get("sector_id") or "").strip()
+            )
+        if section.source_kind == "radar_news_theme":
+            theme_id = str(section.summary.get("theme_id") or "").strip()
+            if theme_id:
+                theme_ids.append(theme_id)
+                theme_candidate_ids[theme_id] = [
+                    item
+                    for item in str(section.summary.get("related_candidate_ids") or "").split(",")
+                    if item
+                ]
+        if section.source_kind == "radar_overview_candidate":
+            candidate_id = str(section.summary.get("candidate_id") or "").strip()
+            if candidate_id:
+                candidate_ids.append(candidate_id)
+    allowed_ids = [item for item in request.referenced_context_ids if item.strip()]
+    market_section = next(
+        (item for item in request.context.sections if item.section_id == "radar_market_breadth"),
+        None,
+    )
+    market_state = (
+        str(market_section.summary.get("market_state") or "missing")
+        if market_section is not None
+        else "missing"
+    )
+    return (
+        "Return only valid JSON with these exact keys:\n"
+        f"- schema_version: {RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION}\n"
+        f"- radar_context_id: exactly {context_id}\n"
+        f"- context_hash: exactly {context_hash}\n"
+        "- summary: object with text and cited_evidence_ids\n"
+        "- candidate_set_movement: object with text and cited_evidence_ids, or null\n"
+        "- sector_notes: array of objects with sector_id and reading\n"
+        "- theme_notes: array of objects with theme_id, related_candidate_ids, and reading\n"
+        "- deep_dive_hints: array of objects with candidate_id and reason\n"
+        "- unknowns: array of objects with text and cited_evidence_ids\n"
+        "- next_checkpoints: array of objects with text and cited_evidence_ids\n"
+        f"Allowed sector_id values only: {json.dumps(sector_ids, ensure_ascii=False)}\n"
+        f"Allowed theme_id values only: {json.dumps(theme_ids, ensure_ascii=False)}\n"
+        f"Allowed deep-dive candidate_id values only: {json.dumps(candidate_ids, ensure_ascii=False)}\n"
+        "Allowed theme-to-candidate mapping only: "
+        f"{json.dumps(theme_candidate_ids, ensure_ascii=False)}\n"
+        f"Allowed cited_evidence_ids only: {json.dumps(allowed_ids, ensure_ascii=False)}\n"
+        f"Market state: {market_state}\n"
+        "Rules:\n"
+        "- Every text object must cite one or more allowed cited_evidence_ids.\n"
+        "- Use candidate_set_movement=null when market state is missing or stale.\n"
+        "- Market movement describes only the measured candidate set, never the whole market.\n"
+        "- Keep direct mentions, inferred candidates, and macro proxies distinct.\n"
+        "- Do not use a macro proxy as a deep-dive candidate.\n"
+        "- Preserve all candidate order, values, rankings, scores, and forecasts.\n"
+        "- Do not add any symbol, number, date, or factual claim absent from supplied sections.\n"
+        "- Do not output answer, materials, cautions, confidence, Markdown fences, or extra fields.\n"
+    )
+
+
 def _intent_instruction(user_question: str) -> str:
     text = user_question.lower()
     if "intent: app_help" in text:
@@ -343,6 +421,14 @@ def _intent_instruction(user_question: str) -> str:
             "- Treat data quality separately from attractiveness.\n"
             "- Do not say buy, sell, hold, strong buy, or strong sell. Do not change or recompute "
             "scores, forecasts, ranks, or sectors."
+        )
+    if "intent: radar_overview_interpretation" in text:
+        return (
+            "- Explain only the already-built Investment Radar overview.\n"
+            "- Keep direct mentions, inferred candidates, and macro proxies separate.\n"
+            "- Describe market movement only as the measured candidate set, never the whole market.\n"
+            "- Suggest only supplied deep-dive candidates and do not start retrieval.\n"
+            "- Do not change candidate order, prices, rankings, forecasts, or scores."
         )
     if "intent: free_chat" in text:
         return (

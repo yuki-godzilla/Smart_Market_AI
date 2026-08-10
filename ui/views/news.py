@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import html
-import os
 import re
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from datetime import UTC, date, datetime
@@ -66,6 +65,14 @@ from ui.news_state import (
     ensure_news_radar_user_scope,
 )
 from ui.notification_center import START_PROFILE_QUERY_KEY
+from ui.radar_market_runtime import (
+    NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES,
+    radar_market_snapshot_needs_refresh,
+)
+from ui.radar_market_runtime import (
+    radar_market_auto_fetch_enabled as _radar_market_auto_fetch_enabled,
+)
+from ui.radar_overview_interpretation import render_radar_overview_interpretation_panel
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 from ui.user_data import current_user_id
@@ -103,7 +110,6 @@ NEWS_RADAR_TRIAGE_PROVENANCE_STATE_KEY = "investment_radar_candidate_triage_prov
 NEWS_RADAR_TRIAGE_PRIORITY_STATE_KEY = "investment_radar_candidate_triage_priority"
 NEWS_RADAR_MARKET_SNAPSHOT_STATE_KEY = "investment_radar_market_snapshot"
 NEWS_RADAR_MARKET_GROUPING_STATE_KEY = "investment_radar_market_grouping"
-NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES = 15
 # A dense sector should not be cut to the same number as a sparse one.  The
 # cap remains a readability guard, not a target or an investment ranking.
 NEWS_RADAR_MARKET_GROUP_TILE_MAXIMUM = 12
@@ -466,8 +472,10 @@ def render_news_dashboard_page(
         _render_news_stream(snapshot, ticker_id="investment-news-market-headlines")
         _render_market_heatmap(
             today_candidate_map,
+            news_snapshot=snapshot,
             market_snapshot_callback=market_snapshot_callback,
             news_context_by_category=_radar_market_news_context_by_category(snapshot),
+            open_symbol_callback=open_symbol_callback,
         )
     with news_tab:
         _render_news_stream(snapshot, ticker_id="investment-news-list-headlines")
@@ -2488,36 +2496,14 @@ def _market_snapshot_from_state() -> RadarMarketSnapshot | None:
     return None
 
 
-def radar_market_snapshot_needs_refresh(
-    snapshot: RadarMarketSnapshot | None,
-    *,
-    lookback_sessions: int,
-    now: datetime | None = None,
-) -> bool:
-    """Return whether page entry should refresh the bounded daily-price snapshot."""
-
-    if snapshot is None or snapshot.lookback_sessions != lookback_sessions:
-        return True
-    checked_at = now or datetime.now(UTC)
-    age_seconds = (checked_at - snapshot.generated_at.astimezone(UTC)).total_seconds()
-    return age_seconds >= NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60
-
-
-def _radar_market_auto_fetch_enabled() -> bool:
-    return os.getenv("SMAI_RADAR_AUTO_FETCH", "1").strip().lower() not in {
-        "0",
-        "false",
-        "off",
-        "no",
-    }
-
-
 @st.fragment(run_every=NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES * 60)
 def _render_market_heatmap(
     candidate_map: RadarCandidateMap,
     *,
+    news_snapshot: NewsDashboardSnapshot,
     market_snapshot_callback: MarketSnapshotCallback,
     news_context_by_category: Mapping[str, NewsHeadlineCard],
+    open_symbol_callback: OpenSymbolCallback,
 ) -> None:
     _render_radar_today_summary(candidate_map)
     st.markdown("### 市場ヒートマップ")
@@ -2558,23 +2544,30 @@ def _render_market_heatmap(
             "価格はまだ取得していません。通常は画面表示時に、ニュース候補を"
             "最大30銘柄まで自動取得します。必要に応じて「今すぐ更新」を押してください。"
         )
-        return
-    heatmap_html = radar_market_heatmap_html(
-        market_snapshot,
-        grouping=grouping,
-        news_context_by_category=news_context_by_category,
-    )
-    if not heatmap_html:
-        st.warning(
-            "比較に必要な価格履歴を取得できませんでした。Provider設定や銘柄コードを確認し、"
-            "時間をおいて再実行してください。"
+    else:
+        heatmap_html = radar_market_heatmap_html(
+            market_snapshot,
+            grouping=grouping,
+            news_context_by_category=news_context_by_category,
         )
-        return
-    st.markdown(heatmap_html, unsafe_allow_html=True)
-    st.caption(
-        f"比較期間は約1か月（20営業日）固定です。画面表示時に取得し、開いている間は"
-        f"{NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES}分ごとにサーバー側で鮮度を確認して自動更新します。"
-        "正確な騰落率は各タイルの数値を確認してください。"
+        if not heatmap_html:
+            st.warning(
+                "比較に必要な価格履歴を取得できませんでした。Provider設定や銘柄コードを確認し、"
+                "時間をおいて再実行してください。"
+            )
+        else:
+            st.markdown(heatmap_html, unsafe_allow_html=True)
+            st.caption(
+                f"比較期間は約1か月（20営業日）固定です。画面表示時に取得し、開いている間は"
+                f"{NEWS_RADAR_MARKET_AUTO_REFRESH_MINUTES}分ごとにサーバー側で鮮度を確認して自動更新します。"
+                "正確な騰落率は各タイルの数値を確認してください。"
+            )
+    render_radar_overview_interpretation_panel(
+        news_snapshot,
+        candidate_map,
+        market_snapshot,
+        user_id=current_user_id() or "default",
+        open_symbol_callback=open_symbol_callback,
     )
 
 

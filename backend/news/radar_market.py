@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from pydantic import Field
 
@@ -14,6 +14,7 @@ from backend.news.contracts import RadarCandidate, RadarCandidateProvenance
 RADAR_MARKET_MAX_SYMBOLS = 30
 RADAR_MARKET_LOOKBACK_SESSIONS = (1, 5, 20)
 SMAI_RADAR_MARKET_REVISION = "2026-07-15-dynamic-density-v3"
+RADAR_MARKET_FRESHNESS_MINUTES = 15
 
 
 class RadarMarketTile(StrictBaseModel):
@@ -44,6 +45,21 @@ class RadarMarketSnapshot(StrictBaseModel):
     requested_count: int = Field(ge=0)
     tiles: list[RadarMarketTile] = Field(default_factory=list)
     unavailable_symbols: list[str] = Field(default_factory=list)
+
+
+def radar_market_snapshot_is_stale(
+    snapshot: RadarMarketSnapshot,
+    *,
+    now: datetime | None = None,
+    max_age_minutes: int = RADAR_MARKET_FRESHNESS_MINUTES,
+) -> bool:
+    """Return whether a saved market snapshot is too old for current-mood wording."""
+
+    if max_age_minutes <= 0:
+        raise ValueError("max_age_minutes must be positive")
+    current = _ensure_utc(now or datetime.now(UTC))
+    generated_at = _ensure_utc(snapshot.generated_at)
+    return generated_at <= current - timedelta(minutes=max_age_minutes)
 
 
 def radar_market_candidates(
@@ -204,3 +220,9 @@ def _metadata_group(
 ) -> str:
     value = str(metadata.get(key) or "").strip()
     return value or default
+
+
+def _ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

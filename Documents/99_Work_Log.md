@@ -5367,3 +5367,29 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - 実Gateway / Ollama smokeは明示的に有効化したlocal環境だけで行い、通常確認はnetwork-freeを維持する。
 - Phase 28の残りはRadar / News / Research Summary / Decision Reportへの解釈展開であり、Ranking score統合ではない。
+
+## 2026-08-11 Phase 28-C2 Investment Radar Overview Interpretation MVP
+
+### 実装
+
+- 既存の1候補向け`radar_interpretation.v1`を28-C1として維持し、画面全体向けの`radar_overview_interpretation.v1`を別契約で追加した。
+- News snapshot、deterministic candidate map、任意のfresh market snapshotから、scope、候補集合の値動き、最大4 sector、最大3 theme、最大2 deep-dive候補を最大8 sectionへ圧縮するcontext builderを追加した。外部記事本文、URL、provider raw field、ユーザーメモ、score、Forecastは送らない。
+- 15分の市場snapshot鮮度判定をbackend共通helperへ移し、stale / missing時は数値・方向・sector比較をContextから除外する。direct mention、inferred candidate、macro proxyは分離し、macro proxyをdeep-dive候補にしない。
+- 親SMAIはcontext hash、citation、sector / theme / candidate関係、symbol、数値、日付、重複、助言・score変更・市場全体への過剰一般化を検証し、不正時はpayload全体を拒否する。disabled / failure時は表示済み材料だけのdeterministicガイドへfallbackする。
+- custom userの検証済みlive結果だけを`data/user/profiles/<user_id>/cache/radar_overview_interpretation_results.json`へ6時間TTLでatomic保存する。default userはsession-onlyとし、`user_id + context_hash`で古い結果とユーザー間表示を分離した。
+- `smai-ai-gateway`へtask type、schema、prompt contract、最大8 section選択、45秒 / 1,200 token基準のroute、strict response mappingを追加した。
+- 市場ヒートマップ後に`投資レーダー AI読み解き（参考）`を追加した。既定disabledで、明示button以外はGatewayを呼ばない。結果からのCTAは既存候補のCockpit画面遷移だけで、News更新、価格取得、RAG検索を開始しない。
+- 候補順、ヒートマップ、価格、Ranking、Forecast、Investment Score、Research Score、Decision Reportは変更していない。
+- context / validation / cache処理を600行未満のmoduleと80行未満のfunctionへ分割し、市場snapshot鮮度とauto-fetch判定も共通runtime helperへ分離した。`ui.views.news`はarchitecture baselineを緩めず、変更前上限より小さくした。
+
+### 確認
+
+- 親側context / stale policy / validation / fallback / cache / config / UI state / Streamlit page testを追加した。Gateway側にschema / prompt / route / reference / mismatch testを追加した。
+- 親側のcontext / config / cache / validation / UI / market対象74件が成功し、Gateway全testは1件skipを除いて成功した。対象Mypyは親11 files、Gateway 4 filesで成功した。
+- 親側Ruff、Gateway Ruff、変更対象Black、architecture baselineが成功した。fresh Streamlit processを使うInvestment Radar responsive smokeもiPhone、iPad縦横、PC 2幅の全5 viewportで成功し、横はみ出しとStreamlit例外がないこと、新Overview panelが表示されることを確認した。
+- 親側全testは2575件成功、16件skipで、既知の`test_scheduler_dedupes_identical_fresh_marketdata_measurements`だけが期待1件に対して2件となり失敗した。単独再実行でも同じ結果で、今回未変更のNotification scheduler領域に限定される。
+- 通常のlive Gateway / Ollama呼び出しは行わず、fixture / mockでnetwork-freeを維持した。
+
+### 後続
+
+- Phase 28-D News Screen Interpretationで、impact direction / horizon、related sectors、noise filtering、evidence-backed summary、Cockpit handoffを画面全体契約として設計する。

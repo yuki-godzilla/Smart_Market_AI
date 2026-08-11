@@ -290,6 +290,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - 親SMAIは現在のNews snapshot、deterministic candidate map、任意のfresh market snapshotから最大8 sectionだけを送る。本文言及、テーマ推測、市場背景を分離し、staleまたはmissingの市場データから候補集合やセクターの方向を生成しない。この操作ではNews更新、価格取得、RAG検索を開始しない。
   - Gatewayは`task_type=radar_overview_interpretation`と`response_schema=radar_overview_interpretation.v1`を使う。未知のcontext / citation / sector / theme / candidate / symbol / 数値 / 日付、macro proxyのdeep dive、助言表現、市場全体への一般化、不正JSON、timeout、provider失敗があればlive payload全体を拒否する。
   - 検証済みlive結果だけを、custom profileの`data/user/profiles/<user_id>/cache/radar_overview_interpretation_results.json`へ6時間TTLでatomic保存する。default userはsession-onlyである。disabledまたは失敗時はdeterministicガイドを表示し、候補順、市場値、Ranking、Forecast、各Scoreを変更しない。cache保存失敗時もlive結果は現在のsessionで表示し、警告と実行状態を残す。
+  - Phase 28-Dでは、ニュース一覧タブの`ニュース材料 AI読み解き（参考）`を使う。`config/news_interpretation_example.yaml`を参考に`llm_interpretation.news.enabled=true`へopt-inしても自動生成はせず、`AIでニュース材料を整理`の明示操作が必要である。
+  - Gatewayは`task_type=news_interpretation`と`response_schema=news_interpretation.v1`を使う。impact directionは事業・業績への影響候補であり株価方向ではない。未知のcontext / material / citation / sector / candidate関係、macro proxy handoff、助言・株価方向表現、不正JSON、timeout、provider失敗はlive payload全体を拒否する。
+  - 生成対象は表示中の保存済みNews snapshotだけで、News更新、価格取得、RAG検索を開始しない。検証済みlive結果だけをcustom profileの`cache/news_interpretation_results.json`へ6時間TTLでatomic保存し、default userはsession-onlyとする。disabledまたは失敗時は影響方向・時間軸を未確認とするdeterministicガイドを表示する。
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Investment News: `投資レーダー` dashboard with news stream, heatmap, category lanes, and related-symbol cockpit handoff

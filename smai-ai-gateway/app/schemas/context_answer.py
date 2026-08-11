@@ -17,6 +17,7 @@ from app.services.model_router import (
 CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_interpretation.v1"
 RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "radar_overview_interpretation.v1"
+NEWS_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "news_interpretation.v1"
 RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION = "ranking_interpretation.v1"
 
 ContextAnswerTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
@@ -172,6 +173,42 @@ class ContextRadarOverviewInterpretation(GatewayBaseModel):
     next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
 
 
+class ContextNewsMaterialNote(GatewayBaseModel):
+    material_id: str = Field(min_length=1)
+    business_impact_direction: Literal[
+        "tailwind_candidate", "headwind_candidate", "mixed", "unclear", "not_applicable"
+    ]
+    impact_horizon: Literal[
+        "current_event", "next_confirmation_cycle", "multi_quarter", "structural", "unclear"
+    ]
+    related_sector_ids: list[str] = Field(default_factory=list, max_length=4)
+    reading: ContextEvidencePoint
+    uncertainty: ContextEvidencePoint | None = None
+
+
+class ContextNewsSectorNote(GatewayBaseModel):
+    sector_id: str = Field(min_length=1)
+    reading: ContextEvidencePoint
+
+
+class ContextNewsHandoffHint(GatewayBaseModel):
+    candidate_id: str = Field(min_length=1)
+    reason: ContextEvidencePoint
+
+
+class ContextNewsInterpretation(GatewayBaseModel):
+    schema_version: str = Field(default=NEWS_INTERPRETATION_RESPONSE_SCHEMA_VERSION, min_length=1)
+    news_context_id: str = Field(min_length=1)
+    context_hash: str = Field(min_length=1)
+    summary: ContextEvidencePoint
+    material_notes: list[ContextNewsMaterialNote] = Field(default_factory=list, max_length=4)
+    sector_notes: list[ContextNewsSectorNote] = Field(default_factory=list, max_length=4)
+    noise_notes: list[ContextEvidencePoint] = Field(default_factory=list, max_length=3)
+    handoff_hints: list[ContextNewsHandoffHint] = Field(default_factory=list, max_length=3)
+    unknowns: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+    next_checkpoints: list[ContextEvidencePoint] = Field(default_factory=list, max_length=4)
+
+
 class ContextRankingInterpretation(GatewayBaseModel):
     """Strict payload for an explicit, reference-only Ranking explanation."""
 
@@ -203,6 +240,7 @@ class ContextAnswerResponse(GatewayBaseModel):
     referenced_sections: list[ContextReferencedSection] = Field(default_factory=list)
     radar_interpretation: ContextRadarInterpretation | None = None
     radar_overview_interpretation: ContextRadarOverviewInterpretation | None = None
+    news_interpretation: ContextNewsInterpretation | None = None
     ranking_interpretation: ContextRankingInterpretation | None = None
     confidence: ContextAnswerConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)

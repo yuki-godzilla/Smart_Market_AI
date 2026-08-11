@@ -23,6 +23,38 @@ from backend.interpretation.models import (
     CockpitInterpretationStatus,
     InterpretationBullet,
 )
+from backend.interpretation.news_interpretation_cache import (
+    DEFAULT_NEWS_INTERPRETATION_CACHE_TTL_SECONDS,
+    NEWS_INTERPRETATION_CACHE_FILENAME,
+    news_interpretation_cache_key,
+)
+from backend.interpretation.news_interpretation_context import build_news_interpretation_context
+from backend.interpretation.news_interpretation_fallback import (
+    build_deterministic_news_interpretation,
+)
+from backend.interpretation.news_interpretation_gateway import (
+    NEWS_INTERPRETATION_QUESTION,
+    NewsInterpretationGatewayAdapter,
+)
+from backend.interpretation.news_interpretation_models import (
+    NEWS_INTERPRETATION_PROMPT_VERSION,
+    NEWS_INTERPRETATION_SCHEMA_VERSION,
+    NewsHandoffHint,
+    NewsInterpretationContext,
+    NewsInterpretationPoint,
+    NewsInterpretationResult,
+    NewsInterpretationServiceResult,
+    NewsMaterialNote,
+    NewsSectorNote,
+)
+from backend.interpretation.news_interpretation_service import (
+    NewsInterpretationService,
+    build_news_interpretation_from_settings,
+)
+from backend.interpretation.news_interpretation_validation import (
+    NewsInterpretationValidationError,
+    news_interpretation_from_gateway_response,
+)
 from backend.interpretation.radar_overview_cache import (
     DEFAULT_RADAR_OVERVIEW_INTERPRETATION_CACHE_TTL_SECONDS,
     RADAR_OVERVIEW_INTERPRETATION_CACHE_FILENAME,
@@ -111,6 +143,7 @@ __all__ = [
     "COCKPIT_INTERPRETATION_QUESTION",
     "COCKPIT_INTERPRETATION_SCHEMA_VERSION",
     "DEFAULT_COCKPIT_INTERPRETATION_CACHE_TTL_SECONDS",
+    "DEFAULT_NEWS_INTERPRETATION_CACHE_TTL_SECONDS",
     "CockpitInterpretationCacheMetadata",
     "CockpitInterpretationContext",
     "CockpitInterpretationFallbackReason",
@@ -121,6 +154,20 @@ __all__ = [
     "CockpitInterpretationStatus",
     "CockpitInterpretationValidationError",
     "InterpretationBullet",
+    "NEWS_INTERPRETATION_CACHE_FILENAME",
+    "NEWS_INTERPRETATION_PROMPT_VERSION",
+    "NEWS_INTERPRETATION_QUESTION",
+    "NEWS_INTERPRETATION_SCHEMA_VERSION",
+    "NewsHandoffHint",
+    "NewsInterpretationContext",
+    "NewsInterpretationGatewayAdapter",
+    "NewsInterpretationPoint",
+    "NewsInterpretationResult",
+    "NewsInterpretationService",
+    "NewsInterpretationServiceResult",
+    "NewsInterpretationValidationError",
+    "NewsMaterialNote",
+    "NewsSectorNote",
     "DEFAULT_RANKING_INTERPRETATION_CACHE_TTL_SECONDS",
     "DEFAULT_RADAR_OVERVIEW_INTERPRETATION_CACHE_TTL_SECONDS",
     "RANKING_INTERPRETATION_CACHE_DIR",
@@ -157,9 +204,12 @@ __all__ = [
     "build_cockpit_interpretation_context",
     "build_cockpit_interpretation_from_settings",
     "build_deterministic_cockpit_interpretation",
+    "build_deterministic_news_interpretation",
     "cockpit_interpretation_cache_key",
     "cockpit_interpretation_context_hash",
     "cockpit_interpretation_from_gateway_response",
+    "build_news_interpretation_context",
+    "build_news_interpretation_from_settings",
     "build_deterministic_ranking_interpretation",
     "build_deterministic_radar_overview_interpretation",
     "build_radar_overview_interpretation_context",
@@ -172,4 +222,6 @@ __all__ = [
     "radar_overview_interpretation_cache_key",
     "radar_overview_interpretation_context_hash",
     "radar_overview_interpretation_from_gateway_response",
+    "news_interpretation_cache_key",
+    "news_interpretation_from_gateway_response",
 ]

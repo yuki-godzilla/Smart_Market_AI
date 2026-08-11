@@ -1,0 +1,18 @@
+llm_interpretation:
+  news:
+    enabled: true
+    base_url: "http://127.0.0.1:8088"
+    context_answer_path: "/api/v1/context-answer"
+    timeout_seconds: 45
+    execution_mode: "auto"
+    environment_profile: "desktop"
+    preferred_profile: "desktop_fast"
+    prompt_version: "news_interpretation_mvp.v1"
+    schema_version: "news_interpretation.v1"
+    cache_enabled: true
+    cache_ttl_seconds: 21600
+    max_material_groups: 4
+    max_evidence_per_group: 3
+    max_sector_groups: 4
+    max_handoff_candidates: 3
+    max_context_text_chars: 240

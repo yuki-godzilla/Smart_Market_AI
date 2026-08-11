@@ -78,6 +78,16 @@ deterministic guide. Valid live results alone may use a six-hour custom-profile 
 user remains session-only. Opening or generating the overview does not refresh News/MarketData, run
 RAG, reorder candidates, or change Ranking, Forecast, Investment Score, or Research Score.
 
+Phase 28-D adds a separate News-tab `news_interpretation.v1` reference panel. It is disabled by
+default and runs only after an explicit button. The parent deterministically deduplicates and groups
+the saved `NewsDashboardSnapshot` into at most four material groups and eight context sections,
+separates stale/unknown/capacity-excluded noise, fixes up to four category-policy sector checks and
+three non-macro Cockpit handoffs, and treats impact direction as a possible business/earnings effect,
+never a stock-price direction. Unknown context/material/citation/sector/candidate relationships and
+advice or price-direction wording reject the whole live payload. Valid live results alone use the
+six-hour custom-profile cache; default remains session-only. Generation and handoff do not refresh
+News, fetch prices, run RAG, reorder candidates, or change Ranking, Forecast, or any Score.
+
 ## Upward Signal / Forecast Improvement / Serious Analysis Strategy
 
 Upward Signal is the public name for the backward-compatible Reversal Expectation axis. The next maturity work prioritizes ten-sprint point-in-time validation and existing advanced forecast model evaluation rather than adding models indiscriminately. `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, `advanced_quantile`, and forecast consensus will be compared by walk-forward horizon, market, asset type, regime, ranking contribution, disagreement, and confidence calibration.
@@ -674,7 +684,7 @@ Phase 29-A Cockpit Information Architecture Cleanup is implemented in the Stream
 
 Phase 29-B Cockpit Pre-Fetch Header / Search Filter UI is implemented in the Streamlit Cockpit UI. The data-fetch area now starts with `銘柄を探す` for provider, search, symbol selection, symbol detail, and company name, followed by `絞り込み条件` chips that summarize region / NISA / product / active conditions / candidate count. Detailed filters stay closed inside the `絞り込み条件を変更` expander, and the clear action appears only inside that expander when a condition is active. Date range, `データを取得`, post-fetch content, Ranking, Forecast, Investment Score, and scoring logic are unchanged.
 
-Roadmap order has been clarified for post-LLM expansion: Phase 25-30 now cover opt-in live LLM Gateway smoke, context-aware / agentic SMAI Assistant, live LLM Factor generation, LLM interpretation across Cockpit / Ranking / Radar / News / Research Summary / Decision Report, LLM-assisted Decision Report drafting, and validation-first gradual model integration. Phase 28-A Cockpit and Phase 28-B Ranking interpretation are implemented as reference-only panels; Radar / News / Research Summary / Decision Report remain screen expansion work. Early LLM phases are explanation / summarization / material extraction / report-drafting support only and must not directly change Ranking score, AI総合, Investment Score, Forecast values, ranking order, or investment decisions. Advanced export and Execution Gate are shifted to Phase 31 / low priority. Symbol DB background refresh foundation is already implemented, so remaining live-provider wiring is an operational connection task rather than the main next product slice.
+Roadmap order has been clarified for post-LLM expansion: Phase 25-30 now cover opt-in live LLM Gateway smoke, context-aware / agentic SMAI Assistant, live LLM Factor generation, LLM interpretation across Cockpit / Ranking / Radar / News / Research Summary / Decision Report, LLM-assisted Decision Report drafting, and validation-first gradual model integration. Phase 28-A Cockpit、28-B Ranking、28-C Radar、28-D News interpretation are implemented as reference-only panels; Research Summary / Decision Report remain screen expansion work. Early LLM phases are explanation / summarization / material extraction / report-drafting support only and must not directly change Ranking score, AI総合, Investment Score, Forecast values, ranking order, or investment decisions. Advanced export and Execution Gate are shifted to Phase 31 / low priority. Symbol DB background refresh foundation is already implemented, so remaining live-provider wiring is an operational connection task rather than the main next product slice.
 
 Ranking UI readability polish keeps the same layout and logic while shortening candidate-card text, using symbol-first chart labels, compacting the display table to purpose-specific key columns, and separating Decision Report preview from raw Markdown. Ranking Decision Report rows are split into compact candidate memo rows and score-detail rows so Markdown remains readable.
 

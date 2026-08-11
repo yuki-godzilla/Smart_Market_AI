@@ -225,6 +225,8 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "市場ニュースヘッドライン" in page_text
     assert "市場ヒートマップ" in page_text
     assert "投資レーダー AI読み解き（参考）" in page_text
+    assert "ニュース材料 AI読み解き（参考）" in page_text
+    assert "保存済みニュース" in page_text
     assert "AI読み解きは設定で無効です" in page_text
     assert "ニュース候補を、セクター・業種・注目ニュースで並べます。" in page_text
     assert "追加候補マップ" not in page_text

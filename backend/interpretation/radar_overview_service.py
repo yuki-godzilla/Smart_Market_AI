@@ -10,7 +10,8 @@ from backend.assistant import (
     AssistantGatewayTimeoutError,
     HttpAssistantGatewayClient,
 )
-from backend.core.config import RadarOverviewInterpretationConfig, Settings, get_settings
+from backend.core.config import Settings, get_settings
+from backend.core.radar_overview_interpretation_config import RadarOverviewInterpretationConfig
 
 from .radar_overview_cache import (
     find_radar_overview_interpretation_cache_entry,

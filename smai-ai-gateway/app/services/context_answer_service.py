@@ -11,6 +11,7 @@ from pydantic import Field, ValidationError
 from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
+    NEWS_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     RADAR_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
     RANKING_INTERPRETATION_RESPONSE_SCHEMA_VERSION,
@@ -18,6 +19,7 @@ from app.schemas.context_answer import (
     ContextAnswerGatewayStatus,
     ContextAnswerRequest,
     ContextAnswerResponse,
+    ContextNewsInterpretation,
     ContextRadarInterpretation,
     ContextRadarOverviewInterpretation,
     ContextRankingInterpretation,
@@ -229,6 +231,11 @@ class ContextAnswerService:
             if _is_radar_overview_interpretation_request(request)
             else None
         )
+        news_payload = (
+            _parse_llm_news_interpretation(result.answer)
+            if _is_news_interpretation_request(request)
+            else None
+        )
         ranking_payload = (
             _parse_llm_ranking_interpretation(result.answer)
             if _is_ranking_interpretation_request(request)
@@ -246,6 +253,12 @@ class ContextAnswerService:
                 _llm_payload_from_radar_overview(radar_overview_payload)
                 if radar_overview_payload is not None
                 and _radar_overview_payload_matches_request(radar_overview_payload, request)
+                else None
+            )
+        elif _is_news_interpretation_request(request):
+            usable_payload = (
+                _llm_payload_from_news(news_payload)
+                if news_payload is not None and _news_payload_matches_request(news_payload, request)
                 else None
             )
         elif _is_ranking_interpretation_request(request):
@@ -331,16 +344,20 @@ class ContextAnswerService:
                     _radar_overview_referenced_sections(radar_overview_payload, sections)
                     if radar_overview_payload is not None and usable_payload is not None
                     else (
-                        _ranking_referenced_sections(ranking_payload, sections)
-                        if ranking_payload is not None and usable_payload is not None
-                        else [
-                            ContextReferencedSection(
-                                section_id=section.section_id,
-                                title=section.title,
-                                source_kind=section.source_kind,
-                            )
-                            for section in sections
-                        ]
+                        _news_referenced_sections(news_payload, sections)
+                        if news_payload is not None and usable_payload is not None
+                        else (
+                            _ranking_referenced_sections(ranking_payload, sections)
+                            if ranking_payload is not None and usable_payload is not None
+                            else [
+                                ContextReferencedSection(
+                                    section_id=section.section_id,
+                                    title=section.title,
+                                    source_kind=section.source_kind,
+                                )
+                                for section in sections
+                            ]
+                        )
                     )
                 )
             ),
@@ -351,6 +368,9 @@ class ContextAnswerService:
                 radar_overview_payload
                 if radar_overview_payload is not None and usable_payload is not None
                 else None
+            ),
+            news_interpretation=(
+                news_payload if news_payload is not None and usable_payload is not None else None
             ),
             ranking_interpretation=(
                 ranking_payload
@@ -449,10 +469,15 @@ def _is_radar_overview_interpretation_request(request: ContextAnswerRequest) -> 
     return request.response_schema == RADAR_OVERVIEW_INTERPRETATION_RESPONSE_SCHEMA_VERSION
 
 
+def _is_news_interpretation_request(request: ContextAnswerRequest) -> bool:
+    return request.response_schema == NEWS_INTERPRETATION_RESPONSE_SCHEMA_VERSION
+
+
 def _is_structured_interpretation_request(request: ContextAnswerRequest) -> bool:
     return (
         _is_radar_interpretation_request(request)
         or _is_radar_overview_interpretation_request(request)
+        or _is_news_interpretation_request(request)
         or _is_ranking_interpretation_request(request)
     )
 
@@ -725,6 +750,140 @@ def _llm_payload_from_radar_overview(
             *(item.reason.text for item in payload.deep_dive_hints),
             *(item.text for item in payload.next_checkpoints),
         ],
+        confidence="low",
+    )
+
+
+def _parse_llm_news_interpretation(answer: str) -> ContextNewsInterpretation | None:
+    raw_json = _extract_json_object(_strip_thinking_blocks(answer))
+    if raw_json is None:
+        return None
+    try:
+        return ContextNewsInterpretation.model_validate_json(raw_json)
+    except ValidationError:
+        return None
+
+
+def _news_payload_matches_request(
+    payload: ContextNewsInterpretation, request: ContextAnswerRequest
+) -> bool:
+    if payload.schema_version != NEWS_INTERPRETATION_RESPONSE_SCHEMA_VERSION:
+        return False
+    scope = next(
+        (item for item in request.context.sections if item.section_id == "news_scope"), None
+    )
+    if scope is None:
+        return False
+    if payload.news_context_id != str(scope.summary.get("news_context_id") or "").strip():
+        return False
+    if payload.context_hash != str(scope.summary.get("context_hash") or "").strip():
+        return False
+    material_sections = [
+        item for item in request.context.sections if item.source_kind == "news_material_group"
+    ]
+    allowed_materials = [item.section_id for item in material_sections]
+    payload_materials = [item.material_id for item in payload.material_notes]
+    if len(payload_materials) != len(set(payload_materials)) or not _preserves_relative_order(
+        payload_materials, allowed_materials
+    ):
+        return False
+    material_sectors = {
+        item.section_id: [
+            value for value in str(item.summary.get("related_sector_ids") or "").split(",") if value
+        ]
+        for item in material_sections
+    }
+    if any(
+        set(item.related_sector_ids) - set(material_sectors.get(item.material_id, []))
+        for item in payload.material_notes
+    ):
+        return False
+    sector_ids = [
+        str(row.get("sector_id") or "").strip()
+        for section in request.context.sections
+        if section.section_id == "news_sector_relations"
+        for row in section.rows
+        if str(row.get("sector_id") or "").strip()
+    ]
+    payload_sectors = [item.sector_id for item in payload.sector_notes]
+    if len(payload_sectors) != len(set(payload_sectors)) or not _preserves_relative_order(
+        payload_sectors, sector_ids
+    ):
+        return False
+    candidate_ids = [
+        str(row.get("candidate_id") or "").strip()
+        for section in request.context.sections
+        if section.section_id == "news_cockpit_handoffs"
+        for row in section.rows
+        if str(row.get("candidate_id") or "").strip()
+    ]
+    if [item.candidate_id for item in payload.handoff_hints] != candidate_ids:
+        return False
+    if "news_scope" not in payload.summary.cited_evidence_ids:
+        return False
+    if any(
+        item.material_id not in item.reading.cited_evidence_ids for item in payload.material_notes
+    ):
+        return False
+    if any(
+        item.uncertainty is not None and item.material_id not in item.uncertainty.cited_evidence_ids
+        for item in payload.material_notes
+    ):
+        return False
+    if any(
+        "news_sector_relations" not in item.reading.cited_evidence_ids
+        for item in payload.sector_notes
+    ):
+        return False
+    if any("news_source_quality" not in item.cited_evidence_ids for item in payload.noise_notes):
+        return False
+    if any(
+        "news_cockpit_handoffs" not in item.reason.cited_evidence_ids
+        for item in payload.handoff_hints
+    ):
+        return False
+    cited = _news_cited_evidence_ids(payload)
+    return bool(cited) and set(cited).issubset(set(request.referenced_context_ids))
+
+
+def _news_cited_evidence_ids(payload: ContextNewsInterpretation) -> list[str]:
+    points = [
+        payload.summary,
+        *[item.reading for item in payload.material_notes],
+        *[item.uncertainty for item in payload.material_notes if item.uncertainty is not None],
+        *[item.reading for item in payload.sector_notes],
+        *payload.noise_notes,
+        *[item.reason for item in payload.handoff_hints],
+        *payload.unknowns,
+        *payload.next_checkpoints,
+    ]
+    return _dedupe_non_empty(
+        [evidence_id for point in points for evidence_id in point.cited_evidence_ids]
+    )
+
+
+def _news_referenced_sections(
+    payload: ContextNewsInterpretation, sections: Sequence[ContextSection]
+) -> list[ContextReferencedSection]:
+    by_id = {section.section_id: section for section in sections}
+    return [
+        ContextReferencedSection(
+            section_id=item, title=by_id[item].title, source_kind=by_id[item].source_kind
+        )
+        for item in _news_cited_evidence_ids(payload)
+        if item in by_id
+    ]
+
+
+def _llm_payload_from_news(payload: ContextNewsInterpretation) -> LlmContextAnswerPayload:
+    return LlmContextAnswerPayload(
+        answer=payload.summary.text,
+        materials=[item.reading.text for item in payload.material_notes]
+        + [item.reading.text for item in payload.sector_notes],
+        cautions=[item.text for item in payload.noise_notes]
+        + [item.text for item in payload.unknowns],
+        next_checkpoints=[item.reason.text for item in payload.handoff_hints]
+        + [item.text for item in payload.next_checkpoints],
         confidence="low",
     )
 
@@ -1187,6 +1346,7 @@ def _selected_sections(request: ContextAnswerRequest) -> list[ContextSection]:
         8
         if _is_ranking_interpretation_request(request)
         or _is_radar_overview_interpretation_request(request)
+        or _is_news_interpretation_request(request)
         else 4
     )
     ids = set(request.referenced_context_ids)

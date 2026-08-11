@@ -13,6 +13,8 @@ from backend.reporting import (
     DecisionReportSection,
 )
 
+from .news_interpretation_contracts import AssistantGatewayNewsInterpretation
+
 ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION = "assistant-context-bundle-v1"
 ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION = "assistant-gateway-request-v1"
 ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
@@ -48,6 +50,7 @@ AssistantGatewayTaskType = Literal[
     "llm_factor_generation",
     "cockpit_interpretation",
     "radar_overview_interpretation",
+    "news_interpretation",
     "ranking_interpretation",
     "report_export_summary",
     "assistant_tool_plan",
@@ -276,6 +279,7 @@ class AssistantGatewayResponse(StrictBaseModel):
     referenced_sections: list[AssistantGatewayReferencedSection] = Field(default_factory=list)
     radar_interpretation: AssistantGatewayRadarInterpretation | None = None
     radar_overview_interpretation: AssistantGatewayRadarOverviewInterpretation | None = None
+    news_interpretation: AssistantGatewayNewsInterpretation | None = None
     ranking_interpretation: AssistantGatewayRankingInterpretation | None = None
     confidence: AssistantGatewayConfidence = "low"
     safety_notes: list[str] = Field(default_factory=list)

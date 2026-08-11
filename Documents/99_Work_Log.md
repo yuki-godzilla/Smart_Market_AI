@@ -5393,3 +5393,25 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### 後続
 
 - Phase 28-D News Screen Interpretationで、impact direction / horizon、related sectors、noise filtering、evidence-backed summary、Cockpit handoffを画面全体契約として設計する。
+
+## 2026-08-11 Phase 28-D News Screen Interpretation MVP
+
+### 実装
+
+- Newsタブに`ニュース材料 AI読み解き（参考）`を追加し、既定disabledかつ`AIでニュース材料を整理`の明示操作時だけGatewayへ接続するようにした。
+- 保存済み`NewsDashboardSnapshot`を決定論的に重複排除し、最大4 material group、source quality、最大4 related sector、最大3 non-macro Cockpit handoffを最大8 sectionへ圧縮する`news_interpretation.v1` contextを追加した。記事本文、URL、raw payload、HTML、ユーザーメモは送らない。
+- impact directionは株価方向ではなく事業・業績への`tailwind_candidate / headwind_candidate / mixed / unclear / not_applicable`とし、horizonは確認時間軸だけに限定した。deterministic fallbackでは両方を未確認とし、ニューストーンから方向を生成しない。
+- 親SMAIとGatewayへstrict schema、prompt contract、45秒 / 1,200 token route、material / sector / handoff / citation関係検証を追加した。未知ID、順序変更、macro proxy、助言・株価方向・URL / HTML表現はlive payload全体を拒否する。
+- custom userの検証済みlive結果だけを`cache/news_interpretation_results.json`へ6時間TTLでatomic保存し、default userはsession-only、UI stateは`user_id + context_hash`で分離した。
+- Cockpit handoffは親側が固定したdirect / inferred候補の既存画面遷移だけで、News更新、価格取得、RAG検索を開始しない。Ranking、Forecast、Investment Score、Research Score、候補順は変更していない。
+
+### 確認
+
+- 親側にbounded context、macro分離、deterministic fallback、strict handoff順、設定、user stateテストを追加した。Gateway側にschema、prompt、route、relation mismatchテストを追加した。
+- 親側News / Radar / config / Gateway contract / Streamlit AppTest 104件が成功し、Gateway全testはlive smoke 1件skipを除いて成功した。親側対象Mypy 11 files、Gateway Mypy 4 files、Ruff、Black 604 files、architecture baselineも成功した。
+- 親側全体local checksは今回未変更の既知`test_scheduler_dedupes_identical_fresh_marketdata_measurements`だけが期待1件に対して2件となり失敗し、`--lf`単独再実行でも同じ結果だった。今回のNews Interpretation対象testはすべて成功した。
+- browser skillによるlocalhost viewport確認は管理ポリシー検証が成立せずアクセス拒否となった。安全制御を回避せず、Newsページ描画は既存Streamlit AppTestで確認した。通常のlive Gateway / Ollama呼び出しは行わずnetwork-freeを維持した。
+
+### 後続
+
+- Phase 28の次の画面展開はResearch Summary / Decision Reportであり、LLM出力をScoreやForecastへ統合しない。

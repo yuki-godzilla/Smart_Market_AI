@@ -57,6 +57,7 @@ from ui.news_display_policy import (
     freshness_label,
     material_label,
 )
+from ui.news_interpretation import render_news_interpretation_panel
 from ui.news_state import (
     NEWS_RADAR_SESSION_OWNER_STATE_KEY as _NEWS_RADAR_SESSION_OWNER_STATE_KEY,
 )
@@ -479,6 +480,12 @@ def render_news_dashboard_page(
         )
     with news_tab:
         _render_news_stream(snapshot, ticker_id="investment-news-list-headlines")
+        render_news_interpretation_panel(
+            snapshot,
+            today_candidate_map,
+            user_id=current_user_id() or "default",
+            open_symbol_callback=open_symbol_callback,
+        )
         _render_category_lanes(
             snapshot,
             open_symbol_callback=open_symbol_callback,

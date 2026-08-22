@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -16,6 +17,7 @@ from backend.server_ops.launcher import (
     streamlit_creation_flags,
     supervise_streamlit,
     wait_for_streamlit,
+    write_runtime_lifecycle,
 )
 
 
@@ -29,6 +31,20 @@ def test_streamlit_command_uses_expected_lan_settings() -> None:
     assert command[command.index("--server.headless") + 1] == "true"
     assert command[command.index("--server.runOnSave") + 1] == "false"
     assert command[command.index("--browser.serverAddress") + 1] == "192.168.1.20"
+
+
+def test_runtime_lifecycle_is_written_atomically(tmp_path: Path) -> None:
+    lifecycle = tmp_path / "runtime_lifecycle.json"
+
+    write_runtime_lifecycle("starting", "test startup", pid=1234, path=lifecycle)
+
+    payload = json.loads(lifecycle.read_text(encoding="utf-8"))
+    assert payload["phase"] == "STARTING"
+    assert payload["detail"] == "test startup"
+    assert payload["pid"] == 1234
+    assert payload["port"] == 8501
+    assert payload["updated_at"]
+    assert not lifecycle.with_suffix(".tmp").exists()
 
 
 def test_server_lock_allows_only_one_launcher_and_is_reusable() -> None:
@@ -107,7 +123,7 @@ def test_resilient_supervisor_restarts_after_clean_streamlit_exit(monkeypatch) -
     starts: list[object] = []
 
     class Process:
-        pass
+        pid = 101
 
     def fake_popen(*_args, **_kwargs):
         process = Process()
@@ -118,9 +134,13 @@ def test_resilient_supervisor_restarts_after_clean_streamlit_exit(monkeypatch) -
 
     monkeypatch.setattr("backend.server_ops.launcher.subprocess.Popen", fake_popen)
     monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit_ready", lambda *_args, **_kwargs: True
+    )
+    monkeypatch.setattr(
         "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 0
     )
     monkeypatch.setattr("backend.server_ops.launcher.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("backend.server_ops.launcher.write_runtime_lifecycle", lambda *_args, **_kwargs: None)
 
     with pytest.raises(RuntimeError, match="stop test loop"):
         supervise_streamlit("localhost", resilient=True)
@@ -134,9 +154,15 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
     request_path = tmp_path / "streamlit.stop"
     request_path.write_text("maintenance_restart", encoding="ascii")
 
+    class Process:
+        pid = 102
+
     monkeypatch.setattr(
         "backend.server_ops.launcher.subprocess.Popen",
-        lambda *_args, **_kwargs: object(),
+        lambda *_args, **_kwargs: Process(),
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit_ready", lambda *_args, **_kwargs: True
     )
     monkeypatch.setattr(
         "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 0
@@ -145,6 +171,7 @@ def test_resilient_supervisor_leaves_after_explicit_stop_request(
         "backend.server_ops.launcher.consume_supervisor_stop_request",
         lambda: consume_supervisor_stop_request(request_path),
     )
+    monkeypatch.setattr("backend.server_ops.launcher.write_runtime_lifecycle", lambda *_args, **_kwargs: None)
 
     assert supervise_streamlit("localhost", resilient=True) == 0
     assert not request_path.exists()
@@ -155,13 +182,20 @@ def test_missing_supervisor_stop_request_is_not_consumed(tmp_path: Path) -> None
 
 
 def test_non_resilient_supervisor_returns_child_exit_code(monkeypatch) -> None:
+    class Process:
+        pid = 103
+
     monkeypatch.setattr(
         "backend.server_ops.launcher.subprocess.Popen",
-        lambda *_args, **_kwargs: object(),
+        lambda *_args, **_kwargs: Process(),
+    )
+    monkeypatch.setattr(
+        "backend.server_ops.launcher.wait_for_streamlit_ready", lambda *_args, **_kwargs: True
     )
     monkeypatch.setattr(
         "backend.server_ops.launcher.wait_for_streamlit", lambda *_args, **_kwargs: 7
     )
+    monkeypatch.setattr("backend.server_ops.launcher.write_runtime_lifecycle", lambda *_args, **_kwargs: None)
 
     assert supervise_streamlit("localhost", resilient=False) == 7
 

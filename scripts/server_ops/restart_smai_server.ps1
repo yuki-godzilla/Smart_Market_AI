@@ -5,8 +5,9 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $stopScript = Join-Path $projectRoot "scripts\stop_smai_server.bat"
-$startScript = Join-Path $projectRoot "scripts\start_smai_server.bat"
+$startScript = Join-Path $projectRoot "scripts\start_smai_runtime.ps1"
 $healthUrl = "http://127.0.0.1:8501/_stcore/health"
+$powershell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -27,7 +28,7 @@ if (-not (Test-Administrator)) {
         "-File", ('"{0}"' -f $PSCommandPath),
         "-Elevated"
     )
-    Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WorkingDirectory $projectRoot -Verb RunAs
+    Start-Process -FilePath $powershell -ArgumentList $arguments -WorkingDirectory $projectRoot -Verb RunAs
     exit 0
 }
 
@@ -45,12 +46,12 @@ if ($stopProcess.ExitCode -ne 0) {
 }
 
 Start-Process `
-    -FilePath $env:ComSpec `
-    -ArgumentList @("/d", "/c", ('"{0}"' -f $startScript)) `
+    -FilePath $powershell `
+    -ArgumentList @("-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", ('"{0}"' -f $startScript)) `
     -WorkingDirectory $projectRoot `
     -WindowStyle Hidden
 
-$deadline = (Get-Date).AddSeconds(45)
+$deadline = (Get-Date).AddSeconds(60)
 do {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $healthUrl -TimeoutSec 2
@@ -65,5 +66,5 @@ do {
     Start-Sleep -Seconds 1
 } while ((Get-Date) -lt $deadline)
 
-Write-Error "SMAI did not become healthy within 45 seconds."
+Write-Error "SMAI did not become healthy within 60 seconds."
 exit 3

@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $python = Join-Path $projectRoot "venv_SMAI\Scripts\python.exe"
-$startScript = Join-Path $projectRoot "scripts\start_smai_server.bat"
+$startScript = Join-Path $projectRoot "scripts\start_smai_runtime.ps1"
 $logDir = Join-Path $projectRoot "logs\server_ops"
 $logPath = Join-Path $logDir "watch_server.log"
 $maintenanceLogPath = Join-Path $logDir "maintenance.log"
@@ -21,7 +21,6 @@ function Write-WatchLog {
     param([string]$Message)
     $line = "{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
     Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
-    Write-Host $line
 }
 
 function Write-MaintenanceLog {
@@ -43,9 +42,10 @@ function Test-SmaiListener {
 
 function Start-SmaiRecovery {
     Write-WatchLog "[WARN] SMAI listener is down. Starting recovery."
+    $powershell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
     Start-Process `
-        -FilePath $env:ComSpec `
-        -ArgumentList "/d", "/c", "`"$startScript`"" `
+        -FilePath $powershell `
+        -ArgumentList @("-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", ('"{0}"' -f $startScript)) `
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden
     Start-Sleep -Seconds 20
@@ -132,6 +132,10 @@ function Invoke-MaintenanceCheck {
 
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     Write-WatchLog "[ERROR] Python virtual environment was not found: $python"
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $startScript -PathType Leaf)) {
+    Write-WatchLog "[ERROR] Hidden SMAI runtime launcher was not found: $startScript"
     exit 1
 }
 

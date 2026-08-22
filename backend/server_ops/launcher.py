@@ -1,28 +1,60 @@
 from __future__ import annotations
 
 import argparse
+import json
 import socket
 import subprocess
 import sys
 import time
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-LOCK_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.lock"
-STOP_REQUEST_PATH = PROJECT_ROOT / "data" / "ops" / "server_ops" / "streamlit.stop"
+SERVER_OPS_ROOT = PROJECT_ROOT / "data" / "ops" / "server_ops"
+LOCK_PATH = SERVER_OPS_ROOT / "streamlit.lock"
+STOP_REQUEST_PATH = SERVER_OPS_ROOT / "streamlit.stop"
+LIFECYCLE_PATH = SERVER_OPS_ROOT / "runtime_lifecycle.json"
 HOST = "127.0.0.1"
 PORT = 8501
 EXIT_ALREADY_RUNNING = 10
 EXIT_INTERRUPTED = 130
 RESILIENT_RESTART_DELAY_SECONDS = 2.0
+READY_TIMEOUT_SECONDS = 60.0
 
 
 class ServerLockUnavailable(RuntimeError):
     pass
+
+
+def write_runtime_lifecycle(
+    phase: str,
+    detail: str,
+    *,
+    pid: int | None = None,
+    path: Path = LIFECYCLE_PATH,
+) -> None:
+    """Publish the runtime phase atomically for the read-only Analytics console."""
+
+    payload: dict[str, object] = {
+        "phase": phase.upper(),
+        "detail": detail,
+        "updated_at": datetime.now(UTC).isoformat(),
+        "port": PORT,
+    }
+    if pid is not None:
+        payload["pid"] = pid
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(path)
+    except OSError:
+        # Lifecycle telemetry must never prevent the server from starting.
+        pass
 
 
 def is_port_listening(host: str = HOST, port: int = PORT) -> bool:
@@ -136,6 +168,19 @@ def wait_for_streamlit(process: subprocess.Popen[bytes], *, resilient: bool) -> 
             return EXIT_INTERRUPTED
 
 
+def wait_for_streamlit_ready(
+    process: subprocess.Popen[bytes], timeout_seconds: float = READY_TIMEOUT_SECONDS
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if is_smai_healthy():
+            return True
+        if process.poll() is not None:
+            return False
+        time.sleep(0.25)
+    return is_smai_healthy()
+
+
 def wait_for_existing_server(timeout_seconds: float = 30.0) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
@@ -161,15 +206,26 @@ def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
     """Run Streamlit and keep it alive when the always-on policy is enabled."""
 
     while True:
+        write_runtime_lifecycle("STARTING", "launching Smart Market AI")
         process = subprocess.Popen(
             streamlit_command(browser_address),
             cwd=PROJECT_ROOT,
             creationflags=streamlit_creation_flags(resilient=resilient),
         )
+        if wait_for_streamlit_ready(process):
+            write_runtime_lifecycle("READY", "Smart Market AI is healthy", pid=process.pid)
+        else:
+            write_runtime_lifecycle(
+                "DEGRADED",
+                "Streamlit did not become healthy within the startup window",
+                pid=process.pid,
+            )
         returncode = wait_for_streamlit(process, resilient=resilient)
         if not resilient:
+            write_runtime_lifecycle("STOPPING", f"Streamlit exited with code {returncode}")
             return returncode
         if consume_supervisor_stop_request():
+            write_runtime_lifecycle("STOPPING", "explicit service operation requested stop")
             print(
                 "[SMAI] Streamlit stopped by an explicit service operation; "
                 "leaving the resilient launcher.",
@@ -177,6 +233,9 @@ def supervise_streamlit(browser_address: str, *, resilient: bool) -> int:
                 flush=True,
             )
             return returncode
+        write_runtime_lifecycle(
+            "STARTING", f"Streamlit exited with code {returncode}; restart scheduled"
+        )
         print(
             "[SMAI] Streamlit exited unexpectedly "
             f"(exit={returncode}); restarting in "
@@ -193,14 +252,19 @@ def run_server(
     maintenance_startup: bool = False,
     resilient: bool = False,
 ) -> int:
+    write_runtime_lifecycle("STARTING", "runtime launcher entered")
     try:
         lock_context = server_lock()
         with lock_context:
             if is_port_listening():
                 if is_smai_healthy():
+                    write_runtime_lifecycle("READY", "reusing an existing healthy SMAI server")
                     print("[SMAI] SMAI is already running on TCP 8501; reusing it.")
                     print(f"[SMAI] Open http://{browser_address}:{PORT}")
                     return EXIT_ALREADY_RUNNING
+                write_runtime_lifecycle(
+                    "CRITICAL", "TCP 8501 is occupied by a listener that is not healthy SMAI"
+                )
                 print(
                     "[SMAI] TCP 8501 is already in use, but the listener did not "
                     "answer as SMAI. Stop that process or choose another port.",
@@ -214,6 +278,7 @@ def run_server(
                     check=False,
                 )
                 if result.returncode != 0:
+                    write_runtime_lifecycle("DEGRADED", "maintenance startup state could not be recorded")
                     print(
                         "[SMAI] Maintenance startup state could not be recorded.",
                         file=sys.stderr,
@@ -221,10 +286,13 @@ def run_server(
                     return 3
             return supervise_streamlit(browser_address, resilient=resilient)
     except ServerLockUnavailable:
+        write_runtime_lifecycle("STARTING", "another launcher owns the startup lock")
         if wait_for_existing_server():
+            write_runtime_lifecycle("READY", "another launcher completed startup")
             print("[SMAI] SMAI is already starting or running on TCP 8501.")
             print(f"[SMAI] Open http://{browser_address}:{PORT}")
             return EXIT_ALREADY_RUNNING
+        write_runtime_lifecycle("CRITICAL", "startup lock owner did not make TCP 8501 healthy")
         print(
             "[SMAI] Another SMAI launcher owns the startup lock, but TCP 8501 "
             "did not become available.",

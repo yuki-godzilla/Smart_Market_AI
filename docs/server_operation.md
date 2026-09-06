@@ -17,7 +17,8 @@
 - 24時間メンテナンスはWindows PC全体ではなく、SMAI Streamlitサービスだけを
   再起動します。30秒通知と二段階の安全確認は維持します。
 - 管理者実行ではWindows起動60秒後、通常ユーザー実行ではログオン60秒後に、
-  本体と5分監視の2タスクを登録します。
+  本体を起動します。監視タスクは起動要求との競合を避けるため、さらに2分待ってから
+  開始します。
 
 SMAI を Windows PC 上で常時運用するための手順です。通常アクセスはTailscale
 MagicDNSの `http://desktop-bqrpr4c:8501` に統一します。`0.0.0.0:8501` は待受設定であり、
@@ -39,7 +40,8 @@ MagicDNSの `http://desktop-bqrpr4c:8501` に統一します。`0.0.0.0:8501` �
 
 - `SmartMarketAI-Server-Autostart`: Windows 起動60秒後に既存の
   `scripts/start_smai_server.bat` を起動
-- `SmartMarketAI-Server-Watch`: Streamlit、TCP 8501、メンテナンス条件を5分ごとに確認
+- `SmartMarketAI-Server-Watch`: Windows 起動3分後から、Streamlit、TCP 8501、
+  メンテナンス条件を5分ごとに確認
 
 手動起動、自動起動、監視復旧はすべて
 `backend.server_ops.launcher` の排他ロックを通ります。同時に起動要求が来た場合は

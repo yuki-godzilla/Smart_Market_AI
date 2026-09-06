@@ -23,17 +23,22 @@ $isAdministrator = $principalCheck.IsInRole(
 )
 if ($isAdministrator) {
     $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
-    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $serverTrigger = New-ScheduledTaskTrigger -AtStartup
+    $watchTrigger = New-ScheduledTaskTrigger -AtStartup
     $triggerDescription = "Windows startup"
 } else {
     $principal = New-ScheduledTaskPrincipal `
         -UserId $userId `
         -LogonType Interactive `
         -RunLevel Limited
-    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+    $serverTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+    $watchTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
     $triggerDescription = "user logon"
 }
-$trigger.Delay = "PT1M"
+$serverTrigger.Delay = "PT1M"
+# The watcher performs an immediate health check.  Starting it alongside the
+# server can therefore create an unnecessary duplicate-safe recovery request.
+$watchTrigger.Delay = "PT3M"
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -RestartCount 3 `
@@ -42,18 +47,23 @@ $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable
 
 function Register-SmaiTask {
-    param([string]$Name, [string]$Script, [string]$Description)
+    param(
+        [string]$Name,
+        [string]$Script,
+        [string]$Description,
+        $TaskTrigger
+    )
     $action = New-ScheduledTaskAction `
         -Execute $env:ComSpec `
         -Argument "/d /c `"$Script`"" `
         -WorkingDirectory $projectRoot
     $task = New-ScheduledTask `
         -Action $action `
-        -Trigger $trigger `
+        -Trigger $TaskTrigger `
         -Principal $principal `
         -Settings $settings `
         -Description $Description
-    Register-ScheduledTask -TaskName $Name -InputObject $task -Force | Out-Null
+    Register-ScheduledTask -TaskName $Name -InputObject $task -Force -ErrorAction Stop | Out-Null
     Write-Host "[OK] Registered: $Name"
 }
 
@@ -66,11 +76,14 @@ if ($null -ne $legacy) {
 Register-SmaiTask `
     -Name $serverTaskName `
     -Script $startScript `
-    -Description "Start Smart Market AI after Windows startup."
+    -Description "Start Smart Market AI after Windows startup." `
+    -TaskTrigger $serverTrigger
 Register-SmaiTask `
     -Name $watchTaskName `
     -Script $watchScript `
-    -Description "Monitor Smart Market AI and perform safe maintenance restart checks."
+    -Description "Monitor Smart Market AI and perform safe maintenance restart checks." `
+    -TaskTrigger $watchTrigger
 
-Write-Host "[SMAI] Tasks start 60 seconds after $triggerDescription."
+Write-Host "[SMAI] Main server starts 60 seconds after $triggerDescription."
+Write-Host "[SMAI] Server watcher starts 180 seconds after $triggerDescription."
 Write-Host "[SMAI] start_smai_server.bat prevents duplicate Streamlit instances."

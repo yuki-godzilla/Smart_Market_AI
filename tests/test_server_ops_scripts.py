@@ -23,6 +23,8 @@ def test_autostart_registers_server_and_watcher_at_startup() -> None:
     assert "New-ScheduledTaskTrigger -AtStartup" in script
     assert "New-ScheduledTaskTrigger -AtLogOn" in script
     assert "-LogonType Interactive" in script
+    assert '$serverTrigger.Delay = "PT1M"' in script
+    assert '$watchTrigger.Delay = "PT3M"' in script
     assert "MultipleInstances IgnoreNew" in script
     assert "start_smai_server.bat" in script
 

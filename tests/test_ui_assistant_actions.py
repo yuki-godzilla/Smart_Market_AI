@@ -95,6 +95,7 @@ def test_action_result_card_distinguishes_success_and_followups():
     assert "確認レポートを作成しました" in markup
     assert "レポートを見る / 保存する" in markup
     assert "売買推奨ではありません" in markup
+    assert "作成時刻: 2026-06-19 18:00 JST" in markup
 
 
 def test_action_result_card_renders_update_research_partial_followups():

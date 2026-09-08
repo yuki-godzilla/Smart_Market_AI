@@ -1,5 +1,28 @@
 # 99_Work_Log
 
+## 2026-09-08 SMAIアシスタント実操作UX・安全経路スプリント
+
+### 実装
+
+- 実ブラウザで`ニュースを更新して`を送信し、一般的なニュース回答、4分割の材料カード、不要な銘柄特定失敗が表示され、更新確認へ進まない問題を再現した。
+- 明示的なニュース更新依頼だけをLLMと旧銘柄調査経路から分離し、決定論的な単一`refresh_news`計画へ送るようにした。一般的なニュース閲覧・相談は従来どおり更新を発火しない。
+- 回答を短い実行前案内へ統一し、強気・弱気材料など更新依頼に不要な詳細と銘柄未特定表示を除いた。確認、実行、キャンセル、対象変更、失敗時非fallbackの既存安全境界は維持した。
+- キャンセル文言の助詞重複を直し、単一操作が終了した後は古い計画カードを隠すようにした。Action Resultの作成時刻はAsia/Tokyoへ変換し、`JST`を明記した。
+- Assistantのheader、参照材料、会話、操作を1,080pxの共通レールへそろえ、本文を1remへ拡大した。iPad幅では状態カードをheaderの別行に積み、提案カードを1列化して説明文の欠けと縦長の文字折り返しを防いだ。
+- action labelとmodel表示処理を小さいUI policy moduleへ分け、`ui.views.copilot`の既存architecture上限を緩めなかった。
+
+### 実操作確認
+
+- Chrome上のfresh Streamlit processで、明示依頼直後に`ニュースを更新する前に確認`が表示されること、確認カードが対象・実行内容・変更しないものを区別することを確認した。
+- 先にキャンセルし、外部取得や保存が行われないことを確認した。その後に明示確認して実更新し、最終確認ではニュース70件・14カテゴリ、更新時刻と作成時刻がともに`2026-09-08 13:27 JST`、ランキング・スコア非変更の成功結果を確認した。
+- 390×844と820×1180で横はみ出しがないことを計測した。PC幅では共通レール化によってheaderと会話の左右位置をそろえた。
+
+### 安全境界
+
+- LLMは操作の選択・確認・実行を決めない。明示文言の決定論的判定、typed plan、ユーザーのaction単位確認、validated executorの順を維持する。
+- `refresh_news`はNews cacheだけを更新し、Ranking、Forecast、Scoring、broker連携、注文操作へ波及しない。失敗後に別actionを自動実行しない。
+- 対象pytest 110件、全local checks 2,597件（16 skipped）、対象Mypy 8 files、Ruff、Black 610 files、architecture baseline監査（315 modules / 942 edges / backend→UI 0 / cycle 0）に成功した。既存Altair非推奨warning 1件のみ継続している。
+
 ## 2026-09-08 Assistant News Refresh Usability Sprint
 
 - `refresh_news`をSMAIアシスタントの確認付き安全操作へ接続した。確認前は外部通信せず、確認後だけ既存News refresh/cache経路をforce実行する。成功、前回保存データ利用、失敗を分け、Assistant履歴には件数、カテゴリ数、JST更新時刻だけを残す。

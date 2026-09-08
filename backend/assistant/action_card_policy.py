@@ -50,6 +50,33 @@ _EXPLICIT_ACTION_TERMS = (
     "ランキングで",
 )
 
+_EXPLICIT_NEWS_REFRESH_REQUESTS = (
+    "ニュースを更新して",
+    "ニュース更新して",
+    "ニュースを更新したい",
+    "ニュース更新したい",
+    "ニュースを再取得して",
+    "最新ニュースを取得して",
+    "投資レーダーを更新して",
+    "投資レーダーを更新したい",
+    "投資レーダーのニュースを更新して",
+    "投資レーダーのニュースを更新したい",
+)
+
+
+def is_explicit_news_refresh_request(message: str) -> bool:
+    """Return whether the user explicitly asked to refresh the radar news."""
+
+    text = "".join(str(message or "").strip().lower().split()).rstrip("。.!！")
+    if text in _EXPLICIT_NEWS_REFRESH_REQUESTS:
+        return True
+    for polite_suffix in ("ください", "ほしいです", "ほしい", "お願いします", "です"):
+        if text.endswith(polite_suffix) and text[: -len(polite_suffix)] in (
+            _EXPLICIT_NEWS_REFRESH_REQUESTS
+        ):
+            return True
+    return False
+
 
 def decide_assistant_action_cards(
     message: str,

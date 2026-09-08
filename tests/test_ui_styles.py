@@ -90,15 +90,18 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-copilot-header-icon" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-header-icon img" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-suggestions-title" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-suggestion-row-anchor" in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatMessage"]' in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatInput"]' in SMAI_GLOBAL_CSS
     assert ".smai-copilot-answer-grid" in SMAI_GLOBAL_CSS
     assert (
         "@media (max-width: 767px) {\n" "    .smai-workflow-loading--blocking"
     ) in SMAI_GLOBAL_CSS
-    assert "--smai-chat-main-width: 1180px;" in SMAI_GLOBAL_CSS
+    assert "--smai-chat-main-width: 1080px;" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-inline-sections" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-natural-lead" in SMAI_GLOBAL_CSS
+    assert "@media (min-width: 768px) and (max-width: 1024px)" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-header-identity,\n    .smai-copilot-statusbar" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-action-link" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-holo-chart" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-rank-bars" in SMAI_GLOBAL_CSS

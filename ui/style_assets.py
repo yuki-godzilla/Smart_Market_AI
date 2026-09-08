@@ -120,7 +120,7 @@ SMAI_BASE_TOKEN_CSS = """
     /* Shared SMAI page geometry */
     --smai-page-max-width: 1440px;
     --smai-content-max-width: 1320px;
-    --smai-chat-main-width: 1180px;
+    --smai-chat-main-width: 1080px;
     --smai-side-panel-width: 280px;
     --smai-content-gutter: 48px;
     --smai-content-gutter-compact: 24px;

@@ -69,8 +69,14 @@ eight-case shadow suite keeps those rejection paths covered. See
 SMAIアシスタントの確認付き安全操作は、確認レポート作成、AI調査更新に加えて
 `投資レーダーのニュース更新`へ接続した。明示的な依頼と実行前確認の後だけ既存の
 News refresh/cache経路を呼び、成功、前回保存データ利用、失敗を分けて表示する。
+`ニュースを更新して`などの明示依頼はLLM回答や銘柄特定を経由せず、単一の
+`refresh_news`候補へ決定論的にルーティングする。一般的なニュース質問や
+`ニュース材料を見たい`は更新操作として扱わない。キャンセル時は外部取得・保存を行わず、
+失敗時も別操作へ自動fallbackしない。
 結果には件数、カテゴリ数、JST更新時刻だけを残し、ニュース本文やProviderの生応答は
 Assistant履歴へ保存しない。ランキング、スコア、予測値、broker操作は変更しない。
+Assistant画面はheader、参照材料、会話、操作を1,080pxの共通レールへそろえ、
+iPad幅ではheader状態表示を別行に積んで説明文の欠けを防ぐ。
 
 Phase 28-C2 adds a separate screen-wide `radar_overview_interpretation.v1` without changing the
 candidate-level contract. It is disabled by default and runs only after the explicit Radar overview

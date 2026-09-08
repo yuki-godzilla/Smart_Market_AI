@@ -42,7 +42,7 @@ def assistant_action_result_card_html(result: AssistantActionResult | Mapping[st
         if value.status in {"failed", "not_available", "validation_error"} and value.user_message
         else ""
     )
-    created = value.completed_at.strftime("%Y-%m-%d %H:%M") if value.completed_at else ""
+    created = _datetime_detail(value.completed_at.isoformat()) if value.completed_at else ""
     return (
         '<section class="smai-copilot-action-result '
         f'smai-copilot-action-result--{html.escape(value.status)}">'

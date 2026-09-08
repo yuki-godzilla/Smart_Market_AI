@@ -29,6 +29,19 @@ def model_for_profile(profile: str) -> str:
     return "qwen3:1.7b"
 
 
+def assistant_model_display(model: str) -> tuple[str, str]:
+    for _, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if option_model == model:
+            return purpose.split(" / ", maxsplit=1)[0], purpose
+    return "利用可能", "利用可能モデル / 性能・負荷は提供元の情報を確認"
+
+
+def assistant_model_choice_label(model: str, *, badge: str = "") -> str:
+    _, purpose = assistant_model_display(model)
+    badge_copy = f"  [{badge}]" if badge else ""
+    return f"{model}{badge_copy} — {purpose}"
+
+
 def model_option_label(profile: str, model: str, purpose: str) -> str:
     return f"{profile} / {model} - {purpose}"
 

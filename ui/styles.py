@@ -4061,9 +4061,9 @@ div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor)
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 1.25rem;
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
-    margin: 0.85rem auto 0.88rem;
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
+    margin: 0.55rem auto 0.65rem;
     box-sizing: border-box;
     border: 1px solid rgba(34, 211, 238, 0.3);
     border-radius: 8px;
@@ -4074,7 +4074,7 @@ div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor)
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 18px 48px rgba(0, 0, 0, 0.22);
-    padding: 1.05rem 1.28rem;
+    padding: 0.9rem 1.1rem;
 }
 
 .smai-copilot-header-identity {
@@ -4219,8 +4219,8 @@ div[data-testid="stColumn"]:has(.smai-cockpit-favorites-toggle-anchor)
 }
 
 .smai-copilot-chat-actions-anchor {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     height: 0;
     margin: -0.3rem auto 0;
 }
@@ -4230,8 +4230,8 @@ div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
     div[data-testid="stHorizontalBlock"],
 div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
     + div[data-testid="stHorizontalBlock"] {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin: -0.3rem auto 0.62rem;
     box-sizing: border-box;
 }
@@ -4248,8 +4248,8 @@ div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
 }
 
 .smai-copilot-mode-label {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin: 0 auto 0.36rem;
     box-sizing: border-box;
     color: var(--text-ai-title);
@@ -4258,9 +4258,9 @@ div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
 }
 
 .smai-copilot-material-status {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
-    margin: 0 auto 0.72rem;
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
+    margin: 0 auto 0.55rem;
     box-sizing: border-box;
     border: 1px solid rgba(71, 85, 105, 0.44);
     border-radius: 8px;
@@ -4286,8 +4286,8 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 .smai-copilot-suggestions-title {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin: 0.86rem auto 0.44rem;
     box-sizing: border-box;
     color: var(--text-ai-title);
@@ -4451,10 +4451,10 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-copilot-thread {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
+    gap: 0.85rem;
     width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
     max-width: var(--smai-chat-main-width);
-    margin: 0.86rem auto 1.1rem;
+    margin: 0.55rem auto 0.9rem;
     box-sizing: border-box;
 }
 
@@ -4487,7 +4487,7 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-copilot-message-card p.smai-copilot-natural-lead {
     color: var(--text-value);
-    font-size: 0.94rem;
+    font-size: 1rem;
     line-height: 1.72;
     white-space: pre-line;
 }
@@ -4762,8 +4762,8 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-copilot-workspace-card {
     position: relative;
     overflow: hidden;
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin: 0.82rem auto 0;
     box-sizing: border-box;
     border: 1px solid var(--smai-border);
@@ -8684,6 +8684,30 @@ div[data-testid="stDialog"] div[role="dialog"] {
     /* Streamlit keeps the sidebar expanded on iPad portrait, leaving the
        content pane narrower than the viewport media query suggests.  Stack
        the Cockpit assistant card below the title so it cannot be clipped. */
+    .smai-copilot-chat-topbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .smai-copilot-header-identity,
+    .smai-copilot-statusbar {
+        grid-column: 1;
+    }
+
+    .smai-copilot-statusbar {
+        width: 100%;
+        max-width: none;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-suggestion-row-anchor) {
+        flex-direction: column;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-suggestion-row-anchor)
+        > [data-testid="column"] {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+    }
+
     .smai-page-title--copilot[data-mascot="cockpit"] {
         grid-template-columns: minmax(0, 1fr);
     }

@@ -70,6 +70,7 @@ from backend.assistant import (
 from backend.assistant import (
     start_session as start_assistant_workflow_session,
 )
+from backend.assistant.action_card_policy import is_explicit_news_refresh_request
 from backend.assistant.response_sanitizer import (
     sanitize_presentation_items,
     sanitize_presentation_text,
@@ -83,13 +84,24 @@ from backend.reporting import (
     render_decision_report_markdown,
 )
 from backend.reporting.archive_paths import assistant_report_archive_dir
+from ui.assistant_action_labels import (
+    assistant_action_cancelled_title as _assistant_action_cancelled_title,
+)
+from ui.assistant_action_labels import (
+    assistant_action_confirm_label as _assistant_action_confirm_label,
+)
+from ui.assistant_action_labels import (
+    assistant_action_execute_label as _assistant_action_execute_label,
+)
+from ui.assistant_action_labels import (
+    assistant_action_materials as _assistant_action_materials,
+)
 from ui.assistant_news_refresh import (
     refresh_news_for_assistant_action as _refresh_news_for_assistant_action,
 )
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
-    assistant_response_for_context,
 )
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
@@ -118,7 +130,9 @@ from ui.copilot_conversation_content import (
     copilot_conversation_presets,
 )
 from ui.copilot_model_policy import (
-    COPILOT_LLM_MODEL_OPTIONS,
+    assistant_model_choice_label as _assistant_model_choice_label,
+)
+from ui.copilot_model_policy import (
     model_for_profile,
     model_option_for_profile_model,
     model_option_from_label,
@@ -126,6 +140,10 @@ from ui.copilot_model_policy import (
     model_option_labels,
     profile_for_model,
     profile_model_matches_option,
+)
+from ui.copilot_response_router import (
+    NEWS_REFRESH_CONFIRMATION_MESSAGE,
+    copilot_response_for_request,
 )
 from ui.copilot_runtime import (
     COPILOT_RUNTIME_STATUS_STATE_KEY,
@@ -440,20 +458,6 @@ def _render_model_selector(
             AssistantStatusEvent(name="model_changed", runtime_config=selected_config)
         )
     return selected_config
-
-
-def _assistant_model_display(model: str) -> tuple[str, str]:
-    for _, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
-        if option_model == model:
-            feature = purpose.split(" / ", maxsplit=1)[0]
-            return feature, purpose
-    return "利用可能", "利用可能モデル / 性能・負荷は提供元の情報を確認"
-
-
-def _assistant_model_choice_label(model: str, *, badge: str = "") -> str:
-    _, purpose = _assistant_model_display(model)
-    badge_copy = f"  [{badge}]" if badge else ""
-    return f"{model}{badge_copy} — {purpose}"
 
 
 def _render_chat_composer(
@@ -921,7 +925,6 @@ def render_copilot_workspace_page() -> None:
         runtime_config,
         settings=settings,
     )
-
     header_placeholder = st.empty()
     _render_copilot_header(
         header_placeholder=header_placeholder,
@@ -944,7 +947,6 @@ def render_copilot_workspace_page() -> None:
             "SMAIナビの準備ができました。銘柄・予測・ニュース・根拠資料を確認できます。",
             icon="✅",
         )
-
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
         st.session_state[COPILOT_CONVERSATION_ID_STATE_KEY] = _new_conversation_id()
@@ -1073,6 +1075,8 @@ def render_copilot_workspace_page() -> None:
             header_placeholder=header_placeholder,
             history=history,
         )
+        if is_explicit_news_refresh_request(prompt):
+            st.rerun()
 
 
 def _render_copilot_header(
@@ -1445,6 +1449,11 @@ def _render_suggestion_buttons(
             columns = st.columns(3)
             for offset, preset in enumerate(presets[row_start : row_start + 3]):
                 with columns[offset]:
+                    if offset == 0:
+                        st.markdown(
+                            '<div class="smai-copilot-suggestion-row-anchor"></div>',
+                            unsafe_allow_html=True,
+                        )
                     st.markdown(
                         _action_card_intro_html(preset=preset),
                         unsafe_allow_html=True,
@@ -2015,7 +2024,7 @@ def _render_assistant_action_confirmation(
                 if action_id == "refresh_news"
                 else _assistant_action_target_label(turn, context)
             ),
-            materials=_assistant_action_materials(context),
+            materials=_assistant_action_materials(_material_status(context)),
         ),
         unsafe_allow_html=True,
     )
@@ -2121,12 +2130,10 @@ def _fetch_research_for_assistant_action(
 
 def _cancelled_assistant_action_result(action_id: str) -> AssistantActionResult:
     now = datetime.now(UTC)
-    action = get_assistant_action(action_id)
-    label = action.label if action is not None else "操作"
     return AssistantActionResult(
         action_id=action_id,
         status="cancelled",
-        title=f"{label}をキャンセルしました",
+        title=_assistant_action_cancelled_title(action_id),
         summary="ユーザー操作により、実行前にキャンセルしました。",
         user_message="この操作ではデータ取得、レポート作成、スコア変更は行っていません。",
         started_at=now,
@@ -2452,32 +2459,6 @@ def _assistant_action_company_name(
         str(turn.get("decision_report_company_name", "")).strip()
         or str(context.summary.get("会社名", "")).strip()
         or str(context.summary.get("company_name", "")).strip()
-    )
-
-
-def _assistant_action_confirm_label(action_id: str) -> str:
-    if action_id == "update_research":
-        return "AI調査を更新する前に確認"
-    if action_id == "create_decision_report":
-        return "確認レポートを作る前に確認"
-    if action_id == "refresh_news":
-        return "ニュースを更新する前に確認"
-    return "実行前に確認"
-
-
-def _assistant_action_execute_label(action_id: str) -> str:
-    if action_id == "update_research":
-        return "AI調査を更新する"
-    if action_id == "create_decision_report":
-        return "作成する"
-    if action_id == "refresh_news":
-        return "ニュースを更新"
-    return "実行する"
-
-
-def _assistant_action_materials(context: SmaiAssistantContext) -> tuple[str, ...]:
-    return tuple(
-        f"{label}: {value}" for label, value in _material_status(context) if label != "LLM"
     )
 
 
@@ -3115,15 +3096,12 @@ def _handle_copilot_submit(
     if not normalized_question:
         st.warning("質問を入力してください。")
         return
-
     history = _copilot_history()
-    history_for_request = [
-        turn
-        for turn in history
-        if not pending_turn_id or str(turn.get("turn_id", "")) != pending_turn_id
-    ]
+    history_for_request = _copilot_request_history(history, pending_turn_id)
     recent_report_draft = _latest_decision_report_draft_from_history(history_for_request)
     conversation_id = _conversation_id()
+    direct_news_refresh = is_explicit_news_refresh_request(normalized_question)
+    micro_intent = _is_llm_micro_intent(intent)
     effective_context = _context_for_llm(
         intent=intent, context=context, question=normalized_question
     )
@@ -3133,7 +3111,7 @@ def _handle_copilot_submit(
             message=normalized_question,
             report_context=assistant_context_to_report_context(context),
         )
-        if not _is_llm_micro_intent(intent)
+        if not micro_intent and not direct_news_refresh
         else None
     )
     if tool_plan is not None:
@@ -3175,14 +3153,13 @@ def _handle_copilot_submit(
         prompt_instruction=prompt_instruction,
         tool_summaries=tool_summaries,
     )
-    response = assistant_response_for_context(
+    response = copilot_response_for_request(
         effective_context,
         gateway_question,
+        direct_news_refresh=direct_news_refresh,
         conversation_id=conversation_id,
-        message_history=(
-            () if _is_llm_micro_intent(intent) else copilot_history_messages(history_for_request)
-        ),
-        referenced_context_ids=[] if _is_llm_micro_intent(intent) else [context.context_id],
+        message_history=() if micro_intent else copilot_history_messages(history_for_request),
+        referenced_context_ids=[] if micro_intent else [context.context_id],
         gateway_task_type=_gateway_task_type_for_copilot_intent(intent),
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
@@ -3199,16 +3176,17 @@ def _handle_copilot_submit(
             response=response,
         )
     )
+    executed_checks = (
+        [] if micro_intent or direct_news_refresh else [_material_status_summary(context)]
+    )
+    executed_checks.extend(friendly_tool_summaries)
     turn = _turn_from_response(
         context,
         visible_question,
         response,
         intent=intent,
         turn_id=pending_turn_id,
-        executed_checks=[
-            *([] if _is_llm_micro_intent(intent) else [_material_status_summary(context)]),
-            *friendly_tool_summaries,
-        ],
+        executed_checks=executed_checks,
         tool_statuses=[
             f"{result.name}: {result.status}"
             for result in (tool_plan.executed if tool_plan else ())
@@ -3258,6 +3236,16 @@ def _handle_copilot_submit(
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
+
+
+def _copilot_request_history(
+    history: list[dict[str, str]], pending_turn_id: str | None
+) -> list[dict[str, str]]:
+    return [
+        turn
+        for turn in history
+        if not pending_turn_id or str(turn.get("turn_id", "")) != pending_turn_id
+    ]
 
 
 def _tool_plan_with_approved_external_fetch(
@@ -3804,7 +3792,7 @@ def _turn_from_response(
     memo_points = sanitize_presentation_items(
         _memo_points_for_intent(intent, response), limit=item_limit
     )
-    if _is_llm_micro_intent(intent):
+    if _is_llm_micro_intent(intent) or is_explicit_news_refresh_request(question):
         reasons = []
         cautions = []
         memo_points = []
@@ -4336,6 +4324,10 @@ def _tool_plan_detail_html(turn: dict[str, str]) -> str:
 
 
 def _assistant_tool_plan_panel_html(turn: dict[str, str]) -> str:
+    if is_explicit_news_refresh_request(turn.get("question", "")) and turn.get(
+        "assistant_action_results"
+    ):
+        return ""
     value = str(turn.get("assistant_tool_plan", "")).strip()
     if not value:
         return ""
@@ -4754,6 +4746,8 @@ def _conversation_answer(
     question: str,
     response: AssistantResponse,
 ) -> str:
+    if is_explicit_news_refresh_request(question):
+        return NEWS_REFRESH_CONFIRMATION_MESSAGE
     if response.response_source == "llm":
         body = _safe_response_body(response.answer, intent=intent)
         if body:

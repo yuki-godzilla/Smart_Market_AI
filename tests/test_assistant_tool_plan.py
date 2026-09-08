@@ -53,3 +53,30 @@ def test_news_missing_snapshot_suggests_confirmed_refresh():
 
     assert plan.steps[0].action_id == "refresh_news"
     assert plan.steps[0].requires_confirmation
+
+
+def test_explicit_news_refresh_from_assistant_builds_only_confirmed_refresh():
+    context = build_assistant_context(
+        current_page="assistant",
+        user_question="ニュースを更新して",
+        material_state={"news_status": "available"},
+    )
+
+    plan = build_deterministic_assistant_tool_plan(context)
+
+    assert [step.action_id for step in plan.steps] == ["refresh_news"]
+    assert plan.steps[0].requires_confirmation
+    assert "外部ニュースを取得" in plan.steps[0].summary
+
+
+def test_generic_news_question_does_not_force_refresh_when_news_exists():
+    context = build_assistant_context(
+        current_page="news",
+        user_question="ニュース材料を見たい",
+        material_state={"news_status": "available"},
+    )
+
+    plan = build_deterministic_assistant_tool_plan(context)
+
+    assert plan.steps[0].action_id == "open_macro_news"
+    assert all(step.action_id != "refresh_news" for step in plan.steps)

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import Field
 
+from backend.assistant.action_card_policy import is_explicit_news_refresh_request
 from backend.assistant.context_builder import SMAIAssistantContext
 from backend.assistant.conversation_mode import (
     AssistantConversationModeDecision,
     AssistantResearchIntent,
     route_assistant_conversation_mode,
+)
+from backend.assistant.research_tool_plan_contracts import (
+    AssistantResearchTool,
+    AssistantResearchToolPlan,
 )
 from backend.assistant.tool_registry import get_assistant_action
 from backend.core.data_contracts import StrictBaseModel
@@ -20,31 +24,6 @@ ASSISTANT_TOOL_PLAN_PROMPT_VERSION = "assistant_tool_plan_mvp.v1"
 ASSISTANT_TOOL_PLAN_SAFETY_NOTE = (
     "この提案はSMAI上で確認すべき操作の整理です。売買推奨ではありません。"
 )
-
-
-@dataclass(frozen=True)
-class AssistantResearchTool:
-    name: str
-    label: str
-    reason: str
-    external: bool
-    required: bool
-
-
-@dataclass(frozen=True)
-class AssistantResearchToolPlan:
-    intent: AssistantResearchIntent
-    user_question: str
-    symbol_query: str | None
-    symbol: str | None
-    company_name: str | None
-    requires_approval: bool
-    approval_reason: str
-    tools: tuple[AssistantResearchTool, ...]
-
-    @property
-    def has_external_tools(self) -> bool:
-        return any(tool.external for tool in self.tools)
 
 
 class AssistantToolPlanStep(StrictBaseModel):
@@ -107,6 +86,8 @@ def build_deterministic_assistant_tool_plan(
 def _steps_for_context(context: SMAIAssistantContext) -> tuple[AssistantToolPlanStep, ...]:
     page = context.current_page
     question = str(context.user_question or "").lower()
+    if is_explicit_news_refresh_request(question):
+        return (_news_refresh_step(),)
     if page == "ranking":
         return _ranking_steps(context, question)
     if page == "cockpit":
@@ -284,14 +265,7 @@ def _cockpit_steps(context: SMAIAssistantContext) -> tuple[AssistantToolPlanStep
 
 def _news_steps(context: SMAIAssistantContext) -> tuple[AssistantToolPlanStep, ...]:
     first = (
-        _step(
-            "refresh_news",
-            title="投資レーダーを更新",
-            summary="最新ニュースと市場テーマを確認します。",
-            action_id="refresh_news",
-            reason="ニュースは鮮度が重要なため、必要なら更新前提で確認します。",
-            priority="high",
-        )
+        _news_refresh_step()
         if "投資レーダーのニュース" in context.missing_materials
         else _step(
             "open_macro_news",
@@ -323,6 +297,17 @@ def _news_steps(context: SMAIAssistantContext) -> tuple[AssistantToolPlanStep, .
             priority="medium",
             requires_confirmation=False,
         ),
+    )
+
+
+def _news_refresh_step() -> AssistantToolPlanStep:
+    return _step(
+        "refresh_news",
+        title="投資レーダーを更新",
+        summary="外部ニュースを取得し、重複を除いて投資レーダーへ保存します。",
+        action_id="refresh_news",
+        reason="ニュースは鮮度が重要なため、実行前確認を経て更新します。",
+        priority="high",
     )
 
 

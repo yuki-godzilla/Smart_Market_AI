@@ -1,4 +1,8 @@
-from backend.assistant import decide_assistant_action_cards, detect_assistant_intent
+from backend.assistant import (
+    decide_assistant_action_cards,
+    detect_assistant_intent,
+    is_explicit_news_refresh_request,
+)
 
 
 def _decision(message: str):
@@ -23,3 +27,14 @@ def test_explicit_navigation_and_report_requests_show_cards():
     assert _decision("トヨタをコックピットで詳しく見たい").level == 2
     assert _decision("この材料で確認レポートを作って").level == 2
     assert _decision("投資レーダーのニュースを更新して").level == 2
+
+
+def test_news_refresh_request_requires_explicit_update_wording():
+    assert is_explicit_news_refresh_request("ニュースを更新して")
+    assert is_explicit_news_refresh_request(" 最新ニュースを取得してください ")
+    assert is_explicit_news_refresh_request("投資レーダーのニュースを更新したい")
+    assert not is_explicit_news_refresh_request("ニュース材料を見たい")
+    assert not is_explicit_news_refresh_request("ニュースは更新できますか？")
+    assert not is_explicit_news_refresh_request("ニュースを更新してほしくない")
+    assert not is_explicit_news_refresh_request("ニュースを更新していない")
+    assert not is_explicit_news_refresh_request("『ニュースを更新して』と言ったらどうなる？")

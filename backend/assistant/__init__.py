@@ -6,6 +6,7 @@ from backend.assistant.action_card_policy import (
     AssistantActionCardDecision,
     AssistantActionCardLevel,
     decide_assistant_action_cards,
+    is_explicit_news_refresh_request,
 )
 from backend.assistant.action_execution import AssistantActionExecutor
 from backend.assistant.action_result import (
@@ -305,6 +306,7 @@ __all__ = [
     "evaluate_raw_planner_response",
     "execute_assistant_tool_plan",
     "get_assistant_action",
+    "is_explicit_news_refresh_request",
     "apply_action_result",
     "cancel_session",
     "load_agent_evaluation_case",

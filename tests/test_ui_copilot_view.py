@@ -21,11 +21,16 @@ from backend.core.config import Settings
 from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
 from ui.copilot_conversation_content import copilot_conversation_presets as content_presets
-from ui.copilot_model_policy import model_option_for_profile_model
+from ui.copilot_model_policy import (
+    COPILOT_LLM_MODEL_OPTIONS,
+    model_option_for_profile_model,
+)
+from ui.copilot_model_policy import (
+    assistant_model_display as _assistant_model_display,
+)
 from ui.style_assets import SMAI_BASE_TOKEN_CSS
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
-    COPILOT_LLM_MODEL_OPTIONS,
     COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY,
     COPILOT_RUNTIME_STATUS_STATE_KEY,
     COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY,
@@ -33,13 +38,13 @@ from ui.views.copilot import (
     CopilotGatewayRuntimeConfig,
     _apply_copilot_warmup_auto_transition,
     _assistant_model_choice_label,
-    _assistant_model_display,
     _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
     _conversation_answer,
     _execute_confirmed_assistant_action,
     _fallback_free_chat_answer,
+    _first_confirmable_action_id,
     _gateway_question,
     _intent_from_message,
     _llm_model_option_for_profile_model,
@@ -304,16 +309,16 @@ def test_model_selector_is_environment_only_selectbox_next_to_chat():
     assert "[選択中]" in _assistant_model_choice_label("qwen3:14b", badge="選択中")
 
 
-def test_copilot_layout_uses_shared_wide_lane():
+def test_copilot_layout_uses_one_readable_chat_lane():
     css = Path("ui/styles.py").read_text(encoding="utf-8")
 
     lane_gutter = "calc(100% - var(--smai-content-gutter))"
     shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
     chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
     assert "--smai-content-max-width: 1320px;" in SMAI_BASE_TOKEN_CSS
-    assert "--smai-chat-main-width: 1180px;" in SMAI_BASE_TOKEN_CSS
-    assert css.count(shared_lane) >= 5
-    assert chat_lane in css
+    assert "--smai-chat-main-width: 1080px;" in SMAI_BASE_TOKEN_CSS
+    assert shared_lane not in css
+    assert css.count(chat_lane) >= 8
     assert ".smai-copilot-chat-topbar" in css
     assert "grid-template-columns: auto minmax(0, 1fr) auto;" in css
     assert ".smai-copilot-chat-actions-anchor" in css
@@ -963,6 +968,31 @@ def test_copilot_turn_from_response_hides_internal_prompt_text():
     )
 
 
+def test_explicit_news_refresh_turn_is_short_and_has_one_confirmed_action():
+    turn = _turn_from_response(
+        copilot_context_options()[3],
+        "ニュースを更新して",
+        AssistantResponse(
+            intent="research",
+            answer="ignored gateway text",
+            reasons=["不要な強気材料"],
+            cautions=["不要な弱気材料"],
+            next_checkpoints=["不要な次の確認"],
+            response_source="llm",
+        ),
+        intent="news_materials",
+        executed_checks=["銘柄を特定できませんでした。"],
+    )
+
+    plan = json.loads(turn["assistant_tool_plan"])
+    assert turn["answer"] == "ニュースを更新できます。内容を確認してから実行してください。"
+    assert turn["reasons"] == ""
+    assert turn["cautions"] == ""
+    assert turn["next_checkpoints"] == ""
+    assert turn["memo_points"] == ""
+    assert [step["action_id"] for step in plan["steps"]] == ["refresh_news"]
+
+
 def test_copilot_free_chat_identity_answer_stays_on_identity():
     context = copilot_context_options()[0]
 
@@ -1462,6 +1492,49 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert any(
         str(getattr(element, "label", "")) == "最新回答のコピー・保存" for element in app.expander
     )
+
+
+def test_copilot_page_explicit_news_refresh_opens_confirmation_without_symbol_lookup(
+    monkeypatch,
+):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("ニュースを更新して")
+    _click_button_label(app, "送信")
+
+    turn = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]
+    assert not app.exception
+    assert turn["answer"] == "ニュースを更新できます。内容を確認してから実行してください。"
+    assert "銘柄を特定できませんでした" not in turn["executed_checks"]
+    assert "強気材料" not in copilot_answer_detail_html(turn)
+    assert _first_confirmable_action_id(turn) == "refresh_news"
+    assert any(
+        str(getattr(button, "label", "")) == "ニュースを更新する前に確認" for button in app.button
+    )
+
+    _click_button_label(app, "ニュースを更新する前に確認")
+
+    button_labels = [str(getattr(button, "label", "")) for button in app.button]
+    page_text = "\n".join(
+        str(element.value)
+        for element in app.markdown
+        if getattr(element, "value", None) is not None
+    )
+    assert "投資レーダーのニュースを更新します" in page_text
+    assert "ニュースを更新" in button_labels
+    assert "キャンセル" in button_labels
+
+    _click_button_label(app, "キャンセル")
+
+    turn = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]
+    results = json.loads(turn["assistant_action_results"])
+    assert results[-1]["action_id"] == "refresh_news"
+    assert results[-1]["status"] == "cancelled"
+    assert 'smai-copilot-tool-plan-title">次にできること' not in copilot_answer_detail_html(turn)
 
 
 def test_copilot_page_new_conversation_clears_stale_runtime_status(monkeypatch):

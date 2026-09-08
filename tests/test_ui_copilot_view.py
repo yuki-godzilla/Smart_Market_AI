@@ -38,6 +38,7 @@ from ui.views.copilot import (
     _chat_header_html,
     _context_for_llm,
     _conversation_answer,
+    _execute_confirmed_assistant_action,
     _fallback_free_chat_answer,
     _gateway_question,
     _intent_from_message,
@@ -146,6 +147,41 @@ def _loading_headlines() -> AssistantLoadingHeadlines:
         source="cache",
         stale=False,
     )
+
+
+def test_confirmed_refresh_news_is_wired_without_exposing_headlines(monkeypatch):
+    calls: list[dict[str, object]] = []
+
+    def fake_refresh(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {
+            "refreshed": True,
+            "skipped": False,
+            "used_fallback_cache": False,
+            "snapshot": {
+                "generated_at": "2026-09-08T01:30:00+00:00",
+                "stream_headlines": [{"title": "provider raw headline"}],
+                "category_lanes": [],
+                "heatmap_cells": [],
+            },
+        }
+
+    monkeypatch.setattr("ui.views.copilot._refresh_news_for_assistant_action", fake_refresh)
+    news_context = next(
+        context for context in copilot_context_options() if context.page_key == "news"
+    )
+
+    result = _execute_confirmed_assistant_action(
+        {"question": "ニュースを更新して", "answer": "確認後に更新します。"},
+        action_id="refresh_news",
+        context=news_context,
+    )
+
+    assert result.status == "success"
+    assert result.details["item_count"] == 1
+    assert "provider raw headline" not in json.dumps(result.model_dump(mode="json"))
+    assert calls[0]["allow_network"] is True
+    assert calls[0]["force"] is True
 
 
 def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready():

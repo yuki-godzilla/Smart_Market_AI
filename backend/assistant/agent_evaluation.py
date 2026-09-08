@@ -47,7 +47,7 @@ _CONFIRMATION_REQUIRED_ACTIONS = {
     "refresh_news",
     "create_ranking",
 }
-_UNSUPPORTED_READY_ACTIONS = {"create_ranking", "refresh_news"}
+_UNSUPPORTED_READY_ACTIONS = {"create_ranking"}
 _ACTIONABLE_STATUSES = {
     "ready",
     "execute_now",

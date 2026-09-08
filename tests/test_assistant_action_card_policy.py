@@ -22,3 +22,4 @@ def test_explicit_navigation_and_report_requests_show_cards():
     assert _decision("半導体関連の候補銘柄をランキングで比較したい").level == 2
     assert _decision("トヨタをコックピットで詳しく見たい").level == 2
     assert _decision("この材料で確認レポートを作って").level == 2
+    assert _decision("投資レーダーのニュースを更新して").level == 2

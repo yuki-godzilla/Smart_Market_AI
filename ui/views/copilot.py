@@ -83,6 +83,9 @@ from backend.reporting import (
     render_decision_report_markdown,
 )
 from backend.reporting.archive_paths import assistant_report_archive_dir
+from ui.assistant_news_refresh import (
+    refresh_news_for_assistant_action as _refresh_news_for_assistant_action,
+)
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
@@ -101,6 +104,8 @@ from ui.components.mascot import (
     MASCOT_THUMB_ASSET,
     MASCOT_TITLE_ASSETS,
     _asset_static_url,
+    workflow_loading_headlines_from_cache,
+    workflow_loading_html,
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
@@ -156,7 +161,11 @@ COPILOT_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
 COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
-COPILOT_CONFIRMABLE_ACTION_IDS = ("update_research", "create_decision_report")
+COPILOT_CONFIRMABLE_ACTION_IDS = (
+    "update_research",
+    "refresh_news",
+    "create_decision_report",
+)
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
@@ -2001,7 +2010,11 @@ def _render_assistant_action_confirmation(
     st.markdown(
         assistant_action_confirmation_html(
             action=action,
-            target_label=_assistant_action_target_label(turn, context),
+            target_label=(
+                "投資レーダー"
+                if action_id == "refresh_news"
+                else _assistant_action_target_label(turn, context)
+            ),
             materials=_assistant_action_materials(context),
         ),
         unsafe_allow_html=True,
@@ -2013,11 +2026,29 @@ def _render_assistant_action_confirmation(
             key=f"smai_copilot_execute_action_{action_id}_{turn.get('turn_id', '')}",
             use_container_width=True,
         ):
-            result = _execute_confirmed_assistant_action(
-                turn,
-                action_id=action_id,
-                context=context,
-            )
+            loading_slot = st.empty()
+            if action_id == "refresh_news":
+                loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+                loading_slot.markdown(
+                    workflow_loading_html(
+                        title="最新ニュースを更新中",
+                        message="外部ニュースを取得し、重複を除いて整理しています。",
+                        current_step="投資レーダーの表示データを更新しています。",
+                        progress=0.35,
+                        mode="blocking",
+                        headlines=loading_headlines,
+                        headline_note=loading_headline_note,
+                    ),
+                    unsafe_allow_html=True,
+                )
+            try:
+                result = _execute_confirmed_assistant_action(
+                    turn,
+                    action_id=action_id,
+                    context=context,
+                )
+            finally:
+                loading_slot.empty()
             _record_assistant_action_result(
                 turn_id=str(turn.get("turn_id", "")),
                 result=result,
@@ -2054,7 +2085,10 @@ def _execute_confirmed_assistant_action(
         context=context,
         question=str(turn.get("question", "")),
     )
-    return AssistantActionExecutor(research_fetcher=_fetch_research_for_assistant_action).execute(
+    return AssistantActionExecutor(
+        research_fetcher=_fetch_research_for_assistant_action,
+        news_refresher=_refresh_news_for_assistant_action,
+    ).execute(
         action_id,
         backend_context,
         payload={
@@ -2426,6 +2460,8 @@ def _assistant_action_confirm_label(action_id: str) -> str:
         return "AI調査を更新する前に確認"
     if action_id == "create_decision_report":
         return "確認レポートを作る前に確認"
+    if action_id == "refresh_news":
+        return "ニュースを更新する前に確認"
     return "実行前に確認"
 
 
@@ -2434,6 +2470,8 @@ def _assistant_action_execute_label(action_id: str) -> str:
         return "AI調査を更新する"
     if action_id == "create_decision_report":
         return "作成する"
+    if action_id == "refresh_news":
+        return "ニュースを更新"
     return "実行する"
 
 

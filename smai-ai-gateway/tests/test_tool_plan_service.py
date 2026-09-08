@@ -133,6 +133,40 @@ def test_tool_plan_service_falls_back_on_provider_error():
     assert response.provider == "ollama"
 
 
+def test_tool_plan_service_accepts_confirmed_refresh_news():
+    answer = (
+        '{"schema_version":"assistant_tool_planner_response.v1",'
+        '"plan_type":"tool_plan","user_intent":"ニュースを更新する",'
+        '"overall_summary":"確認後にニュースを更新します。",'
+        '"steps":[{"step_id":"s1","title":"ニュースを更新",'
+        '"summary":"外部ニュースを取得して整理します。","action_id":"refresh_news",'
+        '"reason":"最新の確認材料が必要なためです。","requires_confirmation":true,'
+        '"confidence":0.8,"priority":"high"}],'
+        '"safety_note":"ランキングやスコアは変更しません。","planner_source":"llm"}'
+    )
+    request_payload = _request().model_dump()
+    request_payload["available_actions"].append(
+        {
+            "action_id": "refresh_news",
+            "label": "投資レーダーを更新",
+            "description": "最新ニュースを取得します。",
+            "action_type": "data_fetch",
+            "requires_confirmation": True,
+            "is_external_fetch": True,
+            "enabled": True,
+        }
+    )
+    request_payload["constraints"]["allowed_action_ids"].append("refresh_news")
+    request = ToolPlannerRequest.model_validate(request_payload)
+    service = ToolPlanService(FakePlannerClient(answer=answer))  # type: ignore[arg-type]
+
+    response = service.plan(request)
+
+    assert response.gateway_status == "ok"
+    assert response.steps[0].action_id == "refresh_news"
+    assert response.steps[0].requires_confirmation is True
+
+
 def _request() -> ToolPlannerRequest:
     return ToolPlannerRequest.model_validate(
         {

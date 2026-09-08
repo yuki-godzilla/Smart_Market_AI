@@ -12,6 +12,8 @@ def assistant_action_confirmation_html(
     target_label: str,
     materials: Sequence[str],
 ) -> str:
+    if action.action_id == "refresh_news":
+        return _refresh_news_confirmation_html(target_label)
     external_note = _external_fetch_note(action)
     material_items = "".join(
         f"<li>{html.escape(item)}</li>" for item in materials if str(item).strip()
@@ -34,6 +36,24 @@ def assistant_action_confirmation_html(
         "<li>broker連携や注文操作は行いません。</li>"
         "</ul>"
         "</div>"
+        "</section>"
+    )
+
+
+def _refresh_news_confirmation_html(target_label: str) -> str:
+    return (
+        '<section class="smai-copilot-action-confirm">'
+        '<span class="smai-copilot-tool-plan-title">実行前確認</span>'
+        "<h4>投資レーダーのニュースを更新します</h4>"
+        f"<p>対象: {html.escape(target_label or '投資レーダー')}</p>"
+        "<div><strong>実行内容</strong><ul>"
+        "<li>外部ニュースを取得し、重複を除いて投資レーダーへ保存します。</li>"
+        "<li>更新には少し時間がかかる場合があります。</li>"
+        "</ul></div>"
+        "<div><strong>変えないもの</strong><ul>"
+        "<li>ランキング・スコア・予測値は変更しません。</li>"
+        "<li>broker連携や注文操作は行いません。</li>"
+        "</ul></div>"
         "</section>"
     )
 

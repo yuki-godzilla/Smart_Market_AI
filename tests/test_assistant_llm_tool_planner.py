@@ -139,6 +139,27 @@ def test_external_fetch_without_confirmation_falls_back():
     assert "requires confirmation" in " ".join(states.metadata.errors)
 
 
+def test_confirmed_refresh_news_plan_is_adopted():
+    context = build_assistant_context(
+        current_page="news",
+        user_question="投資レーダーのニュースを更新して",
+        material_state={"news_status": "missing"},
+    )
+    client = MockAssistantGatewayClient(
+        planner_response=_planner_payload(
+            action_id="refresh_news",
+            requires_confirmation=True,
+            overall_summary="確認後にニュースを更新します。",
+        )
+    )
+
+    states = build_assistant_planner_states(context, client=client, enabled=True)
+
+    assert states.metadata.planner_source == "llm"
+    assert states.tool_plan.steps[0].action_id == "refresh_news"
+    assert states.tool_plan.steps[0].requires_confirmation is True
+
+
 def test_unsafe_planner_wording_falls_back():
     context = _context()
     client = MockAssistantGatewayClient(

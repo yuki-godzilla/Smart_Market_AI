@@ -334,7 +334,135 @@ def test_update_research_without_fetcher_is_not_available():
     assert result.error_code == "research_fetcher_unavailable"
 
 
-def test_other_followup_actions_are_not_executed_in_phase_30c_mvp():
+def test_refresh_news_requires_confirmation_before_refresher_runs():
+    calls: list[dict[str, object]] = []
+
+    def fake_refresher(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"refreshed": True, "snapshot": {"stream_headlines": []}}
+
+    result = AssistantActionExecutor(news_refresher=fake_refresher).execute(
+        "refresh_news",
+        _assistant_context(),
+        confirmed=False,
+    )
+
+    assert result.status == "skipped"
+    assert result.error_code == "confirmation_required"
+    assert calls == []
+
+
+def test_refresh_news_success_returns_only_bounded_snapshot_summary():
+    calls: list[dict[str, object]] = []
+
+    def fake_refresher(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {
+            "refreshed": True,
+            "skipped": False,
+            "used_fallback_cache": False,
+            "message": "raw provider request_id=secret",
+            "snapshot": {
+                "generated_at": "2026-09-08T01:30:00+00:00",
+                "fetched_at": "2026-09-08T01:29:00+00:00",
+                "stream_headlines": [{"title": "raw headline"}],
+                "category_lanes": [
+                    {"category": "半導体", "headlines": [{"title": "raw category body"}]}
+                ],
+                "heatmap_cells": [{"category": "半導体"}],
+            },
+        }
+
+    context = _assistant_context()
+    result = AssistantActionExecutor(news_refresher=fake_refresher).execute(
+        "refresh_news",
+        context,
+        confirmed=True,
+    )
+
+    assert result.status == "success"
+    assert result.details == {
+        "item_count": 2,
+        "category_count": 1,
+        "heatmap_count": 1,
+        "generated_at": "2026-09-08T01:30:00+00:00",
+        "fetched_at": "2026-09-08T01:29:00+00:00",
+    }
+    assert "open_news_radar" in result.followup_actions
+    dumped = json.dumps(result.model_dump(mode="json"), ensure_ascii=False)
+    assert "raw headline" not in dumped
+    assert "request_id=secret" not in dumped
+    assert calls == [
+        {
+            "allow_network": True,
+            "force": True,
+            "context": {
+                "current_page": "cockpit",
+                "user_question": "確認レポートを作って",
+                "action_id": "refresh_news",
+            },
+        }
+    ]
+
+    audit = build_assistant_action_audit_entry(
+        result=result,
+        action=get_assistant_action("refresh_news"),
+        context=context,
+        confirmed=True,
+    )
+    assert audit.action_type == "data_fetch"
+    assert audit.status == "success"
+
+
+def test_refresh_news_failure_uses_previous_snapshot_as_partial_success():
+    def fake_refresher(**_kwargs: object) -> dict[str, object]:
+        return {
+            "refreshed": False,
+            "skipped": False,
+            "used_fallback_cache": True,
+            "snapshot": {
+                "stream_headlines": [{"title": "cached"}],
+                "category_lanes": [],
+                "heatmap_cells": [],
+            },
+        }
+
+    result = AssistantActionExecutor(news_refresher=fake_refresher).execute(
+        "refresh_news",
+        _assistant_context(),
+        confirmed=True,
+    )
+
+    assert result.status == "partial_success"
+    assert result.details["item_count"] == 1
+    assert result.details["used_fallback_cache"] is True
+    assert "前回保存データ" in result.summary
+    assert "retry_refresh_news" in result.followup_actions
+
+
+def test_refresh_news_failure_without_cache_is_reported_as_failed():
+    def fake_refresher(**_kwargs: object) -> dict[str, object]:
+        return {
+            "refreshed": False,
+            "skipped": False,
+            "used_fallback_cache": False,
+            "snapshot": None,
+            "message": "token=secret",
+        }
+
+    result = AssistantActionExecutor(news_refresher=fake_refresher).execute(
+        "refresh_news",
+        _assistant_context(),
+        confirmed=True,
+    )
+
+    assert result.status == "failed"
+    assert result.error_code == "news_refresh_failed"
+    assert "時間をおいて" in result.user_message
+    assert "token=secret" not in json.dumps(result.model_dump(mode="json"), ensure_ascii=False)
+
+
+def test_refresh_news_without_refresher_is_not_available():
     result = AssistantActionExecutor().execute(
         "refresh_news",
         _assistant_context(),
@@ -342,5 +470,15 @@ def test_other_followup_actions_are_not_executed_in_phase_30c_mvp():
     )
 
     assert result.status == "not_available"
+    assert result.error_code == "news_refresher_unavailable"
+
+
+def test_create_ranking_remains_unconnected_in_phase_30c():
+    result = AssistantActionExecutor().execute(
+        "create_ranking",
+        _assistant_context(),
+        confirmed=True,
+    )
+
+    assert result.status == "not_available"
     assert result.error_code == "not_implemented"
-    assert "後続接続" in result.summary

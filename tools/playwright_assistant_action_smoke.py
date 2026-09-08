@@ -6,7 +6,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page, ViewportSize, sync_playwright
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -32,6 +32,11 @@ from ui.views.copilot import (  # noqa: E402
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs/work/playwright_assistant_action_smoke"
 HTML_PATH = "assistant_action_states.html"
 SCREENSHOT_PATH = "assistant_action_states.png"
+RESPONSIVE_VIEWPORTS: dict[str, ViewportSize] = {
+    "desktop": {"width": 1440, "height": 900},
+    "ipad": {"width": 820, "height": 1180},
+    "iphone": {"width": 390, "height": 844},
+}
 
 FORBIDDEN_COPY = (
     "買うべきです",
@@ -70,11 +75,13 @@ def main() -> None:
         page.goto(html_path.as_uri())
         _assert_static_component_states(page)
         page.screenshot(path=str(screenshot_path), full_page=True)
+        responsive_screenshots = _assert_responsive_component_states(page, output_dir)
         _assert_no_browser_errors(browser_errors)
         results["static_component_smoke"] = {
             "status": "ok",
             "html": str(html_path),
             "screenshot": str(screenshot_path),
+            "responsive_screenshots": responsive_screenshots,
         }
 
         if args.app_url:
@@ -200,6 +207,14 @@ def _static_body() -> str:
                 ),
             ),
             _section(
+                "Confirmation: refresh_news",
+                assistant_action_confirmation_html(
+                    action=_action("refresh_news"),
+                    target_label="投資レーダー",
+                    materials=(),
+                ),
+            ),
+            _section(
                 "Action Results: create_decision_report",
                 "\n".join(
                     [
@@ -216,6 +231,16 @@ def _static_body() -> str:
                         assistant_action_result_card_html(_research_success()),
                         assistant_action_result_card_html(_research_partial()),
                         assistant_action_result_card_html(_research_failure()),
+                    ]
+                ),
+            ),
+            _section(
+                "Action Results: refresh_news",
+                "\n".join(
+                    [
+                        assistant_action_result_card_html(_news_success()),
+                        assistant_action_result_card_html(_news_fallback()),
+                        assistant_action_result_card_html(_news_failure()),
                     ]
                 ),
             ),
@@ -356,6 +381,16 @@ def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("確認レポートを作る").first.wait_for()
     page.get_by_text("AI調査をもう一度更新する").first.wait_for()
     page.get_by_text("今ある材料で確認する").first.wait_for()
+    page.get_by_text("投資レーダーのニュースを更新します").wait_for()
+    page.get_by_text("外部ニュースを取得し、重複を除いて投資レーダーへ保存します").wait_for()
+    page.get_by_text("ニュースを更新しました").wait_for()
+    page.get_by_text("前回のニュースを表示します").wait_for()
+    page.get_by_text("ニュースを更新できませんでした").wait_for()
+    page.get_by_text("ニュース: 18件").first.wait_for()
+    page.get_by_text("カテゴリ: 4件").first.wait_for()
+    page.get_by_text("更新時刻: 2026-09-08 10:30 JST").first.wait_for()
+    page.get_by_text("投資レーダーを開く").first.wait_for()
+    page.get_by_text("ニュースをもう一度更新する").first.wait_for()
 
     body = page.locator("body").inner_text()
     for phrase in FORBIDDEN_COPY:
@@ -363,6 +398,30 @@ def _assert_static_component_states(page: Page) -> None:
     for marker in RAW_DETAIL_MARKERS:
         assert marker not in body, f"raw/debug detail leaked: {marker}"
     assert "unknown_action" not in body
+
+
+def _assert_responsive_component_states(page: Page, output_dir: Path) -> dict[str, str]:
+    screenshots: dict[str, str] = {}
+    for name, viewport in RESPONSIVE_VIEWPORTS.items():
+        page.set_viewport_size(viewport)
+        page.locator("body").wait_for()
+        overflow = page.evaluate(
+            "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        )
+        assert overflow <= 1, f"horizontal overflow at {name}: {overflow}px"
+        screenshot = output_dir / f"assistant_action_states_{name}.png"
+        page.screenshot(path=str(screenshot), full_page=True)
+        screenshots[name] = str(screenshot)
+        for section_name, heading in (
+            ("news_confirmation", "Confirmation: refresh_news"),
+            ("news_results", "Action Results: refresh_news"),
+        ):
+            section = page.get_by_role("heading", name=heading, exact=True).locator("..")
+            section.wait_for()
+            section_screenshot = output_dir / f"assistant_{section_name}_{name}.png"
+            section.screenshot(path=str(section_screenshot))
+            screenshots[f"{name}_{section_name}"] = str(section_screenshot)
+    return screenshots
 
 
 def _assert_streamlit_app_states(page: Page, base_url: str) -> None:
@@ -556,6 +615,55 @@ def _research_failure() -> AssistantActionResult:
     )
 
 
+def _news_success() -> AssistantActionResult:
+    return AssistantActionResult(
+        action_id="refresh_news",
+        status="success",
+        title="ニュースを更新しました",
+        summary="投資レーダーへニュースを18件反映しました。",
+        user_message="投資レーダーで確認できます。ランキング・スコアは変更していません。",
+        details={
+            "item_count": 18,
+            "category_count": 4,
+            "fetched_at": "2026-09-08T01:30:00+00:00",
+        },
+        completed_at=_now(),
+        followup_actions=["open_news_radar"],
+    )
+
+
+def _news_fallback() -> AssistantActionResult:
+    return AssistantActionResult(
+        action_id="refresh_news",
+        status="partial_success",
+        title="前回のニュースを表示します",
+        summary="最新ニュースを取得できなかったため、前回保存データを利用します。",
+        user_message="投資レーダーで保存済みニュース18件を確認できます。",
+        details={
+            "item_count": 18,
+            "category_count": 4,
+            "fetched_at": "2026-09-08T01:30:00+00:00",
+        },
+        warnings=["表示内容は最新でない可能性があります。"],
+        completed_at=_now(),
+        followup_actions=["open_news_radar", "retry_refresh_news"],
+    )
+
+
+def _news_failure() -> AssistantActionResult:
+    return AssistantActionResult(
+        action_id="refresh_news",
+        status="failed",
+        title="ニュースを更新できませんでした",
+        summary="最新ニュースを取得できず、表示できる前回データもありません。",
+        user_message="時間をおいてもう一度更新してください。",
+        error_code="news_refresh_failed",
+        completed_at=_now(),
+        requires_followup=True,
+        followup_actions=["retry_refresh_news"],
+    )
+
+
 def _section(title: str, body: str) -> str:
     return f'<section class="smoke-section"><h2>{title}</h2>{body}</section>'
 
@@ -611,7 +719,9 @@ def _html_document(body: str) -> str:
       color: #7dd3fc;
     }}
     input {{
-      min-width: 420px;
+      box-sizing: border-box;
+      min-width: 0;
+      width: min(100%, 420px);
       padding: 10px;
       border-radius: 6px;
       border: 1px solid #3d5874;

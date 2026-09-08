@@ -44,7 +44,7 @@ from backend.core.config import Settings, get_settings
 from backend.core.data_contracts import StrictBaseModel
 
 PlannerSource = Literal["disabled", "llm", "fallback"]
-_UNSUPPORTED_LLM_ACTION_IDS = {"create_ranking", "refresh_news"}
+_UNSUPPORTED_LLM_ACTION_IDS = {"create_ranking"}
 _REDACTED_MATERIAL_KEYS = (
     "provider_raw",
     "raw_payload",

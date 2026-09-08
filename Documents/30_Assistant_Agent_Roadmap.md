@@ -38,7 +38,7 @@ Status: first MVP implemented. Navigation actions render same-app links using `s
 - ニュース更新
 - ランキング作成
 
-Status: MVP implemented for `create_decision_report` and `update_research`. SMAIアシスタント now shows a confirmation panel before report creation or AI調査更新, executes only after user confirmation, displays success / partial_success / failure / cancelled result cards in the chat thread, and records minimal audit metadata in session state. 確認対象はturn / context / workflow stepに紐付け、新しい相談または対象変更が入った古い確認は実行せず取消結果として残す。親側の実行層もpayload、現在context、Decision Report材料の銘柄不一致を拒否する。`update_research` uses the existing session-local external Research fetch path after confirmation and returns only safe summary fields such as fetched count, source counts, warnings, and failed / timed-out sources. Ranking creation, score changes, forecast changes, broker actions, raw provider responses, and source body display remain out of scope. `refresh_news` and `create_ranking` remain follow-up actions.
+Status: MVP implemented for `create_decision_report`, `update_research`, and `refresh_news`. SMAIアシスタント shows an action-specific confirmation panel and executes only after user confirmation. `refresh_news` reuses the existing bounded News refresh/cache path, displays loading state and success / previous-cache fallback / failure separately, and keeps only item count, category count, and update time in the Assistant result. `update_research` continues to return only safe source summaries. Confirmation targets remain bound to turn / context / workflow step, and stale confirmations are cancelled. Ranking creation, score changes, forecast changes, broker actions, raw provider responses, and source body display remain out of scope. `create_ranking` remains a follow-up action.
 
 ## Phase 30-D: Multi-step Guided Workflow
 
@@ -57,7 +57,7 @@ Status: MVP implemented with deterministic guided workflows. SMAIアシスタン
 - deterministic fallback
 - Plan quality evaluation
 
-Status: MVP implemented as an optional, disabled-by-default planner. Parent SMAI can build an `assistant_tool_plan` request with redacted material state and allowed actions, call `smai-ai-gateway` `/api/v1/assistant/tool-plan`, validate schema / action allowlist / confirmation requirements / unsafe wording, and adopt only valid LLM plans into the existing `次にできること` or `確認フロー` UI. Invalid, unavailable, timeout, malformed, unsafe, unknown-action, `create_ranking` / `refresh_news`, or unconfirmed external-fetch plans are hidden and deterministic Tool Plan / Guided Workflow fallback is used. The Gateway remains generic and imports no SMAI modules; it proposes JSON only and never executes actions.
+Status: MVP implemented as an optional, disabled-by-default planner. Parent SMAI can build an `assistant_tool_plan` request with redacted material state and allowed actions, call `smai-ai-gateway` `/api/v1/assistant/tool-plan`, validate schema / action allowlist / confirmation requirements / unsafe wording, and adopt only valid LLM plans into the existing `次にできること` or `確認フロー` UI. Confirmed `refresh_news` proposals are allowed; invalid, unavailable, timeout, malformed, unsafe, unknown-action, `create_ranking`, or unconfirmed external-fetch plans are hidden and deterministic Tool Plan / Guided Workflow fallback is used. The Gateway remains generic and imports no SMAI modules; it proposes JSON only and never executes actions.
 
 ## Phase 30-F: Agent Evaluation Harness
 

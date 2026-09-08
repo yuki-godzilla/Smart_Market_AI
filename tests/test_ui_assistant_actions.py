@@ -13,8 +13,10 @@ from ui.components.assistant_action_confirm import assistant_action_confirmation
 from ui.components.assistant_action_result import assistant_action_result_card_html
 from ui.views.copilot import (
     _apply_workflow_session_control,
+    _assistant_action_confirm_label,
     _assistant_action_confirmation_target,
     _assistant_action_confirmation_target_matches,
+    _assistant_action_execute_label,
     _first_confirmable_action_id,
     _latest_confirmable_assistant_action_turn,
     _workflow_session_control_options,
@@ -53,6 +55,26 @@ def test_confirmation_html_warns_for_external_fetch_actions():
     assert "取得には少し時間がかかる場合" in markup
     assert "一部だけ取得できることもあります" in markup
     assert "この操作だけでは、スコアや予測値は変更されません" in markup
+
+
+def test_refresh_news_confirmation_is_short_and_explicit():
+    action = get_assistant_action("refresh_news")
+    assert action is not None
+
+    markup = assistant_action_confirmation_html(
+        action=action,
+        target_label="投資レーダー",
+        materials=("価格: あり", "AI予測: あり"),
+    )
+
+    assert "投資レーダーのニュースを更新します" in markup
+    assert "外部ニュースを取得し、重複を除いて投資レーダーへ保存します" in markup
+    assert "更新には少し時間がかかる場合があります" in markup
+    assert "ランキング・スコア・予測値は変更しません" in markup
+    assert "使用する材料" not in markup
+    assert "価格: あり" not in markup
+    assert _assistant_action_confirm_label("refresh_news") == "ニュースを更新する前に確認"
+    assert _assistant_action_execute_label("refresh_news") == "ニュースを更新"
 
 
 def test_action_result_card_distinguishes_success_and_followups():
@@ -111,6 +133,31 @@ def test_action_result_card_renders_update_research_partial_followups():
     assert "AI調査をもう一度更新する" in markup
 
 
+def test_action_result_card_renders_refresh_news_summary_in_jst():
+    result = AssistantActionResult(
+        action_id="refresh_news",
+        status="success",
+        title="ニュースを更新しました",
+        summary="投資レーダーへニュースを12件反映しました。",
+        user_message="投資レーダーで確認できます。",
+        details={
+            "item_count": 12,
+            "category_count": 4,
+            "fetched_at": "2026-09-08T01:30:00+00:00",
+        },
+        completed_at=datetime(2026, 9, 8, 1, 31, tzinfo=UTC),
+        followup_actions=["open_news_radar", "retry_refresh_news"],
+    )
+
+    markup = assistant_action_result_card_html(result)
+
+    assert "ニュース: 12件" in markup
+    assert "カテゴリ: 4件" in markup
+    assert "更新時刻: 2026-09-08 10:30 JST" in markup
+    assert "投資レーダーを開く" in markup
+    assert "ニュースをもう一度更新する" in markup
+
+
 def test_first_confirmable_action_prefers_update_research_when_planned_first():
     turn = {
         "assistant_tool_plan": json.dumps(
@@ -128,6 +175,21 @@ def test_first_confirmable_action_prefers_update_research_when_planned_first():
     }
 
     assert _first_confirmable_action_id(turn) == "update_research"
+
+
+def test_first_confirmable_action_accepts_refresh_news():
+    turn = {
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {"action_id": "refresh_news", "requires_confirmation": True},
+                ]
+            },
+            ensure_ascii=False,
+        )
+    }
+
+    assert _first_confirmable_action_id(turn) == "refresh_news"
 
 
 def test_first_confirmable_action_skips_already_recorded_action_result():

@@ -244,6 +244,7 @@ def assistant_actions_for_page(current_page: str) -> tuple[AssistantActionSpec, 
             "open_ranking",
             "open_cockpit",
             "open_news_radar",
+            "refresh_news",
             "summarize_next_checks",
         ),
     }

@@ -46,7 +46,7 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 
 - action を実行しない。
 - 外部取得、レポート作成、state change は `requires_confirmation=true` にする。
-- `create_ranking` / `refresh_news` を ready 実行のように扱わない。
+- `create_ranking` を ready 実行のように扱わない。`refresh_news` は available actions に含まれ、`requires_confirmation=true` の場合だけ提案できる。
 - 買う / 売る / 保有する、利益保証、broker / order / execution などの文言を出さない。
 - スコア、ランキング順位、Forecast値、AI総合、Investment Score、Research Score、Decision Report本文を変更しない。
 - Gateway は plan案を返すだけで、親SMAI側が schema / allowlist / safety validation と deterministic fallback を行う。

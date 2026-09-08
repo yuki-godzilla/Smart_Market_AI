@@ -102,7 +102,7 @@ def validate_assistant_tool_plan(
             errors.append(f"disabled action cannot be ready: {step.action_id}")
         if not action.enabled and not step.disabled_reason:
             warnings.append(f"disabled action has no disabled_reason: {step.action_id}")
-        if step.action_id in {"create_ranking", "refresh_news"} and step.status == "ready":
+        if step.action_id == "create_ranking" and step.status == "ready":
             errors.append(f"{step.action_id} is not connected for ready execution")
 
     return AssistantPlanValidationResult(valid=not errors, errors=errors, warnings=warnings)
@@ -158,11 +158,6 @@ def validate_assistant_guided_workflow(
             "waiting_confirmation",
         }:
             errors.append("create_ranking is not connected for guided workflow")
-        if step.action_id == "refresh_news" and step.status in {
-            "ready",
-            "waiting_confirmation",
-        }:
-            errors.append("refresh_news is not connected for guided workflow")
         if not action.enabled and step.status == "ready":
             errors.append(f"disabled workflow action cannot be ready: {step.action_id}")
         if not action.enabled and not step.disabled_reason:

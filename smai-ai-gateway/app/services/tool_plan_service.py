@@ -19,7 +19,7 @@ from app.schemas.tool_plan import (
 from app.services.model_router import resolve_model_route
 from app.services.prompt_service import PromptService
 
-_UNSUPPORTED_LLM_ACTION_IDS = {"create_ranking", "refresh_news"}
+_UNSUPPORTED_LLM_ACTION_IDS = {"create_ranking"}
 _BANNED_TERMS = (
     "買うべき",
     "売るべき",

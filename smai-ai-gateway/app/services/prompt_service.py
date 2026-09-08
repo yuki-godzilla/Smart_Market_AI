@@ -134,7 +134,7 @@ def _tool_plan_user_prompt(request: ToolPlannerRequest) -> str:
         "Rules:\n"
         "- action_id must be null or one of the available action_id values.\n"
         "- requires_confirmation must be true for external fetch, report, or state change actions.\n"
-        "- Do not include create_ranking or refresh_news as ready-to-execute work.\n"
+        "- Do not include create_ranking as ready-to-execute work.\n"
         "- Do not include Markdown fences or extra fields."
     )
 

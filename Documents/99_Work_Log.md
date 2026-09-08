@@ -1,5 +1,14 @@
 # 99_Work_Log
 
+## 2026-09-08 Assistant News Refresh Usability Sprint
+
+- `refresh_news`をSMAIアシスタントの確認付き安全操作へ接続した。確認前は外部通信せず、確認後だけ既存News refresh/cache経路をforce実行する。成功、前回保存データ利用、失敗を分け、Assistant履歴には件数、カテゴリ数、JST更新時刻だけを残す。
+- 確認カードをニュース更新専用の`実行内容` / `変えないもの`へ簡略化し、`最新ニュースを更新中`、`ニュースを更新`、`投資レーダーを開く`の語彙を統一した。ランキング・スコア・予測値、broker、ニュース本文、Provider生応答は変更・保存しない。
+- deterministic / optional LLM Plannerの双方で、明示的なニュース更新依頼と`requires_confirmation=true`を満たす`refresh_news`だけを許可した。`create_ranking`は引き続き未接続である。
+- usability評価を実装途中と仕上げ時に挟み、成功・保存データ利用・全失敗の結果カードをPC / iPad / iPhone幅で比較した。全失敗時に「前回データなし」と「保存データを確認」が同居していた矛盾を解消し、横スクロールなし、文言の可読性、主要操作の視認性を実Streamlit responsive smokeでも確認した。
+- News実行判定、共通action safety validation、UIのNews refresh接続を専用moduleへ分離した。architecture baselineは312 modules / 933 edges / backend→UI 0 / cycle 0で成功し、既存の大規模module上限を拡張していない。
+- 全local checksは2,592件成功・16件skip、Ruff、Black 607 files、root Mypy 667 files、Gateway Mypy 38 files、Gateway test 83件成功・1件skipに成功した。通知scheduler testが実workspaceのNews cacheと実行順に依存していた潜在的不安定性も、専用空cacheと対象log検索へ修正した。既存Altair非推奨warning 1件のみ継続し、live News Provider取得は通常検証から分離して未実行である。
+
 ## 2026-09-08 Frontend Usability F2
 
 - Ranking、Cockpit、Rebalance、確認レポートの通常表示を、分かりやすさ・短さ・視認性・統一性優先で整理した。主要語を`ランキング基準`、`注目銘柄`、`選択銘柄のスコア内訳`、`根拠資料`、`総合評価`、`AIメモ`、`売買案`、`確認レポート`へ統一し、重複する非推奨説明を減らした。

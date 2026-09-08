@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import html
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, cast
+
+from zoneinfo import ZoneInfo
 
 from backend.assistant import AssistantActionResult
 
@@ -57,6 +60,8 @@ def assistant_action_result_card_html(result: AssistantActionResult | Mapping[st
 
 
 def _details_summary_html(value: AssistantActionResult) -> str:
+    if value.action_id == "refresh_news":
+        return _news_details_summary_html(value.details)
     if value.action_id != "update_research":
         return ""
     details = value.details
@@ -83,6 +88,25 @@ def _details_summary_html(value: AssistantActionResult) -> str:
         return ""
     item_markup = "".join(f"<li>{html.escape(item)}</li>" for item in items)
     return f"<div><strong>取得サマリ</strong><ul>{item_markup}</ul></div>"
+
+
+def _news_details_summary_html(details: Mapping[str, object]) -> str:
+    items: list[str] = []
+    item_count = _int_detail(details.get("item_count"))
+    if item_count is not None:
+        items.append(f"ニュース: {item_count}件")
+    category_count = _int_detail(details.get("category_count"))
+    if category_count is not None:
+        items.append(f"カテゴリ: {category_count}件")
+    updated_at = _datetime_detail(details.get("fetched_at")) or _datetime_detail(
+        details.get("generated_at")
+    )
+    if updated_at:
+        items.append(f"更新時刻: {updated_at}")
+    if not items:
+        return ""
+    item_markup = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return f"<div><strong>更新サマリ</strong><ul>{item_markup}</ul></div>"
 
 
 def _source_counts_label(value: object) -> str:
@@ -113,6 +137,19 @@ def _int_detail(value: object) -> int | None:
         return None
 
 
+def _datetime_detail(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if parsed.tzinfo is None:
+        return parsed.strftime("%Y-%m-%d %H:%M")
+    return parsed.astimezone(ZoneInfo("Asia/Tokyo")).strftime("%Y-%m-%d %H:%M JST")
+
+
 def _followup_label(action_id: str) -> str:
     labels = {
         "download_decision_report": "レポートを見る / 保存する",
@@ -121,6 +158,8 @@ def _followup_label(action_id: str) -> str:
         "open_cockpit": "銘柄コックピットで銘柄を選ぶ",
         "fetch_symbol_data": "データを取得する",
         "retry_update_research": "AI調査をもう一度更新する",
+        "open_news_radar": "投資レーダーを開く",
+        "retry_refresh_news": "ニュースをもう一度更新する",
         "answer_with_existing_materials": "今ある材料で確認する",
         "summarize_next_checks": "次の確認を整理する",
     }

@@ -48,6 +48,8 @@ def safe_action_error_message(error_code: str | None) -> str:
         "insufficient_materials": "価格やAI予測など、確認レポートに必要な材料が不足しています。",
         "report_builder_unavailable": "確認レポート作成に必要な部品を利用できませんでした。",
         "research_fetcher_unavailable": "AI調査を更新する準備ができていません。",
+        "news_refresher_unavailable": "ニュースを更新する準備ができていません。",
+        "news_refresh_failed": "最新ニュースを取得できませんでした。時間をおいてもう一度更新してください。",
         "external_fetch_failed": "最新情報を確認できませんでした。取得済み材料で確認してください。",
         "provider_timeout": "一部の取得元で時間切れになりました。取得済み材料で確認してください。",
         "no_external_research_found": "新しい根拠資料は見つかりませんでした。取得済み材料で確認してください。",

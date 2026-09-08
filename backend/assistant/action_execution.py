@@ -6,8 +6,10 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any
 
+from backend.assistant.action_execution_validation import validate_action_for_execution
 from backend.assistant.action_result import AssistantActionResult, safe_action_error_message
 from backend.assistant.context_builder import SMAIAssistantContext
+from backend.assistant.news_action_execution import execute_news_refresh
 from backend.assistant.tool_registry import AssistantActionSpec, get_assistant_action
 from backend.assistant.tools import AssistantToolLayer, AssistantToolResult
 from backend.reporting import DecisionReportContext, render_decision_report_markdown
@@ -21,9 +23,11 @@ class AssistantActionExecutor:
         *,
         tool_layer: AssistantToolLayer | None = None,
         research_fetcher: Callable[..., Any] | None = None,
+        news_refresher: Callable[..., Any] | None = None,
     ) -> None:
         self._tool_layer = tool_layer or AssistantToolLayer()
         self._research_fetcher = research_fetcher
+        self._news_refresher = news_refresher
 
     def execute(
         self,
@@ -44,7 +48,7 @@ class AssistantActionExecutor:
                 error_code="unknown_action",
                 started_at=started_at,
             )
-        validation = _validate_action_for_execution(
+        validation = validate_action_for_execution(
             action=action,
             confirmed=confirmed,
             started_at=started_at,
@@ -64,6 +68,13 @@ class AssistantActionExecutor:
                     action=action,
                     context=context,
                     payload=payload or {},
+                    started_at=started_at,
+                )
+            if action.action_id == "refresh_news":
+                return execute_news_refresh(
+                    action=action,
+                    context=context,
+                    news_refresher=self._news_refresher,
                     started_at=started_at,
                 )
             return _result(
@@ -483,55 +494,6 @@ def _research_related_keywords(
         symbol,
     ]
     return _dedupe_strings([item for item in candidates if item])[:4]
-
-
-def _validate_action_for_execution(
-    *,
-    action: AssistantActionSpec,
-    confirmed: bool,
-    started_at: datetime,
-) -> AssistantActionResult | None:
-    if action.is_destructive:
-        return _result(
-            action_id=action.action_id,
-            status="not_available",
-            title="この操作は実行できません",
-            summary="安全境界を超える操作はSMAIアシスタントから実行できません。",
-            error_code="destructive_action",
-            started_at=started_at,
-        )
-    if not action.enabled:
-        return _result(
-            action_id=action.action_id,
-            status="not_available",
-            title="この操作は現在利用できません",
-            summary=action.disabled_reason or "現在の画面では利用できない操作です。",
-            error_code="disabled_action",
-            started_at=started_at,
-        )
-    if action.requires_confirmation and not confirmed:
-        return _result(
-            action_id=action.action_id,
-            status="skipped",
-            title="実行前確認が必要です",
-            summary="ユーザー確認がないため、操作は実行していません。",
-            error_code="confirmation_required",
-            started_at=started_at,
-            requires_followup=True,
-            followup_actions=["summarize_next_checks"],
-        )
-    if action.is_external_fetch and not confirmed:
-        return _result(
-            action_id=action.action_id,
-            status="skipped",
-            title="外部取得の確認が必要です",
-            summary="外部取得はユーザー確認後にだけ実行します。",
-            error_code="confirmation_required",
-            started_at=started_at,
-            requires_followup=True,
-            followup_actions=["summarize_next_checks"],
-        )
-    return None
 
 
 def _report_tool_results(

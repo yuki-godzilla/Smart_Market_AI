@@ -326,7 +326,11 @@ def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> 
             favorite_news_interval_minutes=17,
         )
     )
-    source = CachedNotificationDataSource(profile_root=profile_root, now_provider=lambda: now)
+    source = CachedNotificationDataSource(
+        profile_root=profile_root,
+        news_cache_dir=tmp_path / "news-cache",
+        now_provider=lambda: now,
+    )
     scheduler = NotificationScheduler(
         schedules,
         CatalogNotificationProducer(history, settings),
@@ -336,7 +340,10 @@ def test_scheduler_dedupes_identical_fresh_marketdata_measurements(tmp_path) -> 
     assert scheduler.run_due(["yuki"], now=now) == 1
     assert scheduler.run_due(["yuki"], now=now.replace(minute=15)) == 0
     assert len(history.list("yuki")) == 1
-    assert schedules.logs("yuki")[0].reason == "disabled_or_duplicate"
+    assert any(
+        log.job_id == "favorite_move" and log.reason == "disabled_or_duplicate"
+        for log in schedules.logs("yuki")
+    )
 
     updated_at = now.replace(minute=30)
     snapshots_path.write_text(

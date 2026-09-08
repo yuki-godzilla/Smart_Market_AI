@@ -106,6 +106,30 @@ def test_ready_create_ranking_is_rejected_until_connected():
     assert "create_ranking is not connected for ready execution" in result.errors
 
 
+def test_ready_refresh_news_is_allowed_only_with_confirmation():
+    plan = AssistantToolPlan(
+        user_intent="ニュースを更新",
+        current_page="news",
+        overall_summary="投資レーダーのニュースを更新します。",
+        steps=[
+            AssistantToolPlanStep(
+                step_id="s1",
+                title="ニュースを更新",
+                summary="外部ニュースを取得して整理します。",
+                action_id="refresh_news",
+                reason="最新の確認材料が必要なためです。",
+                status="ready",
+                requires_confirmation=True,
+            )
+        ],
+    )
+
+    result = validate_assistant_tool_plan(plan)
+
+    assert result.valid
+    assert result.errors == []
+
+
 def test_execution_like_wording_is_rejected():
     plan = AssistantToolPlan(
         user_intent="注文を出す",

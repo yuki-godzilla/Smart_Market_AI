@@ -78,6 +78,16 @@ def test_profile_gate_then_fixed_user_area_at_responsive_viewports() -> None:
                 page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
                     state="visible", timeout=60_000
                 )
+                if width <= 767:
+                    sidebar = page.locator('[data-testid="stSidebar"]')
+                    sidebar_close = page.locator('[data-testid="stSidebarCollapseButton"] button')
+                    if (
+                        sidebar.get_attribute("aria-expanded") == "true"
+                        and sidebar_close.count()
+                        and sidebar_close.is_visible()
+                    ):
+                        sidebar_close.click()
+                        page.wait_for_timeout(400)
                 user_area = page.locator("button.smai-user-trigger")
                 user_area.wait_for(state="visible", timeout=30_000)
                 assert page.locator(".smai-user-avatar").count() == 1

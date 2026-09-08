@@ -50,6 +50,10 @@ Playwright は任意のスモーク用途です。通常起動・CI・ローカ�
 
 Streamlit が起動済みの状態で、PowerShell から次を実行します。
 
+WindowsのJunction経由で`streamlit run`を直接起動すると、Streamlitのstatic directory境界判定により
+画像が404になる場合があります。通常は既存launcherを使い、手動の隔離確認では`Path.resolve()`後の
+project実パスをworking directoryにして起動してください。
+
 ```powershell
 $env:SMAI_RUN_RESPONSIVE_SMOKE = "1"
 .\venv_SMAI\Scripts\python.exe -m pytest tests/ui/test_responsive_cockpit_smoke.py tests/ui/test_responsive_ranking_smoke.py tests/ui/test_responsive_my_radar_smoke.py tests/ui/test_responsive_investment_radar_smoke.py tests/ui/test_responsive_assistant_smoke.py tests/ui/test_responsive_rebalance_settings_smoke.py -q

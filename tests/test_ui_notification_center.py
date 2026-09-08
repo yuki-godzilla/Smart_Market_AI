@@ -20,6 +20,15 @@ def test_user_area_is_fixed_responsive_and_not_in_side_menu() -> None:
         'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger'
         in html
     )
+    tablet_media, mobile_media = html.split("@media (max-width: 767px)", 1)
+    assert (
+        'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger'
+        not in tablet_media.split("@media (max-width: 1024px)", 1)[1]
+    )
+    assert (
+        'body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger'
+        in mobile_media
+    )
     assert "visibility: hidden !important; pointer-events: none !important;" in html
     assert '"top", "8.4rem", "important"' in html
     assert "positionUserMenu" in html

@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-08-11
+Last updated: 2026-09-08
 
 ## Main Application access / MagicDNS
 
@@ -229,13 +229,12 @@ Phase 36 also has an operational point-in-time material-risk cycle. The material
 
 The backend-to-frontend sprint gate is now executable through `tools/audit_backend_readiness.py`. It checks the required API routes, configured MarketData provider and whole-operation deadline, sealed Forecast integrity/maturity, and point-in-time material/signal integrity without network calls or runtime mutations. The 2026-07-20 local audit is `ready_with_pending_evidence`: zero blockers, 360 sealed predictions pending future targets, 113 valid material records, and zero causally eligible LLM risk signals. Pending evidence is not treated as missing code and does not block the frontend usability sprint; it cannot authorize runtime model adoption.
 
-A staged architecture refactoring track is active before the frontend usability sprint. The initial
-boundary slice removes the only static `backend -> ui` import by injecting the established UI
-ranking policy through a backend-owned port, and a structural regression test prevents that reverse
-dependency from returning. Numerical Forecast, Ranking, Scoring, Risk, API, and export semantics are
-unchanged. Subsequent slices will extract Ranking and Cockpit application flows from `ui/app.py`,
-split Research use cases and large UI views, move CSS to scoped assets, and remove package cycles
-with compatibility façades. See `Documents/46_Large_Scale_Refactoring_Plan.md`.
+The staged R0-R6 architecture refactoring track has completed its initial gates. Ranking and
+Cockpit application boundaries, Research use cases, Copilot / News / CSS view boundaries, package
+API compatibility, reverse-dependency checks, eager-cycle checks, and module/function growth gates
+are now covered by deterministic regression tests. R6 remains a continuing maintenance gate.
+Numerical Forecast, Ranking, Scoring, Risk, API, and export semantics were unchanged by this track.
+See `Documents/46_Large_Scale_Refactoring_Plan.md`.
 
 The first Research split is also complete: deterministic company business, supporting-business,
 product/service, region, and customer classification policies now live outside the aggregate
@@ -533,7 +532,13 @@ The product direction is to help users compare symbols, inspect provider-backed 
 - LLM model selection is owned by `smai-ai-gateway`: SMAI parent sends `task_type`, `execution_mode`, `environment_profile`, and optional `profile` / `model`, while Gateway resolves `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` to provider/model/timeout/token settings and returns response metadata for the UI. Notebook development defaults to `qwen3:1.7b`; the SMAIアシスタント model picker can switch to `qwen3:4b` / `qwen3:8b` / `qwen3:14b` / `qwen3:30b`.
 - SMAI Assistant now treats valid Gateway answers as `response_source=llm` and reserves `response_source=deterministic_fallback` for Gateway/provider/model/timeout/schema/empty-answer failure paths. Assistant turns preserve `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, `profile`, `timeout_sec`, `context_tokens_estimate`, `prompt_chars`, `response_chars`, `tool_execution_ms`, `llm_generation_ms`, `total_elapsed_ms`, conversation mode, and Gateway/provider diagnostic metadata. The UI keeps runtime metadata in a folded `技術情報を表示` block for analysis-style answers, but hides technical fallback metadata for normal chat / identity / capability turns. The header uses a centralized `AssistantRuntimeStatus` model for ready / checking / generating / research planned / research running / degraded / Gateway unavailable / provider unavailable / model missing states, keeps first display neutral as `LLM待機中`, and refreshes from pending events, cached diagnostics, or the latest answer response so success / fallback status stays aligned with the chat. New conversation clears stale runtime status and Gateway diagnostic cache.
 
-Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
+Current focus is the frontend usability follow-up after the backend and R0-R6 readiness gates, not
+feature expansion. F1 revalidated the seven primary screens and three cross-screen journeys with a
+network-free mock Streamlit process at iPhone, iPad, and PC widths. It fixed the iPad user/notification
+entry point being hidden by an off-screen sidebar state and aligned Radar smoke coverage with the
+valid fail-closed market-data-unavailable path. Forecast, Ranking, scores, provider selection, LLM
+fallback, and user persistence remain unchanged. Live providers, external LLM, notification delivery,
+and physical-device Safari/PWA remain separate opt-in checks.
 
 Notification Platform Phase N1-N5-C foundation is implemented as an independent `smai-notification-gateway`, parent client/adapter, versioned SQLite user settings/history, notification center, catalog Producer, and opt-in scheduler. `data/user/notifications.sqlite` is created on first settings access; blank topic input preserves the stored topic, only the dedicated delete action clears it, and the UI never redisplays it in plaintext. HTTPS is allowed, HTTP is limited to loopback, equal quiet-hour endpoints are rejected, and severity is fixed-choice. Real ntfy delivery is reachable only from explicit opt-in paths; normal checks use fake clients/bindings/transports and remain network-free. N6 first slice connects the runner through a read-only, user-scoped adapter to persisted favorites/watchlist snapshots and the already-cached fresh News dashboard. Missing, stale, or irrelevant data is recorded as a skipped run and never falls back to catalog sample data; it does not refresh providers or change scores/rankings. N6 second slice emits a deduped `smai_analysis_complete` only after an explicit Cockpit AI Research refresh returns a report; reruns, page rendering, report downloads, and the default user cannot create it. N6 third slice moves persisted Assistant Report artifacts to `data/user/profiles/<user_id>/decision_reports/` and emits a deduped `smai_report_ready` only after a custom user's explicit saved Markdown / ZIP artifact succeeds; preview, download, rerun, cancel, failed archive, and the default user cannot create it. N6 fourth slice accepts `favorite_move_alert` input only from a custom user's fresh (90 minutes), valid, timestamped Watchlist price measurements and dedupes the exact measurement set. N6 fifth slice makes `favorite_daily_report` skip if it finds no valid price or 1-day-change measurement within 36 hours; otherwise it reports the bounded measured coverage against the user's Favorite count. N6 sixth-A/B slices evaluate each favorite-move measurement against an explicit saved-market regular-session policy and a versioned local calendar: Japan uses `Asia/Tokyo` split sessions plus reviewed JPX holidays, while US equities use `America/New_York`, DST, reviewed NYSE holidays, and the 2026 November 27 / December 24 early closes. Unknown market, unsupported asset type, weekend, closed day, out-of-session, calendar-unavailable, and calendar-coverage-missing measurements become safe skips; neither ticker inference nor local-server time decides eligibility. The scheduler passes one aware evaluation timestamp to the source so dry-run and delivery agree at time boundaries, and lets `favorite_move` reach the market policy even when the server timezone is on a weekend. Future calendar coverage is a reviewed seed update; unlisted dates fail closed. These slices read local snapshots only, neither starts a provider request nor writes a cache, and stale/failed/malformed data becomes a safe skipped run. `--dry-run` evaluates due jobs without notification history, run logs, or delivery. See `Documents/04_Detail_Design/04-10_Onepager_Notification_Platform.md`.
 

@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-09-08 Frontend Usability F1
+
+- backend readiness `ready_with_pending_evidence`とR0〜R6初期完了を前提に、正規実パスからnetwork-free mock Streamlitを起動し、主要7画面、通知／ユーザー領域、3本の画面横断導線を再監査した。
+- iPad幅で画面外sidebarの`aria-expanded=true`により固定ユーザー領域が隠れる問題を修正した。sidebarとの競合回避はスマホ幅だけに限定し、iPadでは通知センター、ユーザー設定、通知設定、ユーザー切替を使える状態にした。
+- Investment Radar smokeを、実価格ヒートマップがある正常分岐と、価格履歴を取得できず明示警告を出すfail-closed分岐の両方に対応させた。ユーザー導線は現行のニュース一覧・確認候補とRanking詳細条件へ同期した。
+- responsive / user-path browser suiteは11件成功、任意チャート1件skip。関連単体／AppTestは56件成功、全local checksは2,580件成功・16件skip、Ruff、Black、対象Mypy、architecture audit（309 modules / 924 edges / backend→UI 0 / cycle 0）も成功した。Forecast、Ranking、Score、Provider、LLM、保存契約は変更していない。実機Safari/PWA、live provider、外部LLM、実通知配送は未実行。
+
 ## 2026-08-03 N6 notification market-calendar sixth-B slice
 
 - `config/notification_market_calendar.v1.json`へ、公式JPX / NYSEカレンダーで確認した2026年の休場日と、米国株11月27日・12月24日の13:00 ET短縮取引をreview済みlocal seedとして追加した。calendar loaderはschema、coverage、ISO日付、HTTPS source、休場日とoverrideの競合、時間帯の順序・重複を検証し、破損・欠損・coverage外は通知をfail-closedにする。

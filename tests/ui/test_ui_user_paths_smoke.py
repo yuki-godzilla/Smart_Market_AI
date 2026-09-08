@@ -125,12 +125,17 @@ def test_path_2_scan_market_then_open_symbol_and_compare_ranking_conditions() ->
             _start_default_user(page)
 
             _navigate(page, "投資レーダー", "投資レーダー")
-            page.get_by_text("ニュース詳細フィルタ", exact=True).click()
-            page.locator('[data-testid="stMultiSelect"]').first.click()
-            page.keyboard.press("Escape")
-            heatmap_tile = page.locator("a.investment-stock-heatmap-tile").first
-            heatmap_tile.wait_for(state="visible", timeout=30_000)
-            heatmap_tile.click()
+            page.get_by_role("tab", name="ニュース一覧", exact=True).click()
+            candidate_expander = page.get_by_text(re.compile(r"^確認候補（補助）・\d+件$"))
+            candidate_expander.wait_for(state="visible", timeout=30_000)
+            candidate_expander.click()
+            candidate_link = page.locator("a.investment-radar-candidate-footer-item").first
+            candidate_link.wait_for(state="visible", timeout=30_000)
+            assert "smai_page=cockpit" in str(candidate_link.get_attribute("href"))
+            with page.expect_popup() as popup_info:
+                candidate_link.click()
+            page = popup_info.value
+            page.wait_for_load_state("networkidle", timeout=120_000)
             page.get_by_role("heading", name="銘柄コックピット", exact=True).wait_for(
                 state="visible", timeout=60_000
             )
@@ -139,7 +144,13 @@ def test_path_2_scan_market_then_open_symbol_and_compare_ranking_conditions() ->
             page.get_by_role("button", name="📚 ランキング履歴", exact=True).click()
             page.get_by_text("ランキング履歴", exact=True).wait_for(state="visible", timeout=30_000)
             page.get_by_role("button", name="← ランキングへ戻る", exact=True).click()
-            page.get_by_role("button", name="国・市場を選ぶ", exact=True).click()
+            page.get_by_text(
+                "詳細条件・キーワードで候補を絞り込む",
+                exact=True,
+            ).click()
+            country_filter_button = page.get_by_role("button", name="国・市場を選ぶ", exact=True)
+            country_filter_button.wait_for(state="visible", timeout=120_000)
+            country_filter_button.click()
             page.get_by_role("dialog").wait_for(state="visible", timeout=30_000)
             page.get_by_role("button", name="キャンセル", exact=True).last.click()
             _assert_healthy_page(page)

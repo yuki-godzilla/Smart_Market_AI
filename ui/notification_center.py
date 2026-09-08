@@ -186,10 +186,10 @@ def trusted_device_bootstrap_html(
           border-radius: 9px; object-fit: cover; vertical-align: middle; }}
         @media (max-width: 1024px) {{ .smai-user-id {{ display: none; }}
           .smai-user-trigger {{ top: .25rem !important; right: 3rem !important; }}
+        }} @media (max-width: 767px) {{
           body:has(section[data-testid="stSidebar"][aria-expanded="true"]) .smai-user-trigger {{
             visibility: hidden !important; pointer-events: none !important;
-          }} }}
-        @media (max-width: 767px) {{ .smai-user-name, .smai-user-id {{ display: none; }}
+          }} .smai-user-name, .smai-user-id {{ display: none; }}
           .smai-user-trigger {{ min-width: 96px; }} .smai-profile-card {{ max-width: 156px; }} }}
       `;
       window.parent.document.head.appendChild(style);

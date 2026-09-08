@@ -310,6 +310,12 @@ confidence / range評価、Provider・Gateway失敗時contract、保存migration
 確認する。この期間は新しい画面表示やUIロジックを増やさない。backend完了判定後にPC / iPhone / iPadの
 ユーザビリティテストへ移る。
 
+2026-09-08更新: backend readinessは`ready_with_pending_evidence`（blocker 0）のまま、R0〜R6の初期構造
+gateも完了した。pending evidenceはruntime採用を許可しないがFrontendを止めないため、Frontend
+Usability F1を実施した。主要7画面、通知／ユーザー領域、3本の画面横断導線をnetwork-free mockで再確認し、
+iPadで画面外sidebar状態が固定ユーザー領域を隠す不具合を修正した。次は実機Safari/PWAとlive依存を分離
+したまま、再現したUI課題だけを小さなvertical sliceで扱う。
+
 優先順位の考え方:
 
 - 実装済み Assistant / Gateway 基盤の次の独自価値として、まず `SMAIアシスタント` を通常会話できるAIから、必要なSMAI機能を承認付きで使う `Command Center / Research Mode` へ進める。
@@ -2644,15 +2650,10 @@ Markdown UTF-8 check:
 
 ## 8. Open Items
 
-- 大規模リファクタリングR0〜R6を`Documents/46_Large_Scale_Refactoring_Plan.md`に従って段階実施する。
-  R0境界固定とR1 Ranking application flowは完了した。R2 Cockpitはfilter、preview request / adoption、
-  display model、presentation context、preview-owned session state、R2-BのResearch / Decision Report
-  context・use case、R2-CのResearch / Decision Report presenter・page境界、typed summary page component、
-  Forecast hero header、価格Chart操作・通貨選択・個別モデル詳細expanderの表示orchestration、Altair chart
-  renderer、個別Forecast model detail pageまで分離済み。`ui.app`には既存rowのdata-shapingとStreamlit出力
-  portだけを残している。次はR2-Cのchart data-shaping helperを再利用presenterへ切り分け、Cockpit presenter /
-  page境界を閉じる。
-  その後はR3 Research、R4 Copilot / News / CSS、R5 package cycle、R6継続gateの順で進める。
+- 大規模リファクタリングR0〜R6は`Documents/46_Large_Scale_Refactoring_Plan.md`の初期完了gateを満たした。
+  Ranking / Cockpit application flow、Research use case、Copilot / News / CSS、package API / import safetyを
+  分離し、R6の逆依存・cycle・module/function growth監査を通常変更の継続gateとして運用する。
+  Frontend Usability F1も2026-09-08に実施済みで、以後は実画面で再現した課題だけを局所修正する。
   Phase 35 / 36とsealed Forecast auditの成熟待ちは観測トラックであり、構造改善を止めない一方、
   採用gate通過前の数値、score、順位、runtime weight変更を許可しない。Notification N6はuser / port境界が
   固定された機能からmanual / dry-run、opt-in schedulerの順に実データへ接続する。

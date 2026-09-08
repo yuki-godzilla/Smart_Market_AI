@@ -96,7 +96,7 @@ ui/assets/styles/      # base / component / page別CSS
 
 | トラック | 役割 | 現在地 | 実行ルール |
 |---|---|---|---|
-| A: 構造改善 | R2からR6までの責務分離 | R2進行中 | 主実装トラック。評価データの成熟を待たず進めてよい |
+| A: 構造改善 | R2からR6までの責務分離 | R0〜R6初期gate完了 | R6監査を通常変更の継続gateとして運用する |
 | B: 評価・観測 | Phase 35 / 36、sealed Forecast audit | 成熟待ち | 収集・集計は継続可能。採用gate通過前は数値、順位、runtime weightを変えない |
 | C: 運用接続 | Notification N6、live Provider / Gateway接続 | foundation完了、実接続待ち | user境界とportが固定された機能から小さく接続し、通常testはnetwork-freeに保つ |
 

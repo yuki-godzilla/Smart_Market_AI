@@ -61,7 +61,7 @@ from backend.reporting import (
 )
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
-from ui.content.common_texts import user_facing_column_label
+from ui.content.common_texts import user_facing_column_label, user_facing_table_value
 from ui.symbol_universe import (
     symbol_name as _symbol_name_from_csv,
 )
@@ -1869,10 +1869,10 @@ def build_rebalance_decision_report_context(
             rows=[
                 {"項目": "現在資産", "内容": f"{summary['total_value_jpy']} JPY"},
                 {"項目": "現金", "内容": f"{summary['cash_jpy']} JPY"},
-                {"項目": "配分見直し候補", "内容": f"{summary['trade_count']}件"},
+                {"項目": "売買案", "内容": f"{summary['trade_count']}件"},
                 {"項目": "リスク判定", "内容": summary["risk_status"]},
             ],
-            notes=["このレポートはリバランス確認の整理であり、売買実行や売買推奨ではありません。"],
+            notes=["目標との差から計算した案です。注文は実行しません。"],
         ),
         build_report_section(
             title="現在保有",
@@ -1889,19 +1889,19 @@ def build_rebalance_decision_report_context(
             notes=["目標配分は入力条件です。投資方針に合っているか確認してください。"],
         ),
         build_report_section(
-            title="配分差分",
+            title="現在配分と目標配分",
             source_kind="rebalance",
             as_of=result.proposal.as_of,
             rows=context.allocation_rows,
             notes=["drift は目標配分と現在配分の差です。大きい行ほど確認優先度が上がります。"],
         ),
         build_report_section(
-            title="配分見直し候補",
+            title="売買案",
             source_kind="rebalance",
             as_of=result.proposal.as_of,
             rows=context.trade_rows
             or [{"symbol": "なし", "side": "-", "qty": "0", "price_hint": "-", "currency": "-"}],
-            notes=["配分見直し候補は no-solver MVP の計算結果です。実注文は行いません。"],
+            notes=["数量は簡易計算です。価格前提と通貨を確認してください。"],
         ),
     ]
     if context.breach_rows:
@@ -1921,7 +1921,7 @@ def build_rebalance_decision_report_context(
         )
     )
     return build_decision_report_context(
-        title=f"投資判断レポート - リバランス {summary['account_id']}",
+        title=f"確認レポート - リバランス {summary['account_id']}",
         sections=sections,
         tags=["rebalance", "phase-19", "local-first"],
     )
@@ -1957,15 +1957,15 @@ def _rebalance_decision_checkpoints(
             "confirmation_point": "BLOCK / REVIEW の場合は、制約違反と目標配分を先に確認します。",
         },
         {
-            "area": "配分見直し候補",
-            "finding": f"配分見直し候補は {trade_count} 件です",
-            "confirmation_point": "配分見直し候補は実注文ではありません。数量、価格前提、通貨を確認します。",
+            "area": "売買案",
+            "finding": f"売買案は {trade_count} 件です",
+            "confirmation_point": "注文は実行しません。数量、価格前提、通貨を確認します。",
         },
     ]
     if largest_drift:
         checkpoints.append(
             {
-                "area": "Allocation",
+                "area": "配分差",
                 "finding": (
                     f"最も大きい配分差は {largest_drift.get('symbol', '対象不明')} の "
                     f"{largest_drift.get('drift', '')} です"
@@ -2121,7 +2121,7 @@ def result_markdown_report_download(
         f"- 基準日: {summary['as_of']}",
         f"- 現在資産(円): {summary['total_value_jpy']}",
         f"- 現金(円): {summary['cash_jpy']}",
-        f"- 配分見直し候補: {summary['trade_count']}",
+        f"- 売買案: {summary['trade_count']}",
         f"- リスク判定: {summary['risk_status']}",
     ]
     if request is not None:
@@ -2154,19 +2154,19 @@ def result_markdown_report_download(
                 empty_message="目標配分はまだありません。",
             ),
             "",
-            "## 配分比較",
+            "## 現在配分と目標配分",
             "",
             _markdown_table(
                 context.allocation_rows,
                 ["symbol", "current_weight", "target_weight", "drift"],
             ),
             "",
-            "## 配分見直し候補",
+            "## 売買案",
             "",
             _markdown_table(
                 context.trade_rows,
                 ["symbol", "side", "qty", "price_hint", "currency"],
-                empty_message="配分見直し候補はありません。",
+                empty_message="売買案はありません。",
             ),
         ]
     )
@@ -2344,14 +2344,14 @@ def _markdown_table(
     header = "| " + " | ".join(user_facing_column_label(field) for field in fieldnames) + " |"
     separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
     body = [
-        "| " + " | ".join(_markdown_cell(row.get(field, "")) for field in fieldnames) + " |"
+        "| " + " | ".join(_markdown_cell(row.get(field, ""), field) for field in fieldnames) + " |"
         for row in rows
     ]
     return "\n".join([header, separator, *body])
 
 
-def _markdown_cell(value: str) -> str:
-    return value.replace("|", "\\|")
+def _markdown_cell(value: object, field: str = "") -> str:
+    return str(user_facing_table_value(field, value)).replace("|", "\\|")
 
 
 def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:

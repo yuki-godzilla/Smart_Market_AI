@@ -620,8 +620,8 @@ def _agreement_is_low(value: str) -> bool:
 def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         return
-    render_section_heading("03 上昇気配・下降警戒")
-    st.caption("ランキングと同じ上昇気配・下降警戒を、1銘柄で確認します。")
+    render_section_heading("03 方向シグナル")
+    st.caption("上昇気配と下降警戒を同じ尺度で比べます。")
     columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
@@ -704,7 +704,7 @@ def render_cockpit_summary_header(
     title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
     render_dashboard_header(
         title,
-        "価格・予測・AI調査を一つの流れで確認する分析ビューです。",
+        "価格・予測・根拠資料をまとめて見ます。",
         chips=[
             ("データ取得元", _item_value(item_by_label, "データ取得元")),
             ("基準日", _item_value(item_by_label, "基準日")),
@@ -867,8 +867,8 @@ def render_cockpit_forecast_model_details(
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
-    render_section_heading("01 判断サマリー")
-    st.caption("結論・方向感・データ信頼度を先に確認し、その後にチャートとAI調査へ進みます。")
+    render_section_heading("01 総合評価")
+    st.caption("総合評価と方向感を見て、価格・予測・根拠へ進みます。")
     columns = st.columns(min(4, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
@@ -884,8 +884,8 @@ def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
 
 
 def render_research_evidence_summary(report: CompanyResearchReport) -> None:
-    st.markdown("##### 根拠資料サマリー")
-    st.caption("根拠資料はスコア算出そのものではなく、投資判断を補助する参考情報として扱います。")
+    st.markdown("##### 根拠資料")
+    st.caption("ニュース・開示・企業資料の件数と鮮度です。")
     items = research_evidence_summary_items(report)
     columns = st.columns(min(5, len(items)))
     for index, item in enumerate(items):
@@ -986,13 +986,13 @@ def render_cockpit_decision_report_page(
     )
 
     register_assistant_context(context, render_context.summary_lines)
-    st.markdown("#### AI要約")
+    st.markdown("#### 要点")
     st.markdown(
         cockpit_decision_summary_list_html(render_context.summary_lines),
         unsafe_allow_html=True,
     )
 
-    st.markdown("#### 判断に使った主な根拠")
+    st.markdown("#### 主な根拠")
     render_evidence_table(list(render_context.evidence_rows))
     render_detail_sections(render_context)
     render_download_buttons(
@@ -1013,7 +1013,7 @@ def render_cockpit_decision_report_detail_sections(
 ) -> None:
     """Render Decision Report expanders from a prepared detail model."""
 
-    st.markdown("#### 確認項目の詳細")
+    st.markdown("#### 詳細")
     with st.container(border=True):
         st.markdown("##### 1. 要約")
         st.markdown(

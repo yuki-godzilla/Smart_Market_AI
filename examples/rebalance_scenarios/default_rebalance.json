@@ -1,6 +1,6 @@
 {
   "name": "Default rebalance",
-  "description": "AAPL の配分見直し候補を 1 件生成し、現在の MVP リスクルールでは BLOCK になるシナリオです。",
+  "description": "AAPL の売買案を1件作成し、現在のリスクルールでは「見直し優先」になるシナリオです。",
   "request": {
     "account_id": "acct-1",
     "as_of": "2026-04-09",

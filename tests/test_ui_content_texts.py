@@ -69,8 +69,19 @@ def test_ranking_texts_keep_criteria_confidence_and_product_guardrails():
     assert "売買推奨ではなく" in guide_rows["評価方針"]["読み方"]
     assert ranking_texts.RANKING_SCORE_FIELD_LABELS["screening_score"] == "基礎評価"
     assert ranking_texts.RANKING_SCORE_FIELD_LABELS["data_quality_score"] == "データ信頼度"
-    assert ranking_texts.RANKING_SCORE_FIELD_LABELS["research_score"] == "Research確認材料"
+    assert ranking_texts.RANKING_SCORE_FIELD_LABELS["research_score"] == "根拠資料"
     assert ranking_texts.RANKING_PURPOSE_LABELS["risk_adjusted"] == "安定成長"
+
+
+def test_common_table_texts_translate_rebalance_side_for_display_only():
+    rows = common_texts.user_facing_table_rows(
+        [{"symbol": "AAPL", "side": "BUY"}, {"symbol": "7203.T", "side": "SELL"}]
+    )
+
+    assert rows == [
+        {"銘柄コード": "AAPL", "売買": "買い"},
+        {"銘柄コード": "7203.T", "売買": "売り"},
+    ]
 
 
 def test_major_ui_code_does_not_directly_use_ng_investment_advice_terms():

@@ -70,11 +70,21 @@ def test_rebalance_responsive_viewports() -> None:
                 page.get_by_text("リバランス", exact=True).first.wait_for(
                     state="visible", timeout=60_000
                 )
-                page.get_by_role("button", name="配分見直しを確認", exact=True).click()
+                page.get_by_role("button", name="売買案を作成", exact=True).click()
                 page.get_by_text("サマリー", exact=True).wait_for(state="visible", timeout=30_000)
                 page.get_by_text("リスク判定", exact=True).first.wait_for(
                     state="visible", timeout=30_000
                 )
+                page.get_by_role("heading", name="現在配分と目標配分", exact=True).first.wait_for(
+                    state="visible", timeout=30_000
+                )
+                page.get_by_role("heading", name="売買案", exact=True).first.wait_for(
+                    state="visible", timeout=30_000
+                )
+                page.get_by_text(
+                    "目標との差から計算した案です。注文は実行しません。",
+                    exact=True,
+                ).first.wait_for(state="visible", timeout=30_000)
                 _assert_responsive_contract(page)
                 page.screenshot(path=str(screenshot_dir / f"{name}.png"), full_page=False)
                 page.close()

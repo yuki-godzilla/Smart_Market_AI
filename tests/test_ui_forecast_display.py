@@ -9014,7 +9014,7 @@ def test_ranking_weight_group_rows_summarize_ai_composite_profile():
         {"group": "予測・上昇気配", "weight": "30%"},
         {"group": "リスク・下振れ警戒", "weight": "25%"},
         {"group": "データ信頼度", "weight": "10%"},
-        {"group": "Research確認材料", "weight": "5%"},
+        {"group": "根拠資料", "weight": "5%"},
     ]
 
 
@@ -9436,14 +9436,12 @@ def test_decision_report_download_buttons_explain_export_roles(monkeypatch):
         markdown_file_name="decision_report_test.md",
     )
 
-    assert captions == [
-        "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
-    ]
+    assert captions == ["通常はMarkdown、まとめて残すならZIP。JSONとmanifestは再現確認用です。"]
     assert [label for label, _ in button_calls] == [
-        "Markdown（読む用）をダウンロード",
-        "JSON（再現用）をダウンロード",
-        "manifest（内容確認）をダウンロード",
-        "一式ZIP（保存用）をダウンロード",
+        "Markdownを保存",
+        "JSONを保存",
+        "manifestを保存",
+        "一式ZIPを保存",
     ]
     assert "読み返し用" in str(button_calls[0][1]["help"])
     assert "再現確認" in str(button_calls[1][1]["help"])

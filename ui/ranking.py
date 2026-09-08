@@ -626,7 +626,7 @@ RANKING_WEIGHT_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             ),
         ),
         ("データ信頼度", ("data_quality_score", "metadata_confidence_score")),
-        ("Research確認材料", ("research_score",)),
+        ("根拠資料", ("research_score",)),
     ),
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {

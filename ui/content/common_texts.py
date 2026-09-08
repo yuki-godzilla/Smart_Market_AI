@@ -53,16 +53,14 @@ MARKET_DATA_MODE_LABELS = {
 }
 
 DECISION_SUPPORT_DISCLAIMER = "個人用の分析メモです。スコア・予測・根拠を比べて使います。"
-DECISION_REPORT_SUPPORT_MESSAGE = (
-    "あとで見返すための分析メモです。価格・予測・根拠・注意点をまとめています。"
-)
+DECISION_REPORT_SUPPORT_MESSAGE = "価格・予測・根拠・注意点をまとめた保存用メモです。"
 DECISION_REPORT_DOWNLOAD_GUIDE = (
-    "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
+    "通常はMarkdown、まとめて残すならZIP。JSONとmanifestは再現確認用です。"
 )
-DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL = "Markdown（読む用）をダウンロード"
-DECISION_REPORT_JSON_DOWNLOAD_LABEL = "JSON（再現用）をダウンロード"
-DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL = "manifest（内容確認）をダウンロード"
-DECISION_REPORT_ZIP_DOWNLOAD_LABEL = "一式ZIP（保存用）をダウンロード"
+DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL = "Markdownを保存"
+DECISION_REPORT_JSON_DOWNLOAD_LABEL = "JSONを保存"
+DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL = "manifestを保存"
+DECISION_REPORT_ZIP_DOWNLOAD_LABEL = "一式ZIPを保存"
 DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP = "読み返し用です。判断材料と根拠をまとめています。"
 DECISION_REPORT_JSON_DOWNLOAD_HELP = (
     "画面表示やレポート生成に使った構造化contextです。再現確認や後続処理に使います。"
@@ -176,13 +174,13 @@ COMMON_COLUMN_LABELS = {
     "target_weight": "目標比率",
     "current_weight": "現在比率",
     "drift": "差分",
-    "side": "見直し方向",
+    "side": "売買",
     "price_hint": "参考価格",
     "breach": "確認事項",
     "account_id": "口座ID",
     "cash_jpy": "現金(円)",
     "total_value_jpy": "現在資産(円)",
-    "trade_count": "見直し候補数",
+    "trade_count": "売買案数",
     "risk_status": "リスク判定",
     "adapter_protocol": "接続方式",
     "implemented": "実装状況",
@@ -207,8 +205,15 @@ EMPTY_STATE_MESSAGES = {
     "current_positions": "現在の保有データはまだありません。",
     "target_allocations": "目標配分はまだありません。",
     "allocation_comparison": "配分比較に表示できるデータがありません。",
-    "rebalance_candidates": "配分見直し候補はありません。",
+    "rebalance_candidates": "売買案はありません。",
     "detail_rows": "表示できる詳細データはまだありません。",
+}
+
+COMMON_VALUE_LABELS = {
+    "side": {
+        "BUY": "買い",
+        "SELL": "売り",
+    },
 }
 
 
@@ -216,8 +221,15 @@ def user_facing_column_label(column: str) -> str:
     return COMMON_COLUMN_LABELS.get(column, column)
 
 
+def user_facing_table_value(column: str, value: object) -> object:
+    return COMMON_VALUE_LABELS.get(column, {}).get(str(value), value)
+
+
 def user_facing_table_rows(rows: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
     return [
-        {user_facing_column_label(str(column)): value for column, value in row.items()}
+        {
+            user_facing_column_label(str(column)): user_facing_table_value(str(column), value)
+            for column, value in row.items()
+        }
         for row in rows
     ]

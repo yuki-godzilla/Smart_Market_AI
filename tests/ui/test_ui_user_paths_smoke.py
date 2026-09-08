@@ -60,7 +60,7 @@ def _load_mock_cockpit(page) -> None:
     page.get_by_label("銘柄").click()
     page.get_by_role("option", name="7203.T", exact=False).click()
     page.get_by_role("button", name="データを取得", exact=True).click()
-    page.get_by_text("01 判断サマリー", exact=True).wait_for(state="visible", timeout=120_000)
+    page.get_by_text("01 総合評価", exact=True).wait_for(state="visible", timeout=120_000)
     _assert_healthy_page(page)
 
 
@@ -95,8 +95,15 @@ def test_path_1_confirm_symbol_then_review_watchlist_rebalance_and_settings() ->
             page.get_by_text("7203.T", exact=False).first.wait_for(state="visible", timeout=30_000)
 
             _navigate(page, "リバランス", "リバランス")
-            page.get_by_role("button", name="配分見直しを確認", exact=True).click()
+            page.get_by_role("button", name="売買案を作成", exact=True).click()
             page.get_by_text("サマリー", exact=True).wait_for(state="visible", timeout=30_000)
+            page.get_by_role("heading", name="売買案", exact=True).first.wait_for(
+                state="visible", timeout=30_000
+            )
+            page.get_by_text(
+                "目標との差から計算した案です。注文は実行しません。",
+                exact=True,
+            ).first.wait_for(state="visible", timeout=30_000)
 
             _navigate(page, "設定 / データ情報", "設定 / データ情報")
             page.get_by_text("サンプル銘柄", exact=True).wait_for(state="visible", timeout=30_000)

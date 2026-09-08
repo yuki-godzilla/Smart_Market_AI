@@ -69,8 +69,8 @@ MASCOT_VARIANT_DEFAULTS: dict[MascotVariant, dict[str, str]] = {
         "tone": "forecast",
     },
     "ranking": {
-        "title": "SMAIの注目候補",
-        "message": "上位候補を深掘り入口として整理しました。スコアだけでなくRiskとデータ品質も見比べます。",
+        "title": "SMAIの注目銘柄",
+        "message": "上位銘柄をまとめました。スコア内訳、リスク、データ信頼度を見比べます。",
         "tone": "success",
     },
     "empty": {

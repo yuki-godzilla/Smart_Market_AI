@@ -392,7 +392,7 @@ RANKING_SCORE_FIELD_LABELS = {
     "risk_signal_score": "リスク",
     "database_fit_score": "条件適合度",
     "metadata_confidence_score": "DB信頼度",
-    "research_score": "Research確認材料",
+    "research_score": "根拠資料",
 }
 
 RANKING_FILTER_HELP_TEXTS = {
@@ -588,14 +588,14 @@ RANKING_PURPOSE_HELP_TEXTS = {
 
 RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
     "multi_factor": {
-        "short_summary": "基礎評価、予測、リスク、データ信頼度、Research確認材料を広く見る既定方針です。",
+        "short_summary": "基礎評価、予測、リスク、データ信頼度、根拠資料を広く見る既定方針です。",
         "suited_for": "まず深掘り候補を広く並べたい時",
         "main_focus": (
             "基礎評価",
             "予測・上昇気配",
             "リスク・下振れ警戒",
             "データ信頼度",
-            "Research確認材料",
+            "根拠資料",
         ),
         "caution": "総合点が高くても、下降警戒やデータ不足があれば先に確認します。",
     },
@@ -608,7 +608,7 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
     "downside_signal": {
         "short_summary": "下落継続や急落の警戒が強い候補から、危険要因を確認する方針です。",
         "suited_for": "下振れリスクを優先して点検する時",
-        "main_focus": ("下降警戒", "Risk", "予測変化率", "データ信頼度"),
+        "main_focus": ("下降警戒", "リスク", "予測変化率", "データ信頼度"),
         "caution": "下降警戒は売り推奨ではなく、下落理由と値動きの荒さを確認する指標です。",
     },
     "reversal_expectation": {
@@ -643,19 +643,19 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
     "quality_value": {
         "short_summary": "割安に見える候補を、収益性・リスク・資料確認も含めて見る方針です。",
         "suited_for": "PER/PBRだけでなく割安の質を見たい時",
-        "main_focus": ("条件適合度", "基礎評価", "リスク", "データ信頼度", "Research確認材料"),
+        "main_focus": ("条件適合度", "基礎評価", "リスク", "データ信頼度", "根拠資料"),
         "caution": "割安の理由が業績不安や一時要因ではないか確認します。",
     },
     "sustainable_income": {
         "short_summary": "高配当候補を、持続性・リスク・データ信頼度と合わせて確認する方針です。",
         "suited_for": "配当利回りだけでなく減配リスクも見たい時",
-        "main_focus": ("条件適合度", "リスク", "データ信頼度", "基礎評価", "Research確認材料"),
+        "main_focus": ("条件適合度", "リスク", "データ信頼度", "基礎評価", "根拠資料"),
         "caution": "高配当は魅力だけでなく、減配や業績悪化の確認対象として扱います。",
     },
     "min_volatility": {
         "short_summary": "値動きの落ち着きと確認しやすさを優先する方針です。",
         "suited_for": "荒い値動きを避けて候補を比較したい時",
-        "main_focus": ("リスク", "データ信頼度", "DB信頼度", "基礎評価", "Research確認材料"),
+        "main_focus": ("リスク", "データ信頼度", "DB信頼度", "基礎評価", "根拠資料"),
         "caution": "低ボラは安全保証ではなく、上昇余地が小さい場合もあります。",
     },
     "risk_adjusted": {
@@ -673,7 +673,7 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
     "nisa_long_term": {
         "short_summary": "NISA制度上の候補条件と、長期確認のしやすさを合わせて見る方針です。",
         "suited_for": "長期保有の検討材料を整理したい時",
-        "main_focus": ("基礎評価", "リスク", "データ信頼度", "条件適合度", "Research確認材料"),
+        "main_focus": ("基礎評価", "リスク", "データ信頼度", "条件適合度", "根拠資料"),
         "caution": "制度適合は投資適合性や安全性を保証するものではありません。",
     },
     "data_confidence": {
@@ -685,7 +685,7 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
     "etf_core_cost": {
         "short_summary": "低コストで中核に置きやすいETF候補を、指数・複雑性・信頼度で確認する方針です。",
         "suited_for": "ETFのコア候補を比較したい時",
-        "main_focus": ("条件適合度", "データ信頼度", "リスク", "基礎評価", "Research確認材料"),
+        "main_focus": ("条件適合度", "データ信頼度", "リスク", "基礎評価", "根拠資料"),
         "caution": "低コストでも、連動指数や為替、商品構造の確認が必要です。",
     },
     "etf_income": {
@@ -696,7 +696,7 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
             "リスク・複雑性",
             "データ信頼度",
             "基礎評価",
-            "Research確認材料",
+            "根拠資料",
         ),
         "caution": "分配金の継続や商品適合性を保証するものではありません。",
     },

@@ -43,7 +43,7 @@ def _load_mock_cockpit_result(page) -> None:
     page.get_by_label("銘柄").click()
     page.get_by_role("option", name="7203.T", exact=False).click()
     page.get_by_role("button", name="データを取得", exact=True).click()
-    page.get_by_text("01 判断サマリー", exact=True).wait_for(state="visible", timeout=120_000)
+    page.get_by_text("01 総合評価", exact=True).wait_for(state="visible", timeout=120_000)
     page.get_by_text("取得履歴から自動計算", exact=False).wait_for(state="visible", timeout=60_000)
     page.get_by_text("05 確認レポート", exact=True).wait_for(state="visible", timeout=120_000)
 
@@ -55,10 +55,10 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     assert dimensions["scrollWidth"] <= dimensions["clientWidth"] + 2
     assert page.locator('[data-testid="stException"], .stException').count() == 0
     expected_sections = [
-        "01 判断サマリー",
+        "01 総合評価",
         "02 価格・AI予測",
         "03 AI調査・材料分析",
-        "04 確認メモ",
+        "04 AIメモ",
         "05 確認レポート",
     ]
     page.wait_for_function(
@@ -69,7 +69,7 @@ def _assert_cockpit_result_contract(page, viewport_width: int) -> None:
     section_text = page.locator("body").inner_text()
     section_positions = [section_text.index(section) for section in expected_sections]
     assert section_positions == sorted(section_positions)
-    assert section_text.count("04 確認メモ") == 1
+    assert section_text.count("04 AIメモ") == 1
     assert "スコアから見た注意点" in section_text
 
     kpi_labels = page.locator(".smai-card-label").all_text_contents()

@@ -1,5 +1,12 @@
 # 99_Work_Log
 
+## 2026-09-08 Frontend Usability F2
+
+- Ranking、Cockpit、Rebalance、確認レポートの通常表示を、分かりやすさ・短さ・視認性・統一性優先で整理した。主要語を`ランキング基準`、`注目銘柄`、`選択銘柄のスコア内訳`、`根拠資料`、`総合評価`、`AIメモ`、`売買案`、`確認レポート`へ統一し、重複する非推奨説明を減らした。
+- Rebalanceは結果順を`現在配分と目標配分`→`売買案`→`リスク確認事項`→`確認レポート`へ変更し、画面・Markdownでは`BUY / SELL`を`買い / 売り`と表示する。内部contractとCSVの英語keyは維持し、`注文は実行しません`を売買案の近くに一度表示する。
+- report保存ボタンを短縮し、形式の使い分けは共通ガイドとhelpへ分離した。Forecast、Ranking順位、Score、Risk計算、Provider、user state、broker挙動は変更していない。
+- 関連単体／AppTestは520件成功、全local checksは2,581件成功・16件skip、Ruff、Black 604 files、対象Mypy 15 files、architecture audit（309 modules / 924 edges / backend→UI 0 / cycle 0）に成功した。PC・iPad・iPhone相当のresponsive / user-path browser suiteは7件成功・任意環境依存1件skip。既存Altair非推奨warning 1件のみ継続している。
+
 ## 2026-09-08 Frontend Usability F1
 
 - backend readiness `ready_with_pending_evidence`とR0〜R6初期完了を前提に、正規実パスからnetwork-free mock Streamlitを起動し、主要7画面、通知／ユーザー領域、3本の画面横断導線を再監査した。

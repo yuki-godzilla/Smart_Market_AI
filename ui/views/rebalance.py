@@ -21,7 +21,6 @@ from ui.content.common_texts import (
     DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
     DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
     DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
-    DECISION_REPORT_SUPPORT_MESSAGE,
     DECISION_REPORT_ZIP_DOWNLOAD_HELP,
     DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
     EMPTY_STATE_MESSAGES,
@@ -60,7 +59,7 @@ REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 def render_rebalance_page() -> None:
     render_page_title(
         "リバランス",
-        "現在の配分、目標配分、リスクを確認します。",
+        "現在配分と目標配分を比べ、売買案とリスクを計算します。",
         "rebalance",
     )
 
@@ -128,7 +127,7 @@ def render_rebalance_page() -> None:
                 key=sample_widget_key(sample_name, "targets"),
             )
 
-    if st.button("配分見直しを確認", type="primary"):
+    if st.button("売買案を作成", type="primary"):
         try:
             request = build_rebalance_request(
                 account_id=account_id,
@@ -190,22 +189,18 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
     col_total, col_cash, col_trades, col_status = st.columns(4)
     col_total.metric("現在資産", f"{summary['total_value_jpy']} JPY")
     col_cash.metric("現金", f"{summary['cash_jpy']} JPY")
-    col_trades.metric("見直し候補", summary["trade_count"])
+    col_trades.metric("売買案", summary["trade_count"])
     col_status.metric("リスク判定", status_label)
     _render_rebalance_flow(summary)
 
     if status == "ALLOW":
-        st.success(
-            "リスク判定: 大きな制約違反はありません。今回の条件では配分見直し候補を確認できます。"
-        )
+        st.success("大きな制約違反はありません。売買案を確認できます。")
     elif status == "REVIEW":
-        st.warning("リスク判定: 確認が必要です。配分見直し候補の前提と制約を確認してください。")
+        st.warning("確認が必要です。売買案の前提と制約を見直してください。")
     elif status == "BLOCK":
-        st.error("リスク判定: 見直し優先です。主な理由を確認し、目標配分や制約を見直してください。")
+        st.error("見直し優先です。理由を確認し、目標配分や制約を直してください。")
     else:
-        st.info("配分見直し候補がないため、リスク判定は行われていません。")
-
-    _render_rebalance_decision_report(result, request)
+        st.info("売買案がないため、リスク判定は行われていません。")
 
     current_rows = context.current_rows
     target_rows = context.target_rows
@@ -221,14 +216,15 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
         st.subheader("目標配分")
         _render_table(target_rows, EMPTY_STATE_MESSAGES["target_allocations"])
 
-    st.subheader("配分比較")
+    st.subheader("現在配分と目標配分")
     _render_allocation_comparison_chart(allocation_rows)
     _render_table(
         allocation_rows,
         EMPTY_STATE_MESSAGES["allocation_comparison"],
     )
 
-    st.subheader("配分見直し候補")
+    st.subheader("売買案")
+    st.caption("目標との差から計算した案です。注文は実行しません。")
     _render_table(trade_rows, EMPTY_STATE_MESSAGES["rebalance_candidates"])
 
     if breach_rows:
@@ -239,64 +235,66 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             use_container_width=True,
         )
 
+    _render_rebalance_decision_report(result, request)
+
     with st.expander("ダウンロード", expanded=False):
         st.caption("詳細JSONやCSVは確認・保存が必要な場合だけ使います。")
         st.json(result.model_dump(mode="json"))
         st.download_button(
-            "結果JSONをダウンロード",
+            "結果JSONを保存",
             data=result_json_download(result),
             file_name="rebalance_check_result.json",
             mime="application/json",
         )
         st.download_button(
-            "入力JSONをダウンロード",
+            "入力JSONを保存",
             data=request_json_download(request),
             file_name="rebalance_request.json",
             mime="application/json",
         )
         st.download_button(
-            "レポートMarkdownをダウンロード",
+            "レポートMarkdownを保存",
             data=result_markdown_report_download(result, request=request),
             file_name="rebalance_report.md",
             mime="text/markdown",
         )
         st.download_button(
-            "レポート一式ZIPをダウンロード",
+            "レポート一式ZIPを保存",
             data=result_report_zip_download(result, request=request),
             file_name="rebalance_report.zip",
             mime="application/zip",
         )
         _render_table_csv_download_button(
-            label="サマリーCSVをダウンロード",
+            label="サマリーCSVを保存",
             rows=[summary],
             file_name="rebalance_summary.csv",
         )
         _render_table_csv_download_button(
-            label="現在保有CSVをダウンロード",
+            label="現在保有CSVを保存",
             rows=current_rows,
             fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
             file_name="rebalance_current_positions.csv",
         )
         _render_table_csv_download_button(
-            label="目標配分CSVをダウンロード",
+            label="目標配分CSVを保存",
             rows=target_rows,
             fieldnames=["symbol", "currency", "target_weight"],
             file_name="rebalance_target_allocations.csv",
         )
         _render_table_csv_download_button(
-            label="配分比較CSVをダウンロード",
+            label="配分比較CSVを保存",
             rows=allocation_rows,
             fieldnames=["symbol", "current_weight", "target_weight", "drift"],
             file_name="rebalance_allocation_comparison.csv",
         )
         _render_table_csv_download_button(
-            label="見直し候補CSVをダウンロード",
+            label="売買案CSVを保存",
             rows=trade_rows,
             fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
             file_name="rebalance_proposed_trades.csv",
         )
         _render_table_csv_download_button(
-            label="リスク確認事項CSVをダウンロード",
+            label="リスク確認事項CSVを保存",
             rows=breach_rows,
             fieldnames=["breach"],
             file_name="rebalance_risk_breaches.csv",
@@ -331,12 +329,8 @@ def _render_rebalance_decision_report(
 ) -> None:
     context = build_rebalance_decision_report_context(result, request=request)
     markdown = rebalance_decision_report_markdown_download(context)
-    st.markdown("### 投資判断レポート")
-    st.info(
-        "現在保有、目標配分、配分見直し候補、リスク判定、確認ポイントを保存する分析メモです。"
-        "売買指示ではありません。"
-    )
-    st.caption(DECISION_REPORT_SUPPORT_MESSAGE)
+    st.markdown("### 確認レポート")
+    st.info("現在配分、目標配分、売買案、リスクをまとめた保存用メモです。")
     st.caption(DECISION_REPORT_DOWNLOAD_GUIDE)
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
     col_markdown.download_button(
@@ -383,7 +377,7 @@ def rebalance_flow_rows(summary: dict[str, str]) -> list[dict[str, str]]:
     return [
         {"step": "現在", "value": f"{summary.get('total_value_jpy', '')} JPY"},
         {"step": "目標", "value": "目標配分"},
-        {"step": "見直し候補", "value": f"{summary.get('trade_count', '0')}件"},
+        {"step": "売買案", "value": f"{summary.get('trade_count', '0')}件"},
         {"step": "リスク判定", "value": _risk_status_display(summary.get("risk_status", ""))},
     ]
 
@@ -424,7 +418,7 @@ def _render_allocation_comparison_chart(rows: list[dict[str, str]]) -> None:
         alt.Chart(frame)
         .mark_bar(cornerRadius=3)
         .encode(
-            x=alt.X("weight:Q", title="Weight (%)"),
+            x=alt.X("weight:Q", title="比率 (%)"),
             y=alt.Y("symbol:N", title=None, sort=None),
             color=alt.Color("type:N", title="配分"),
             yOffset="type:N",

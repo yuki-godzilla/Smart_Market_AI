@@ -43,7 +43,6 @@ from ui.content.common_texts import (
     DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
     DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
     DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
-    DECISION_REPORT_SUPPORT_MESSAGE,
     DECISION_REPORT_ZIP_DOWNLOAD_HELP,
     DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
 )
@@ -205,7 +204,7 @@ def test_load_rebalance_samples_from_json_files():
 
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
-    assert samples["Default rebalance"].description.startswith("AAPL の配分見直し候補")
+    assert samples["Default rebalance"].description.startswith("AAPL の売買案")
     assert samples["No trades"].cash_jpy == Decimal("0")
 
 
@@ -1454,7 +1453,7 @@ def test_rebalance_cockpit_helpers_translate_flow_and_risk_breaches():
     assert rebalance_flow_rows(summary) == [
         {"step": "現在", "value": "58076 JPY"},
         {"step": "目標", "value": "目標配分"},
-        {"step": "見直し候補", "value": "2件"},
+        {"step": "売買案", "value": "2件"},
         {"step": "リスク判定", "value": "見直し優先"},
     ]
     assert risk_breach_message("R5:min_dividend_yield:AAPL") == (
@@ -1512,19 +1511,19 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
     manifest = rebalance_decision_report_manifest_download(context)
     archive = rebalance_decision_report_zip_download(context)
 
-    assert context.title == "投資判断レポート - リバランス acct-1"
+    assert context.title == "確認レポート - リバランス acct-1"
     assert [section.title for section in context.sections] == [
         "リバランス概要",
         "現在保有",
         "目標配分",
-        "配分差分",
-        "配分見直し候補",
+        "現在配分と目標配分",
+        "売買案",
         "リスク制約違反",
         "確認ポイント",
     ]
     assert context.sections[0].summary["risk_status"] == "BLOCK"
     assert context.sections[0].summary["positions"] == "1"
-    assert "売買推奨ではありません" in markdown
+    assert "注文は実行しません" in markdown
     assert "リスク判定は BLOCK" in markdown
     assert '"rebalance"' in payload
     assert '"decision_report.md"' in manifest
@@ -1556,8 +1555,7 @@ def test_rebalance_decision_report_downloads_explain_export_roles(monkeypatch):
 
     _render_rebalance_decision_report(result, request)
 
-    assert any("売買指示ではありません" in info for info in infos)
-    assert DECISION_REPORT_SUPPORT_MESSAGE in captions
+    assert infos == ["現在配分、目標配分、売買案、リスクをまとめた保存用メモです。"]
     assert DECISION_REPORT_DOWNLOAD_GUIDE in captions
     assert [label for label, _ in button_calls] == [
         DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
@@ -1626,10 +1624,10 @@ def test_result_markdown_report_download_summarizes_result():
     assert "| 銘柄コード | 数量 | 通貨 | 現在値 | 為替レート(円) | 評価額(円) |" in payload
     assert "## 目標配分" in payload
     assert "| 銘柄コード | 通貨 | 目標比率 |" in payload
-    assert "## 配分比較" in payload
+    assert "## 現在配分と目標配分" in payload
     assert "| 銘柄コード | 現在比率 | 目標比率 | 差分 |" in payload
-    assert "## 配分見直し候補" in payload
-    assert "| AAPL (Apple Inc.) | BUY |" in payload
+    assert "## 売買案" in payload
+    assert "| AAPL (Apple Inc.) | 買い |" in payload
     assert "- R5:min_dividend_yield:AAPL" in payload
 
 

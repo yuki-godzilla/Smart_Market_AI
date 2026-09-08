@@ -64,9 +64,7 @@ def test_cockpit_ai_research_exposes_hybrid_retrieval_mode() -> None:
             page.get_by_label("銘柄").click()
             page.get_by_role("option", name="7203.T", exact=False).click()
             page.get_by_role("button", name="データを取得", exact=True).click()
-            page.get_by_text("01 判断サマリー", exact=True).wait_for(
-                state="visible", timeout=120_000
-            )
+            page.get_by_text("01 総合評価", exact=True).wait_for(state="visible", timeout=120_000)
             page.get_by_role("button", name="AI調査を開始・更新", exact=True).click()
             page.get_by_text("企業リサーチサマリー", exact=True).wait_for(
                 state="visible", timeout=120_000

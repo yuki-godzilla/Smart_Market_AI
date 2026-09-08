@@ -814,7 +814,7 @@ def _render_history_detail_summary(snapshot: RankingHistorySnapshot) -> None:
 
 
 def _render_history_candidate_cards(rows: list[RankingHistoryResultRow]) -> None:
-    render_section_heading("注目候補")
+    render_section_heading("注目銘柄")
     if not rows:
         st.info("表示できる保存候補がありません。")
         return
@@ -844,7 +844,7 @@ def _render_history_bar_chart(
     rows: list[RankingHistoryResultRow],
     option: RankingHistorySortOption,
 ) -> None:
-    render_section_heading(f"上位10件: {option.label}")
+    render_section_heading(f"上位10銘柄｜{option.label}")
     chart_rows = history_bar_chart_rows(rows, option)
     if not chart_rows:
         st.info(f"{option.label}をグラフ化できる保存データがありません。")

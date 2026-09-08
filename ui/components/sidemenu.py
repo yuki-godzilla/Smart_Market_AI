@@ -118,7 +118,7 @@ def _sidebar_mascot_message(page: SideMenuPage) -> str:
     messages = {
         SIDEMENU_PAGE_WATCHLIST: "気になる銘柄をまとめます。",
         SIDEMENU_PAGE_COCKPIT: "1銘柄を深掘りします。",
-        SIDEMENU_PAGE_RANKING: "注目候補を見比べます。",
+        SIDEMENU_PAGE_RANKING: "注目銘柄を見比べます。",
         SIDEMENU_PAGE_NEWS: "市場テーマと関連銘柄を追います。",
         SIDEMENU_PAGE_COPILOT: "気になる点をすぐ聞けます。",
         SIDEMENU_PAGE_REBALANCE: "配分のズレを見ます。",

@@ -4803,11 +4803,11 @@ def _render_ranking_result_overview(
         forecast_horizon_days=scope.forecast_horizon_days,
     )
     render_dashboard_header(
-        "ランキング候補ダッシュボード",
-        "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
+        "銘柄ランキング",
+        "条件に合う銘柄を、同じ評価基準で比較します。",
         chips=[
             ("ランキング基準", ranking_policy_label(scope.ranking_policy)),
-            ("評価プロファイル", ranking_weight_preset_label(scope.policy_preset)),
+            ("重み設定", ranking_weight_preset_label(scope.policy_preset)),
             (
                 "対象",
                 f"{ranking_region_label(scope.region)} / "
@@ -4819,8 +4819,8 @@ def _render_ranking_result_overview(
     render_mascot_panel(
         "ranking",
         message=(
-            "上位候補は深掘りの入口です。"
-            f"{ranking_policy_label(scope.ranking_policy)}の重視ポイントと注意点をセットで見比べます。"
+            "上位銘柄からスコア内訳とリスクを見比べます。"
+            f"現在の評価基準は「{ranking_policy_label(scope.ranking_policy)}」です。"
         ),
         layout="compact",
     )
@@ -4869,7 +4869,7 @@ def _render_ranking_result_overview(
 
 
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
-    render_section_heading("ランキングの見方")
+    render_section_heading("ランキング基準")
     st.caption(ranking_purpose_focus_summary(ranking_purpose))
     if ranking_purpose == RANKING_PURPOSE_MULTI_FACTOR:
         context_cards = [
@@ -4899,8 +4899,8 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
                 progress=progress,
             )
     st.caption(
-        f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-        "ランキング基準は売買推奨ではなく、比較・深掘り候補の採点軸です。"
+        f"重み設定: {ranking_weight_preset_label(weight_preset)}。"
+        "上位からスコア内訳とリスクを見比べます。"
     )
 
 
@@ -5012,7 +5012,7 @@ def _ranking_condition_card_html(
         '<div class="smai-ranking-weight-grid">'
         f"{group_items}"
         "</div>"
-        f'<p class="smai-ranking-condition-note">評価プロファイル: {html.escape(profile)}。'
+        f'<p class="smai-ranking-condition-note">重み設定: {html.escape(profile)}。'
         f"{html.escape(RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE)} "
         f"{html.escape(description['caution'])} "
         "この画面は比較候補を整理するためのもので、売買推奨ではありません。</p>"
@@ -5027,7 +5027,7 @@ def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
     return [
         {
             "表示": "AI総合",
-            "意味": "基礎評価、予測・上昇気配、リスク、データ信頼度、Research確認材料をまとめた比較用スコアです。",
+            "意味": "基礎評価、予測・上昇気配、リスク、データ信頼度、根拠資料をまとめた比較用スコアです。",
             "ランキングでの扱い": "既定の総合比較です。AI予測は控えめに加味し、単独で順位を決めません。",
             "確認ポイント": "高順位でも、上昇気配・下降警戒・データ信頼度の偏りを一緒に確認します。",
         },
@@ -5102,10 +5102,8 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         st.info("比較候補カードを表示できるランキング結果がありません。")
         return
-    render_section_heading("注目候補")
-    st.caption(
-        "現在の条件で抽出された深掘り候補です。売買推奨ではなく、比較対象を絞るための入口です。"
-    )
+    render_section_heading("注目銘柄")
+    st.caption("現在の条件で上位の銘柄です。スコア内訳とリスクを見比べます。")
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
@@ -5191,7 +5189,7 @@ def _render_ranking_score_bar_chart(
     frame = ranking_score_bar_chart_frame(display_rows, ranking_purpose=ranking_purpose)
     metric_column = str(frame.attrs.get("metric_column", "総合スコア"))
     sort_direction = str(frame.attrs.get("sort_direction", "desc"))
-    render_section_heading(f"上位10件: {ranking_policy_label(ranking_purpose)}")
+    render_section_heading(f"上位10銘柄｜{ranking_policy_label(ranking_purpose)}")
     st.caption(ranking_score_bar_chart_caption(ranking_purpose, metric_column, sort_direction))
     if frame.empty:
         st.info(f"{metric_column} をグラフ化できる候補がありません。")
@@ -5458,8 +5456,8 @@ def _render_selected_ranking_candidate_breakdown(
     selected_symbol: str | None,
     ranking_purpose: str,
 ) -> None:
-    render_section_heading("Selected Candidate Breakdown")
-    st.caption("選択中の候補が上位にある理由を、主要スコアで確認します。")
+    render_section_heading("選択銘柄のスコア内訳")
+    st.caption("上位に入った理由を、主要スコアで見比べます。")
     rows = ranking_candidate_breakdown_rows(
         display_rows,
         selected_symbol,
@@ -5559,8 +5557,8 @@ def _render_ranking_selected_detail_memo(
     )
     if not rows:
         return
-    st.markdown("##### 選択銘柄の詳細メモ")
-    st.caption("テーブル内に収めにくい判断理由と確認ポイントを、選択行に合わせて整理します。")
+    st.markdown("##### 選択銘柄の要点")
+    st.caption("予測、スコア理由、次に見る点をまとめています。")
     st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
     st.markdown(symbol_detail_table_html(rows), unsafe_allow_html=True)
 
@@ -5609,7 +5607,7 @@ def _render_ranking_score_explanation() -> None:
 - リスク: ボラティリティ、下降警戒など
 - データ品質: 欠損や取得信頼性
 
-このスコアは売買推奨ではなく、比較対象を絞るための参考指標です。
+上位銘柄を同じ基準で比べるために使います。
 """
         )
         st.markdown("##### スコアと信頼度の読み分け")
@@ -5689,10 +5687,7 @@ def _render_ranking_result_table(
         return
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
-    st.caption(
-        "カードやグラフで気になる候補を絞ったあと、詳細を確認するためのテーブルです。"
-        "行をクリックすると、銘柄データや確認ポイントを確認できます。"
-    )
+    st.caption("全銘柄の詳細です。行をクリックすると、銘柄データと要点を表示します。")
     if mode == "history":
         st.caption("お気に入り操作は現在のプロフィール状態に反映されます。")
     show_detail_columns = st.checkbox(
@@ -11052,7 +11047,7 @@ def _render_favorite_next_action_hint() -> None:
     elif action == "report":
         st.info(
             "Myウォッチリストから確認レポートを確認しに来ました。"
-            "下の「05 確認レポート」で、この銘柄の確認メモを作成・更新できます。"
+            "下の「05 確認レポート」で、この銘柄の分析メモを作成・更新できます。"
         )
 
 
@@ -12989,10 +12984,10 @@ def _render_cockpit_interpretation(
         news_report=research_context.news_report,
         external_result=research_context.external_research_result,
     )
-    st.subheader("04 確認メモ")
+    st.subheader("04 AIメモ")
     if not research_evidence:
         st.info(
-            "AI調査の出典がまだないため、確認メモは表示していません。"
+            "AI調査の根拠がまだないため、AIメモは表示していません。"
             "先に「AI調査を開始・更新」で材料を取得してください。"
         )
         return
@@ -13005,9 +13000,9 @@ def _render_cockpit_interpretation(
         advanced_forecast_summary=advanced_forecast_summary,
         investment_score_summary=investment_score_summary,
     )
-    st.caption("価格・予測・AI調査を合わせ、次に見ることを短い確認メモに整理します。")
+    st.caption("価格・予測・根拠を合わせ、次に見る点を短くまとめます。")
     st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
-    with st.expander("AI解釈メモの詳細（実行情報）", expanded=False):
+    with st.expander("AIメモの詳細（実行情報）", expanded=False):
         st.caption(_cockpit_interpretation_cache_caption(response.cache))
         st.markdown(_cockpit_interpretation_runtime_html(response.result), unsafe_allow_html=True)
 
@@ -19958,13 +19953,10 @@ def _render_ranking_decision_report_lazy(
         st.markdown("### 確認レポート")
         render_mascot_panel(
             "report",
-            message="深掘り候補を確認したあと、必要なときだけ分析メモとしてレポート化できます。",
+            message="上位銘柄の比較結果を、保存用の分析メモにまとめます。",
             layout="compact",
         )
-        st.info(
-            "上位候補をあとから見返すために、比較条件、分布、確認ポイントを確認メモとして整理します。"
-            "作成後は同じ評価方針の間、ダウンロード用データを再利用します。"
-        )
+        st.info("ランキング基準、上位銘柄、スコア内訳、注意点をまとめます。")
         if st.button("確認レポートを作成", key=f"{report_state_key}_build"):
             with st.spinner("ランキングの比較レポートを作成しています。"):
                 cached_context = build_ranking_decision_report_context(

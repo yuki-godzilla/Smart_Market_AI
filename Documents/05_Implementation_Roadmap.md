@@ -47,7 +47,7 @@ Markdown ビューアによって文字色指定の効き方が変わるため�
 | Phase 28 | 🟨 **MVP済み / 継続拡張** | Phase 28-A Cockpit `AI解釈メモ` と Phase 28-B Ranking `Ranking AI解釈（参考）` は実装済み。Radar / News / Decision Report 展開は後続。 |
 | Phase 29 | 🟨 **MVP済み / 継続拡張** | Phase 29-A / 29-B Cockpit情報設計整理と Phase 29-C Ranking初期表示・条件ビルダー導線整理は実装済み。確認レポート草案支援は後続。 |
 | Phase 30 | 🟨 **MVP済み / 継続拡張** | SMAI Assistant Tool Plan、confirmable navigation、Confirmable Safe Actions、Guided Workflow、optional LLM Tool Planner MVP。`create_decision_report` と `update_research` は確認付き実行に接続済み。 |
-| Phase 31-A / Product Copy | 🟦 **実装済み / 継続確認** | Priority 1画面の通常表示文言を確認メモ / 根拠資料 / 詳しく確認したい候補へ寄せ、内部語と過剰な免責反復を削減。 |
+| Phase 31-A / Product Copy | 🟦 **実装済み / 継続確認** | Priority 1画面を`総合評価` / `注目銘柄` / `根拠資料` / `AIメモ` / `売買案` / `確認レポート`へ統一し、内部語と過剰な免責反復を削減。 |
 | Phase 31-SDB / Screening DB Reliability | 🟦 **実装済み / 継続補完** | DB品質レポート、指標別provenance、分類・SBI/NISA・ETF属性の後方互換スキーマ、欠損のみ補完経路、quality normalization、reviewed manual patch workflow、no-update監査ログを追加。live補完は明示opt-in。 |
 | Phase 32-A / Myウォッチリスト | 🟦 **MVP実装済み** | Ranking / Cockpit / 投資レーダーからお気に入り登録し、`data/user/favorites.json` に永続化。Side menu は投資レーダーと SMAIアシスタントの間に `Myウォッチリスト` を追加。 |
 | Phase 32-B / Watchlist cross-link | 🟦 **MVP実装済み** | `favorites.json` を投資レーダー Watchlist source に接続。Myウォッチリストにカード/テーブル切替、ローカル確認日時更新、memo/tags 表示を追加。外部取得やAI調査/レポート生成は自動実行しない。 |
@@ -2653,7 +2653,8 @@ Markdown UTF-8 check:
 - 大規模リファクタリングR0〜R6は`Documents/46_Large_Scale_Refactoring_Plan.md`の初期完了gateを満たした。
   Ranking / Cockpit application flow、Research use case、Copilot / News / CSS、package API / import safetyを
   分離し、R6の逆依存・cycle・module/function growth監査を通常変更の継続gateとして運用する。
-  Frontend Usability F1も2026-09-08に実施済みで、以後は実画面で再現した課題だけを局所修正する。
+  Frontend Usability F1 / F2も2026-09-08に実施済みで、F2は主要判断語、Rebalanceの結果順、
+  report保存ラベルを統一した。以後は実画面で再現した課題だけを局所修正する。
   Phase 35 / 36とsealed Forecast auditの成熟待ちは観測トラックであり、構造改善を止めない一方、
   採用gate通過前の数値、score、順位、runtime weight変更を許可しない。Notification N6はuser / port境界が
   固定された機能からmanual / dry-run、opt-in schedulerの順に実データへ接続する。

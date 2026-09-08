@@ -14,7 +14,7 @@ SCREEN_CASES = (
     ("news", "投資レーダー", ("ニュースを更新", "Watchlist")),
     ("watchlist", "Myウォッチリスト", ("銘柄ランキングで探す", "投資レーダーを見る")),
     ("copilot", "SMAIアシスタント", ("新しい会話", "メッセージ")),
-    ("rebalance", "リバランス", ("配分見直しを確認", "シナリオ")),
+    ("rebalance", "リバランス", ("売買案を作成", "シナリオ")),
     ("settings", "設定 / データ情報", ("根拠資料を登録", "サンプル銘柄")),
 )
 
@@ -81,7 +81,7 @@ def test_week_1_rebalance_primary_operation_produces_a_risk_summary(
     app.session_state["smai_current_user_id"] = "default"
 
     app.run()
-    _button_by_label(app, "配分見直しを確認").click().run()
+    _button_by_label(app, "売買案を作成").click().run()
 
     assert not app.exception
     rendered_text = _page_text(app)

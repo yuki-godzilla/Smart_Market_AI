@@ -61,6 +61,13 @@ def test_radar_overview_live_service_runs_only_after_explicit_button(monkeypatch
         ),
     )
     calls: list[str] = []
+
+    def build_from_settings(
+        *_args: object, **_kwargs: object
+    ) -> RadarOverviewInterpretationServiceResult:
+        calls.append("called")
+        return service_result
+
     monkeypatch.setattr(
         overview_ui,
         "get_settings",
@@ -76,7 +83,7 @@ def test_radar_overview_live_service_runs_only_after_explicit_button(monkeypatch
     monkeypatch.setattr(
         overview_ui,
         "build_radar_overview_interpretation_from_settings",
-        lambda *_args, **_kwargs: calls.append("called") or service_result,
+        build_from_settings,
     )
     monkeypatch.setattr(overview_ui, "profile_data_path", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(overview_ui, "render_section_heading", lambda *_args, **_kwargs: None)

@@ -6,6 +6,7 @@
 - Rebalanceは結果順を`現在配分と目標配分`→`売買案`→`リスク確認事項`→`確認レポート`へ変更し、画面・Markdownでは`BUY / SELL`を`買い / 売り`と表示する。内部contractとCSVの英語keyは維持し、`注文は実行しません`を売買案の近くに一度表示する。
 - report保存ボタンを短縮し、形式の使い分けは共通ガイドとhelpへ分離した。Forecast、Ranking順位、Score、Risk計算、Provider、user state、broker挙動は変更していない。
 - 関連単体／AppTestは520件成功、全local checksは2,581件成功・16件skip、Ruff、Black 604 files、対象Mypy 15 files、architecture audit（309 modules / 924 edges / backend→UI 0 / cycle 0）に成功した。PC・iPad・iPhone相当のresponsive / user-path browser suiteは7件成功・任意環境依存1件skip。既存Altair非推奨warning 1件のみ継続している。
+- CI follow-upで、既存Radar Overviewテストが`list.append()`の戻り値を利用していたため全体Mypyが失敗する問題を修正した。副作用記録とservice result返却を明示関数へ分離し、対象test 4件、対象Ruff / Black、全体Mypy 664 filesで成功した。
 
 ## 2026-09-08 Frontend Usability F1
 

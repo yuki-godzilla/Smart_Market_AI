@@ -4317,11 +4317,11 @@ div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
     z-index: 850;
     right: 0;
     bottom: 0;
-    left: 21rem;
+    left: 336px;
     box-sizing: border-box;
     width: auto;
     margin: 0;
-    padding: 0.62rem max(1.5rem, calc((100vw - 21rem - var(--smai-chat-main-width)) / 2));
+    padding: 0.62rem max(1.5rem, calc((100vw - 336px - var(--smai-chat-main-width)) / 2));
     border-top: 1px solid rgba(71, 85, 105, 0.54);
     background: linear-gradient(180deg, rgba(3, 10, 24, 0.9), rgba(3, 10, 24, 0.98));
     box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.24);
@@ -4456,6 +4456,10 @@ div[data-testid="stChatInput"] textarea:focus {
     max-width: var(--smai-chat-main-width);
     margin: 0.55rem auto 0.9rem;
     box-sizing: border-box;
+}
+
+#smai-copilot-latest {
+    scroll-margin-bottom: 8.5rem;
 }
 
 .smai-copilot-message-row {

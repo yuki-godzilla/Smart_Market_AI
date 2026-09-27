@@ -52,7 +52,6 @@ from backend.assistant import (
     load_assistant_loading_headlines,
     parse_assistant_model_catalog,
     render_research_bundle_markdown_memo,
-    route_assistant_conversation_mode,
     select_assistant_model,
 )
 from backend.assistant import (
@@ -129,6 +128,15 @@ from ui.copilot_conversation_content import (
     CopilotIntent,
     copilot_conversation_presets,
 )
+from ui.copilot_material_status import (
+    material_status as _material_status,
+)
+from ui.copilot_material_status import (
+    material_status_summary as _material_status_summary,
+)
+from ui.copilot_material_status import (
+    render_material_status as _render_material_status,
+)
 from ui.copilot_model_policy import (
     assistant_model_choice_label as _assistant_model_choice_label,
 )
@@ -141,6 +149,11 @@ from ui.copilot_model_policy import (
     profile_for_model,
     profile_model_matches_option,
 )
+from ui.copilot_request_policy import (
+    news_update_guidance,
+    route_news_safe_conversation,
+    ungrounded_news_reply,
+)
 from ui.copilot_response_router import (
     NEWS_REFRESH_CONFIRMATION_MESSAGE,
     copilot_response_for_request,
@@ -152,6 +165,7 @@ from ui.copilot_runtime import (
     CopilotGatewayRuntimeConfig,
     _runtime_status_from_state,
     _runtime_status_matches_runtime_config,
+    complete_assistant_request_status,
     derive_assistant_runtime_status,
     update_assistant_runtime_status,
 )
@@ -900,6 +914,8 @@ def should_auto_scroll_chat(previous_count: int, current_count: int) -> bool:
 
 
 def _auto_scroll_chat_if_needed(turns: list[dict[str, str]]) -> None:
+    if not turns or str(turns[-1].get("status", "")) != "complete":
+        return
     current = len(turns)
     previous = int(st.session_state.get(COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY, 0) or 0)
     st.session_state[COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY] = current
@@ -1031,7 +1047,7 @@ def render_copilot_workspace_page() -> None:
     prompt, runtime_config = _render_chat_composer(runtime_config)
 
     if prompt:
-        conversation_decision = route_assistant_conversation_mode(prompt)
+        conversation_decision = route_news_safe_conversation(prompt)
         if conversation_decision.conversation_mode == "research_plan":
             research_plan = build_assistant_research_tool_plan(prompt, conversation_decision)
             if research_plan is not None:
@@ -3101,7 +3117,8 @@ def _handle_copilot_submit(
     recent_report_draft = _latest_decision_report_draft_from_history(history_for_request)
     conversation_id = _conversation_id()
     direct_news_refresh = is_explicit_news_refresh_request(normalized_question)
-    micro_intent = _is_llm_micro_intent(intent)
+    direct_answer = news_update_guidance(normalized_question)
+    micro_intent = _is_llm_micro_intent(intent) or direct_answer is not None
     effective_context = _context_for_llm(
         intent=intent, context=context, question=normalized_question
     )
@@ -3122,6 +3139,15 @@ def _handle_copilot_submit(
             question=normalized_question,
             tool_plan_tools=tool_plan_tools,
         )
+    direct_answer = direct_answer or ungrounded_news_reply(
+        intent=intent,
+        context=context,
+        tool_plan=tool_plan,
+        research_choice=tool_plan_choice,
+    )
+    if direct_answer is not None:
+        tool_plan = None
+        micro_intent = True
     research_context_bundle = (
         build_assistant_research_context_bundle(
             subject=tool_plan_subject,
@@ -3162,6 +3188,7 @@ def _handle_copilot_submit(
         referenced_context_ids=[] if micro_intent else [context.context_id],
         gateway_task_type=_gateway_task_type_for_copilot_intent(intent),
         settings=copilot_settings_from_gateway_runtime(runtime_config),
+        direct_answer=direct_answer,
     )
     if _readiness_status_from_assistant_response(response):
         runtime_config = _runtime_config_from_assistant_response(
@@ -3169,12 +3196,10 @@ def _handle_copilot_submit(
             response=response,
         )
         _cache_gateway_runtime_config(runtime_config)
-    update_assistant_runtime_status(
-        AssistantStatusEvent(
-            name="response_completed",
-            runtime_config=runtime_config,
-            response=response,
-        )
+    complete_assistant_request_status(
+        runtime_config=runtime_config,
+        response=response,
+        deterministic_reply=direct_answer is not None or direct_news_refresh,
     )
     executed_checks = (
         [] if micro_intent or direct_news_refresh else [_material_status_summary(context)]
@@ -3191,6 +3216,7 @@ def _handle_copilot_submit(
             f"{result.name}: {result.status}"
             for result in (tool_plan.executed if tool_plan else ())
         ],
+        direct_answer=direct_answer,
     )
     turn["conversation_mode"] = "research_answer" if tool_plan_choice else conversation_mode
     if tool_plan_choice:
@@ -3219,23 +3245,23 @@ def _handle_copilot_submit(
         and str(turn.get("can_add_to_decision_report", "")).lower() != "true"
     ):
         _attach_tool_plan_decision_report_draft(turn, tool_plan.report_context)
-    if pending_turn_id:
-        replaced = False
-        next_history: list[dict[str, str]] = []
-        for item in history:
-            if str(item.get("turn_id", "")) == pending_turn_id:
-                next_history.append(turn)
-                replaced = True
-            else:
-                next_history.append(item)
-        if not replaced:
-            next_history.append(turn)
-        history = next_history
-    else:
-        history.append(turn)
+    history = _replace_or_append_copilot_turn(history, turn, pending_turn_id)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
+
+
+def _replace_or_append_copilot_turn(
+    history: list[dict[str, str]], turn: dict[str, str], pending_turn_id: str | None
+) -> list[dict[str, str]]:
+    if not pending_turn_id:
+        return [*history, turn]
+    next_history = [
+        turn if str(item.get("turn_id", "")) == pending_turn_id else item for item in history
+    ]
+    if not any(str(item.get("turn_id", "")) == pending_turn_id for item in history):
+        next_history.append(turn)
+    return next_history
 
 
 def _copilot_request_history(
@@ -3776,51 +3802,50 @@ def _turn_from_response(
     turn_id: str | None = None,
     executed_checks: list[str] | None = None,
     tool_statuses: list[str] | None = None,
+    direct_answer: str | None = None,
 ) -> dict[str, str]:
-    answer = sanitize_presentation_text(
-        _conversation_answer(intent=intent, question=question, response=response)
+    answer_text = direct_answer or _conversation_answer(
+        intent=intent, question=question, response=response
     )
+    answer = sanitize_presentation_text(answer_text)
     if not answer:
         answer = _intent_fallback_answer(intent=intent, question=question)
     item_limit = _item_limit_for_intent(intent)
     reasons = sanitize_presentation_items(response.reasons, limit=item_limit)
     cautions = sanitize_presentation_items(response.cautions, limit=item_limit)
+    checkpoint_limit = 1 if _is_llm_micro_intent(intent) else item_limit
     next_checkpoints = sanitize_presentation_items(
-        response.next_checkpoints,
-        limit=1 if _is_llm_micro_intent(intent) else item_limit,
+        response.next_checkpoints, limit=checkpoint_limit
     )
     memo_points = sanitize_presentation_items(
         _memo_points_for_intent(intent, response), limit=item_limit
     )
-    if _is_llm_micro_intent(intent) or is_explicit_news_refresh_request(question):
-        reasons = []
-        cautions = []
-        memo_points = []
+    suppress_details = direct_answer is not None or _is_llm_micro_intent(intent)
+    if suppress_details or is_explicit_news_refresh_request(question):
+        reasons, cautions, memo_points = [], [], []
         if intent not in {"app_help", "screen_guidance"}:
             next_checkpoints = []
     intent_decision = detect_assistant_intent(question)
     action_card_decision = decide_assistant_action_cards(question, intent_decision.intent)
     planner_states = (
         _assistant_planner_states(context=context, question=question)
-        if action_card_decision.show_cards
+        if action_card_decision.show_cards and direct_answer is None
         else None
     )
-    assistant_tool_plan = (
-        planner_states.tool_plan.model_dump_json() if planner_states is not None else ""
-    )
+    assistant_tool_plan = planner_states.tool_plan.model_dump_json() if planner_states else ""
     guided_workflow = planner_states.guided_workflow if planner_states is not None else None
     assistant_workflow_session = _assistant_workflow_session_state(guided_workflow)
-    assistant_workflow_session_gate = (
-        "blocked"
-        if guided_workflow is not None and not assistant_workflow_session
-        else "passed" if assistant_workflow_session else "not_applicable"
+    assistant_workflow_session_gate = _workflow_session_gate(
+        guided_workflow, assistant_workflow_session
     )
     assistant_guided_workflow = (
-        guided_workflow.model_dump_json()
-        if guided_workflow is not None and assistant_workflow_session
-        else ""
+        guided_workflow.model_dump_json() if guided_workflow and assistant_workflow_session else ""
     )
     planner_meta = planner_states.metadata if planner_states is not None else None
+    action_level = "0" if direct_answer is not None else str(action_card_decision.level)
+    action_reason = action_card_decision.reason
+    if direct_answer is not None:
+        action_reason = "回答のみで操作は提案しません。"
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -3873,8 +3898,8 @@ def _turn_from_response(
         "assistant_guided_workflow": assistant_guided_workflow,
         "assistant_workflow_session": assistant_workflow_session,
         "assistant_workflow_session_gate": assistant_workflow_session_gate,
-        "assistant_action_card_level": str(action_card_decision.level),
-        "assistant_action_card_reason": action_card_decision.reason,
+        "assistant_action_card_level": action_level,
+        "assistant_action_card_reason": action_reason,
         "assistant_planner_source": planner_meta.planner_source if planner_meta else "suppressed",
         "assistant_planner_used_plan_type": (
             planner_meta.used_plan_type or "" if planner_meta else ""
@@ -3891,6 +3916,14 @@ def _turn_from_response(
         "assistant_planner_request_id": planner_meta.request_id or "" if planner_meta else "",
         "assistant_planner_meta": planner_meta.model_dump_json() if planner_meta else "",
     }
+
+
+def _workflow_session_gate(
+    guided_workflow: AssistantGuidedWorkflow | None, assistant_workflow_session: str
+) -> str:
+    if guided_workflow is not None and not assistant_workflow_session:
+        return "blocked"
+    return "passed" if assistant_workflow_session else "not_applicable"
 
 
 def _assistant_planner_states(
@@ -4191,6 +4224,7 @@ def _render_streaming_turn(
             '<div class="smai-copilot-thread">'
             f"{previous_rows}{user_row}"
             f"{_assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn))}"
+            '<div id="smai-copilot-latest"></div>'
             "</div>"
         ),
         unsafe_allow_html=True,
@@ -5308,51 +5342,6 @@ def _response_meta_label(*, response: AssistantResponse, intent: CopilotIntent) 
     return "SMAI通常回答 / deterministic / " + intent_label
 
 
-def _render_material_status(context: SmaiAssistantContext) -> None:
-    status = _material_status(context)
-    chips = "".join(
-        f'<span class="smai-copilot-chip">{html.escape(label)}: {html.escape(value)}</span>'
-        for label, value in status
-    )
-    st.markdown(
-        '<div class="smai-copilot-material-status">'
-        "<span>参照中の材料</span>"
-        f'<div class="smai-copilot-chip-row">{chips}</div>'
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-
-def _material_status(context: SmaiAssistantContext) -> tuple[tuple[str, str], ...]:
-    text = " ".join(
-        [
-            context.context_id,
-            context.page_key,
-            context.section_key,
-            context.section_label,
-            " ".join(str(value) for value in context.summary.values()),
-        ]
-    ).lower()
-    has_news = any(term in text for term in ("news", "ニュース", "開示", "research", "rag"))
-    has_research = any(term in text for term in ("research", "rag", "根拠", "材料分析"))
-    has_forecast = any(term in text for term in ("forecast", "予測", "ai予測", "cockpit"))
-    has_price = any(term in text for term in ("価格", "chart", "cockpit", "ranking"))
-    return (
-        ("価格", "あり" if has_price else "なし"),
-        ("AI予測", "あり" if has_forecast else "なし"),
-        ("ニュース", "あり" if has_news else "なし"),
-        ("Research Evidence", "あり" if has_research else "なし"),
-        ("Decision Report", "下書き可"),
-        ("LLM", "Gateway優先 / fallbackあり"),
-    )
-
-
-def _material_status_summary(context: SmaiAssistantContext) -> str:
-    status = _material_status(context)
-    visible = [(label, value) for label, value in status if label != "LLM"]
-    return "参照材料: " + " / ".join(f"{label}={value}" for label, value in visible)
-
-
 def _active_context_from_history(
     history: list[dict[str, str]],
     context_by_id: dict[str, SmaiAssistantContext],
@@ -5387,6 +5376,8 @@ def _context_id_for_intent(intent: CopilotIntent) -> str:
 
 
 def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotIntent:
+    if news_update_guidance(message) is not None:
+        return "free_chat"
     if _is_identity_question(message):
         return "identity"
     if _is_capability_question(message):

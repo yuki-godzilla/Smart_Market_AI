@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-09-08
+Last updated: 2026-09-27
 
 ## Main Application access / MagicDNS
 
@@ -73,6 +73,11 @@ News refresh/cache経路を呼び、成功、前回保存データ利用、失�
 `refresh_news`候補へ決定論的にルーティングする。一般的なニュース質問や
 `ニュース材料を見たい`は更新操作として扱わない。キャンセル時は外部取得・保存を行わず、
 失敗時も別操作へ自動fallbackしない。
+実操作の再確認を受け、更新可否の質問、否定、複数操作の依頼は実行カードを出さず
+短い決定論的回答へ分けた。銘柄・個別資料がないニュース相談も画面説明を強気・弱気
+材料に転用せず、未参照と次に必要な情報を案内する。材料チップは静的な画面説明を
+取得済みデータと誤認せず、この会話の参照状況だけを示す。回答完了後の自動スクロールと
+PC固定入力欄のサイドバー重なりも修正した。
 結果には件数、カテゴリ数、JST更新時刻だけを残し、ニュース本文やProviderの生応答は
 Assistant履歴へ保存しない。ランキング、スコア、予測値、broker操作は変更しない。
 Assistant画面はheader、参照材料、会話、操作を1,080pxの共通レールへそろえ、

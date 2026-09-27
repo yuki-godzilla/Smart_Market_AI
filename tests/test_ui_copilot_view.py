@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from backend.assistant import (
@@ -50,6 +51,7 @@ from ui.views.copilot import (
     _llm_model_option_for_profile_model,
     _llm_model_option_from_label,
     _llm_model_option_label,
+    _material_status,
     _pending_detail_html,
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
@@ -993,6 +995,62 @@ def test_explicit_news_refresh_turn_is_short_and_has_one_confirmed_action():
     assert [step["action_id"] for step in plan["steps"]] == ["refresh_news"]
 
 
+def test_static_news_screen_description_is_not_reported_as_acquired_material():
+    status = dict(_material_status(copilot_context_options()[3]))
+
+    assert status["ニュース"] == "なし"
+    assert status["価格"] == "なし"
+    assert status["Research Evidence"] == "なし"
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("ニュースは更新できますか？", "実行前に内容を確認できます"),
+        ("ニュースを更新してほしくない", "ニュースは更新しません"),
+        ("ニュースを更新して、ランキングも作り直して", "まとめて実行しません"),
+    ],
+)
+def test_copilot_page_news_update_wording_answers_without_action_cards(
+    monkeypatch, prompt: str, expected: str
+):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value(prompt)
+    _click_button_label(app, "送信")
+
+    turn = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]
+    assert not app.exception
+    assert expected in turn["answer"]
+    assert turn["executed_checks"] == ""
+    assert turn["assistant_tool_plan"] == ""
+    assert turn["assistant_action_card_level"] == "0"
+    assert "強気材料" not in copilot_answer_detail_html(turn)
+    assert any("smai-copilot-latest" in str(item.value) for item in app.markdown)
+    assert app.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY]["state"] != "generating"
+
+
+def test_copilot_page_news_suggestion_without_symbol_does_not_invent_materials(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    _click_button_label(app, "ニュース材料を見たい")
+
+    turn = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]
+    assert not app.exception
+    assert "個別のニュース材料をまだ参照していません" in turn["answer"]
+    assert turn["executed_checks"] == ""
+    assert turn["assistant_tool_plan"] == ""
+    assert "強気材料" not in copilot_answer_detail_html(turn)
+
+
 def test_copilot_free_chat_identity_answer_stays_on_identity():
     context = copilot_context_options()[0]
 
@@ -1433,7 +1491,7 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "ニュース材料を見たい" in button_labels
     assert "Decision Reportを作りたい" in button_labels
     assert "自由に会話する" in button_labels
-    assert "参照中の材料" in page_text
+    assert "この会話の参照状況" in page_text
 
 
 def test_copilot_page_does_not_use_streamlit_spinner_for_generation():

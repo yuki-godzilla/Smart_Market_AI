@@ -167,6 +167,21 @@ def update_assistant_runtime_status(event: AssistantStatusEvent) -> AssistantRun
     return status
 
 
+def complete_assistant_request_status(
+    *,
+    runtime_config: CopilotGatewayRuntimeConfig,
+    response: AssistantResponse,
+    deterministic_reply: bool,
+) -> AssistantRuntimeStatus:
+    return update_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="health_checked" if deterministic_reply else "response_completed",
+            runtime_config=runtime_config,
+            response=None if deterministic_reply else response,
+        )
+    )
+
+
 def _assistant_runtime_state_from_event(event: AssistantStatusEvent) -> AssistantRuntimeState:
     if event.name == "model_changed":
         return "checking"

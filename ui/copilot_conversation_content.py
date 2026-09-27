@@ -62,7 +62,7 @@ def copilot_conversation_presets() -> tuple[CopilotConversationPreset, ...]:
         CopilotConversationPreset(
             intent="news_materials",
             label="ニュース材料を見たい",
-            description="強気材料、弱気材料、未確認材料を分けます。",
+            description="市場ニュースの見方と、銘柄別に必要な材料を案内します。",
             context_id="copilot_news_overview",
             default_question="ニュースや開示材料を、強気材料・弱気材料・未確認材料に分けて整理してください。",
             prompt_instruction=(

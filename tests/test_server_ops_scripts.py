@@ -24,9 +24,9 @@ def test_autostart_registers_only_the_server_and_disables_old_watcher() -> None:
     assert "New-ScheduledTaskTrigger -AtLogOn" in script
     assert "-LogonType Interactive" in script
     assert '$serverTrigger.Delay = "PT1M"' in script
-    assert 'Disable-ScheduledTask -TaskName $watchTaskName' in script
-    assert 'Stop-ScheduledTask -TaskName $watchTaskName' in script
-    assert '-TaskTrigger $watchTrigger' not in script
+    assert "Disable-ScheduledTask -TaskName $watchTaskName" in script
+    assert "Stop-ScheduledTask -TaskName $watchTaskName" in script
+    assert "-TaskTrigger $watchTrigger" not in script
     assert "MultipleInstances IgnoreNew" in script
     assert "start_smai_server.bat" in script
 

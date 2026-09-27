@@ -23,7 +23,14 @@ def copilot_response_for_request(
     referenced_context_ids: Sequence[str],
     gateway_task_type: AssistantGatewayTaskType,
     settings: Settings,
+    direct_answer: str | None = None,
 ) -> AssistantResponse:
+    if direct_answer is not None:
+        return AssistantResponse(
+            intent="research",
+            answer=direct_answer,
+            response_source="deterministic",
+        )
     if direct_news_refresh:
         return AssistantResponse(
             intent="research",

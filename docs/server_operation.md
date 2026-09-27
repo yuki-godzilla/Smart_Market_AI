@@ -36,14 +36,15 @@ MagicDNSの `http://desktop-bqrpr4c:8501` に統一します。`0.0.0.0:8501` �
 電源設定は AC 電源時だけを対象にし、スリープと休止状態を無効化、
 ディスプレイの電源断を10分に設定します。スクリプト末尾に現在の設定が表示されます。
 
-自動起動登録では次の2タスクを作成します。
+自動起動登録では次のタスクを作成します。
 
 - `SmartMarketAI-Server-Autostart`: Windows 起動60秒後に既存の
   `scripts/start_smai_server.bat` を起動
-- `SmartMarketAI-Server-Watch`: Windows 起動3分後から、Streamlit、TCP 8501、
-  メンテナンス条件を5分ごとに確認
 
-手動起動、自動起動、監視復旧はすべて
+旧 `SmartMarketAI-Server-Watch` タスクが残っている場合は停止・無効化します。
+自動復旧と定期的なメンテナンス判定は行いません。
+
+手動起動と自動起動は
 `backend.server_ops.launcher` の排他ロックを通ります。同時に起動要求が来た場合は
 1プロセスだけがStreamlitを起動し、後続処理は既存サーバーを検出して正常終了します。
 

@@ -7,12 +7,8 @@ $watchTaskName = "SmartMarketAI-Server-Watch"
 $legacyTaskName = "SmartMarketAI-LAN-Server"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $startScript = Join-Path $projectRoot "scripts\start_smai_server.bat"
-$watchScript = Join-Path $projectRoot "scripts\server_ops\watch_smai_server.bat"
-
-foreach ($path in @($startScript, $watchScript)) {
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Required script was not found: $path"
-    }
+if (-not (Test-Path -LiteralPath $startScript -PathType Leaf)) {
+    throw "Required script was not found: $startScript"
 }
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -24,7 +20,6 @@ $isAdministrator = $principalCheck.IsInRole(
 if ($isAdministrator) {
     $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
     $serverTrigger = New-ScheduledTaskTrigger -AtStartup
-    $watchTrigger = New-ScheduledTaskTrigger -AtStartup
     $triggerDescription = "Windows startup"
 } else {
     $principal = New-ScheduledTaskPrincipal `
@@ -32,13 +27,9 @@ if ($isAdministrator) {
         -LogonType Interactive `
         -RunLevel Limited
     $serverTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
-    $watchTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
     $triggerDescription = "user logon"
 }
 $serverTrigger.Delay = "PT1M"
-# The watcher performs an immediate health check.  Starting it alongside the
-# server can therefore create an unnecessary duplicate-safe recovery request.
-$watchTrigger.Delay = "PT3M"
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -RestartCount 3 `
@@ -73,17 +64,21 @@ if ($null -ne $legacy) {
     Write-Host "[SMAI] Disabled legacy task to prevent duplicate startup: $legacyTaskName"
 }
 
+# The web application is the only server process started by this registration.
+# Keep the former watchdog task disabled if it was registered previously.
+$watch = Get-ScheduledTask -TaskName $watchTaskName -ErrorAction SilentlyContinue
+if ($null -ne $watch) {
+    Disable-ScheduledTask -TaskName $watchTaskName -ErrorAction Stop | Out-Null
+    if ($watch.State -eq "Running") {
+        Stop-ScheduledTask -TaskName $watchTaskName -ErrorAction Stop
+    }
+    Write-Host "[SMAI] Disabled former startup watcher: $watchTaskName"
+}
+
 Register-SmaiTask `
     -Name $serverTaskName `
     -Script $startScript `
     -Description "Start Smart Market AI after Windows startup." `
     -TaskTrigger $serverTrigger
-Register-SmaiTask `
-    -Name $watchTaskName `
-    -Script $watchScript `
-    -Description "Monitor Smart Market AI and perform safe maintenance restart checks." `
-    -TaskTrigger $watchTrigger
-
 Write-Host "[SMAI] Main server starts 60 seconds after $triggerDescription."
-Write-Host "[SMAI] Server watcher starts 180 seconds after $triggerDescription."
 Write-Host "[SMAI] start_smai_server.bat prevents duplicate Streamlit instances."

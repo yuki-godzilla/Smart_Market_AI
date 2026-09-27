@@ -38,13 +38,13 @@ def test_manual_script_warns_prompts_and_supports_force() -> None:
     assert '>> "%SMAI_LOG_FILE%" echo(%~1' in script
 
 
-def test_maintenance_task_is_delayed_guarded_and_indirect() -> None:
+def test_maintenance_task_is_daily_guarded_and_indirect() -> None:
     script = _read("scripts/register_symbol_maintenance_if_due_task.ps1")
 
     assert '"SmartMarketAI-Symbol-Maintenance-IfDue"' in script
-    assert '$logonTrigger.Delay = "PT10M"' in script
     assert 'New-ScheduledTaskTrigger -Daily -At "03:30"' in script
-    assert "-Trigger @($logonTrigger, $dailyTrigger)" in script
+    assert "-Trigger $dailyTrigger" in script
+    assert "New-ScheduledTaskTrigger -AtLogOn" not in script
     assert "-MultipleInstances IgnoreNew" in script
     assert "-RestartCount 1" in script
     assert "-RestartInterval (New-TimeSpan -Minutes 30)" in script

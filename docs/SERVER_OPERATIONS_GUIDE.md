@@ -72,21 +72,18 @@ cache TTLを実行PC向けに切り替えます。Assistant GatewayはSMAIアシ
 親SMAIから必要に応じて起動します。Gateway専用タスクやOllama自動起動の追加は
 本MVP対象外です。
 
-### 3.1 サーバー監視タスク
+### 3.1 サーバー起動タスク
 
-現在の常時運用では、次の二つをまとめて登録します。
+現在の起動設定では、Webアプリ本体のタスクだけを登録します。
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server_ops\register_smai_autostart_task.ps1
 ```
 
 - `SmartMarketAI-Server-Autostart`: 起動時に `start_smai_server.bat` を呼ぶ。
-- `SmartMarketAI-Server-Watch`: 同じ作業ディレクトリを5分ごとに監視する。
+- 旧 `SmartMarketAI-Server-Watch` は停止・無効化する。
 
-Watch は TCP 8501 の待受がない場合だけ排他的な復旧起動を試みます。待受はあるが
-所有プロセスを確認できない場合は、別プロセスを停止・再起動しないため `unknown` として
-`logs\server_ops\watch_server.log` に記録して復旧を抑止します。Tailscale CLIのJSONは
-UTF-8で読み取り、Windowsのロケール差で監視開始を失敗させません。
+Webアプリが停止した場合、自動復旧は行われません。状態は手動で確認してください。
 
 ## 4. 状態を確認する
 
@@ -196,8 +193,8 @@ SMAI_SYMBOL_MAINTENANCE_RETRY_COOLDOWN_HOURS=24
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\register_symbol_maintenance_if_due_task.ps1
 ```
 
-タスク名は `SmartMarketAI-Symbol-Maintenance-IfDue` です。現在のユーザーのログオンから
-10分後に `scripts\run_symbol_maintenance_if_due.bat` を実行します。既に実行中なら
+タスク名は `SmartMarketAI-Symbol-Maintenance-IfDue` です。毎日03:30に
+`scripts\run_symbol_maintenance_if_due.bat` を実行します。既に実行中なら
 新しいインスタンスを開始せず、タスク自体の失敗時再試行は30分後の1回だけです。
 再試行時も24時間cooldown判定を通るため、重い一括更新を連続実行しません。
 `run_symbol_universe_import_all.bat` をタスクへ直接登録することはありません。

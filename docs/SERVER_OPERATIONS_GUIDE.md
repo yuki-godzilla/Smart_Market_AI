@@ -80,10 +80,33 @@ cache TTLを実行PC向けに切り替えます。Assistant GatewayはSMAIアシ
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server_ops\register_smai_autostart_task.ps1
 ```
 
-- `SmartMarketAI-Server-Autostart`: 起動時に `start_smai_server.bat` を呼ぶ。
+- `SmartMarketAI-Server-Autostart`: 管理者として登録した場合はWindows起動時、通常権限で登録した場合はログオン時に `start_smai_server.bat` を呼ぶ。
 - 旧 `SmartMarketAI-Server-Watch` は停止・無効化する。
 
-Webアプリが停止した場合、自動復旧は行われません。状態は手動で確認してください。
+共通ランチャーは `--resilient` でStreamlit子プロセスの予期しない終了を再試行します。
+Windows終了やランチャー自体の終了後は、次の起動契機が必要です。
+
+### 3.2 起動時タスクの取りこぼしに備えるログオン補助
+
+Windows起動時のタスクが実行されず、ログオン後も8501番が停止している場合は、
+現在のユーザーの通常権限でログオン補助タスクを登録できます。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server_ops\register_smai_logon_recovery_task.ps1
+```
+
+`SmartMarketAI-Server-Logon-Recovery` は登録したユーザーのログオン60秒後に、
+`start_smai_server_hidden.vbs` 経由で既存の起動BATを非表示で実行します。
+管理者権限の既存起動タスクは保持します。両経路は同じ排他ロックを使用し、
+既に正常なサーバーがあれば補助タスクは正常終了します。実行時間制限はなく、
+失敗時は1分間隔で最大3回再試行し、起動ログは既存の `logs\server_ops` へ記録します。
+これはログオン時の補助であり、ログオン前の起動を保証するものではありません。
+
+補助タスクだけを解除する場合は次を実行します。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server_ops\register_smai_logon_recovery_task.ps1 -Unregister
+```
 
 ## 4. 状態を確認する
 
